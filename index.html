@@ -11,7 +11,7 @@
       body { background: linear-gradient(135deg, #0f172a 0%, #312e81 50%, #4c1d95 100%); color: #1e293b; font-family: sans-serif; font-size: 0.85rem; }
       .glass-panel { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(12px); border-radius: 0.75rem; padding: 1.25rem; box-shadow: 0 10px 30px rgba(0,0,0,0.2); }
       input, select, textarea { width: 100%; border: 1px solid #cbd5e1; padding: 0.4rem; border-radius: 0.375rem; font-size: 0.85rem; }
-      input:disabled, select:disabled, textarea:disabled { background-color: #e2e8f0; color: #64748b; cursor: not-allowed; }
+      input:disabled, select:disabled, textarea:disabled { background-color: #e2e8f0; color: #475569; cursor: not-allowed; border-color: #cbd5e1; font-weight: 500; }
       .status-badge { padding: 2px 8px; border-radius: 99px; font-weight: bold; font-size: 0.7rem; text-transform: uppercase; }
       #map { height: 500px; width: 100%; border-radius: 0.75rem; }
     </style>
@@ -130,15 +130,13 @@
                  <div class="overflow-x-auto mb-4 border rounded">
                      <table class="w-full text-xs text-left">
                          <thead class="bg-gray-100 border-b">
-                             <tr>
-                                 <th class="p-2">Period</th><th class="p-2">Readings</th><th class="p-2">Status</th><th class="p-2">Requested By</th><th class="p-2">Reviewed By</th><th class="p-2">Approved By</th>
-                             </tr>
+                             <tr><th class="p-2">Period</th><th class="p-2">Readings</th><th class="p-2">Status</th><th class="p-2">Req By</th><th class="p-2">Rev By</th><th class="p-2">App By</th></tr>
                          </thead>
                          <tbody id="renewals-table-body" class="divide-y"></tbody>
                      </table>
                  </div>
                  
-                 <div id="form-renewal" class="hidden bg-indigo-50 p-3 rounded border border-indigo-100">
+                 <div id="form-renewal" class="hidden bg-indigo-50 p-2 rounded">
                     <h4 class="font-bold text-indigo-800 text-xs mb-2">Request New Renewal (Max 8 Hrs)</h4>
                     <div class="grid grid-cols-2 md:grid-cols-5 gap-2 mb-2">
                        <div><label>Valid From</label><input type="datetime-local" id="RenewalValidFrom"></div>
@@ -148,7 +146,7 @@
                        <div><label>Oxygen %</label><input id="RenewalOxygen"></div>
                        <div class="col-span-2 md:col-span-5"><label>Precautions</label><input id="RenewalPrecautions"></div>
                     </div>
-                    <button type="button" onclick="submitRenewal('approve')" class="bg-indigo-600 text-white px-3 py-1 rounded text-xs font-bold hover:bg-indigo-700">Submit Renewal</button>
+                    <button type="button" onclick="submitRenewal('approve')" class="bg-indigo-600 text-white px-3 py-1 rounded text-xs font-bold">Submit</button>
                  </div>
               </div>
 
@@ -211,25 +209,18 @@
           window.users.Approvers.forEach(u=>aS.innerHTML+=`<option value="${u.email}">${u.name}</option>`);
           document.querySelectorAll('input, textarea, select').forEach(e=>e.disabled=false);
           document.getElementById("OfficialName").disabled=true;
-          
-          // Requirement A: Default Ticks
           document.querySelectorAll('input[type="radio"][value="Yes"]').forEach(r => r.checked = true);
           document.querySelectorAll('input[type="checkbox"]').forEach(c => c.checked = true);
-
           document.getElementById("action-buttons").innerHTML = `<button type="button" onclick="submitNewPermit()" class="bg-blue-600 text-white px-6 py-2 rounded font-bold shadow hover:bg-blue-700">Submit Permit</button>`;
           showForm();
       }
 
       async function submitNewPermit() { 
-          const vf = document.getElementById("ValidFrom").value;
-          const vt = document.getElementById("ValidTo").value;
+          const vf = document.getElementById("ValidFrom").value; const vt = document.getElementById("ValidTo").value;
           if(!vf || !vt) return alert("Please select dates");
-          
-          // Validation D: 7 Days
           const diff = new Date(vt) - new Date(vf);
           if(diff > 7 * 24 * 60 * 60 * 1000) return alert("Error: Permit duration cannot exceed 7 days.");
           if(diff <= 0) return alert("Error: End time must be after Start time.");
-
           const fd=new FormData(document.getElementById("permit-form")); document.querySelectorAll('input[type="checkbox"]').forEach(c=>fd.set(c.name, c.checked?"Y":"N")); fd.append("RequesterEmail", currentUser.Email); 
           const res=await fetch(API+'/save-permit', {method:'POST', body:fd}); const json=await res.json(); if(json.success){alert("Created: "+json.permitId); showDashboard();} else alert(json.error); 
       }
@@ -237,7 +228,10 @@
       async function openPermit(id) {
           const p = await apiCall('/permit-data', 'POST', {permitId:id});
           currentPermitId=id;
+          
+          // DEFAULT: Lock all
           document.querySelectorAll('input, textarea, select').forEach(e=>e.disabled=true);
+          
           Object.keys(p).forEach(k=>{ const el=document.getElementById(k); if(el){if(el.type==='checkbox')el.checked=(p[k]==='Y'); else el.value=p[k];} });
           document.querySelectorAll('input[type="checkbox"]').forEach(c=>{ if(p[c.name]==='Y') c.checked=true; });
 
@@ -270,18 +264,17 @@
               }
               btns.innerHTML = html;
               
-              // Renewals History Table
               const rens=JSON.parse(p.RenewalsJSON||"[]"); const tbody=document.getElementById("renewals-table-body"); tbody.innerHTML=""; 
               rens.forEach(x=>{
-                  let actionBtn = "";
-                  if(x.status === 'pending_review' && r === 'Reviewer') actionBtn = `<button onclick="submitRenewal('approve')" class="text-xs bg-green-500 text-white px-1 rounded">Verify</button>`;
-                  if(x.status === 'pending_approval' && r === 'Approver') actionBtn = `<button onclick="submitRenewal('approve')" class="text-xs bg-green-500 text-white px-1 rounded">Approve</button>`;
+                  let act = "";
+                  if(x.status==='pending_review' && r==='Reviewer') act = `<button onclick="submitRenewal('approve')" class="bg-green-500 text-white px-2 py-0.5 rounded text-[10px]">Verify</button>`;
+                  if(x.status==='pending_approval' && r==='Approver') act = `<button onclick="submitRenewal('approve')" class="bg-green-500 text-white px-2 py-0.5 rounded text-[10px]">Approve</button>`;
                   
                   tbody.innerHTML+=`
                   <tr class="border-b">
                       <td>${x.valid_from.replace('T',' ')}<br>${x.valid_till.replace('T',' ')}</td>
                       <td>HC:${x.hc} Tox:${x.toxic} O2:${x.oxygen}</td>
-                      <td class="font-bold text-blue-600">${x.status} ${actionBtn}</td>
+                      <td class="font-bold text-blue-600 uppercase">${x.status} ${act}</td>
                       <td>${x.req_name}<br><span class="text-[9px]">${x.req_at}</span></td>
                       <td>${x.rev_name||'-'}<br><span class="text-[9px]">${x.rev_at||''}</span></td>
                       <td>${x.app_name||'-'}<br><span class="text-[9px]">${x.app_at||''}</span></td>
@@ -303,22 +296,14 @@
       }
       
       async function submitRenewal(act) {
-          // Client Side Validation for Renewal
-          const vf = document.getElementById("RenewalValidFrom").value;
-          const vt = document.getElementById("RenewalValidTill").value;
+          const vf = document.getElementById("RenewalValidFrom").value; const vt = document.getElementById("RenewalValidTill").value;
           if(currentUser.Role === 'Requester') {
               if(!vf || !vt) return alert("Select dates");
               const diff = (new Date(vt) - new Date(vf)) / (1000 * 60 * 60);
               if(diff > 8) return alert("Renewal cannot exceed 8 hours");
               if(diff <= 0) return alert("Invalid Time Range");
           }
-
-          const body={
-              PermitID:currentPermitId, action:act, userRole:currentUser.Role, userName:currentUser.name, 
-              RenewalValidFrom:vf, RenewalValidTill:vt, 
-              RenewalHC:document.getElementById("RenewalHC").value, RenewalToxic:document.getElementById("RenewalToxic").value, 
-              RenewalOxygen:document.getElementById("RenewalOxygen").value, RenewalPrecautions:document.getElementById("RenewalPrecautions").value
-          };
+          const body={PermitID:currentPermitId, action:act, userRole:currentUser.Role, userName:currentUser.name, RenewalValidFrom:vf, RenewalValidTill:vt, RenewalHC:document.getElementById("RenewalHC").value, RenewalToxic:document.getElementById("RenewalToxic").value, RenewalOxygen:document.getElementById("RenewalOxygen").value, RenewalPrecautions:document.getElementById("RenewalPrecautions").value};
           const res=await apiCall('/renewal', 'POST', body); if(res.success){alert("Renewal Processed"); showDashboard();} else alert(res.error);
       }
 
