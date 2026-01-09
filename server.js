@@ -236,7 +236,7 @@ app.post('/api/save-permit', upload.single('file'), async (req, res) => {
     }
 });
 
-// 5. UPDATE STATUS (With 3-Step Closure Logic)
+// 5. UPDATE STATUS (With Strict Logic & Locking)
 app.post('/api/update-status', async (req, res) => {
     try {
         const { PermitID, action, role, user, comment, rejectionReason, ...extras } = req.body;
@@ -250,8 +250,16 @@ app.post('/api/update-status', async (req, res) => {
         const now = getNowIST();
         const sig = `${user} on ${now}`;
 
-        // Merge standard extras (checkboxes, radios, etc.)
-        Object.assign(data, extras);
+        // STRICT LOCKING: Only update data fields if status is 'Pending Review' (Requestor Edit Mode)
+        // Otherwise, ignore changes to core fields (checkboxes etc) from Requestor.
+        if (status === 'Pending Review' || status === 'New') {
+            Object.assign(data, extras); // Allow edits
+        } else if (role === 'Reviewer' || role === 'Approver') {
+            // Reviewer/Approver can add their specific fields (Hazards, PPE, Color) but not change Requestor data
+            if(extras.ForceBackgroundColor) data.ForceBackgroundColor = extras.ForceBackgroundColor;
+            // Hazards/PPE are handled in frontend logic to only send if Reviewer
+            Object.assign(data, extras); 
+        }
 
         // --- CLOSURE WORKFLOW LOGIC ---
         if (role === 'Requester' && action === 'initiate_closure') {
@@ -382,7 +390,7 @@ app.post('/api/renewal', async (req, res) => {
                 last.status = 'rejected'; 
                 last.rev_name = userName; 
                 last.rev_at = now; 
-                last.rejection_reason = rejectionReason;
+                last.rejection_reason = rejectionReason; // Store rejection reason
                 status = 'Active'; 
             } else { 
                 last.status = 'pending_approval'; 
@@ -405,7 +413,7 @@ app.post('/api/renewal', async (req, res) => {
                 last.status = 'rejected'; 
                 last.app_name = userName; 
                 last.app_at = now; 
-                last.rejection_reason = rejectionReason;
+                last.rejection_reason = rejectionReason; // Store rejection reason
                 status = 'Active'; 
             } else { 
                 last.status = 'approved'; 
@@ -500,7 +508,7 @@ app.get('/api/download-excel', async (req, res) => {
     } catch (e) { res.status(500).send(e.message); }
 });
 
-// 12. PDF DOWNLOAD (Fully Updated with Closure Remarks Table)
+// 12. PDF DOWNLOAD (Fully Updated with Closure Remarks Table & Rejection Reasons)
 app.get('/api/download-pdf/:id', async (req, res) => {
     try {
         const pool = await getConnection();
@@ -633,7 +641,7 @@ app.get('/api/download-pdf/:id', async (req, res) => {
         const renRows = rens.map(r => [
             `${formatDate(r.valid_from)}\n${formatDate(r.valid_till)}`,
             `HC:${r.hc} Tox:${r.toxic} O2:${r.oxygen}`,
-            r.status.toUpperCase(),
+            r.status.toUpperCase() + (r.status === 'rejected' ? `\n(Reason: ${r.rejection_reason || 'N/A'})` : ''), // Add Rejection Reason
             `Req: ${r.req_name} (${r.req_at})\nRev: ${r.rev_name||'-'} (${r.rev_at||''})\nApp: ${r.app_name||'-'} (${r.app_at||''})`
         ]);
         if(renRows.length > 0) drawTable(doc.y, [['Period', 'Readings', 'Status', 'Signatures'], ...renRows], [100, 100, 80, 235]);
