@@ -45,14 +45,16 @@
             <h1 class="text-2xl font-bold text-white">Dashboard</h1>
             <div class="flex gap-2">
               <button id="btn-view-map" onclick="showMap()" class="bg-amber-500 text-white px-4 py-1.5 rounded font-bold text-xs hidden shadow">Map</button>
-              <button id="btn-download-excel" onclick="window.open('/api/download-excel')" class="bg-blue-600 text-white px-4 py-1.5 rounded font-bold text-xs hidden shadow">Excel</button>
+              <button id="btn-download-excel" onclick="window.open('/api/download-excel')" class="bg-blue-600 text-white px-4 py-1.5 rounded font-bold text-xs hidden shadow">Download Excel</button>
               <button id="btn-new-permit" onclick="showNewPermit()" class="bg-emerald-600 text-white px-4 py-1.5 rounded font-bold text-xs hidden shadow">+ New Permit</button>
             </div>
           </div>
+
           <div id="charts-container" class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4 hidden">
               <div class="glass-panel h-64"><canvas id="chartStatus"></canvas></div>
               <div class="glass-panel h-64"><canvas id="chartType"></canvas></div>
           </div>
+
           <div class="glass-panel overflow-x-auto">
              <table class="w-full text-xs text-left"><thead class="bg-slate-100"><tr><th class="p-2">ID</th><th>Work</th><th>Vendor</th><th>Req</th><th>Status</th><th>Action</th></tr></thead><tbody id="permit-list-body" class="divide-y"></tbody></table>
           </div>
@@ -70,10 +72,11 @@
               
               <div class="glass-panel">
                  <h3 class="font-bold text-indigo-700 mb-3 border-b pb-1">1. Main Permit Details</h3>
-                 <div class="grid grid-cols-2 md:grid-cols-6 gap-3">
+                 <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
                     <div class="col-span-2"><label>Work Type</label><select id="WorkType" name="WorkType"><option>Hot</option><option>Cold</option><option>Confined Space</option><option>Height Work</option><option>Excavation Work</option><option>Vehicle Entry</option><option>Any Other</option></select></div>
                     <div class="col-span-2"><label>Specify Other</label><input id="WorkTypeOther" name="WorkTypeOther"></div>
                     <div class="col-span-2"><label>Requester Name</label><input id="RequesterName" name="RequesterName"></div>
+                    <div class="col-span-2"><label>Applicant (Official)</label><input id="OfficialName" name="OfficialName" readonly class="bg-gray-100"></div>
                     <div class="col-span-6"><label>Description</label><textarea id="Desc" name="Desc" rows="1"></textarea></div>
                     <div class="col-span-2"><label>Location</label><input id="ExactLocation" name="ExactLocation"></div>
                     <div><label>Unit</label><input id="LocationUnit" name="LocationUnit" value="Pipeline"></div>
@@ -81,59 +84,80 @@
                     <div class="col-span-2"><label>Vendor</label><input id="Vendor" name="Vendor"></div>
                     <div><label>Loc Permit S/N</label><input id="LocationPermitSno" name="LocationPermitSno"></div>
                     <div><label>Isolation Cert</label><input id="RefIsolationCert" name="RefIsolationCert"></div>
+                    <div><label>Cross Ref</label><input id="CrossRefPermits" name="CrossRefPermits"></div>
                     <div><label>JSA Ref</label><input id="JsaRef" name="JsaRef"></div>
                     <div><label>MOC Req</label><select id="MocRequired" name="MocRequired"><option>No</option><option>Yes</option></select></div>
+                    <div><label>MOC Ref</label><input id="MocRef" name="MocRef"></div>
                     <div><label>CCTV Avail</label><select id="CctvAvailable" name="CctvAvailable"><option>No</option><option>Yes</option></select></div>
+                    <div><label>CCTV Detail</label><input id="CctvDetail" name="CctvDetail"></div>
                     <div><label>Valid From</label><input type="datetime-local" id="ValidFrom" name="ValidFrom"></div>
                     <div><label>Valid To</label><input type="datetime-local" id="ValidTo" name="ValidTo"></div>
-                    <div class="col-span-2"><label>Reviewer</label><select id="ReviewerEmail" name="ReviewerEmail"></select></div>
-                    <div class="col-span-2"><label>Approver</label><select id="ApproverEmail" name="ApproverEmail"></select></div>
+                    <div class="col-span-2 border p-1 rounded flex gap-2 items-center bg-slate-50">
+                        <div class="flex-1"><label>Lat</label><input id="Latitude" name="Latitude"></div>
+                        <div class="flex-1"><label>Long</label><input id="Longitude" name="Longitude"></div>
+                        <button type="button" onclick="getGeo()" class="bg-indigo-600 text-white px-2 py-1 rounded text-xs mt-4">📍</button>
+                    </div>
+                    <div class="col-span-2"><label>Assign Reviewer</label><select id="ReviewerEmail" name="ReviewerEmail"></select></div>
+                    <div class="col-span-2"><label>Assign Approver</label><select id="ApproverEmail" name="ApproverEmail"></select></div>
                  </div>
               </div>
 
               <div class="glass-panel">
                   <h3 class="font-bold text-indigo-700 mb-3 border-b pb-1">2. Safety Checklists</h3>
-                  <div class="grid grid-cols-1 md:grid-cols-3 gap-2 text-xs" id="checklist-container"></div>
+                  <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 text-xs" id="checklist-container"></div>
                   <h4 class="font-bold text-indigo-700 mt-4 mb-2">Specific Checks</h4>
-                  <div class="grid grid-cols-1 md:grid-cols-3 gap-2 text-xs" id="specific-container"></div>
+                  <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 text-xs" id="specific-container"></div>
               </div>
               
               <div id="fs-reviewer-section" class="glass-panel border-l-4 border-yellow-500 hidden">
                  <h3 class="font-bold text-yellow-700 mb-2">3. Reviewer Assessment</h3>
-                 <div class="mb-2"><span class="font-bold text-xs">Hazards:</span><div class="grid grid-cols-4 gap-2 text-xs" id="hazards-container"></div></div>
-                 <div class="mb-2"><span class="font-bold text-xs">PPE:</span><div class="grid grid-cols-4 gap-2 text-xs" id="ppe-container"></div></div>
-                 <textarea id="AdditionalPrecautions" name="AdditionalPrecautions" placeholder="Additional Precautions" rows="1" class="mb-2"></textarea>
-                 <textarea id="Reviewer_Remarks" name="Reviewer_Remarks" placeholder="Reviewer Remarks" rows="1" class="bg-yellow-50"></textarea>
+                 <div class="mb-2"><span class="font-bold text-xs block mb-1">Hazards:</span><div class="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs" id="hazards-container"></div></div>
+                 <div class="mb-2"><span class="font-bold text-xs block mb-1">PPE:</span><div class="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs" id="ppe-container"></div></div>
+                 <div class="grid grid-cols-1 gap-2 mt-2">
+                    <textarea id="AdditionalPrecautions" name="AdditionalPrecautions" placeholder="Additional Precautions" rows="1"></textarea>
+                    <textarea id="Reviewer_Remarks" name="Reviewer_Remarks" placeholder="Reviewer Remarks" rows="1" class="bg-yellow-50"></textarea>
+                 </div>
               </div>
 
               <div id="fs-approver-section" class="glass-panel border-l-4 border-green-500 hidden">
                  <h3 class="font-bold text-green-700 mb-2">4. Final Approval</h3>
+                 <select id="ForceBackgroundColor" name="ForceBackgroundColor" class="mb-2 w-48"><option value="">Auto Color</option><option value="Red">Red</option><option value="Green">Green</option><option value="Yellow">Yellow</option></select>
                  <textarea id="Approver_Remarks" name="Approver_Remarks" placeholder="Approver Remarks" rows="1" class="bg-green-50"></textarea>
               </div>
 
               <div id="renewals-section" class="glass-panel hidden">
-                 <h3 class="font-bold text-slate-700 mb-2">Clearance Renewals</h3>
-                 <table class="w-full text-xs text-left mb-2 border">
-                     <thead class="bg-gray-100"><tr><th>From</th><th>To</th><th>Gas Test</th><th>Status</th><th>Action</th></tr></thead>
-                     <tbody id="renewals-table-body"></tbody>
-                 </table>
+                 <h3 class="font-bold text-slate-700 mb-2">Clearance Renewal History</h3>
+                 <div class="overflow-x-auto mb-4 border rounded">
+                     <table class="w-full text-xs text-left">
+                         <thead class="bg-gray-100 border-b">
+                             <tr>
+                                 <th class="p-2">Period</th><th class="p-2">Readings</th><th class="p-2">Status</th><th class="p-2">Requested By</th><th class="p-2">Reviewed By</th><th class="p-2">Approved By</th>
+                             </tr>
+                         </thead>
+                         <tbody id="renewals-table-body" class="divide-y"></tbody>
+                     </table>
+                 </div>
                  
-                 <div id="form-renewal" class="hidden bg-indigo-50 p-2 rounded">
-                    <div class="grid grid-cols-5 gap-2 mb-2">
-                       <input type="datetime-local" id="RenewalValidFrom"><input type="datetime-local" id="RenewalValidTill">
-                       <input id="RenewalHC" placeholder="HC%"><input id="RenewalToxic" placeholder="Tox"><input id="RenewalOxygen" placeholder="O2%">
-                       <input id="RenewalPrecautions" placeholder="Precautions" class="col-span-5">
+                 <div id="form-renewal" class="hidden bg-indigo-50 p-3 rounded border border-indigo-100">
+                    <h4 class="font-bold text-indigo-800 text-xs mb-2">Request New Renewal (Max 8 Hrs)</h4>
+                    <div class="grid grid-cols-2 md:grid-cols-5 gap-2 mb-2">
+                       <div><label>Valid From</label><input type="datetime-local" id="RenewalValidFrom"></div>
+                       <div><label>Valid To</label><input type="datetime-local" id="RenewalValidTill"></div>
+                       <div><label>HC %</label><input id="RenewalHC"></div>
+                       <div><label>Toxic</label><input id="RenewalToxic"></div>
+                       <div><label>Oxygen %</label><input id="RenewalOxygen"></div>
+                       <div class="col-span-2 md:col-span-5"><label>Precautions</label><input id="RenewalPrecautions"></div>
                     </div>
-                    <button type="button" onclick="submitRenewal('approve')" class="bg-indigo-600 text-white px-3 py-1 rounded text-xs font-bold">Submit Renewal</button>
+                    <button type="button" onclick="submitRenewal('approve')" class="bg-indigo-600 text-white px-3 py-1 rounded text-xs font-bold hover:bg-indigo-700">Submit Renewal</button>
                  </div>
               </div>
 
               <div id="closure-section" class="glass-panel hidden">
                  <h3 class="font-bold text-slate-700 mb-2">Closure</h3>
                  <div class="grid grid-cols-3 gap-2 text-xs">
-                    <div class="border p-2"><strong>Receiver:</strong> <span id="Closure_Receiver_Sig"></span></div>
-                    <div class="border p-2"><strong>Reviewer:</strong> <span id="Closure_Reviewer_Display"></span></div>
-                    <div class="border p-2"><strong>Issuer:</strong> <span id="Closure_Issuer_Sig"></span><br><textarea id="Closure_Issuer_Remarks" placeholder="Final Remarks" class="mt-1"></textarea></div>
+                    <div class="border p-2 rounded"><strong>Receiver:</strong> <span id="Closure_Receiver_Sig"></span></div>
+                    <div class="border p-2 rounded"><strong>Reviewer:</strong> <span id="Closure_Reviewer_Display"></span></div>
+                    <div class="border p-2 rounded"><strong>Issuer:</strong> <span id="Closure_Issuer_Sig"></span><br><textarea id="Closure_Issuer_Remarks" placeholder="Final Remarks" class="mt-1"></textarea></div>
                  </div>
               </div>
 
@@ -146,12 +170,12 @@
 
     <script>
       const API = "/api";
-      let currentUser = null, currentPermitId = null, chartS = null, chartT = null;
+      let currentUser = null, currentPermitId = null, chartS = null, chartT = null, mapInstance = null;
       
       const questions = [{id:"GP_Q1", t:"Equip Inspected"}, {id:"GP_Q2", t:"Area Cleaned"}, {id:"GP_Q3", t:"Sewers Covered"}, {id:"GP_Q4", t:"Hazards Considered"}, {id:"GP_Q5", t:"Blinded", d:"GP_Q5_Detail"}, {id:"GP_Q6", t:"Depressurized"}, {id:"GP_Q7", t:"Steamed"}, {id:"GP_Q8", t:"Water Flushed"}, {id:"GP_Q9", t:"Fire Access"}, {id:"GP_Q10", t:"FeS Removed"}, {id:"GP_Q11", t:"Elec Isolated", d:"GP_Q11_Detail"}, {id:"GP_Q12", t:"Gas Test", gas:true}, {id:"GP_Q13", t:"Fire Extinguisher"}, {id:"GP_Q14", t:"Cordoned"}];
-      const specific = [{id:"HW_Q1", t:"Ventilation"}, {id:"HW_Q2", t:"Exit Means"}, {id:"HW_Q3", t:"Standby"}, {id:"HW_Q16", t:"Height Permit", d:"HW_Q16_Detail"}, {id:"VE_Q1", t:"Spark Arrestor"}, {id:"EX_Q1", t:"Excavation Clear"}];
-      const hazards = ["H_H2S", "H_LackOxygen", "H_Corrosive", "H_ToxicGas", "H_Combustible", "H_Steam", "H_PyroIron", "H_N2Gas", "H_Height", "H_LooseEarth"];
-      const ppe = ["P_FaceShield", "P_FreshAirMask", "P_CompressedBA", "P_Goggles", "P_SafetyHarness", "P_Airline"];
+      const specific = [{id:"HW_Q1", t:"Ventilation"}, {id:"HW_Q2", t:"Exit Means"}, {id:"HW_Q3", t:"Standby"}, {id:"HW_Q4", t:"Trapped Gas"}, {id:"HW_Q5", t:"Spark Shield"}, {id:"HW_Q6", t:"Grounded"}, {id:"HW_Q16", t:"Height Permit", d:"HW_Q16_Detail"}, {id:"VE_Q1", t:"Spark Arrestor (Veh)"}, {id:"EX_Q1", t:"Excavation Clear"}];
+      const hazards = ["H_H2S", "H_LackOxygen", "H_Corrosive", "H_ToxicGas", "H_Combustible", "H_Steam", "H_PyroIron", "H_N2Gas", "H_Height", "H_LooseEarth", "H_HighNoise", "H_Radiation", "H_Other"];
+      const ppe = ["P_FaceShield", "P_FreshAirMask", "P_CompressedBA", "P_Goggles", "P_DustRespirator", "P_Earmuff", "P_LifeLine", "P_Apron", "P_SafetyHarness", "P_SafetyNet", "P_Airline", "P_GasResponder", "P_CottonCoverall"];
 
       document.addEventListener("DOMContentLoaded", () => { loadUsers(); buildUI(); });
 
@@ -188,10 +212,11 @@
           document.querySelectorAll('input, textarea, select').forEach(e=>e.disabled=false);
           document.getElementById("OfficialName").disabled=true;
           
+          // Requirement A: Default Ticks
           document.querySelectorAll('input[type="radio"][value="Yes"]').forEach(r => r.checked = true);
           document.querySelectorAll('input[type="checkbox"]').forEach(c => c.checked = true);
 
-          document.getElementById("action-buttons").innerHTML = `<button type="button" onclick="submitNewPermit()" class="bg-blue-600 text-white px-6 py-2 rounded font-bold shadow">Submit Permit</button>`;
+          document.getElementById("action-buttons").innerHTML = `<button type="button" onclick="submitNewPermit()" class="bg-blue-600 text-white px-6 py-2 rounded font-bold shadow hover:bg-blue-700">Submit Permit</button>`;
           showForm();
       }
 
@@ -200,6 +225,7 @@
           const vt = document.getElementById("ValidTo").value;
           if(!vf || !vt) return alert("Please select dates");
           
+          // Validation D: 7 Days
           const diff = new Date(vt) - new Date(vf);
           if(diff > 7 * 24 * 60 * 60 * 1000) return alert("Error: Permit duration cannot exceed 7 days.");
           if(diff <= 0) return alert("Error: End time must be after Start time.");
@@ -231,7 +257,7 @@
           if(s.includes('Pending Approval') && r==='Approver') {
               document.getElementById("fs-reviewer-section").classList.remove('hidden'); document.getElementById("fs-approver-section").classList.remove('hidden');
               document.getElementById("WorkType").disabled=false;
-              document.getElementById("Approver_Remarks").disabled=false;
+              document.getElementById("Approver_Remarks").disabled=false; document.getElementById("ForceBackgroundColor").disabled=false;
               btns.innerHTML = `<button onclick="upd('reject')" class="bg-red-500 text-white px-4 py-2 rounded font-bold">Reject</button><button onclick="upd('approve')" class="bg-emerald-600 text-white px-4 py-2 rounded font-bold">Approve</button>`;
           }
           if(s==='Active') {
@@ -244,15 +270,22 @@
               }
               btns.innerHTML = html;
               
-              // Renewal Table & Actions
+              // Renewals History Table
               const rens=JSON.parse(p.RenewalsJSON||"[]"); const tbody=document.getElementById("renewals-table-body"); tbody.innerHTML=""; 
-              rens.forEach((x, idx)=>{
-                  let actionHtml = '-';
-                  if(x.status==='pending_review' && r==='Reviewer') actionHtml = `<button onclick="processRenewal(${idx},'approve')" class="text-green-600 font-bold">✔</button> <button onclick="processRenewal(${idx},'reject')" class="text-red-600 font-bold">✖</button>`;
-                  if(x.status==='pending_approval' && r==='Approver') actionHtml = `<button onclick="processRenewal(${idx},'approve')" class="text-green-600 font-bold">✔</button> <button onclick="processRenewal(${idx},'reject')" class="text-red-600 font-bold">✖</button>`;
-                  if(x.status==='rejected') actionHtml = `<span class="text-red-500 text-[10px]">${x.rejection_reason||'Rejected'}</span>`;
+              rens.forEach(x=>{
+                  let actionBtn = "";
+                  if(x.status === 'pending_review' && r === 'Reviewer') actionBtn = `<button onclick="submitRenewal('approve')" class="text-xs bg-green-500 text-white px-1 rounded">Verify</button>`;
+                  if(x.status === 'pending_approval' && r === 'Approver') actionBtn = `<button onclick="submitRenewal('approve')" class="text-xs bg-green-500 text-white px-1 rounded">Approve</button>`;
                   
-                  tbody.innerHTML+=`<tr><td>${x.valid_from.replace('T',' ')}</td><td>${x.valid_till.replace('T',' ')}</td><td>HC:${x.hc} O2:${x.oxygen}</td><td class="font-bold uppercase ${x.status.includes('reject')?'text-red-500':'text-blue-500'}">${x.status}</td><td>${actionHtml}</td></tr>`;
+                  tbody.innerHTML+=`
+                  <tr class="border-b">
+                      <td>${x.valid_from.replace('T',' ')}<br>${x.valid_till.replace('T',' ')}</td>
+                      <td>HC:${x.hc} Tox:${x.toxic} O2:${x.oxygen}</td>
+                      <td class="font-bold text-blue-600">${x.status} ${actionBtn}</td>
+                      <td>${x.req_name}<br><span class="text-[9px]">${x.req_at}</span></td>
+                      <td>${x.rev_name||'-'}<br><span class="text-[9px]">${x.rev_at||''}</span></td>
+                      <td>${x.app_name||'-'}<br><span class="text-[9px]">${x.app_at||''}</span></td>
+                  </tr>`;
               });
           }
           if(s.includes('Closure') && r==='Approver') {
@@ -264,25 +297,29 @@
       }
 
       async function upd(act) {
-          const body={PermitID:currentPermitId, action:act, role:currentUser.Role, user:currentUser.name, comment:currentUser.Role==='Reviewer'?document.getElementById("Reviewer_Remarks").value:document.getElementById("Approver_Remarks").value, ForceBackgroundColor:document.getElementById("ForceBackgroundColor").value, WorkType:document.getElementById("WorkType").value, Closure_Issuer_Remarks:document.getElementById("Closure_Issuer_Remarks").value};
+          const body={PermitID:currentPermitId, action:act, role:currentUser.Role, user:currentUser.name, comment:currentUser.Role==='Reviewer'?document.getElementById("Reviewer_Remarks").value:document.getElementById("Approver_Remarks").value, ForceBackgroundColor:document.getElementById("ForceBackgroundColor").value, WorkType:document.getElementById("WorkType").value};
           if(currentUser.Role==='Reviewer') { document.querySelectorAll('#hazards-container input, #ppe-container input').forEach(c=>body[c.name]=c.checked?"Y":"N"); body.AdditionalPrecautions=document.getElementById("AdditionalPrecautions").value; }
           const res=await apiCall('/update-status', 'POST', body); if(res.success) showDashboard(); else alert(res.error);
       }
       
       async function submitRenewal(act) {
-          const body={PermitID:currentPermitId, action:act, userRole:currentUser.Role, userName:currentUser.name, RenewalValidFrom:document.getElementById("RenewalValidFrom").value, RenewalValidTill:document.getElementById("RenewalValidTill").value, RenewalHC:document.getElementById("RenewalHC").value, RenewalToxic:document.getElementById("RenewalToxic").value, RenewalOxygen:document.getElementById("RenewalOxygen").value, RenewalPrecautions:document.getElementById("RenewalPrecautions").value};
-          const res=await apiCall('/renewal', 'POST', body); if(res.success){alert("Renewal Processed"); showDashboard();} else alert(res.error);
-      }
-
-      async function processRenewal(idx, action) {
-          let reason = "";
-          if(action === 'reject') {
-              reason = prompt("Enter Reason for Rejection:");
-              if(!reason) return; 
+          // Client Side Validation for Renewal
+          const vf = document.getElementById("RenewalValidFrom").value;
+          const vt = document.getElementById("RenewalValidTill").value;
+          if(currentUser.Role === 'Requester') {
+              if(!vf || !vt) return alert("Select dates");
+              const diff = (new Date(vt) - new Date(vf)) / (1000 * 60 * 60);
+              if(diff > 8) return alert("Renewal cannot exceed 8 hours");
+              if(diff <= 0) return alert("Invalid Time Range");
           }
-          const body = { PermitID: currentPermitId, action: action, userRole: currentUser.Role, userName: currentUser.name, renewalIndex: idx, rejectionReason: reason };
-          const res = await apiCall('/renewal', 'POST', body);
-          if(res.success) { alert("Done"); openPermit(currentPermitId); } else alert(res.error);
+
+          const body={
+              PermitID:currentPermitId, action:act, userRole:currentUser.Role, userName:currentUser.name, 
+              RenewalValidFrom:vf, RenewalValidTill:vt, 
+              RenewalHC:document.getElementById("RenewalHC").value, RenewalToxic:document.getElementById("RenewalToxic").value, 
+              RenewalOxygen:document.getElementById("RenewalOxygen").value, RenewalPrecautions:document.getElementById("RenewalPrecautions").value
+          };
+          const res=await apiCall('/renewal', 'POST', body); if(res.success){alert("Renewal Processed"); showDashboard();} else alert(res.error);
       }
 
       function getGeo() { navigator.geolocation.getCurrentPosition(p=>{document.getElementById("Latitude").value=p.coords.latitude;document.getElementById("Longitude").value=p.coords.longitude;}); }
