@@ -11,8 +11,18 @@
       body { background: linear-gradient(135deg, #0f172a 0%, #312e81 50%, #4c1d95 100%); color: #1e293b; font-family: sans-serif; font-size: 0.85rem; }
       .glass-panel { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(12px); border-radius: 0.75rem; padding: 1.25rem; box-shadow: 0 10px 30px rgba(0,0,0,0.2); }
       input, select, textarea { width: 100%; border: 1px solid #cbd5e1; padding: 0.4rem; border-radius: 0.375rem; font-size: 0.85rem; }
-      input:disabled, select:disabled, textarea:disabled { background-color: #f8fafc; color: #0f172a; border-color: #cbd5e1; cursor: not-allowed; opacity: 1; font-weight: 500; }
-      input[type="radio"]:disabled, input[type="checkbox"]:disabled { accent-color: #4f46e5; opacity: 0.8; }
+      input:disabled, select:disabled, textarea:disabled { 
+          background-color: #f8fafc; 
+          color: #0f172a; 
+          border-color: #cbd5e1; 
+          cursor: not-allowed; 
+          opacity: 1; 
+          font-weight: 500;
+      }
+      input[type="radio"]:disabled, input[type="checkbox"]:disabled {
+          accent-color: #4f46e5;
+          opacity: 0.8;
+      }
       .status-badge { padding: 2px 8px; border-radius: 99px; font-weight: bold; font-size: 0.7rem; text-transform: uppercase; }
       #map { height: 100%; width: 100%; border-radius: 0.75rem; }
       /* Sidebar List Styling */
@@ -190,7 +200,7 @@
     <script>
       const API = "/api";
       let currentUser = null, currentPermitId = null, chartS = null, chartT = null, mapInstance = null;
-      let markers = {}; // Store map markers
+      let markers = {}; 
       
       const questions = [{id:"GP_Q1", t:"Equip Inspected"}, {id:"GP_Q2", t:"Area Cleaned"}, {id:"GP_Q3", t:"Sewers Covered"}, {id:"GP_Q4", t:"Hazards Considered"}, {id:"GP_Q5", t:"Blinded", d:"GP_Q5_Detail"}, {id:"GP_Q6", t:"Depressurized"}, {id:"GP_Q7", t:"Steamed"}, {id:"GP_Q8", t:"Water Flushed"}, {id:"GP_Q9", t:"Fire Access"}, {id:"GP_Q10", t:"FeS Removed"}, {id:"GP_Q11", t:"Elec Isolated", d:"GP_Q11_Detail"}, {id:"GP_Q12", t:"Gas Test", gas:true}, {id:"GP_Q13", t:"Fire Extinguisher"}, {id:"GP_Q14", t:"Cordoned"}];
       const specific = [{id:"HW_Q1", t:"Ventilation"}, {id:"HW_Q2", t:"Exit Means"}, {id:"HW_Q3", t:"Standby"}, {id:"HW_Q4", t:"Trapped Gas"}, {id:"HW_Q5", t:"Spark Shield"}, {id:"HW_Q6", t:"Grounded"}, {id:"HW_Q16", t:"Height Permit", d:"HW_Q16_Detail"}, {id:"VE_Q1", t:"Spark Arrestor (Veh)"}, {id:"EX_Q1", t:"Excavation Clear"}];
@@ -231,16 +241,13 @@
           window.users.Approvers.forEach(u=>aS.innerHTML+=`<option value="${u.email}">${u.name}</option>`);
           document.querySelectorAll('input, textarea, select').forEach(e=>e.disabled=false);
           document.getElementById("OfficialName").disabled=true;
-          
           document.querySelectorAll('input[type="radio"][value="Yes"]').forEach(r => r.checked = true);
           document.querySelectorAll('input[type="checkbox"]').forEach(c => c.checked = true);
-
-          // Force hide sections for new permit
+          // HIDE ALL WORKFLOW SECTIONS
           document.getElementById("fs-reviewer-section").classList.add('hidden'); 
           document.getElementById("fs-approver-section").classList.add('hidden');
           document.getElementById("renewals-section").classList.add('hidden'); 
           document.getElementById("closure-section").classList.add('hidden');
-
           document.getElementById("action-buttons").innerHTML = `<button type="button" onclick="submitNewPermit()" class="bg-blue-600 text-white px-6 py-2 rounded font-bold shadow hover:bg-blue-700">Submit Permit</button>`;
           showForm();
       }
@@ -259,9 +266,7 @@
       async function openPermit(id) {
           const p = await apiCall('/permit-data', 'POST', {permitId:id});
           currentPermitId=id;
-          
           document.querySelectorAll('input, textarea, select').forEach(e=>e.disabled=true);
-          
           Object.keys(p).forEach(key=>{ 
               const el=document.getElementById(key); 
               if(el) { if(el.type==='checkbox')el.checked=(p[key]==='Y'); else el.value=p[key]; }
@@ -270,14 +275,12 @@
               const checks = document.querySelectorAll(`input[type="checkbox"][name="${key}"]`);
               if(checks.length>0) checks.forEach(c=>{ if(p[key]==='Y') c.checked=true; });
           });
-
           if(p.H_Other === 'Y') {
               document.getElementById("H_Other_Detail").classList.remove("hidden");
               document.getElementById("H_Other_Detail").value = p.H_Other_Detail || "";
           } else {
               document.getElementById("H_Other_Detail").classList.add("hidden");
           }
-
           document.getElementById("fs-reviewer-section").classList.add('hidden'); document.getElementById("fs-approver-section").classList.add('hidden');
           document.getElementById("renewals-section").classList.add('hidden'); document.getElementById("closure-section").classList.add('hidden');
           document.getElementById("btn-reject-renewal").classList.add('hidden');
@@ -302,7 +305,6 @@
           if(s==='Active' || s.includes('Renewal')) {
               document.getElementById("renewals-section").classList.remove('hidden'); document.getElementById("closure-section").classList.remove('hidden');
               let html = `<a href="${API}/download-pdf/${currentPermitId}" target="_blank" class="bg-gray-800 text-white px-4 py-2 rounded font-bold">Download PDF</a>`;
-              
               if(r==='Requester' && s === 'Active') {
                   document.getElementById("form-renewal").classList.remove('hidden');
                   document.querySelectorAll("#form-renewal input").forEach(e=>e.disabled=false);
@@ -310,10 +312,8 @@
                   html += `<button onclick="upd('initiate_closure')" class="bg-amber-500 text-white px-4 py-2 rounded font-bold ml-2">Job Complete</button>`;
               }
               btns.innerHTML = html;
-              
               const rens=JSON.parse(p.RenewalsJSON||"[]"); const tbody=document.getElementById("renewals-table-body"); tbody.innerHTML=""; 
               const lastRen = rens[rens.length - 1];
-
               if(s === 'Renewal Pending Review' && r === 'Reviewer' && lastRen) {
                   document.getElementById("form-renewal").classList.remove('hidden');
                   populateRenewalForm(lastRen);
@@ -327,23 +327,13 @@
                   document.getElementById("btn-submit-renewal").innerText = "Approve Renewal";
                   document.getElementById("btn-reject-renewal").classList.remove('hidden');
               }
-
               rens.forEach(x=>{
-                  tbody.innerHTML+=`
-                  <tr class="border-b">
-                      <td>${x.valid_from.replace('T',' ')}<br>${x.valid_till.replace('T',' ')}</td>
-                      <td>HC:${x.hc} Tox:${x.toxic} O2:${x.oxygen}</td>
-                      <td class="font-bold text-blue-600 uppercase">${x.status}</td>
-                      <td>${x.req_name}<br><span class="text-[9px]">${x.req_at}</span></td>
-                      <td>${x.rev_name||'-'}<br><span class="text-[9px]">${x.rev_at||''}</span></td>
-                      <td>${x.app_name||'-'}<br><span class="text-[9px]">${x.app_at||''}</span></td>
-                  </tr>`;
+                  tbody.innerHTML+=`<tr class="border-b"><td>${x.valid_from.replace('T',' ')}<br>${x.valid_till.replace('T',' ')}</td><td>HC:${x.hc} Tox:${x.toxic} O2:${x.oxygen}</td><td class="font-bold text-blue-600 uppercase">${x.status}</td><td>${x.req_name}<br><span class="text-[9px]">${x.req_at}</span></td><td>${x.rev_name||'-'}<br><span class="text-[9px]">${x.rev_at||''}</span></td><td>${x.app_name||'-'}<br><span class="text-[9px]">${x.app_at||''}</span></td></tr>`;
               });
           }
           if(s.includes('Closure')) {
               document.getElementById("closure-section").classList.remove('hidden');
               document.getElementById("Site_Restored_Check").checked = (p.Site_Restored_Check === 'Yes');
-              
               if(s === 'Closure Pending Review' && r === 'Reviewer') {
                   document.getElementById("Reviewer_Remarks").disabled = false;
                   btns.innerHTML = `<button onclick="upd('reject_closure')" class="bg-red-500 text-white px-4 py-2 rounded font-bold">Reject</button><button onclick="upd('approve')" class="bg-emerald-600 text-white px-4 py-2 rounded font-bold">Verify Closure</button>`;
@@ -480,6 +470,19 @@
               mData.marker.setAnimation(google.maps.Animation.BOUNCE);
               setTimeout(() => mData.marker.setAnimation(null), 3000); // Stop bouncing after 3s
           }
+      }
+      
+      // SHOW FORM FUNCTION - CRITICAL
+      function showForm() { 
+          document.getElementById("view-dashboard").style.display='none'; 
+          document.getElementById("view-form").style.display='block'; 
+          window.scrollTo(0,0); 
+      }
+      function showDashboard() { 
+          document.getElementById("view-dashboard").style.display='block'; 
+          document.getElementById("view-form").style.display='none'; 
+          document.getElementById("view-map-container").classList.add('hidden'); // Fix classList
+          loadDashboard(); 
       }
     </script>
   </body>
