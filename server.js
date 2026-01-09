@@ -5,6 +5,7 @@ const cors = require('cors');
 const multer = require('multer');
 const path = require('path');
 const PDFDocument = require('pdfkit'); 
+const ExcelJS = require('exceljs'); // Professional Excel Library
 const { BlobServiceClient } = require('@azure/storage-blob');
 const { getConnection, sql } = require('./db');
 
@@ -31,7 +32,6 @@ if (AZURE_CONN_STR) {
 
 const upload = multer({ storage: multer.memoryStorage() });
 
-// --- UTILS ---
 function getNowIST() { return new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" }); }
 
 // --- API ROUTES ---
@@ -64,7 +64,7 @@ app.get('/api/users', async (req, res) => {
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// 3. DASHBOARD
+// 3. DASHBOARD (Fixed to show Renewals)
 app.post('/api/dashboard', async (req, res) => {
     try {
         const { role, email } = req.body;
@@ -79,8 +79,13 @@ app.post('/api/dashboard', async (req, res) => {
         const filtered = permits.filter(p => {
             const st = (p.Status || "").toLowerCase();
             if (role === 'Requester') return p.RequesterEmail === email;
+            
+            // Reviewer sees: Pending Review, Renewals, Closures, Closed
             if (role === 'Reviewer') return (p.ReviewerEmail === email && (st.includes('pending review') || st.includes('closure') || st === 'closed' || st.includes('renewal')));
-            if (role === 'Approver') return (p.ApproverEmail === email && (st.includes('pending approval') || st === 'active' || st === 'closed'));
+            
+            // Approver sees: Pending Approval, Active, Renewals, Closures, Closed
+            if (role === 'Approver') return (p.ApproverEmail === email && (st.includes('pending approval') || st === 'active' || st === 'closed' || st.includes('renewal') || st.includes('closure')));
+            
             return false;
         });
         
@@ -109,25 +114,25 @@ app.post('/api/save-permit', upload.single('file'), async (req, res) => {
             .input('vt', sql.DateTime, new Date(req.body.ValidTo))
             .input('lat', sql.NVarChar, req.body.Latitude || null)
             .input('lng', sql.NVarChar, req.body.Longitude || null)
-            .input('locSno', sql.NVarChar, req.body.LocationPermitSno || null)
-            .input('isoCert', sql.NVarChar, req.body.RefIsolationCert || null)
-            .input('crossRef', sql.NVarChar, req.body.CrossRefPermits || null)
-            .input('jsa', sql.NVarChar, req.body.JsaRef || null)
-            .input('mocReq', sql.NVarChar, req.body.MocRequired || null)
-            .input('mocRef', sql.NVarChar, req.body.MocRef || null)
-            .input('cctv', sql.NVarChar, req.body.CctvAvailable || null)
-            .input('cctvDet', sql.NVarChar, req.body.CctvDetail || null)
-            .input('vendor', sql.NVarChar, req.body.Vendor || null)
-            .input('dept', sql.NVarChar, req.body.IssuedToDept || null)
-            .input('locUnit', sql.NVarChar, req.body.LocationUnit || null)
-            .input('exactLoc', sql.NVarChar, req.body.ExactLocation || null)
-            .input('desc', sql.NVarChar, req.body.Desc || null)
-            .input('offName', sql.NVarChar, req.body.OfficialName || null)
+            .input('locSno', sql.NVarChar, req.body.LocationPermitSno)
+            .input('iso', sql.NVarChar, req.body.RefIsolationCert)
+            .input('cross', sql.NVarChar, req.body.CrossRefPermits)
+            .input('jsa', sql.NVarChar, req.body.JsaRef)
+            .input('mocReq', sql.NVarChar, req.body.MocRequired)
+            .input('mocRef', sql.NVarChar, req.body.MocRef)
+            .input('cctv', sql.NVarChar, req.body.CctvAvailable)
+            .input('cctvDet', sql.NVarChar, req.body.CctvDetail)
+            .input('vendor', sql.NVarChar, req.body.Vendor)
+            .input('dept', sql.NVarChar, req.body.IssuedToDept)
+            .input('locUnit', sql.NVarChar, req.body.LocationUnit)
+            .input('exactLoc', sql.NVarChar, req.body.ExactLocation)
+            .input('desc', sql.NVarChar, req.body.Desc)
+            .input('offName', sql.NVarChar, req.body.OfficialName)
             .input('json', sql.NVarChar, JSON.stringify(fullData))
             .query(`INSERT INTO Permits (PermitID, Status, WorkType, RequesterEmail, ReviewerEmail, ApproverEmail, ValidFrom, ValidTo, Latitude, Longitude, 
                     LocationPermitSno, RefIsolationCert, CrossRefPermits, JsaRef, MocRequired, MocRef, CctvAvailable, CctvDetail, Vendor, IssuedToDept, LocationUnit, ExactLocation, [Desc], OfficialName, RenewalsJSON, FullDataJSON) 
                     VALUES (@pid, @status, @wt, @req, @rev, @app, @vf, @vt, @lat, @lng, 
-                    @locSno, @isoCert, @crossRef, @jsa, @mocReq, @mocRef, @cctv, @cctvDet, @vendor, @dept, @locUnit, @exactLoc, @desc, @offName, '[]', @json)`);
+                    @locSno, @iso, @cross, @jsa, @mocReq, @mocRef, @cctv, @cctvDet, @vendor, @dept, @locUnit, @exactLoc, @desc, @offName, '[]', @json)`);
 
         res.json({ success: true, permitId: newId });
     } catch (e) { res.status(500).json({ error: e.message }); }
@@ -147,14 +152,17 @@ app.post('/api/update-status', async (req, res) => {
         const now = getNowIST();
         const sig = `${user} on ${now}`;
 
+        // Merge existing data with new extras (preserving checkboxes)
+        Object.assign(data, extras);
+
         if (role === 'Reviewer') {
             if (action === 'reject') { status = 'Rejected'; data.Reviewer_Remarks = (data.Reviewer_Remarks||"") + `\n[Rejected by ${user}: ${comment}]`; }
-            else if (action === 'review') { status = 'Pending Approval'; data.Reviewer_Sig = sig; data.Reviewer_Remarks = comment; Object.assign(data, extras); }
+            else if (action === 'review') { status = 'Pending Approval'; data.Reviewer_Sig = sig; data.Reviewer_Remarks = comment; }
             else if (action === 'approve' && status.includes('Closure')) { status = 'Closure Pending Approval'; data.Reviewer_Remarks = (data.Reviewer_Remarks||"") + `\n[Closure Verified by ${user} on ${now}]`; }
         }
         else if (role === 'Approver') {
             if (action === 'reject') { status = 'Rejected'; data.Approver_Remarks = (data.Approver_Remarks||"") + `\n[Rejected by ${user}: ${comment}]`; }
-            else if (action === 'approve' && status === 'Pending Approval') { status = 'Active'; data.Approver_Sig = sig; data.Approver_Remarks = comment; Object.assign(data, extras); }
+            else if (action === 'approve' && status === 'Pending Approval') { status = 'Active'; data.Approver_Sig = sig; data.Approver_Remarks = comment; }
             else if (action === 'approve' && status.includes('Closure')) { status = 'Closed'; data.Closure_Issuer_Sig = sig; data.Closure_Issuer_Remarks = comment; }
         }
         else if (role === 'Requester' && action === 'initiate_closure') {
@@ -166,9 +174,10 @@ app.post('/api/update-status', async (req, res) => {
             .input('status', sql.NVarChar, status)
             .input('json', sql.NVarChar, JSON.stringify(data));
             
-        if(extras.ForceBackgroundColor) {
-             q.input('bg', sql.NVarChar, extras.ForceBackgroundColor)
-              .query("UPDATE Permits SET Status = @status, FullDataJSON = @json, ForceBackgroundColor = @bg WHERE PermitID = @pid");
+        // Allow updating WorkType if changed by Reviewer/Approver
+        if(extras.WorkType) {
+             q.input('wt', sql.NVarChar, extras.WorkType)
+              .query("UPDATE Permits SET Status = @status, FullDataJSON = @json, WorkType = @wt WHERE PermitID = @pid");
         } else {
              q.query("UPDATE Permits SET Status = @status, FullDataJSON = @json WHERE PermitID = @pid");
         }
@@ -224,75 +233,91 @@ app.post('/api/renewal', async (req, res) => {
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// 8. MAP DATA
+// 8. MAP DATA & 9. KML (Standard Code from previous)
 app.post('/api/map-data', async (req, res) => {
     try {
         const pool = await getConnection();
         const result = await pool.request().query("SELECT PermitID, FullDataJSON, Latitude, Longitude FROM Permits WHERE Status = 'Active' AND Latitude IS NOT NULL");
         const mapPoints = result.recordset.map(row => {
             const d = JSON.parse(row.FullDataJSON);
-            return { PermitID: row.PermitID, lat: parseFloat(row.Latitude), lng: parseFloat(row.Longitude), WorkType: d.WorkType, Desc: d.Desc, RequesterName: d.RequesterName, ValidFrom: d.ValidFrom, ValidTo: d.ValidTo };
+            return { PermitID: row.PermitID, lat: parseFloat(row.Latitude), lng: parseFloat(row.Longitude), WorkType: d.WorkType, Desc: d.Desc, RequesterName: d.RequesterName };
         });
         res.json(mapPoints);
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
+// (KML routes kept standard)
+app.get('/api/kml', async (req, res) => { if(!kmlContainerClient) return res.json([]); let b=[]; for await(const x of kmlContainerClient.listBlobsFlat()) b.push({name:x.name,url:kmlContainerClient.getBlockBlobClient(x.name).url}); res.json(b); });
+app.post('/api/kml', upload.single('file'), async (req, res) => { if(!kmlContainerClient) return; const b = kmlContainerClient.getBlockBlobClient(`${Date.now()}-${req.file.originalname}`); await b.uploadData(req.file.buffer, {blobHTTPHeaders:{blobContentType:"application/vnd.google-earth.kml+xml"}}); res.json({success:true, url:b.url}); });
+app.delete('/api/kml/:name', async (req, res) => { if(!kmlContainerClient) return; await kmlContainerClient.getBlockBlobClient(req.params.name).delete(); res.json({success:true}); });
 
-// 9. KML LAYERS
-app.get('/api/kml', async (req, res) => {
-    if(!kmlContainerClient) return res.json([]);
-    try {
-        let blobs = [];
-        for await (const blob of kmlContainerClient.listBlobsFlat()) {
-            blobs.push({ name: blob.name, url: kmlContainerClient.getBlockBlobClient(blob.name).url });
-        }
-        res.json(blobs);
-    } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-app.post('/api/kml', upload.single('file'), async (req, res) => {
-    if(!kmlContainerClient) return res.status(500).json({error: "Storage not configured"});
-    try {
-        if (!req.file) return res.status(400).json({ error: "No file" });
-        const blobName = `${Date.now()}-${req.file.originalname}`;
-        const blockBlobClient = kmlContainerClient.getBlockBlobClient(blobName);
-        await blockBlobClient.uploadData(req.file.buffer, { blobHTTPHeaders: { blobContentType: "application/vnd.google-earth.kml+xml" } });
-        res.json({ success: true, url: blockBlobClient.url });
-    } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-app.delete('/api/kml/:name', async (req, res) => {
-    if(!kmlContainerClient) return res.status(500).json({error: "Storage not configured"});
-    try {
-        await kmlContainerClient.getBlockBlobClient(req.params.name).delete();
-        res.json({ success: true });
-    } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-// 10. REPORT & STATS
-app.post('/api/report', async (req, res) => {
-    try {
-        const pool = await getConnection();
-        const result = await pool.request().query("SELECT * FROM Permits");
-        const report = result.recordset.map(r => {
-            const d = JSON.parse(r.FullDataJSON);
-            return [r.PermitID, d.Desc, r.ValidFrom, r.ValidTo, d.RequesterName, d.Vendor, d.LocationUnit, d.ExactLocation, r.Status];
-        });
-        report.unshift(["Permit ID", "Work Details", "Valid From", "Valid To", "Requester Name", "Vendor", "Location Unit", "Exact Location", "Status"]);
-        res.json({ success: true, data: report });
-    } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
+// 10. STATISTICS API (For Charts)
 app.post('/api/stats', async (req, res) => {
     try {
         const pool = await getConnection();
-        const result = await pool.request().query("SELECT Status FROM Permits");
-        const stats = { total: 0, counts: {} };
-        result.recordset.forEach(r => { stats.total++; stats.counts[r.Status] = (stats.counts[r.Status] || 0) + 1; });
-        res.json({ success: true, stats });
+        const result = await pool.request().query("SELECT Status, WorkType FROM Permits");
+        const statusCounts = {};
+        const typeCounts = {};
+        
+        result.recordset.forEach(r => {
+            statusCounts[r.Status] = (statusCounts[r.Status] || 0) + 1;
+            typeCounts[r.WorkType] = (typeCounts[r.WorkType] || 0) + 1;
+        });
+        res.json({ success: true, statusCounts, typeCounts });
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// 11. PDF DOWNLOAD
+// 11. PROFESSIONAL EXCEL DOWNLOAD
+app.get('/api/download-excel', async (req, res) => {
+    try {
+        const pool = await getConnection();
+        const result = await pool.request().query("SELECT * FROM Permits");
+        
+        const workbook = new ExcelJS.Workbook();
+        const worksheet = workbook.addWorksheet('Permits Summary');
+
+        // Professional Headers
+        worksheet.columns = [
+            { header: 'Permit ID', key: 'id', width: 15 },
+            { header: 'Status', key: 'status', width: 20 },
+            { header: 'Work Type', key: 'wt', width: 20 },
+            { header: 'Requester', key: 'req', width: 25 },
+            { header: 'Department', key: 'dept', width: 20 },
+            { header: 'Vendor', key: 'vendor', width: 20 },
+            { header: 'Description', key: 'desc', width: 40 },
+            { header: 'Location', key: 'loc', width: 30 },
+            { header: 'Valid From', key: 'vf', width: 20 },
+            { header: 'Valid To', key: 'vt', width: 20 }
+        ];
+
+        // Header Styling
+        worksheet.getRow(1).font = { bold: true, color: { argb: 'FFFFFFFF' } };
+        worksheet.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF4F46E5' } }; // Indigo
+
+        // Data Rows
+        result.recordset.forEach(r => {
+            const d = JSON.parse(r.FullDataJSON || "{}");
+            worksheet.addRow({
+                id: r.PermitID,
+                status: r.Status,
+                wt: d.WorkType,
+                req: d.RequesterName,
+                dept: d.IssuedToDept,
+                vendor: d.Vendor,
+                desc: d.Desc,
+                loc: d.ExactLocation,
+                vf: new Date(r.ValidFrom).toLocaleString(),
+                vt: new Date(r.ValidTo).toLocaleString()
+            });
+        });
+
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        res.setHeader('Content-Disposition', 'attachment; filename=Permit_Summary.xlsx');
+        await workbook.xlsx.write(res);
+        res.end();
+    } catch (e) { res.status(500).send(e.message); }
+});
+
+// 12. PDF DOWNLOAD (STRICTLY MIMIC UPLOADED PDF)
 app.get('/api/download-pdf/:id', async (req, res) => {
     try {
         const pool = await getConnection();
@@ -307,57 +332,116 @@ app.get('/api/download-pdf/:id', async (req, res) => {
         res.setHeader('Content-Disposition', `attachment; filename=${p.PermitID}.pdf`);
         doc.pipe(res);
 
-        // --- PDF LAYOUT ---
-        doc.font('Helvetica-Bold').fontSize(16).text('INDIAN OIL CORPORATION LIMITED', { align: 'center' });
-        doc.fontSize(12).text('Pipeline Division - WORK PERMIT', { align: 'center' });
+        // --- PAGE 1: DETAILS & GENERAL CHECKLIST ---
+        doc.font('Helvetica-Bold').fontSize(14).text('INDIAN OIL CORPORATION LIMITED', { align: 'center' });
+        doc.fontSize(10).text('Pipeline Division', { align: 'center' });
+        doc.text('COMPOSITE WORK PERMIT', { align: 'center', underline:true });
         doc.moveDown();
 
-        doc.font('Helvetica').fontSize(10);
-        doc.text(`Permit No: ${p.PermitID}`, 50, 100);
-        doc.text(`Status: ${p.Status}`, 400, 100);
+        const tableTop = doc.y;
+        doc.fontSize(9).font('Helvetica');
         
-        doc.text(`Work Type: ${d.WorkType}`, 50, 120);
-        doc.text(`Dept: ${d.IssuedToDept}`, 400, 120);
+        const row = (l, r, y) => { doc.text(l, 50, y); doc.text(r, 320, y); };
         
-        doc.text(`Valid From: ${new Date(p.ValidFrom).toLocaleString()}`, 50, 140);
-        doc.text(`Valid To: ${new Date(p.ValidTo).toLocaleString()}`, 400, 140);
+        doc.font('Helvetica-Bold').text(`Type of Work: ${d.WorkType}`, 50, doc.y); doc.moveDown(0.5);
+        row(`Permit No: ${p.PermitID}`, `Plant: Pipeline`, doc.y); doc.moveDown(0.5);
+        row(`Applicant: ${d.OfficialName}`, `Dept: ${d.IssuedToDept}`, doc.y); doc.moveDown(0.5);
+        doc.text(`Description: ${d.Desc}`); doc.moveDown(0.5);
+        doc.text(`Exact Location: ${d.ExactLocation} (${d.LocationUnit})`); doc.moveDown(0.5);
+        row(`Valid From: ${new Date(p.ValidFrom).toLocaleString()}`, `Valid To: ${new Date(p.ValidTo).toLocaleString()}`, doc.y); doc.moveDown();
+
+        doc.rect(40, doc.y, 520, 20).fill('#eee').stroke();
+        doc.fillColor('black').font('Helvetica-Bold').text('OTHER PERMIT DETAILS', 50, doc.y - 15);
+        doc.moveDown(0.5);
         
+        row(`Vendor: ${d.Vendor || '-'}`, `Loc Permit No: ${d.LocationPermitSno || '-'}`, doc.y); doc.moveDown(0.5);
+        row(`Ref Isolation: ${d.RefIsolationCert || '-'}`, `Cross Ref: ${d.CrossRefPermits || '-'}`, doc.y); doc.moveDown(0.5);
+        row(`JSA Ref: ${d.JsaRef || '-'}`, `MOC: ${d.MocRequired} (Ref: ${d.MocRef || '-'})`, doc.y); doc.moveDown(0.5);
+        doc.text(`CCTV Available: ${d.CctvAvailable} | Details: ${d.CctvDetail || '-'}`);
         doc.moveDown();
-        doc.font('Helvetica-Bold').text('DESCRIPTION & LOCATION:', 50);
-        doc.font('Helvetica').text(`Desc: ${d.Desc}`, 50);
-        doc.text(`Location: ${d.ExactLocation} (${d.LocationUnit})`, 50);
-        
-        doc.moveDown();
-        doc.font('Helvetica-Bold').text('DETAILS:', 50);
-        doc.font('Helvetica');
-        doc.text(`Vendor: ${d.Vendor || '-'} | Loc Permit: ${d.LocationPermitSno || '-'} | ISO Cert: ${d.RefIsolationCert || '-'}`);
-        doc.text(`JSA: ${d.JsaRef || '-'} | MOC: ${d.MocRequired} | CCTV: ${d.CctvAvailable}`);
-        
-        // Checklists
-        doc.moveDown();
-        doc.font('Helvetica-Bold').text('SAFETY CHECKS:', 50);
+
+        // GENERAL CHECKLIST (Table format)
+        doc.font('Helvetica-Bold').text('SAFETY CHECKLIST (GENERAL POINTS)', {underline:true});
         doc.font('Helvetica').fontSize(9);
-        
-        // Loop through common questions
         const gpQs = [
-            {id:"GP_Q1", t:"Equipment Inspected"}, {id:"GP_Q2", t:"Area Cleaned"}, {id:"GP_Q3", t:"Sewers Covered"}, 
-            {id:"GP_Q4", t:"Hazards Considered"}, {id:"GP_Q5", t:"Blinded"}, {id:"GP_Q6", t:"Drained"}, {id:"GP_Q7", t:"Steamed"}, 
-            {id:"GP_Q8", t:"Water Flushed"}, {id:"GP_Q9", t:"Fire Tender Access"}, {id:"GP_Q10", t:"Iron Sulfide Removed"},
-            {id:"GP_Q11", t:"Elec Isolated"}, {id:"GP_Q13", t:"Fire Extinguisher"}, {id:"GP_Q14", t:"Cordoned"}
+            {id:"GP_Q1", t:"Equipment/Area Inspected"}, {id:"GP_Q2", t:"Surrounding Area Cleaned"}, {id:"GP_Q3", t:"Sewers Covered"}, 
+            {id:"GP_Q4", t:"Hazards Considered"}, {id:"GP_Q5", t:"Equipment Blinded", d:"GP_Q5_Detail"}, 
+            {id:"GP_Q6", t:"Drained & Depressurized"}, {id:"GP_Q7", t:"Steamed/Purged"}, {id:"GP_Q8", t:"Water Flushed"},
+            {id:"GP_Q9", t:"Fire Tender Access"}, {id:"GP_Q10", t:"Iron Sulfide Removed"},
+            {id:"GP_Q11", t:"Electrically Isolated", d:"GP_Q11_Detail"}, {id:"GP_Q12", t:"Gas Test (Toxic/HC/O2)"}, 
+            {id:"GP_Q13", t:"Fire Extinguisher"}, {id:"GP_Q14", t:"Area Cordoned Off"}
         ];
         
-        gpQs.forEach(q => {
-            const check = d[q.id] === 'Yes' ? '[X]' : '[ ]';
-            doc.text(`${check} ${q.t}`);
+        gpQs.forEach((q, i) => {
+            let val = d[q.id] === 'Yes' ? '[YES]' : '[NA]';
+            if(q.id === "GP_Q12") val = `Tox:${d.GP_Q12_ToxicGas||'-'} HC:${d.GP_Q12_HC||'-'} O2:${d.GP_Q12_Oxygen||'-'}`;
+            doc.text(`${i+1}. ${q.t}`);
+            doc.text(val, 450, doc.y - 10);
+            if(q.d && d[q.d]) doc.text(`   Details: ${d[q.d]}`, {indent: 20});
         });
-        
-        doc.moveDown();
-        doc.font('Helvetica-Bold').text('SIGNATURES:', 50);
+
+        // --- PAGE 2: SPECIFIC, HAZARDS, SIGS ---
+        doc.addPage();
+        doc.font('Helvetica-Bold').text('SPECIFIC WORK CHECKLIST');
         doc.font('Helvetica');
-        doc.text(`Requester: ${d.RequesterName}`);
-        doc.text(`Reviewer: ${d.Reviewer_Sig || 'Pending'}`);
-        doc.text(`Approver: ${d.Approver_Sig || 'Pending'}`);
-        
+        const spQs = [
+            {id:"HW_Q1", t:"Ventilation"}, {id:"HW_Q2", t:"Exit Means"}, {id:"HW_Q3", t:"Standby Person"},
+            {id:"HW_Q16", t:"Height Permit Taken", d:"HW_Q16_Detail"}, {id:"VE_Q1", t:"Spark Arrestor (Veh)"}, {id:"EX_Q1", t:"Excavation Clear"}
+        ];
+        spQs.forEach((q, i) => {
+            const val = d[q.id] === 'Yes' ? '[YES]' : '[NA]';
+            doc.text(`${String.fromCharCode(65+i)}. ${q.t}`);
+            doc.text(val, 450, doc.y - 10);
+        });
+
+        doc.moveDown();
+        doc.font('Helvetica-Bold').text('REMARKS / HAZARDS IDENTIFIED:');
+        const hazards = ["H_H2S", "H_LackOxygen", "H_Corrosive", "H_ToxicGas", "H_Combustible", "H_Steam", "H_PyroIron", "H_N2Gas", "H_Height", "H_LooseEarth", "H_HighNoise", "H_Radiation"];
+        let hText = "";
+        hazards.forEach(h => { if(d[h] === 'Y') hText += `[X] ${h.replace('H_','')}  `; });
+        doc.font('Helvetica').text(hText || "None");
+
+        doc.moveDown();
+        doc.font('Helvetica-Bold').text('PPE REQUIRED:');
+        const ppe = ["P_FaceShield", "P_FreshAirMask", "P_CompressedBA", "P_Goggles", "P_DustRespirator", "P_Earmuff", "P_LifeLine", "P_Apron", "P_SafetyHarness", "P_SafetyNet", "P_Airline"];
+        let pText = "";
+        ppe.forEach(p => { if(d[p] === 'Y') pText += `[X] ${p.replace('P_','')}  `; });
+        doc.font('Helvetica').text(pText || "Standard PPE");
+
+        doc.moveDown();
+        doc.text(`Additional Precautions: ${d.AdditionalPrecautions || '-'}`);
+        doc.moveDown();
+        doc.font('Helvetica-Bold').text('DIGITAL SIGNATURES', {underline:true});
+        doc.font('Helvetica');
+        doc.text(`Requested By: ${d.RequesterName} (${d.RequesterEmail})`);
+        doc.text(`Reviewed By: ${d.Reviewer_Sig || 'Pending'} (${d.Reviewer_Remarks || '-'})`);
+        doc.text(`Approved By: ${d.Approver_Sig || 'Pending'} (${d.Approver_Remarks || '-'})`);
+
+        // --- PAGE 3: RENEWALS & CLOSURE ---
+        doc.addPage();
+        doc.font('Helvetica-Bold').text('CLEARANCE RENEWAL');
+        doc.font('Helvetica');
+        const rens = JSON.parse(p.RenewalsJSON || "[]");
+        if(rens.length === 0) doc.text("No renewals recorded.");
+        else {
+            rens.forEach(r => doc.text(`- ${r.valid_from} to ${r.valid_till} | HC: ${r.hc}% | Status: ${r.status.toUpperCase()}`));
+        }
+
+        doc.moveDown(2);
+        doc.font('Helvetica-Bold').text('CLOSING OF WORK PERMIT');
+        doc.font('Helvetica');
+        doc.text(`Receiver (Job Completed): ${d.Closure_Receiver_Sig || 'Not Signed'}`);
+        doc.text(`Reviewer (Verified): ${d.Reviewer_Sig.includes('Closure') ? 'Verified' : 'Pending'}`);
+        doc.text(`Issuer (Safe): ${d.Closure_Issuer_Sig || 'Not Signed'} (Remarks: ${d.Closure_Issuer_Remarks || '-'})`);
+
+        doc.moveDown();
+        doc.font('Helvetica-Bold').text('GENERAL INSTRUCTIONS');
+        doc.font('Helvetica').fontSize(8);
+        doc.text("1. Work Permit shall be filled up carefully.");
+        doc.text("2. In case of fire alarm all work must stop.");
+        doc.text("3. Gas test is mandatory for Hot Work.");
+        doc.text("4. EMERGENCY: FIRE: 101, AMBULANCE: 102");
+
         doc.end();
     } catch (e) { res.status(500).send(e.message); }
 });
