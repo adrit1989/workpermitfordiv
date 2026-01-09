@@ -36,6 +36,7 @@ function getNowIST() { return new Date().toLocaleString("en-IN", { timeZone: "As
 
 // --- API ROUTES ---
 
+// 1. LOGIN
 app.post('/api/login', async (req, res) => {
     try {
         const pool = await getConnection();
@@ -44,11 +45,13 @@ app.post('/api/login', async (req, res) => {
             .input('email', sql.NVarChar, req.body.name) 
             .input('pass', sql.NVarChar, req.body.password)
             .query('SELECT * FROM Users WHERE Role = @role AND Email = @email AND Password = @pass');
+        
         if (result.recordset.length > 0) res.json({ success: true, user: result.recordset[0] });
         else res.json({ success: false, message: "Invalid Credentials" });
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// 2. GET USERS
 app.get('/api/users', async (req, res) => {
     try {
         const pool = await getConnection();
@@ -61,15 +64,18 @@ app.get('/api/users', async (req, res) => {
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// 3. DASHBOARD
 app.post('/api/dashboard', async (req, res) => {
     try {
         const { role, email } = req.body;
         const pool = await getConnection();
         const result = await pool.request().query('SELECT PermitID, Status, ValidFrom, ValidTo, RequesterEmail, ReviewerEmail, ApproverEmail, FullDataJSON FROM Permits');
+        
         const permits = result.recordset.map(p => {
             const d = JSON.parse(p.FullDataJSON || "{}");
             return { ...d, PermitID: p.PermitID, Status: p.Status, ValidFrom: p.ValidFrom, ValidTo: p.ValidTo };
         });
+
         const filtered = permits.filter(p => {
             const st = (p.Status || "").toLowerCase();
             if (role === 'Requester') return p.RequesterEmail === email;
@@ -77,43 +83,66 @@ app.post('/api/dashboard', async (req, res) => {
             if (role === 'Approver') return (p.ApproverEmail === email && (st.includes('pending approval') || st === 'active' || st === 'closed' || st.includes('renewal') || st.includes('closure')));
             return false;
         });
+        
         res.json(filtered.sort((a, b) => b.PermitID.localeCompare(a.PermitID)));
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// 4. SAVE PERMIT
 app.post('/api/save-permit', upload.single('file'), async (req, res) => {
     try {
         const vf = new Date(req.body.ValidFrom);
         const vt = new Date(req.body.ValidTo);
+
         if (vt <= vf) return res.status(400).json({ error: "End time must be greater than Start time." });
-        const diffDays = Math.ceil(Math.abs(vt - vf) / (1000 * 60 * 60 * 24)); 
+        
+        const diffTime = Math.abs(vt - vf);
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
         if (diffDays > 7) return res.status(400).json({ error: "Permit duration cannot exceed 7 days." });
 
         const pool = await getConnection();
         const idRes = await pool.request().query("SELECT TOP 1 PermitID FROM Permits ORDER BY Id DESC");
         const lastId = idRes.recordset.length > 0 ? idRes.recordset[0].PermitID : "WP-1000";
         const newId = `WP-${parseInt(lastId.split('-')[1]) + 1}`;
+
         const fullData = { ...req.body, PermitID: newId };
         
         await pool.request()
-            .input('pid', sql.NVarChar, newId).input('status', sql.NVarChar, 'Pending Review')
-            .input('wt', sql.NVarChar, req.body.WorkType).input('req', sql.NVarChar, req.body.RequesterEmail)
-            .input('rev', sql.NVarChar, req.body.ReviewerEmail).input('app', sql.NVarChar, req.body.ApproverEmail)
-            .input('vf', sql.DateTime, vf).input('vt', sql.DateTime, vt)
-            .input('lat', sql.NVarChar, req.body.Latitude || null).input('lng', sql.NVarChar, req.body.Longitude || null)
-            .input('locSno', sql.NVarChar, req.body.LocationPermitSno).input('iso', sql.NVarChar, req.body.RefIsolationCert)
-            .input('cross', sql.NVarChar, req.body.CrossRefPermits).input('jsa', sql.NVarChar, req.body.JsaRef)
-            .input('mocReq', sql.NVarChar, req.body.MocRequired).input('mocRef', sql.NVarChar, req.body.MocRef)
-            .input('cctv', sql.NVarChar, req.body.CctvAvailable).input('cctvDet', sql.NVarChar, req.body.CctvDetail)
-            .input('vendor', sql.NVarChar, req.body.Vendor).input('dept', sql.NVarChar, req.body.IssuedToDept)
-            .input('locUnit', sql.NVarChar, req.body.LocationUnit).input('exactLoc', sql.NVarChar, req.body.ExactLocation)
-            .input('desc', sql.NVarChar, req.body.Desc).input('offName', sql.NVarChar, req.body.OfficialName)
+            .input('pid', sql.NVarChar, newId)
+            .input('status', sql.NVarChar, 'Pending Review')
+            .input('wt', sql.NVarChar, req.body.WorkType)
+            .input('req', sql.NVarChar, req.body.RequesterEmail)
+            .input('rev', sql.NVarChar, req.body.ReviewerEmail)
+            .input('app', sql.NVarChar, req.body.ApproverEmail)
+            .input('vf', sql.DateTime, vf)
+            .input('vt', sql.DateTime, vt)
+            .input('lat', sql.NVarChar, req.body.Latitude || null)
+            .input('lng', sql.NVarChar, req.body.Longitude || null)
+            .input('locSno', sql.NVarChar, req.body.LocationPermitSno)
+            .input('iso', sql.NVarChar, req.body.RefIsolationCert)
+            .input('cross', sql.NVarChar, req.body.CrossRefPermits)
+            .input('jsa', sql.NVarChar, req.body.JsaRef)
+            .input('mocReq', sql.NVarChar, req.body.MocRequired)
+            .input('mocRef', sql.NVarChar, req.body.MocRef)
+            .input('cctv', sql.NVarChar, req.body.CctvAvailable)
+            .input('cctvDet', sql.NVarChar, req.body.CctvDetail)
+            .input('vendor', sql.NVarChar, req.body.Vendor)
+            .input('dept', sql.NVarChar, req.body.IssuedToDept)
+            .input('locUnit', sql.NVarChar, req.body.LocationUnit)
+            .input('exactLoc', sql.NVarChar, req.body.ExactLocation)
+            .input('desc', sql.NVarChar, req.body.Desc)
+            .input('offName', sql.NVarChar, req.body.OfficialName)
             .input('json', sql.NVarChar, JSON.stringify(fullData))
-            .query(`INSERT INTO Permits (PermitID, Status, WorkType, RequesterEmail, ReviewerEmail, ApproverEmail, ValidFrom, ValidTo, Latitude, Longitude, LocationPermitSno, RefIsolationCert, CrossRefPermits, JsaRef, MocRequired, MocRef, CctvAvailable, CctvDetail, Vendor, IssuedToDept, LocationUnit, ExactLocation, [Desc], OfficialName, RenewalsJSON, FullDataJSON) VALUES (@pid, @status, @wt, @req, @rev, @app, @vf, @vt, @lat, @lng, @locSno, @iso, @cross, @jsa, @mocReq, @mocRef, @cctv, @cctvDet, @vendor, @dept, @locUnit, @exactLoc, @desc, @offName, '[]', @json)`);
+            .query(`INSERT INTO Permits (PermitID, Status, WorkType, RequesterEmail, ReviewerEmail, ApproverEmail, ValidFrom, ValidTo, Latitude, Longitude, 
+                    LocationPermitSno, RefIsolationCert, CrossRefPermits, JsaRef, MocRequired, MocRef, CctvAvailable, CctvDetail, Vendor, IssuedToDept, LocationUnit, ExactLocation, [Desc], OfficialName, RenewalsJSON, FullDataJSON) 
+                    VALUES (@pid, @status, @wt, @req, @rev, @app, @vf, @vt, @lat, @lng, 
+                    @locSno, @iso, @cross, @jsa, @mocReq, @mocRef, @cctv, @cctvDet, @vendor, @dept, @locUnit, @exactLoc, @desc, @offName, '[]', @json)`);
+
         res.json({ success: true, permitId: newId });
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// 5. UPDATE STATUS
 app.post('/api/update-status', async (req, res) => {
     try {
         const { PermitID, action, role, user, comment, ...extras } = req.body;
@@ -126,6 +155,7 @@ app.post('/api/update-status', async (req, res) => {
         let status = p.Status;
         const now = getNowIST();
         const sig = `${user} on ${now}`;
+
         Object.assign(data, extras);
 
         if (role === 'Reviewer') {
@@ -142,13 +172,23 @@ app.post('/api/update-status', async (req, res) => {
             status = 'Closure Pending Review'; data.Closure_Receiver_Sig = sig;
         }
 
-        let q = pool.request().input('pid', sql.NVarChar, PermitID).input('status', sql.NVarChar, status).input('json', sql.NVarChar, JSON.stringify(data));
-        if(extras.WorkType) q.input('wt', sql.NVarChar, extras.WorkType).query("UPDATE Permits SET Status = @status, FullDataJSON = @json, WorkType = @wt WHERE PermitID = @pid");
-        else q.query("UPDATE Permits SET Status = @status, FullDataJSON = @json WHERE PermitID = @pid");
+        let q = pool.request()
+            .input('pid', sql.NVarChar, PermitID)
+            .input('status', sql.NVarChar, status)
+            .input('json', sql.NVarChar, JSON.stringify(data));
+            
+        if(extras.WorkType) {
+             q.input('wt', sql.NVarChar, extras.WorkType)
+              .query("UPDATE Permits SET Status = @status, FullDataJSON = @json, WorkType = @wt WHERE PermitID = @pid");
+        } else {
+             q.query("UPDATE Permits SET Status = @status, FullDataJSON = @json WHERE PermitID = @pid");
+        }
+
         res.json({ success: true });
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// 6. PERMIT DATA
 app.post('/api/permit-data', async (req, res) => {
     try {
         const pool = await getConnection();
@@ -159,57 +199,88 @@ app.post('/api/permit-data', async (req, res) => {
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// --- RENEWAL LOGIC WITH REJECTION REMARKS ---
+// 7. RENEWALS (With 8-Hour Logic & History)
 app.post('/api/renewal', async (req, res) => {
     try {
-        const { PermitID, userRole, userName, action, renewalIndex, rejectionReason, ...data } = req.body;
+        const { PermitID, userRole, userName, action, ...data } = req.body;
         const pool = await getConnection();
         const current = await pool.request().input('pid', sql.NVarChar, PermitID).query("SELECT RenewalsJSON, Status, ValidFrom, ValidTo FROM Permits WHERE PermitID = @pid");
         
         let renewals = JSON.parse(current.recordset[0].RenewalsJSON || "[]");
         let status = current.recordset[0].Status;
+        const permitStart = new Date(current.recordset[0].ValidFrom);
+        const permitEnd = new Date(current.recordset[0].ValidTo);
         const now = getNowIST();
 
         if (userRole === 'Requester') {
-             // ... [Validation Logic E, F, G preserved from previous] ...
-             const permitStart = new Date(current.recordset[0].ValidFrom);
-             const permitEnd = new Date(current.recordset[0].ValidTo);
              const reqStart = new Date(data.RenewalValidFrom);
              const reqEnd = new Date(data.RenewalValidTill);
+
+             // 1. Within Permit Period
              if (reqStart < permitStart || reqEnd > permitEnd) return res.status(400).json({ error: "Renewal must be within original Permit Validity." });
+             
+             // 2. Start < End
              if (reqStart >= reqEnd) return res.status(400).json({ error: "Invalid Time Range." });
+
+             // 3. Max 8 Hours
+             const duration = (reqEnd - reqStart) / (1000 * 60 * 60);
+             if (duration > 8) return res.status(400).json({ error: "Renewal cannot exceed 8 Hours." });
+
+             // 4. Sequential
              if (renewals.length > 0) {
-                 const lastEnd = new Date(renewals[renewals.length - 1].valid_till);
-                 if (reqStart < lastEnd) return res.status(400).json({ error: "Renewal must start after the previous clearance ends." });
+                 const lastRen = renewals[renewals.length - 1];
+                 // Allow new renewal only if previous one is approved/rejected/completed
+                 const lastEnd = new Date(lastRen.valid_till);
+                 if (reqStart < lastEnd) return res.status(400).json({ error: "Renewal must start after the previous renewal ends." });
              }
-             renewals.push({ status: 'pending_review', valid_from: data.RenewalValidFrom, valid_till: data.RenewalValidTill, hc: data.RenewalHC, toxic: data.RenewalToxic, oxygen: data.RenewalOxygen, precautions: data.RenewalPrecautions, req_sig: `${userName} on ${now}` });
+
+             renewals.push({ 
+                 status: 'pending_review', 
+                 valid_from: data.RenewalValidFrom, 
+                 valid_till: data.RenewalValidTill, 
+                 hc: data.RenewalHC, 
+                 toxic: data.RenewalToxic, 
+                 oxygen: data.RenewalOxygen, 
+                 precautions: data.RenewalPrecautions, 
+                 req_name: userName,
+                 req_at: now
+             });
              status = "Renewal Pending Review";
         } 
         else if (userRole === 'Reviewer') {
-            const idx = renewalIndex !== undefined ? renewalIndex : renewals.length - 1;
-            const ren = renewals[idx];
+            const last = renewals[renewals.length - 1];
             if (action === 'reject') { 
-                ren.status = 'rejected'; 
-                ren.rev_sig = `${userName} (Rejected)`; 
-                ren.rejection_reason = rejectionReason || "No reason provided";
+                last.status = 'rejected'; 
+                last.rev_name = userName; 
+                last.rev_at = now; 
                 status = 'Active'; 
             } else { 
-                ren.status = 'pending_approval'; 
-                ren.rev_sig = `${userName} on ${now}`; 
+                last.status = 'pending_approval'; 
+                last.rev_name = userName; 
+                last.rev_at = now;
+                // Update technical fields if changed by reviewer
+                Object.assign(last, { 
+                    valid_from: data.RenewalValidFrom, 
+                    valid_till: data.RenewalValidTill, 
+                    hc: data.RenewalHC, 
+                    toxic: data.RenewalToxic, 
+                    oxygen: data.RenewalOxygen, 
+                    precautions: data.RenewalPrecautions 
+                });
                 status = "Renewal Pending Approval"; 
             }
         }
         else if (userRole === 'Approver') {
-            const idx = renewalIndex !== undefined ? renewalIndex : renewals.length - 1;
-            const ren = renewals[idx];
+            const last = renewals[renewals.length - 1];
             if (action === 'reject') { 
-                ren.status = 'rejected'; 
-                ren.app_sig = `${userName} (Rejected)`; 
-                ren.rejection_reason = rejectionReason || "No reason provided";
+                last.status = 'rejected'; 
+                last.app_name = userName; 
+                last.app_at = now; 
                 status = 'Active'; 
             } else { 
-                ren.status = 'approved'; 
-                ren.app_sig = `${userName} on ${now}`; 
+                last.status = 'approved'; 
+                last.app_name = userName; 
+                last.app_at = now; 
                 status = "Active"; 
             }
         }
@@ -220,181 +291,218 @@ app.post('/api/renewal', async (req, res) => {
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-app.post('/api/map-data', async (req, res) => { /* ... map logic ... */ res.json([]); }); 
-app.post('/api/stats', async (req, res) => { /* ... stats logic ... */ res.json({success:true, statusCounts:{}, typeCounts:{}}); });
+// 8. MAP DATA
+app.post('/api/map-data', async (req, res) => {
+    try {
+        const pool = await getConnection();
+        const result = await pool.request().query("SELECT PermitID, FullDataJSON, Latitude, Longitude FROM Permits WHERE Status = 'Active' AND Latitude IS NOT NULL");
+        const mapPoints = result.recordset.map(row => {
+            const d = JSON.parse(row.FullDataJSON);
+            return { PermitID: row.PermitID, lat: parseFloat(row.Latitude), lng: parseFloat(row.Longitude), WorkType: d.WorkType, Desc: d.Desc, RequesterName: d.RequesterName, ValidFrom: d.ValidFrom, ValidTo: d.ValidTo };
+        });
+        res.json(mapPoints);
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
 
-// EXCEL DOWNLOAD (Requirement I)
+app.get('/api/kml', async (req, res) => { if(!kmlContainerClient) return res.json([]); let b=[]; for await(const x of kmlContainerClient.listBlobsFlat()) b.push({name:x.name,url:kmlContainerClient.getBlockBlobClient(x.name).url}); res.json(b); });
+app.post('/api/kml', upload.single('file'), async (req, res) => { if(!kmlContainerClient) return; const b = kmlContainerClient.getBlockBlobClient(`${Date.now()}-${req.file.originalname}`); await b.uploadData(req.file.buffer, {blobHTTPHeaders:{blobContentType:"application/vnd.google-earth.kml+xml"}}); res.json({success:true, url:b.url}); });
+app.delete('/api/kml/:name', async (req, res) => { if(!kmlContainerClient) return; await kmlContainerClient.getBlockBlobClient(req.params.name).delete(); res.json({success:true}); });
+
+// 10. STATISTICS API
+app.post('/api/stats', async (req, res) => {
+    try {
+        const pool = await getConnection();
+        const result = await pool.request().query("SELECT Status, WorkType FROM Permits");
+        const statusCounts = {};
+        const typeCounts = {};
+        result.recordset.forEach(r => { statusCounts[r.Status] = (statusCounts[r.Status] || 0) + 1; typeCounts[r.WorkType] = (typeCounts[r.WorkType] || 0) + 1; });
+        res.json({ success: true, statusCounts, typeCounts });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// 11. EXCEL DOWNLOAD
 app.get('/api/download-excel', async (req, res) => {
     try {
         const pool = await getConnection();
         const result = await pool.request().query("SELECT * FROM Permits ORDER BY Id DESC");
+        
         const workbook = new ExcelJS.Workbook();
-        const worksheet = workbook.addWorksheet('Permits');
+        const worksheet = workbook.addWorksheet('Permits Summary');
+
+        // Headers
         worksheet.columns = [
-            { header: 'Permit ID', key: 'id', width: 15 }, { header: 'Status', key: 'status', width: 20 },
-            { header: 'Work Type', key: 'wt', width: 20 }, { header: 'Requester', key: 'req', width: 25 },
-            { header: 'Valid From', key: 'vf', width: 20 }, { header: 'Valid To', key: 'vt', width: 20 }
+            { header: 'Permit ID', key: 'id', width: 15 },
+            { header: 'Status', key: 'status', width: 20 },
+            { header: 'Work Type', key: 'wt', width: 20 },
+            { header: 'Requester', key: 'req', width: 25 },
+            { header: 'Department', key: 'dept', width: 20 },
+            { header: 'Vendor', key: 'vendor', width: 20 },
+            { header: 'Description', key: 'desc', width: 40 },
+            { header: 'Location', key: 'loc', width: 30 },
+            { header: 'Valid From', key: 'vf', width: 20 },
+            { header: 'Valid To', key: 'vt', width: 20 }
         ];
+
+        worksheet.getRow(1).font = { bold: true, color: { argb: 'FFFFFFFF' } };
+        worksheet.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF4F46E5' } };
+
         result.recordset.forEach(r => {
             const d = JSON.parse(r.FullDataJSON || "{}");
-            worksheet.addRow({ id: r.PermitID, status: r.Status, wt: d.WorkType, req: d.RequesterName, vf: r.ValidFrom, vt: r.ValidTo });
+            worksheet.addRow({
+                id: r.PermitID,
+                status: r.Status,
+                wt: d.WorkType,
+                req: d.RequesterName,
+                dept: d.IssuedToDept,
+                vendor: d.Vendor,
+                desc: d.Desc,
+                loc: d.ExactLocation,
+                vf: new Date(r.ValidFrom).toLocaleString(),
+                vt: new Date(r.ValidTo).toLocaleString()
+            });
         });
+
         res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-        res.setHeader('Content-Disposition', 'attachment; filename=Permits.xlsx');
+        res.setHeader('Content-Disposition', 'attachment; filename=Permit_Summary.xlsx');
         await workbook.xlsx.write(res);
         res.end();
     } catch (e) { res.status(500).send(e.message); }
 });
 
-// PDF GENERATION (Strict Grid Format to match Uploaded PDF)
+// 12. PDF DOWNLOAD (Format & Watermark)
 app.get('/api/download-pdf/:id', async (req, res) => {
     try {
         const pool = await getConnection();
         const result = await pool.request().input('pid', sql.NVarChar, req.params.id).query("SELECT * FROM Permits WHERE PermitID = @pid");
         if(result.recordset.length === 0) return res.status(404).send('Not Found');
+        
         const p = result.recordset[0];
         const d = JSON.parse(p.FullDataJSON);
-        const doc = new PDFDocument({ margin: 20, size: 'A4' });
+        const doc = new PDFDocument({ margin: 30, size: 'A4' });
         
         res.setHeader('Content-Type', 'application/pdf');
         res.setHeader('Content-Disposition', `attachment; filename=${p.PermitID}.pdf`);
         doc.pipe(res);
 
-        // -- UTILS FOR GRID --
-        const drawBox = (x, y, w, h, text, bold=false, bg=null) => {
-            if(bg) { doc.rect(x, y, w, h).fill(bg); doc.fillColor('black'); }
-            doc.rect(x, y, w, h).stroke();
-            if(text) {
-                doc.font(bold ? 'Helvetica-Bold' : 'Helvetica').fontSize(9);
-                doc.text(text, x + 2, y + 4, { width: w - 4, align: 'left' });
-            }
-        };
-
-        const watermark = () => {
-            doc.save(); doc.rotate(-45, { origin: [300, 400] });
-            const txt = p.Status.includes('Closed') ? 'CLOSED' : 'ACTIVE';
-            const col = p.Status.includes('Closed') ? '#ef4444' : '#22c55e';
-            doc.fontSize(80).fillColor(col).opacity(0.15).text(txt, 100, 350, {align:'center'});
+        // WATERMARK
+        const addWatermark = () => {
+            const watermarkText = p.Status.includes('Closed') ? 'CLOSED' : 'ACTIVE';
+            const color = p.Status.includes('Closed') ? '#ef4444' : '#22c55e'; 
+            doc.save();
+            doc.rotate(-45, { origin: [300, 400] });
+            doc.fontSize(80).fillColor(color).opacity(0.15).text(watermarkText, 100, 350, { align: 'center', width: 400 });
             doc.restore();
         };
 
-        // PAGE 1
-        watermark();
+        // --- PAGE 1 ---
+        addWatermark();
         doc.font('Helvetica-Bold').fontSize(14).text('INDIAN OIL CORPORATION LIMITED', { align: 'center' });
         doc.fontSize(10).text('Pipeline Division', { align: 'center' });
         doc.text('COMPOSITE WORK PERMIT', { align: 'center', underline:true });
         doc.moveDown();
 
-        let y = doc.y;
-        // Top Info Grid
-        drawBox(20, y, 280, 20, `Type of Work: ${d.WorkType}`, true); drawBox(300, y, 270, 20, `Request No: ${p.PermitID}`, true); y += 20;
-        drawBox(20, y, 280, 20, `Applicant: ${d.OfficialName}`); drawBox(300, y, 270, 20, `Description: ${d.Desc}`); y += 20;
-        drawBox(20, y, 280, 20, `Location: ${d.ExactLocation} (${d.LocationUnit})`); drawBox(300, y, 270, 20, `Valid: ${new Date(p.ValidFrom).toLocaleString()} to ${new Date(p.ValidTo).toLocaleString()}`); y += 20;
+        doc.fontSize(9).font('Helvetica');
+        const row = (l, r, y) => { doc.text(l, 50, y); doc.text(r, 320, y); };
         
-        y += 10;
-        doc.font('Helvetica-Bold').text('OTHER PERMIT DETAILS', 20, y); y += 15;
-        drawBox(20, y, 180, 20, `Vendor: ${d.Vendor||'-'}`); drawBox(200, y, 180, 20, `Ref Iso: ${d.RefIsolationCert||'-'}`); drawBox(380, y, 190, 20, `JSA: ${d.JsaRef||'-'}`); y+=20;
-        drawBox(20, y, 180, 20, `CCTV: ${d.CctvAvailable} (${d.CctvDetail||'-'})`); drawBox(200, y, 180, 20, `MOC: ${d.MocRequired} (${d.MocRef||'-'})`); drawBox(380, y, 190, 20, `Dept: ${d.IssuedToDept}`); y+=30;
+        doc.font('Helvetica-Bold').text(`Type of Work: ${d.WorkType}`, 50, doc.y); doc.moveDown(0.5);
+        row(`Permit No: ${p.PermitID}`, `Plant: Pipeline`, doc.y); doc.moveDown(0.5);
+        row(`Applicant: ${d.OfficialName}`, `Dept: ${d.IssuedToDept}`, doc.y); doc.moveDown(0.5);
+        doc.text(`Description: ${d.Desc}`); doc.moveDown(0.5);
+        doc.text(`Exact Location: ${d.ExactLocation} (${d.LocationUnit})`); doc.moveDown(0.5);
+        row(`Valid From: ${new Date(p.ValidFrom).toLocaleString()}`, `Valid To: ${new Date(p.ValidTo).toLocaleString()}`, doc.y); doc.moveDown();
 
-        // General Checklist Table
-        doc.font('Helvetica-Bold').text('GENERAL CHECKLIST', 20, y); y += 15;
-        // Header
-        drawBox(20, y, 30, 20, 'No', true, '#ddd'); drawBox(50, y, 400, 20, 'Question', true, '#ddd'); drawBox(450, y, 120, 20, 'Status', true, '#ddd'); y += 20;
+        doc.rect(40, doc.y, 520, 20).fill('#eee').stroke();
+        doc.fillColor('black').font('Helvetica-Bold').text('OTHER PERMIT DETAILS', 50, doc.y - 15);
+        doc.moveDown(0.5);
         
+        row(`Vendor: ${d.Vendor || '-'}`, `Loc Permit No: ${d.LocationPermitSno || '-'}`, doc.y); doc.moveDown(0.5);
+        row(`Ref Isolation: ${d.RefIsolationCert || '-'}`, `Cross Ref: ${d.CrossRefPermits || '-'}`, doc.y); doc.moveDown(0.5);
+        row(`JSA Ref: ${d.JsaRef || '-'}`, `MOC: ${d.MocRequired} (Ref: ${d.MocRef || '-'})`, doc.y); doc.moveDown(0.5);
+        doc.text(`CCTV Available: ${d.CctvAvailable} | Details: ${d.CctvDetail || '-'}`);
+        doc.moveDown();
+
+        doc.font('Helvetica-Bold').text('SAFETY CHECKLIST (GENERAL POINTS)', {underline:true});
+        doc.font('Helvetica').fontSize(9);
         const gpQs = [
-            {id:"GP_Q1", t:"Equipment/Work Area Inspected"}, {id:"GP_Q2", t:"Surrounding Area Cleaned"}, 
-            {id:"GP_Q3", t:"Sewer Manhole Covered"}, {id:"GP_Q4", t:"Hazards Considered"}, 
-            {id:"GP_Q5", t:`Blinded (Details: ${d.GP_Q5_Detail||'-'})`}, {id:"GP_Q6", t:"Drained & Depressurized"},
-            {id:"GP_Q7", t:"Steamed/Purged"}, {id:"GP_Q8", t:"Water Flushed"}, {id:"GP_Q9", t:"Fire Tender Access"},
-            {id:"GP_Q10", t:"Iron Sulfide Removed"}, {id:"GP_Q11", t:`Elec Isolated (Permit: ${d.GP_Q11_Detail||'-'})`},
-            {id:"GP_Q12", t:`Gas Test (Tox:${d.GP_Q12_ToxicGas} HC:${d.GP_Q12_HC} O2:${d.GP_Q12_Oxygen})`},
-            {id:"GP_Q13", t:"Fire Extinguisher Provided"}, {id:"GP_Q14", t:"Area Cordoned Off"}
+            {id:"GP_Q1", t:"Equipment/Area Inspected"}, {id:"GP_Q2", t:"Surrounding Area Cleaned"}, {id:"GP_Q3", t:"Sewers Covered"}, 
+            {id:"GP_Q4", t:"Hazards Considered"}, {id:"GP_Q5", t:"Equipment Blinded", d:"GP_Q5_Detail"}, 
+            {id:"GP_Q6", t:"Drained & Depressurized"}, {id:"GP_Q7", t:"Steamed/Purged"}, {id:"GP_Q8", t:"Water Flushed"},
+            {id:"GP_Q9", t:"Fire Tender Access"}, {id:"GP_Q10", t:"Iron Sulfide Removed"},
+            {id:"GP_Q11", t:"Electrically Isolated", d:"GP_Q11_Detail"}, {id:"GP_Q12", t:"Gas Test (Toxic/HC/O2)"}, 
+            {id:"GP_Q13", t:"Fire Extinguisher"}, {id:"GP_Q14", t:"Area Cordoned Off"}
         ];
-
+        
         gpQs.forEach((q, i) => {
-            drawBox(20, y, 30, 15, `${i+1}`);
-            drawBox(50, y, 400, 15, q.t);
-            const val = d[q.id] === 'Yes' ? '[X] Yes' : '[ ] NA';
-            drawBox(450, y, 120, 15, val);
-            y += 15;
+            let val = d[q.id] === 'Yes' ? '[YES]' : '[NA]';
+            if(q.id === "GP_Q12") val = `Tox:${d.GP_Q12_ToxicGas||'-'} HC:${d.GP_Q12_HC||'-'} O2:${d.GP_Q12_Oxygen||'-'}`;
+            doc.text(`${i+1}. ${q.t}`);
+            doc.text(val, 450, doc.y - 10);
+            if(q.d && d[q.d]) doc.text(`   Details: ${d[q.d]}`, {indent: 20});
         });
 
-        // PAGE 2
-        doc.addPage(); watermark(); y = 40;
-        doc.font('Helvetica-Bold').text('SPECIFIC CHECKS', 20, y); y += 15;
-        
+        // --- PAGE 2 ---
+        doc.addPage();
+        addWatermark();
+        doc.font('Helvetica-Bold').text('SPECIFIC WORK CHECKLIST');
+        doc.font('Helvetica');
         const spQs = [
             {id:"HW_Q1", t:"Ventilation"}, {id:"HW_Q2", t:"Exit Means"}, {id:"HW_Q3", t:"Standby Person"},
-            {id:"HW_Q16", t:`Height Permit (${d.HW_Q16_Detail||'-'})`}, {id:"VE_Q1", t:"Spark Arrestor"}, {id:"EX_Q1", t:"Excavation Clear"}
+            {id:"HW_Q16", t:"Height Permit Taken", d:"HW_Q16_Detail"}, {id:"VE_Q1", t:"Spark Arrestor (Veh)"}, {id:"EX_Q1", t:"Excavation Clear"}
         ];
         spQs.forEach((q, i) => {
-            drawBox(20, y, 30, 15, `${i+1}`);
-            drawBox(50, y, 400, 15, q.t);
-            const val = d[q.id] === 'Yes' ? '[X] Yes' : '[ ] NA';
-            drawBox(450, y, 120, 15, val);
-            y += 15;
+            const val = d[q.id] === 'Yes' ? '[YES]' : '[NA]';
+            doc.text(`${String.fromCharCode(65+i)}. ${q.t}`);
+            doc.text(val, 450, doc.y - 10);
         });
-        y += 20;
 
-        // Hazards & PPE Grid
-        drawBox(20, y, 550, 60, ""); 
-        doc.text("HAZARDS:", 25, y+5);
-        const hazards = ["H_H2S", "H_LackOxygen", "H_Corrosive", "H_ToxicGas", "H_Combustible", "H_Steam", "H_PyroIron", "H_N2Gas", "H_Height", "H_LooseEarth"];
-        let hX = 80, hY = y+5;
-        hazards.forEach(h => { 
-            const box = d[h]==='Y'?'[X]':'[ ]'; 
-            doc.text(`${box} ${h.replace('H_','')}`, hX, hY); hX += 80; if(hX>500){hX=80; hY+=15;}
-        });
-        y += 70;
+        doc.moveDown();
+        doc.font('Helvetica-Bold').text('REMARKS / HAZARDS IDENTIFIED:');
+        const hazards = ["H_H2S", "H_LackOxygen", "H_Corrosive", "H_ToxicGas", "H_Combustible", "H_Steam", "H_PyroIron", "H_N2Gas", "H_Height", "H_LooseEarth", "H_HighNoise", "H_Radiation"];
+        let hText = "";
+        hazards.forEach(h => { if(d[h] === 'Y') hText += `[X] ${h.replace('H_','')}  `; });
+        doc.font('Helvetica').text(hText || "None");
 
-        drawBox(20, y, 550, 60, "");
-        doc.text("PPE:", 25, y+5);
-        const ppe = ["P_FaceShield", "P_FreshAirMask", "P_CompressedBA", "P_Goggles", "P_DustRespirator", "P_Earmuff", "P_LifeLine", "P_Apron", "P_SafetyHarness"];
-        let pX = 60, pY = y+5;
-        ppe.forEach(p => {
-            const box = d[p]==='Y'?'[X]':'[ ]';
-            doc.text(`${box} ${p.replace('P_','')}`, pX, pY); pX += 100; if(pX>500){pX=60; pY+=15;}
-        });
-        y += 70;
+        doc.moveDown();
+        doc.font('Helvetica-Bold').text('PPE REQUIRED:');
+        const ppe = ["P_FaceShield", "P_FreshAirMask", "P_CompressedBA", "P_Goggles", "P_DustRespirator", "P_Earmuff", "P_LifeLine", "P_Apron", "P_SafetyHarness", "P_SafetyNet", "P_Airline"];
+        let pText = "";
+        ppe.forEach(p => { if(d[p] === 'Y') pText += `[X] ${p.replace('P_','')}  `; });
+        doc.font('Helvetica').text(pText || "Standard PPE");
 
-        drawBox(20, y, 550, 30, `Additional Precautions: ${d.AdditionalPrecautions || '-'}`); y+=40;
+        doc.moveDown();
+        doc.text(`Additional Precautions: ${d.AdditionalPrecautions || '-'}`);
+        doc.moveDown();
+        doc.font('Helvetica-Bold').text('DIGITAL SIGNATURES', {underline:true});
+        doc.font('Helvetica');
+        doc.text(`Requested By: ${d.RequesterName} (${d.RequesterEmail})`);
+        doc.text(`Reviewed By: ${d.Reviewer_Sig || 'Pending'} (${d.Reviewer_Remarks || '-'})`);
+        doc.text(`Approved By: ${d.Approver_Sig || 'Pending'} (${d.Approver_Remarks || '-'})`);
 
-        // Signatures
-        doc.font('Helvetica-Bold').text('SIGNATURES', 20, y); y+=15;
-        drawBox(20, y, 180, 40, `Requester:\n${d.RequesterName}\n${d.RequesterEmail}`);
-        drawBox(200, y, 180, 40, `Reviewer:\n${d.Reviewer_Sig||'Pending'}`);
-        drawBox(380, y, 190, 40, `Approver:\n${d.Approver_Sig||'Pending'}`);
-
-        // PAGE 3 - Renewals
-        doc.addPage(); watermark(); y=40;
-        doc.font('Helvetica-Bold').text('CLEARANCE RENEWAL', 20, y); y+=20;
-        
-        // Renewal Table Header
-        drawBox(20, y, 100, 20, "Valid From", true, '#eee'); 
-        drawBox(120, y, 100, 20, "Valid To", true, '#eee');
-        drawBox(220, y, 150, 20, "Gas Test (HC/Tox/O2)", true, '#eee');
-        drawBox(370, y, 200, 20, "Status/Remarks", true, '#eee');
-        y+=20;
-
+        // --- PAGE 3 ---
+        doc.addPage();
+        addWatermark();
+        doc.font('Helvetica-Bold').text('CLEARANCE RENEWAL HISTORY');
+        doc.font('Helvetica');
         const rens = JSON.parse(p.RenewalsJSON || "[]");
-        if(rens.length === 0) drawBox(20, y, 550, 20, "No renewals recorded.");
+        if(rens.length === 0) doc.text("No renewals recorded.");
         else {
             rens.forEach(r => {
-                drawBox(20, y, 100, 20, r.valid_from.replace('T',' '));
-                drawBox(120, y, 100, 20, r.valid_till.replace('T',' '));
-                drawBox(220, y, 150, 20, `HC:${r.hc}% Tox:${r.toxic} O2:${r.oxygen}%`);
-                let statusTxt = r.status.toUpperCase();
-                if(r.rejection_reason) statusTxt += ` (Rej: ${r.rejection_reason})`;
-                drawBox(370, y, 200, 20, statusTxt);
-                y+=20;
+                doc.text(`Period: ${r.valid_from.replace('T',' ')} to ${r.valid_till.replace('T',' ')}`);
+                doc.text(`Status: ${r.status.toUpperCase()} | HC: ${r.hc}% | Tox: ${r.toxic} | O2: ${r.oxygen}%`);
+                doc.text(`Req By: ${r.req_name} (${r.req_at})`);
+                if(r.rev_name) doc.text(`Rev By: ${r.rev_name} (${r.rev_at})`);
+                if(r.app_name) doc.text(`App By: ${r.app_name} (${r.app_at})`);
+                doc.moveDown(0.5);
+                doc.text('------------------------------------------------');
+                doc.moveDown(0.5);
             });
         }
 
-        y+=30;
-        doc.font('Helvetica-Bold').text('CLOSURE', 20, y); y+=15;
-        drawBox(20, y, 550, 20, `Receiver (Job Done): ${d.Closure_Receiver_Sig || 'Not Signed'}`); y+=20;
-        drawBox(20, y, 550, 20, `Issuer (Verified): ${d.Closure_Issuer_Sig || 'Not Signed'}`); y+=20;
-        drawBox(20, y, 550, 30, `Closure Remarks: ${d.Closure_Issuer_Remarks || '-'}`);
+        doc.moveDown(2);
+        doc.font('Helvetica-Bold').text('CLOSING OF WORK PERMIT');
+        doc.font('Helvetica');
+        doc.text(`Receiver Sig: ${d.Closure_Receiver_Sig || 'Not Signed'}`);
+        doc.text(`Issuer Sig: ${d.Closure_Issuer_Sig || 'Not Signed'} (Remarks: ${d.Closure_Issuer_Remarks || '-'})`);
 
         doc.end();
     } catch (e) { res.status(500).send(e.message); }
