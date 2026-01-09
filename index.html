@@ -61,43 +61,43 @@
         <div id="view-form" style="display: none;">
            <button onclick="showDashboard()" class="bg-white/20 text-white px-3 py-1 rounded mb-3 font-bold text-xs">← Back</button>
            <form id="permit-form" class="space-y-3">
-              <input type="hidden" id="PermitID"><input type="hidden" id="Status">
+              <input type="hidden" id="PermitID" name="PermitID"><input type="hidden" id="Status" name="Status">
               
               <div class="glass-panel">
                  <h3 class="font-bold text-indigo-700 mb-3 border-b pb-1">1. Main Permit Details</h3>
                  <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
-                    <div class="col-span-2"><label>Work Type</label><select id="WorkType"><option>Hot</option><option>Cold</option><option>Confined Space</option><option>Height Work</option><option>Excavation Work</option><option>Vehicle Entry</option><option>Any Other</option></select></div>
-                    <div class="col-span-2"><label>Specify Other</label><input id="WorkTypeOther"></div>
-                    <div class="col-span-2"><label>Requester Name</label><input id="RequesterName"></div>
-                    <div class="col-span-2"><label>Applicant (Official)</label><input id="OfficialName" readonly class="bg-gray-100"></div>
+                    <div class="col-span-2"><label>Work Type</label><select id="WorkType" name="WorkType"><option>Hot</option><option>Cold</option><option>Confined Space</option><option>Height Work</option><option>Excavation Work</option><option>Vehicle Entry</option><option>Any Other</option></select></div>
+                    <div class="col-span-2"><label>Specify Other</label><input id="WorkTypeOther" name="WorkTypeOther"></div>
+                    <div class="col-span-2"><label>Requester Name</label><input id="RequesterName" name="RequesterName"></div>
+                    <div class="col-span-2"><label>Applicant (Official)</label><input id="OfficialName" name="OfficialName" readonly class="bg-gray-100"></div>
                     
-                    <div class="col-span-6"><label>Description</label><textarea id="Desc" rows="1"></textarea></div>
+                    <div class="col-span-6"><label>Description</label><textarea id="Desc" name="Desc" rows="1"></textarea></div>
                     
-                    <div class="col-span-2"><label>Location</label><input id="ExactLocation"></div>
-                    <div><label>Unit</label><input id="LocationUnit" value="Pipeline"></div>
-                    <div><label>Issued Dept</label><input id="IssuedToDept"></div>
-                    <div class="col-span-2"><label>Vendor</label><input id="Vendor"></div>
+                    <div class="col-span-2"><label>Location</label><input id="ExactLocation" name="ExactLocation"></div>
+                    <div><label>Unit</label><input id="LocationUnit" name="LocationUnit" value="Pipeline"></div>
+                    <div><label>Issued Dept</label><input id="IssuedToDept" name="IssuedToDept"></div>
+                    <div class="col-span-2"><label>Vendor</label><input id="Vendor" name="Vendor"></div>
                     
-                    <div><label>Loc Permit S/N</label><input id="LocationPermitSno"></div>
-                    <div><label>Isolation Cert</label><input id="RefIsolationCert"></div>
-                    <div><label>Cross Ref</label><input id="CrossRefPermits"></div>
-                    <div><label>JSA Ref</label><input id="JsaRef"></div>
-                    <div><label>MOC Req</label><select id="MocRequired"><option>No</option><option>Yes</option></select></div>
-                    <div><label>MOC Ref</label><input id="MocRef"></div>
-                    <div><label>CCTV Avail</label><select id="CctvAvailable"><option>No</option><option>Yes</option></select></div>
-                    <div><label>CCTV Detail</label><input id="CctvDetail"></div>
+                    <div><label>Loc Permit S/N</label><input id="LocationPermitSno" name="LocationPermitSno"></div>
+                    <div><label>Isolation Cert</label><input id="RefIsolationCert" name="RefIsolationCert"></div>
+                    <div><label>Cross Ref</label><input id="CrossRefPermits" name="CrossRefPermits"></div>
+                    <div><label>JSA Ref</label><input id="JsaRef" name="JsaRef"></div>
+                    <div><label>MOC Req</label><select id="MocRequired" name="MocRequired"><option>No</option><option>Yes</option></select></div>
+                    <div><label>MOC Ref</label><input id="MocRef" name="MocRef"></div>
+                    <div><label>CCTV Avail</label><select id="CctvAvailable" name="CctvAvailable"><option>No</option><option>Yes</option></select></div>
+                    <div><label>CCTV Detail</label><input id="CctvDetail" name="CctvDetail"></div>
 
-                    <div><label>Valid From</label><input type="datetime-local" id="ValidFrom"></div>
-                    <div><label>Valid To</label><input type="datetime-local" id="ValidTo"></div>
+                    <div><label>Valid From</label><input type="datetime-local" id="ValidFrom" name="ValidFrom"></div>
+                    <div><label>Valid To</label><input type="datetime-local" id="ValidTo" name="ValidTo"></div>
                     
                     <div class="col-span-2 border p-1 rounded flex gap-2 items-center bg-slate-50">
-                        <div class="flex-1"><label>Lat</label><input id="Latitude"></div>
-                        <div class="flex-1"><label>Long</label><input id="Longitude"></div>
+                        <div class="flex-1"><label>Lat</label><input id="Latitude" name="Latitude"></div>
+                        <div class="flex-1"><label>Long</label><input id="Longitude" name="Longitude"></div>
                         <button type="button" onclick="getGeo()" class="bg-indigo-600 text-white px-2 py-1 rounded text-xs mt-4">📍</button>
                     </div>
                     
-                    <div class="col-span-2"><label>Assign Reviewer</label><select id="ReviewerEmail"></select></div>
-                    <div class="col-span-2"><label>Assign Approver</label><select id="ApproverEmail"></select></div>
+                    <div class="col-span-2"><label>Assign Reviewer</label><select id="ReviewerEmail" name="ReviewerEmail"></select></div>
+                    <div class="col-span-2"><label>Assign Approver</label><select id="ApproverEmail" name="ApproverEmail"></select></div>
                  </div>
               </div>
 
@@ -114,15 +114,15 @@
                  <div class="mb-2"><span class="font-bold text-xs block mb-1">Hazards:</span><div class="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs" id="hazards-container"></div></div>
                  <div class="mb-2"><span class="font-bold text-xs block mb-1">PPE:</span><div class="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs" id="ppe-container"></div></div>
                  <div class="grid grid-cols-1 gap-2 mt-2">
-                    <textarea id="AdditionalPrecautions" placeholder="Additional Precautions" rows="1"></textarea>
-                    <textarea id="Reviewer_Remarks" placeholder="Reviewer Remarks" rows="1" class="bg-yellow-50"></textarea>
+                    <textarea id="AdditionalPrecautions" name="AdditionalPrecautions" placeholder="Additional Precautions" rows="1"></textarea>
+                    <textarea id="Reviewer_Remarks" name="Reviewer_Remarks" placeholder="Reviewer Remarks" rows="1" class="bg-yellow-50"></textarea>
                  </div>
               </div>
 
               <div id="fs-approver-section" class="glass-panel border-l-4 border-green-500 hidden">
                  <h3 class="font-bold text-green-700 mb-2">4. Final Approval</h3>
-                 <select id="ForceBackgroundColor" class="mb-2 w-48"><option value="">Auto Color</option><option value="Red">Red</option><option value="Green">Green</option><option value="Yellow">Yellow</option></select>
-                 <textarea id="Approver_Remarks" placeholder="Approver Remarks" rows="1" class="bg-green-50"></textarea>
+                 <select id="ForceBackgroundColor" name="ForceBackgroundColor" class="mb-2 w-48"><option value="">Auto Color</option><option value="Red">Red</option><option value="Green">Green</option><option value="Yellow">Yellow</option></select>
+                 <textarea id="Approver_Remarks" name="Approver_Remarks" placeholder="Approver Remarks" rows="1" class="bg-green-50"></textarea>
               </div>
 
               <div id="renewals-section" class="glass-panel hidden">
