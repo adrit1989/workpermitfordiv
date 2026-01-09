@@ -142,7 +142,7 @@ app.post('/api/save-permit', upload.single('file'), async (req, res) => {
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// 5. UPDATE STATUS (With Closure Rejection Logic)
+// 5. UPDATE STATUS
 app.post('/api/update-status', async (req, res) => {
     try {
         const { PermitID, action, role, user, comment, rejectionReason, ...extras } = req.body;
@@ -170,7 +170,7 @@ app.post('/api/update-status', async (req, res) => {
                 status = 'Closure Pending Approval'; 
                 data.Reviewer_Remarks = (data.Reviewer_Remarks||"") + `\n[Closure Verified by ${user} on ${now}: ${comment}]`; 
             } else if (action === 'reject_closure') {
-                status = 'Active'; // Send back to active
+                status = 'Active'; 
                 data.Closure_Reviewer_Display = `Rejected by ${user} on ${now}: ${comment}`;
             }
         }
@@ -187,14 +187,14 @@ app.post('/api/update-status', async (req, res) => {
                 data.Closure_Issuer_Sig = sig; 
                 data.Closure_Issuer_Remarks = comment; 
             } else if (action === 'reject_closure') {
-                status = 'Active'; // Send back to active
+                status = 'Active'; 
                 data.Closure_Issuer_Remarks = `Closure Rejected by ${user} on ${now}: ${comment}`;
             }
         }
         else if (role === 'Requester' && action === 'initiate_closure') {
             status = 'Closure Pending Review'; 
             data.Closure_Receiver_Sig = sig;
-            data.Site_Restored_Check = "Yes"; // Mandatory check stored
+            data.Site_Restored_Check = "Yes"; 
         }
 
         let q = pool.request()
@@ -224,7 +224,7 @@ app.post('/api/permit-data', async (req, res) => {
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// 7. RENEWALS (With Rejection Logic)
+// 7. RENEWALS
 app.post('/api/renewal', async (req, res) => {
     try {
         const { PermitID, userRole, userName, action, rejectionReason, ...data } = req.body;
@@ -311,7 +311,7 @@ app.post('/api/renewal', async (req, res) => {
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// 8. MAP DATA
+// 8. MAP DATA & EXCEL
 app.post('/api/map-data', async (req, res) => {
     try {
         const pool = await getConnection();
@@ -324,11 +324,6 @@ app.post('/api/map-data', async (req, res) => {
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-app.get('/api/kml', async (req, res) => { if(!kmlContainerClient) return res.json([]); let b=[]; for await(const x of kmlContainerClient.listBlobsFlat()) b.push({name:x.name,url:kmlContainerClient.getBlockBlobClient(x.name).url}); res.json(b); });
-app.post('/api/kml', upload.single('file'), async (req, res) => { if(!kmlContainerClient) return; const b = kmlContainerClient.getBlockBlobClient(`${Date.now()}-${req.file.originalname}`); await b.uploadData(req.file.buffer, {blobHTTPHeaders:{blobContentType:"application/vnd.google-earth.kml+xml"}}); res.json({success:true, url:b.url}); });
-app.delete('/api/kml/:name', async (req, res) => { if(!kmlContainerClient) return; await kmlContainerClient.getBlockBlobClient(req.params.name).delete(); res.json({success:true}); });
-
-// 10. STATISTICS API
 app.post('/api/stats', async (req, res) => {
     try {
         const pool = await getConnection();
@@ -340,47 +335,16 @@ app.post('/api/stats', async (req, res) => {
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// 11. EXCEL DOWNLOAD
 app.get('/api/download-excel', async (req, res) => {
     try {
         const pool = await getConnection();
         const result = await pool.request().query("SELECT * FROM Permits ORDER BY Id DESC");
-        
         const workbook = new ExcelJS.Workbook();
         const worksheet = workbook.addWorksheet('Permits Summary');
-
-        worksheet.columns = [
-            { header: 'Permit ID', key: 'id', width: 15 },
-            { header: 'Status', key: 'status', width: 20 },
-            { header: 'Work Type', key: 'wt', width: 20 },
-            { header: 'Requester', key: 'req', width: 25 },
-            { header: 'Department', key: 'dept', width: 20 },
-            { header: 'Vendor', key: 'vendor', width: 20 },
-            { header: 'Description', key: 'desc', width: 40 },
-            { header: 'Location', key: 'loc', width: 30 },
-            { header: 'Valid From', key: 'vf', width: 20 },
-            { header: 'Valid To', key: 'vt', width: 20 }
-        ];
-
+        worksheet.columns = [{ header: 'Permit ID', key: 'id', width: 15 }, { header: 'Status', key: 'status', width: 20 }, { header: 'Work Type', key: 'wt', width: 20 }, { header: 'Requester', key: 'req', width: 25 }, { header: 'Department', key: 'dept', width: 20 }, { header: 'Vendor', key: 'vendor', width: 20 }, { header: 'Description', key: 'desc', width: 40 }, { header: 'Location', key: 'loc', width: 30 }, { header: 'Valid From', key: 'vf', width: 20 }, { header: 'Valid To', key: 'vt', width: 20 }];
         worksheet.getRow(1).font = { bold: true, color: { argb: 'FFFFFFFF' } };
         worksheet.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF4F46E5' } };
-
-        result.recordset.forEach(r => {
-            const d = JSON.parse(r.FullDataJSON || "{}");
-            worksheet.addRow({
-                id: r.PermitID,
-                status: r.Status,
-                wt: d.WorkType,
-                req: d.RequesterName,
-                dept: d.IssuedToDept,
-                vendor: d.Vendor,
-                desc: d.Desc,
-                loc: d.ExactLocation,
-                vf: new Date(r.ValidFrom).toLocaleString(),
-                vt: new Date(r.ValidTo).toLocaleString()
-            });
-        });
-
+        result.recordset.forEach(r => { const d = JSON.parse(r.FullDataJSON || "{}"); worksheet.addRow({ id: r.PermitID, status: r.Status, wt: d.WorkType, req: d.RequesterName, dept: d.IssuedToDept, vendor: d.Vendor, desc: d.Desc, loc: d.ExactLocation, vf: new Date(r.ValidFrom).toLocaleString(), vt: new Date(r.ValidTo).toLocaleString() }); });
         res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
         res.setHeader('Content-Disposition', 'attachment; filename=Permit_Summary.xlsx');
         await workbook.xlsx.write(res);
@@ -388,7 +352,7 @@ app.get('/api/download-excel', async (req, res) => {
     } catch (e) { res.status(500).send(e.message); }
 });
 
-// 12. PDF DOWNLOAD (REWRITTEN FOR TABLE LAYOUT)
+// 12. PDF DOWNLOAD (TABLE FORMAT)
 app.get('/api/download-pdf/:id', async (req, res) => {
     try {
         const pool = await getConnection();
@@ -403,40 +367,28 @@ app.get('/api/download-pdf/:id', async (req, res) => {
         res.setHeader('Content-Disposition', `attachment; filename=${p.PermitID}.pdf`);
         doc.pipe(res);
 
-        // --- PDF HELPER FUNCTIONS FOR TABLES ---
         function drawTable(startY, rows, colsWidth) {
             let currentY = startY;
             doc.fontSize(8).font('Helvetica');
             rows.forEach((row, i) => {
                 let currentX = 40;
                 let maxCellHeight = 0;
-                
-                // Calculate max height for the row
                 row.forEach((cell, j) => {
                     const height = doc.heightOfString(cell, { width: colsWidth[j] - 10 });
                     if(height > maxCellHeight) maxCellHeight = height;
                 });
-                maxCellHeight += 10; // padding
-
-                // Draw cells
+                maxCellHeight += 10;
                 row.forEach((cell, j) => {
                     doc.rect(currentX, currentY, colsWidth[j], maxCellHeight).stroke();
                     doc.text(cell, currentX + 5, currentY + 5, { width: colsWidth[j] - 10 });
                     currentX += colsWidth[j];
                 });
                 currentY += maxCellHeight;
-                
-                // Page break check
-                if(currentY > 750) {
-                    doc.addPage();
-                    currentY = 40;
-                }
+                if(currentY > 750) { doc.addPage(); currentY = 40; }
             });
             return currentY;
         }
 
-        // --- PAGE 1 ---
-        // Header
         doc.rect(40, 40, 515, 60).stroke();
         doc.font('Helvetica-Bold').fontSize(14).text('INDIAN OIL CORPORATION LIMITED', 40, 55, { align: 'center', width: 515 });
         doc.fontSize(10).text('Pipeline Division', 40, 75, { align: 'center', width: 515 });
@@ -445,7 +397,6 @@ app.get('/api/download-pdf/:id', async (req, res) => {
         doc.fontSize(12).text('COMPOSITE WORK PERMIT', { align: 'center', underline:true });
         doc.moveDown();
 
-        // Main Details
         doc.fontSize(9).font('Helvetica');
         const startY = doc.y;
         doc.text(`Permit No: ${p.PermitID}`, 40, startY);
@@ -455,8 +406,6 @@ app.get('/api/download-pdf/:id', async (req, res) => {
         doc.text(`Location: ${d.ExactLocation} (${d.LocationUnit})`, 40, startY + 30);
         
         doc.moveDown(4);
-        
-        // Other Details Table
         doc.font('Helvetica-Bold').text('OTHER PERMIT DETAILS');
         const otherRows = [
             [`Vendor: ${d.Vendor||'-'}`, `Issued To: ${d.IssuedToDept}`],
@@ -465,86 +414,45 @@ app.get('/api/download-pdf/:id', async (req, res) => {
             [`CCTV Avail: ${d.CctvAvailable}`, `CCTV Detail: ${d.CctvDetail||'-'}`]
         ];
         let y = drawTable(doc.y, otherRows, [257, 258]);
-        
         doc.y = y + 10;
         
-        // General Checklist Table
         doc.font('Helvetica-Bold').text('GENERAL CHECKLIST');
-        const gpQs = [
-            {id:"GP_Q1", t:"Equipment/Work Area Inspected"}, {id:"GP_Q2", t:"Surrounding Area Cleaned"}, {id:"GP_Q3", t:"Sewer Manhole Covered"}, 
-            {id:"GP_Q4", t:"Hazards Considered"}, {id:"GP_Q5", t:"Equipment Blinded", d:"GP_Q5_Detail"}, 
-            {id:"GP_Q6", t:"Drained & Depressurized"}, {id:"GP_Q7", t:"Steamed/Purged"}, {id:"GP_Q8", t:"Water Flushed"},
-            {id:"GP_Q9", t:"Fire Tender Access"}, {id:"GP_Q10", t:"Iron Sulfide Removed"},
-            {id:"GP_Q11", t:"Electrically Isolated", d:"GP_Q11_Detail"}, {id:"GP_Q12", t:"Gas Test (Toxic/HC/O2)"}, 
-            {id:"GP_Q13", t:"Fire Extinguisher"}, {id:"GP_Q14", t:"Area Cordoned Off"}
-        ];
-        
+        const gpQs = [{id:"GP_Q1", t:"Equipment/Work Area Inspected"}, {id:"GP_Q2", t:"Surrounding Area Cleaned"}, {id:"GP_Q3", t:"Sewer Manhole Covered"}, {id:"GP_Q4", t:"Hazards Considered"}, {id:"GP_Q5", t:"Equipment Blinded", d:"GP_Q5_Detail"}, {id:"GP_Q6", t:"Drained & Depressurized"}, {id:"GP_Q7", t:"Steamed/Purged"}, {id:"GP_Q8", t:"Water Flushed"}, {id:"GP_Q9", t:"Fire Tender Access"}, {id:"GP_Q10", t:"Iron Sulfide Removed"}, {id:"GP_Q11", t:"Electrically Isolated", d:"GP_Q11_Detail"}, {id:"GP_Q12", t:"Gas Test (Toxic/HC/O2)"}, {id:"GP_Q13", t:"Fire Extinguisher"}, {id:"GP_Q14", t:"Area Cordoned Off"}];
         const gpRows = gpQs.map((q, i) => {
             let ans = d[q.id] === 'Yes' ? 'YES' : 'NA';
             if(q.id === "GP_Q12") ans = `Tox:${d.GP_Q12_ToxicGas||'-'} HC:${d.GP_Q12_HC||'-'} O2:${d.GP_Q12_Oxygen||'-'}`;
             let desc = q.d ? (d[q.d] || '') : '';
             return [`${i+1}`, q.t, ans, desc];
         });
-        
         drawTable(doc.y, [['No', 'Question', 'Status', 'Remarks'], ...gpRows], [30, 250, 80, 155]);
 
-        // --- PAGE 2 ---
         doc.addPage();
         doc.font('Helvetica-Bold').fontSize(10).text('SPECIFIC WORK CHECKLIST');
-        
-        const spQs = [
-            {id:"HW_Q1", t:"Ventilation/Lighting"}, {id:"HW_Q2", t:"Means of Exit"}, {id:"HW_Q3", t:"Standby Person"},
-            {id:"HW_Q4", t:"Trapped Oil/Gas Check"}, {id:"HW_Q5", t:"Shield Against Spark"}, {id:"HW_Q6", t:"Equipment Grounded"},
-            {id:"HW_Q16", t:"Height Permit Taken", d:"HW_Q16_Detail"}, {id:"VE_Q1", t:"Spark Arrestor (Veh)"}, {id:"EX_Q1", t:"Excavation Clear"}
-        ];
-        
+        const spQs = [{id:"HW_Q1", t:"Ventilation/Lighting"}, {id:"HW_Q2", t:"Means of Exit"}, {id:"HW_Q3", t:"Standby Person"}, {id:"HW_Q4", t:"Trapped Oil/Gas Check"}, {id:"HW_Q5", t:"Shield Against Spark"}, {id:"HW_Q6", t:"Equipment Grounded"}, {id:"HW_Q16", t:"Height Permit Taken", d:"HW_Q16_Detail"}, {id:"VE_Q1", t:"Spark Arrestor (Veh)"}, {id:"EX_Q1", t:"Excavation Clear"}];
         const spRows = spQs.map((q, i) => {
             let ans = d[q.id] === 'Yes' ? 'YES' : 'NA';
             let desc = q.d ? (d[q.d] || '') : '';
             return [`${i+1}`, q.t, ans, desc];
         });
-        
         y = drawTable(doc.y, [['No', 'Question', 'Status', 'Remarks'], ...spRows], [30, 250, 80, 155]);
         doc.y = y + 10;
 
-        // Hazards & PPE Boxes
         const hazards = ["H_H2S", "H_LackOxygen", "H_Corrosive", "H_ToxicGas", "H_Combustible", "H_Steam", "H_PyroIron", "H_N2Gas", "H_Height", "H_LooseEarth", "H_HighNoise", "H_Radiation"];
         let hList = hazards.filter(h => d[h] === 'Y').map(h => h.replace('H_','')).join(', ');
-        
-        const ppe = ["P_FaceShield", "P_FreshAirMask", "P_CompressedBA", "P_Goggles", "P_DustRespirator", "P_Earmuff", "P_LifeLine", "P_Apron", "P_SafetyHarness", "P_SafetyNet", "P_Airline"];
-        let pList = ppe.filter(p => d[p] === 'Y').map(p => p.replace('P_','')).join(', ');
-
         doc.rect(40, doc.y, 515, 60).stroke();
         doc.text(`HAZARDS IDENTIFIED: ${hList || 'None'}`, 45, doc.y + 5, {width: 505});
-        doc.text(`PPE REQUIRED: ${pList || 'Standard'}`, 45, doc.y + 30, {width: 505});
         doc.y += 70;
 
-        // Signatures
         doc.font('Helvetica-Bold').text('DIGITAL SIGNATURES');
-        const sigRows = [
-            ['Role', 'Name', 'Date/Time'],
-            ['Requester', d.RequesterName, p.ValidFrom], // Simplified timestamp
-            ['Reviewer', d.Reviewer_Sig || 'Pending', d.Reviewer_Sig ? '' : ''],
-            ['Approver', d.Approver_Sig || 'Pending', d.Approver_Sig ? '' : '']
-        ];
+        const sigRows = [['Role', 'Name', 'Date/Time'], ['Requester', d.RequesterName, p.ValidFrom], ['Reviewer', d.Reviewer_Sig || 'Pending', d.Reviewer_Sig ? '' : ''], ['Approver', d.Approver_Sig || 'Pending', d.Approver_Sig ? '' : '']];
         drawTable(doc.y, sigRows, [100, 200, 215]);
 
-        // --- PAGE 3 ---
         doc.addPage();
         doc.font('Helvetica-Bold').text('CLEARANCE RENEWAL HISTORY');
         const rens = JSON.parse(p.RenewalsJSON || "[]");
-        const renRows = rens.map(r => [
-            `${r.valid_from.replace('T',' ')}\n${r.valid_till.replace('T',' ')}`,
-            `HC:${r.hc} Tox:${r.toxic} O2:${r.oxygen}`,
-            r.status.toUpperCase(),
-            `Req: ${r.req_name}\nRev: ${r.rev_name||'-'}\nApp: ${r.app_name||'-'}`
-        ]);
-        
-        if(renRows.length > 0) {
-            drawTable(doc.y, [['Period', 'Readings', 'Status', 'Signatures'], ...renRows], [100, 100, 80, 235]);
-        } else {
-            doc.text("No renewals recorded.");
-        }
+        const renRows = rens.map(r => [`${r.valid_from.replace('T',' ')}\n${r.valid_till.replace('T',' ')}`, `HC:${r.hc} Tox:${r.toxic} O2:${r.oxygen}`, r.status.toUpperCase(), `Req: ${r.req_name}\nRev: ${r.rev_name||'-'}\nApp: ${r.app_name||'-'}`]);
+        if(renRows.length > 0) drawTable(doc.y, [['Period', 'Readings', 'Status', 'Signatures'], ...renRows], [100, 100, 80, 235]);
+        else doc.text("No renewals recorded.");
         
         doc.moveDown(2);
         doc.font('Helvetica-Bold').text('CLOSURE DETAILS');
@@ -552,16 +460,9 @@ app.get('/api/download-pdf/:id', async (req, res) => {
         doc.text(`Receiver Sig: ${d.Closure_Receiver_Sig || 'Not Signed'}`);
         doc.text(`Issuer Sig: ${d.Closure_Issuer_Sig || 'Not Signed'} (Remarks: ${d.Closure_Issuer_Remarks || '-'})`);
 
-        // Watermark
         const watermarkText = p.Status.includes('Closed') ? 'CLOSED' : 'ACTIVE';
         const color = p.Status.includes('Closed') ? '#ef4444' : '#22c55e';
-        [0, 1, 2].forEach(i => {
-            doc.switchToPage(i);
-            doc.save();
-            doc.rotate(-45, { origin: [300, 400] });
-            doc.fontSize(80).fillColor(color).opacity(0.15).text(watermarkText, 100, 350, { align: 'center', width: 400 });
-            doc.restore();
-        });
+        [0, 1, 2].forEach(i => { doc.switchToPage(i); doc.save(); doc.rotate(-45, { origin: [300, 400] }); doc.fontSize(80).fillColor(color).opacity(0.15).text(watermarkText, 100, 350, { align: 'center', width: 400 }); doc.restore(); });
 
         doc.end();
     } catch (e) { res.status(500).send(e.message); }
