@@ -11,20 +11,13 @@
       body { background: linear-gradient(135deg, #0f172a 0%, #312e81 50%, #4c1d95 100%); color: #1e293b; font-family: sans-serif; font-size: 0.85rem; }
       .glass-panel { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(12px); border-radius: 0.75rem; padding: 1.25rem; box-shadow: 0 10px 30px rgba(0,0,0,0.2); }
       input, select, textarea { width: 100%; border: 1px solid #cbd5e1; padding: 0.4rem; border-radius: 0.375rem; font-size: 0.85rem; }
-      input:disabled, select:disabled, textarea:disabled { 
-          background-color: #f8fafc; 
-          color: #0f172a; 
-          border-color: #cbd5e1; 
-          cursor: not-allowed; 
-          opacity: 1; 
-          font-weight: 500;
-      }
-      input[type="radio"]:disabled, input[type="checkbox"]:disabled {
-          accent-color: #4f46e5;
-          opacity: 0.8;
-      }
+      input:disabled, select:disabled, textarea:disabled { background-color: #f8fafc; color: #0f172a; border-color: #cbd5e1; cursor: not-allowed; opacity: 1; font-weight: 500; }
+      input[type="radio"]:disabled, input[type="checkbox"]:disabled { accent-color: #4f46e5; opacity: 0.8; }
       .status-badge { padding: 2px 8px; border-radius: 99px; font-weight: bold; font-size: 0.7rem; text-transform: uppercase; }
-      #map { height: 500px; width: 100%; border-radius: 0.75rem; }
+      #map { height: 100%; width: 100%; border-radius: 0.75rem; }
+      /* Sidebar List Styling */
+      .permit-item { transition: all 0.2s; border-left: 4px solid transparent; }
+      .permit-item:hover { background-color: #f1f5f9; border-left-color: #6366f1; }
     </style>
   </head>
   <body class="antialiased min-h-screen">
@@ -50,12 +43,12 @@
         </div>
       </nav>
       
-      <main class="max-w-7xl mx-auto px-2 pt-20 pb-12">
-        <div id="view-dashboard">
+      <main class="max-w-7xl mx-auto px-2 pt-20 pb-12 h-screen flex flex-col">
+        <div id="view-dashboard" class="flex-1 overflow-auto">
           <div class="flex justify-between items-center mb-4">
             <h1 class="text-2xl font-bold text-white">Dashboard</h1>
             <div class="flex gap-2">
-              <button id="btn-view-map" onclick="showMap()" class="bg-amber-500 text-white px-4 py-1.5 rounded font-bold text-xs hidden shadow">Map</button>
+              <button id="btn-view-map" onclick="showMap()" class="bg-amber-500 text-white px-4 py-1.5 rounded font-bold text-xs hidden shadow">Map View</button>
               <button id="btn-download-excel" onclick="window.open('/api/download-excel')" class="bg-blue-600 text-white px-4 py-1.5 rounded font-bold text-xs hidden shadow">Download Excel</button>
               <button id="btn-new-permit" onclick="showNewPermit()" class="bg-emerald-600 text-white px-4 py-1.5 rounded font-bold text-xs hidden shadow">+ New Permit</button>
             </div>
@@ -71,9 +64,17 @@
           </div>
         </div>
 
-        <div id="view-map-container" style="display: none;">
-           <button onclick="showDashboard()" class="bg-white px-3 py-1 rounded mb-2 shadow font-bold text-xs">← Back</button>
-           <div id="map"></div>
+        <div id="view-map-container" class="hidden h-full flex flex-col pt-4">
+           <button onclick="showDashboard()" class="bg-white px-3 py-1 rounded mb-2 shadow font-bold text-xs w-fit">← Back</button>
+           <div class="flex flex-1 gap-4 h-[500px]">
+               <div class="w-1/3 glass-panel overflow-y-auto" id="map-sidebar">
+                   <h3 class="font-bold text-indigo-800 mb-2 border-b pb-1">Active Permits</h3>
+                   <div id="active-permit-list" class="space-y-2"></div>
+               </div>
+               <div class="w-2/3 glass-panel p-0 overflow-hidden">
+                   <div id="map"></div>
+               </div>
+           </div>
         </div>
 
         <div id="view-form" style="display: none;">
@@ -189,6 +190,7 @@
     <script>
       const API = "/api";
       let currentUser = null, currentPermitId = null, chartS = null, chartT = null, mapInstance = null;
+      let markers = {}; // Store map markers
       
       const questions = [{id:"GP_Q1", t:"Equip Inspected"}, {id:"GP_Q2", t:"Area Cleaned"}, {id:"GP_Q3", t:"Sewers Covered"}, {id:"GP_Q4", t:"Hazards Considered"}, {id:"GP_Q5", t:"Blinded", d:"GP_Q5_Detail"}, {id:"GP_Q6", t:"Depressurized"}, {id:"GP_Q7", t:"Steamed"}, {id:"GP_Q8", t:"Water Flushed"}, {id:"GP_Q9", t:"Fire Access"}, {id:"GP_Q10", t:"FeS Removed"}, {id:"GP_Q11", t:"Elec Isolated", d:"GP_Q11_Detail"}, {id:"GP_Q12", t:"Gas Test", gas:true}, {id:"GP_Q13", t:"Fire Extinguisher"}, {id:"GP_Q14", t:"Cordoned"}];
       const specific = [{id:"HW_Q1", t:"Ventilation"}, {id:"HW_Q2", t:"Exit Means"}, {id:"HW_Q3", t:"Standby"}, {id:"HW_Q4", t:"Trapped Gas"}, {id:"HW_Q5", t:"Spark Shield"}, {id:"HW_Q6", t:"Grounded"}, {id:"HW_Q16", t:"Height Permit", d:"HW_Q16_Detail"}, {id:"VE_Q1", t:"Spark Arrestor (Veh)"}, {id:"EX_Q1", t:"Excavation Clear"}];
@@ -250,7 +252,6 @@
           if(diff > 7 * 24 * 60 * 60 * 1000) return alert("Error: Permit duration cannot exceed 7 days.");
           if(diff <= 0) return alert("Error: End time must be after Start time.");
           const fd=new FormData(document.getElementById("permit-form")); document.querySelectorAll('input[type="checkbox"]').forEach(c=>fd.set(c.name, c.checked?"Y":"N")); fd.append("RequesterEmail", currentUser.Email); 
-          // Explicitly add Other Hazard Detail
           if(document.getElementById("H_Other").checked) fd.append("H_Other_Detail", document.getElementById("H_Other_Detail").value);
           const res=await fetch(API+'/save-permit', {method:'POST', body:fd}); const json=await res.json(); if(json.success){alert("Created: "+json.permitId); showDashboard();} else alert(json.error); 
       }
@@ -270,7 +271,6 @@
               if(checks.length>0) checks.forEach(c=>{ if(p[key]==='Y') c.checked=true; });
           });
 
-          // Handle Other Hazard Detail Visibility
           if(p.H_Other === 'Y') {
               document.getElementById("H_Other_Detail").classList.remove("hidden");
               document.getElementById("H_Other_Detail").value = p.H_Other_Detail || "";
@@ -290,7 +290,6 @@
               document.getElementById("WorkType").disabled=false;
               document.getElementById("Reviewer_Remarks").disabled=false;
               document.querySelectorAll('#fs-reviewer-section input, #fs-reviewer-section textarea').forEach(e=>e.disabled=false);
-              // Ensure dynamic toggle works if enabled
               document.getElementById("H_Other").onchange = function() { toggleOtherHazard(this); };
               btns.innerHTML = `<button onclick="upd('reject')" class="bg-red-500 text-white px-4 py-2 rounded font-bold">Reject</button><button onclick="upd('review')" class="bg-emerald-600 text-white px-4 py-2 rounded font-bold">Submit Review</button>`;
           }
@@ -433,9 +432,55 @@
           document.getElementById("ppe-container").innerHTML=ppe.map(p=>`<label class="flex items-center gap-2 border p-2 rounded bg-white shadow-sm cursor-pointer hover:bg-gray-50"><input type="checkbox" id="${p}" name="${p}" value="Y" class="rounded text-indigo-600 focus:ring-indigo-500"> ${p.replace('P_','')}</label>`).join(''); 
       }
       
-      function showForm() { document.getElementById("view-dashboard").style.display='none'; document.getElementById("view-form").style.display='block'; window.scrollTo(0,0); }
-      function showDashboard() { document.getElementById("view-dashboard").style.display='block'; document.getElementById("view-form").style.display='none'; document.getElementById("view-map-container").style.display='none'; loadDashboard(); }
-      function showMap() { document.getElementById("view-dashboard").style.display='none'; document.getElementById("view-map-container").style.display='block'; }
+      // MAP LOGIC
+      function showMap() { document.getElementById("view-dashboard").style.display='none'; document.getElementById("view-map-container").classList.remove('hidden'); loadMapData(); }
+      async function loadMapData() {
+          const points = await apiCall('/api/map-data', 'POST');
+          if(!mapInstance) mapInstance = new google.maps.Map(document.getElementById("map"), {center: {lat:26.11, lng:85.39}, zoom:8});
+          
+          // Clear old markers (simple way: re-init map or store array. re-init is safer for small sets)
+          // For sidebar list:
+          const list = document.getElementById("active-permit-list"); list.innerHTML = "";
+          points.forEach(pt => {
+              // Add to sidebar
+              const item = document.createElement("div");
+              item.className = "permit-item p-2 cursor-pointer bg-white rounded shadow-sm hover:shadow-md";
+              item.innerHTML = `<div class="font-bold text-indigo-600">${pt.PermitID}</div><div class="text-xs text-gray-600">${pt.WorkType}</div><div class="text-[10px] text-gray-400">${pt.ExactLocation}</div>`;
+              item.onclick = () => flyToPermit(pt);
+              list.appendChild(item);
+
+              // Add Marker
+              const marker = new google.maps.Marker({
+                  position: {lat: pt.lat, lng: pt.lng},
+                  map: mapInstance,
+                  title: pt.PermitID,
+                  animation: google.maps.Animation.DROP
+              });
+              
+              const infoWindow = new google.maps.InfoWindow({
+                  content: `<div style="color:black"><b>${pt.PermitID}</b><br>${pt.WorkType}<br>Status: Active</div>`
+              });
+
+              marker.addListener("click", () => {
+                  infoWindow.open(mapInstance, marker);
+                  mapInstance.setZoom(15);
+                  mapInstance.setCenter(marker.getPosition());
+              });
+
+              markers[pt.PermitID] = {marker, infoWindow};
+          });
+      }
+
+      function flyToPermit(pt) {
+          const mData = markers[pt.PermitID];
+          if(mData) {
+              mapInstance.setZoom(16);
+              mapInstance.panTo(mData.marker.getPosition());
+              mData.infoWindow.open(mapInstance, mData.marker);
+              mData.marker.setAnimation(google.maps.Animation.BOUNCE);
+              setTimeout(() => mData.marker.setAnimation(null), 3000); // Stop bouncing after 3s
+          }
+      }
     </script>
   </body>
 </html>
