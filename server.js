@@ -24,8 +24,8 @@ if (AZURE_CONN_STR) {
         containerClient = blobServiceClient.getContainerClient("permit-attachments");
         kmlContainerClient = blobServiceClient.getContainerClient("map-layers");
         (async () => {
-            try { await containerClient.createIfNotExists(); } catch(e) { console.log("Container exists"); }
-            try { await kmlContainerClient.createIfNotExists({ access: 'blob' }); } catch(e) { console.log("KML Container exists"); }
+            try { await containerClient.createIfNotExists(); } catch(e) {}
+            try { await kmlContainerClient.createIfNotExists({ access: 'blob' }); } catch(e) {}
         })();
     } catch (err) { console.error("Blob Storage Error:", err.message); }
 }
@@ -47,7 +47,7 @@ function getNowIST() {
 function formatDate(dateStr) {
     if (!dateStr) return '-';
     const d = new Date(dateStr);
-    if (isNaN(d.getTime())) return dateStr; // Return as-is if it's just a text string
+    if (isNaN(d.getTime())) return dateStr; 
     return d.toLocaleString("en-GB", { 
         day: '2-digit', month: '2-digit', year: 'numeric', 
         hour: '2-digit', minute: '2-digit', hour12: false 
@@ -183,7 +183,7 @@ app.post('/api/save-permit', upload.single('file'), async (req, res) => {
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// 5. UPDATE STATUS (With Rejection & Closure Logic)
+// 5. UPDATE STATUS (With 3-Step Closure Logic)
 app.post('/api/update-status', async (req, res) => {
     try {
         const { PermitID, action, role, user, comment, rejectionReason, ...extras } = req.body;
@@ -197,9 +197,19 @@ app.post('/api/update-status', async (req, res) => {
         const now = getNowIST();
         const sig = `${user} on ${now}`;
 
+        // Merge standard extras
         Object.assign(data, extras);
 
-        if (role === 'Reviewer') {
+        // --- CLOSURE WORKFLOW LOGIC ---
+        if (role === 'Requester' && action === 'initiate_closure') {
+            status = 'Closure Pending Review'; 
+            data.Closure_Receiver_Sig = sig;
+            data.Site_Restored_Check = "Yes"; 
+            // Save Requestor's specific remarks
+            data.Closure_Requestor_Remarks = req.body.Closure_Requestor_Remarks;
+            data.Closure_Requestor_Date = now;
+        }
+        else if (role === 'Reviewer') {
             if (action === 'reject') { 
                 status = 'Rejected'; 
                 data.Reviewer_Remarks = (data.Reviewer_Remarks||"") + `\n[Rejected by ${user}: ${comment}]`; 
@@ -209,10 +219,14 @@ app.post('/api/update-status', async (req, res) => {
                 data.Reviewer_Remarks = comment; 
             } else if (action === 'approve' && status.includes('Closure')) { 
                 status = 'Closure Pending Approval'; 
-                data.Reviewer_Remarks = (data.Reviewer_Remarks||"") + `\n[Closure Verified by ${user} on ${now}: ${comment}]`; 
+                // Save Reviewer's specific closure remarks
+                data.Closure_Reviewer_Remarks = req.body.Closure_Reviewer_Remarks;
+                data.Closure_Reviewer_Date = now;
+                data.Closure_Reviewer_Sig = sig; 
             } else if (action === 'reject_closure') {
                 status = 'Active'; 
-                data.Closure_Reviewer_Display = `Rejected by ${user} on ${now}: ${comment}`;
+                data.Closure_Reviewer_Remarks = `[REJECTED by ${user}]: ${req.body.Closure_Reviewer_Remarks}`;
+                data.Closure_Reviewer_Date = now;
             }
         }
         else if (role === 'Approver') {
@@ -225,17 +239,16 @@ app.post('/api/update-status', async (req, res) => {
                 data.Approver_Remarks = comment; 
             } else if (action === 'approve' && status.includes('Closure')) { 
                 status = 'Closed'; 
+                // Save Approver's specific closure remarks
+                data.Closure_Approver_Remarks = req.body.Closure_Approver_Remarks;
+                data.Closure_Approver_Date = now;
                 data.Closure_Issuer_Sig = sig; 
                 data.Closure_Issuer_Remarks = comment; 
             } else if (action === 'reject_closure') {
                 status = 'Active'; 
-                data.Closure_Issuer_Remarks = `Closure Rejected by ${user} on ${now}: ${comment}`;
+                data.Closure_Approver_Remarks = `[REJECTED by ${user}]: ${req.body.Closure_Approver_Remarks}`;
+                data.Closure_Approver_Date = now;
             }
-        }
-        else if (role === 'Requester' && action === 'initiate_closure') {
-            status = 'Closure Pending Review'; 
-            data.Closure_Receiver_Sig = sig;
-            data.Site_Restored_Check = "Yes"; 
         }
 
         let q = pool.request()
@@ -400,7 +413,7 @@ app.get('/api/download-excel', async (req, res) => {
     } catch (e) { res.status(500).send(e.message); }
 });
 
-// 12. PDF DOWNLOAD (PROFESSIONAL TABLE FORMAT)
+// 12. PDF DOWNLOAD (Fully Updated with Table Layout & Closure Remarks)
 app.get('/api/download-pdf/:id', async (req, res) => {
     try {
         const pool = await getConnection();
@@ -409,14 +422,13 @@ app.get('/api/download-pdf/:id', async (req, res) => {
         
         const p = result.recordset[0];
         const d = JSON.parse(p.FullDataJSON);
-        // FIX: bufferPages: true prevents the crash when adding watermarks later
         const doc = new PDFDocument({ margin: 30, size: 'A4', bufferPages: true });
         
         res.setHeader('Content-Type', 'application/pdf');
         res.setHeader('Content-Disposition', `attachment; filename=${p.PermitID}.pdf`);
         doc.pipe(res);
 
-        // Helper: Split Signature (Name on Date) into components
+        // Helper: Split Signature (Name on Date)
         const splitSig = (sigStr) => {
             if (!sigStr) return { name: 'Pending', date: '' };
             const parts = sigStr.split(' on ');
@@ -445,11 +457,10 @@ app.get('/api/download-pdf/:id', async (req, res) => {
             return currentY;
         }
 
-        // HEADER PAGE 1
+        // --- PAGE 1 ---
         doc.rect(40, 40, 515, 60).stroke();
         doc.font('Helvetica-Bold').fontSize(14).text('INDIAN OIL CORPORATION LIMITED', 40, 55, { align: 'center', width: 515 });
         doc.fontSize(10).text('Pipeline Division', 40, 75, { align: 'center', width: 515 });
-        
         doc.moveDown(4);
         doc.fontSize(12).text('COMPOSITE WORK PERMIT', { align: 'center', underline:true });
         doc.moveDown();
@@ -461,8 +472,8 @@ app.get('/api/download-pdf/:id', async (req, res) => {
         doc.text(`Valid From: ${formatDate(p.ValidFrom)}`, 40, startY + 15);
         doc.text(`Valid To: ${formatDate(p.ValidTo)}`, 300, startY + 15);
         doc.text(`Location: ${d.ExactLocation} (${d.LocationUnit})`, 40, startY + 30);
-        
         doc.moveDown(4);
+
         doc.font('Helvetica-Bold').text('OTHER PERMIT DETAILS');
         const otherRows = [
             [`Vendor: ${d.Vendor||'-'}`, `Issued To: ${d.IssuedToDept}`],
@@ -483,7 +494,7 @@ app.get('/api/download-pdf/:id', async (req, res) => {
         });
         drawTable(doc.y, [['No', 'Question', 'Status', 'Remarks'], ...gpRows], [30, 250, 80, 155]);
 
-        // PAGE 2
+        // --- PAGE 2 ---
         doc.addPage();
         doc.font('Helvetica-Bold').fontSize(10).text('SPECIFIC WORK CHECKLIST');
         const spQs = [{id:"HW_Q1", t:"Ventilation/Lighting"}, {id:"HW_Q2", t:"Means of Exit"}, {id:"HW_Q3", t:"Standby Person"}, {id:"HW_Q4", t:"Trapped Oil/Gas Check"}, {id:"HW_Q5", t:"Shield Against Spark"}, {id:"HW_Q6", t:"Equipment Grounded"}, {id:"HW_Q16", t:"Height Permit Taken", d:"HW_Q16_Detail"}, {id:"VE_Q1", t:"Spark Arrestor (Veh)"}, {id:"EX_Q1", t:"Excavation Clear"}];
@@ -507,7 +518,7 @@ app.get('/api/download-pdf/:id', async (req, res) => {
         doc.text(`PPE REQUIRED: ${pList || 'Standard'}`, 45, doc.y + 30, {width: 505});
         doc.y += 70;
 
-        // SIGNATURES - Split Names and Dates
+        // SIGNATURES TABLE
         doc.font('Helvetica-Bold').text('DIGITAL SIGNATURES');
         const reqSig = { name: d.RequesterName, date: formatDate(p.ValidFrom) };
         const revSig = splitSig(d.Reviewer_Sig);
@@ -521,7 +532,7 @@ app.get('/api/download-pdf/:id', async (req, res) => {
         ];
         drawTable(doc.y, sigRows, [100, 250, 165]);
 
-        // PAGE 3 - HISTORY & CLOSURE
+        // --- PAGE 3: HISTORY & CLOSURE ---
         doc.addPage();
         doc.font('Helvetica-Bold').text('CLEARANCE RENEWAL HISTORY');
         const rens = JSON.parse(p.RenewalsJSON || "[]");
@@ -536,18 +547,23 @@ app.get('/api/download-pdf/:id', async (req, res) => {
         
         doc.moveDown(2);
         doc.font('Helvetica-Bold').text('CLOSURE DETAILS');
-        const recvSig = splitSig(d.Closure_Receiver_Sig);
-        const issSig = splitSig(d.Closure_Issuer_Sig);
+        doc.fontSize(9).font('Helvetica');
+        doc.text(`Site Cleared & Restored: ${d.Site_Restored_Check || 'No'}`); 
+        doc.moveDown();
         
-        doc.text(`Site Cleared & Restored: ${d.Site_Restored_Check || 'No'}`);
-        doc.text(`Receiver (Job Completed): Name: ${recvSig.name} | Date: ${recvSig.date}`);
-        doc.text(`Reviewer (Verified): ${d.Reviewer_Sig.includes('Closure') ? 'Verified' : 'Pending Verification'}`);
-        doc.text(`Issuer (Verified Safe): Name: ${issSig.name} | Date: ${issSig.date} (Remarks: ${d.Closure_Issuer_Remarks || '-'})`);
+        // CLOSURE REMARKS TABLE
+        const closureRows = [
+            ['Role', 'Remarks', 'Date/Time'],
+            ['Requestor', d.Closure_Requestor_Remarks || '-', d.Closure_Requestor_Date || '-'],
+            ['Reviewer', d.Closure_Reviewer_Remarks || '-', d.Closure_Reviewer_Date || '-'],
+            ['Approver', d.Closure_Approver_Remarks || '-', d.Closure_Approver_Date || '-']
+        ];
+        drawTable(doc.y, closureRows, [80, 300, 135]);
 
-        // WATERMARK LOOP
+        // WATERMARK
         const watermarkText = p.Status.includes('Closed') ? 'CLOSED' : 'ACTIVE';
         const color = p.Status.includes('Closed') ? '#ef4444' : '#22c55e';
-        const range = doc.bufferedPageRange(); // Get total pages
+        const range = doc.bufferedPageRange();
         for (let i = 0; i < range.count; i++) {
             doc.switchToPage(i);
             doc.save();
