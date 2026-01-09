@@ -732,6 +732,7 @@ app.get('/api/download-pdf/:id', async (req, res) => {
         doc.rect(40, 40, 515, 60).stroke();
         doc.font('Helvetica-Bold').fontSize(14).text('INDIAN OIL CORPORATION LIMITED', 40, 55, { align: 'center', width: 515 });
         doc.fontSize(10).text('Pipeline Division', 40, 75, { align: 'center', width: 515 });
+        
         doc.moveDown(4);
         doc.fontSize(12).text('COMPOSITE WORK PERMIT', { align: 'center', underline:true });
         doc.moveDown();
