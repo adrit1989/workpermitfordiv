@@ -1,4 +1,3 @@
-// db.js
 const sql = require('mssql');
 
 const config = {
@@ -8,7 +7,9 @@ const config = {
     database: process.env.DB_NAME,
     options: {
         encrypt: true, // Required for Azure
-        trustServerCertificate: false
+        trustServerCertificate: false,
+        connectTimeout: 60000, // Wait 60s for Serverless DB to wake up
+        requestTimeout: 60000  // Wait 60s for complex queries
     }
 };
 
@@ -18,6 +19,7 @@ async function getConnection() {
         return pool;
     } catch (err) {
         console.error('SQL Connection Error', err);
+        throw err;
     }
 }
 
