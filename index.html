@@ -11,8 +11,18 @@
       body { background: linear-gradient(135deg, #0f172a 0%, #312e81 50%, #4c1d95 100%); color: #1e293b; font-family: sans-serif; font-size: 0.85rem; }
       .glass-panel { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(12px); border-radius: 0.75rem; padding: 1.25rem; box-shadow: 0 10px 30px rgba(0,0,0,0.2); }
       input, select, textarea { width: 100%; border: 1px solid #cbd5e1; padding: 0.4rem; border-radius: 0.375rem; font-size: 0.85rem; }
-      input:disabled, select:disabled, textarea:disabled { background-color: #f8fafc; color: #0f172a; border-color: #cbd5e1; cursor: not-allowed; opacity: 1; font-weight: 500; }
-      input[type="radio"]:disabled, input[type="checkbox"]:disabled { accent-color: #4f46e5; opacity: 0.8; }
+      input:disabled, select:disabled, textarea:disabled { 
+          background-color: #f8fafc; 
+          color: #0f172a; 
+          border-color: #cbd5e1; 
+          cursor: not-allowed; 
+          opacity: 1; 
+          font-weight: 500;
+      }
+      input[type="radio"]:disabled, input[type="checkbox"]:disabled {
+          accent-color: #4f46e5;
+          opacity: 0.8;
+      }
       .status-badge { padding: 2px 8px; border-radius: 99px; font-weight: bold; font-size: 0.7rem; text-transform: uppercase; }
       #map { height: 100%; width: 100%; border-radius: 0.75rem; }
       .permit-item { transition: all 0.2s; border-left: 4px solid transparent; }
