@@ -11,7 +11,15 @@
       body { background: linear-gradient(135deg, #0f172a 0%, #312e81 50%, #4c1d95 100%); color: #1e293b; font-family: sans-serif; font-size: 0.85rem; }
       .glass-panel { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(12px); border-radius: 0.75rem; padding: 1.25rem; box-shadow: 0 10px 30px rgba(0,0,0,0.2); }
       input, select, textarea { width: 100%; border: 1px solid #cbd5e1; padding: 0.4rem; border-radius: 0.375rem; font-size: 0.85rem; }
-      input:disabled, select:disabled, textarea:disabled { background-color: #e2e8f0; color: #64748b; cursor: not-allowed; }
+      /* Strict Read-Only Styling */
+      input:disabled, select:disabled, textarea:disabled { 
+          background-color: #f1f5f9; 
+          color: #0f172a; 
+          cursor: not-allowed; 
+          border-color: #cbd5e1;
+          opacity: 1; /* Ensure text is readable */
+          font-weight: 500;
+      }
       .status-badge { padding: 2px 8px; border-radius: 99px; font-weight: bold; font-size: 0.7rem; text-transform: uppercase; }
       #map { height: 500px; width: 100%; border-radius: 0.75rem; }
     </style>
@@ -146,12 +154,21 @@
                        <div><label>Oxygen %</label><input id="RenewalOxygen"></div>
                        <div class="col-span-2 md:col-span-5"><label>Precautions</label><input id="RenewalPrecautions"></div>
                     </div>
-                    <button type="button" id="btn-submit-renewal" onclick="submitRenewal('approve')" class="bg-indigo-600 text-white px-3 py-1 rounded text-xs font-bold">Submit</button>
+                    <div class="flex gap-2">
+                        <button type="button" id="btn-submit-renewal" onclick="submitRenewal('approve')" class="bg-indigo-600 text-white px-3 py-1 rounded text-xs font-bold">Submit</button>
+                        <button type="button" id="btn-reject-renewal" onclick="rejectRenewal()" class="bg-red-500 text-white px-3 py-1 rounded text-xs font-bold hidden">Reject</button>
+                    </div>
                  </div>
               </div>
 
               <div id="closure-section" class="glass-panel hidden">
                  <h3 class="font-bold text-slate-700 mb-2">Closure</h3>
+                 <div class="mb-3 p-2 bg-red-50 border border-red-200 rounded">
+                     <label class="flex items-center gap-2 font-bold text-red-800 cursor-pointer">
+                         <input type="checkbox" id="Site_Restored_Check" name="Site_Restored_Check">
+                         I confirm that the Job Site is cleared and restored to Original condition.
+                     </label>
+                 </div>
                  <div class="grid grid-cols-3 gap-2 text-xs">
                     <div class="border p-2 rounded"><strong>Receiver:</strong> <span id="Closure_Receiver_Sig"></span></div>
                     <div class="border p-2 rounded"><strong>Reviewer:</strong> <span id="Closure_Reviewer_Display"></span></div>
@@ -230,12 +247,16 @@
       async function openPermit(id) {
           const p = await apiCall('/permit-data', 'POST', {permitId:id});
           currentPermitId=id;
+          
+          // Lock all fields by default
           document.querySelectorAll('input, textarea, select').forEach(e=>e.disabled=true);
+          
           Object.keys(p).forEach(k=>{ const el=document.getElementById(k); if(el){if(el.type==='checkbox')el.checked=(p[k]==='Y'); else el.value=p[k];} });
           document.querySelectorAll('input[type="checkbox"]').forEach(c=>{ if(p[c.name]==='Y') c.checked=true; });
 
           document.getElementById("fs-reviewer-section").classList.add('hidden'); document.getElementById("fs-approver-section").classList.add('hidden');
           document.getElementById("renewals-section").classList.add('hidden'); document.getElementById("closure-section").classList.add('hidden');
+          document.getElementById("btn-reject-renewal").classList.add('hidden');
           
           const btns = document.getElementById("action-buttons"); btns.innerHTML="";
           const r=currentUser.Role; const s=p.Status;
@@ -268,31 +289,19 @@
               const rens=JSON.parse(p.RenewalsJSON||"[]"); const tbody=document.getElementById("renewals-table-body"); tbody.innerHTML=""; 
               const lastRen = rens[rens.length - 1];
 
-              // Check if pending renewal exists for Reviewer/Approver to see details
+              // Reviewer/Approver Renewal Action
               if(s === 'Renewal Pending Review' && r === 'Reviewer' && lastRen) {
                   document.getElementById("form-renewal").classList.remove('hidden');
-                  document.getElementById("RenewalValidFrom").value = lastRen.valid_from;
-                  document.getElementById("RenewalValidTill").value = lastRen.valid_till;
-                  document.getElementById("RenewalHC").value = lastRen.hc;
-                  document.getElementById("RenewalToxic").value = lastRen.toxic;
-                  document.getElementById("RenewalOxygen").value = lastRen.oxygen;
-                  document.getElementById("RenewalPrecautions").value = lastRen.precautions;
-                  
-                  // Allow reviewer to edit
-                  document.querySelectorAll("#form-renewal input").forEach(e=>e.disabled=false);
+                  populateRenewalForm(lastRen);
+                  document.querySelectorAll("#form-renewal input").forEach(e=>e.disabled=false); // Reviewer can edit details
                   document.getElementById("btn-submit-renewal").innerText = "Verify & Forward";
+                  document.getElementById("btn-reject-renewal").classList.remove('hidden');
               }
-              
               if(s === 'Renewal Pending Approval' && r === 'Approver' && lastRen) {
                   document.getElementById("form-renewal").classList.remove('hidden');
-                  document.getElementById("RenewalValidFrom").value = lastRen.valid_from;
-                  document.getElementById("RenewalValidTill").value = lastRen.valid_till;
-                  document.getElementById("RenewalHC").value = lastRen.hc;
-                  document.getElementById("RenewalToxic").value = lastRen.toxic;
-                  document.getElementById("RenewalOxygen").value = lastRen.oxygen;
-                  document.getElementById("RenewalPrecautions").value = lastRen.precautions;
-                  // Approver just views
+                  populateRenewalForm(lastRen); // Locked for Approver
                   document.getElementById("btn-submit-renewal").innerText = "Approve Renewal";
+                  document.getElementById("btn-reject-renewal").classList.remove('hidden');
               }
 
               rens.forEach(x=>{
@@ -307,17 +316,37 @@
                   </tr>`;
               });
           }
-          if(s.includes('Closure') && r==='Approver') {
+          if(s.includes('Closure')) {
               document.getElementById("closure-section").classList.remove('hidden');
-              document.getElementById("Closure_Issuer_Remarks").disabled=false;
-              btns.innerHTML = `<button onclick="upd('approve')" class="bg-black text-white px-4 py-2 rounded font-bold">Final Close</button>`;
+              document.getElementById("Site_Restored_Check").checked = (p.Site_Restored_Check === 'Yes');
+              
+              if(s === 'Closure Pending Review' && r === 'Reviewer') {
+                  document.getElementById("Reviewer_Remarks").disabled = false;
+                  btns.innerHTML = `<button onclick="upd('reject_closure')" class="bg-red-500 text-white px-4 py-2 rounded font-bold">Reject</button><button onclick="upd('approve')" class="bg-emerald-600 text-white px-4 py-2 rounded font-bold">Verify Closure</button>`;
+              }
+              if(s === 'Closure Pending Approval' && r === 'Approver') {
+                  document.getElementById("Closure_Issuer_Remarks").disabled = false;
+                  btns.innerHTML = `<button onclick="upd('reject_closure')" class="bg-red-500 text-white px-4 py-2 rounded font-bold">Reject</button><button onclick="upd('approve')" class="bg-black text-white px-4 py-2 rounded font-bold">Final Close</button>`;
+              }
           }
           showForm();
       }
 
+      function populateRenewalForm(data) {
+          document.getElementById("RenewalValidFrom").value = data.valid_from;
+          document.getElementById("RenewalValidTill").value = data.valid_till;
+          document.getElementById("RenewalHC").value = data.hc;
+          document.getElementById("RenewalToxic").value = data.toxic;
+          document.getElementById("RenewalOxygen").value = data.oxygen;
+          document.getElementById("RenewalPrecautions").value = data.precautions;
+      }
+
       async function upd(act) {
-          const body={PermitID:currentPermitId, action:act, role:currentUser.Role, user:currentUser.name, comment:currentUser.Role==='Reviewer'?document.getElementById("Reviewer_Remarks").value:document.getElementById("Approver_Remarks").value, ForceBackgroundColor:document.getElementById("ForceBackgroundColor").value, WorkType:document.getElementById("WorkType").value};
-          if(currentUser.Role==='Reviewer') { document.querySelectorAll('#hazards-container input, #ppe-container input').forEach(c=>body[c.name]=c.checked?"Y":"N"); body.AdditionalPrecautions=document.getElementById("AdditionalPrecautions").value; }
+          if(act === 'initiate_closure') {
+              if(!document.getElementById("Site_Restored_Check").checked) return alert("You must confirm the site is cleared and restored.");
+          }
+          const body={PermitID:currentPermitId, action:act, role:currentUser.Role, user:currentUser.name, comment:currentUser.Role==='Reviewer'?document.getElementById("Reviewer_Remarks").value:document.getElementById("Approver_Remarks").value, ForceBackgroundColor:document.getElementById("ForceBackgroundColor").value, WorkType:document.getElementById("WorkType").value, Closure_Issuer_Remarks:document.getElementById("Closure_Issuer_Remarks").value};
+          if(currentUser.Role==='Reviewer' && !act.includes('closure')) { document.querySelectorAll('#hazards-container input, #ppe-container input').forEach(c=>body[c.name]=c.checked?"Y":"N"); body.AdditionalPrecautions=document.getElementById("AdditionalPrecautions").value; }
           const res=await apiCall('/update-status', 'POST', body); if(res.success) showDashboard(); else alert(res.error);
       }
       
@@ -331,6 +360,13 @@
           }
           const body={PermitID:currentPermitId, action:act, userRole:currentUser.Role, userName:currentUser.name, RenewalValidFrom:vf, RenewalValidTill:vt, RenewalHC:document.getElementById("RenewalHC").value, RenewalToxic:document.getElementById("RenewalToxic").value, RenewalOxygen:document.getElementById("RenewalOxygen").value, RenewalPrecautions:document.getElementById("RenewalPrecautions").value};
           const res=await apiCall('/renewal', 'POST', body); if(res.success){alert("Renewal Processed"); showDashboard();} else alert(res.error);
+      }
+
+      async function rejectRenewal() {
+          const reason = prompt("Enter Rejection Reason:");
+          if(!reason) return;
+          const body={PermitID:currentPermitId, action:'reject', userRole:currentUser.Role, userName:currentUser.name, rejectionReason: reason};
+          const res=await apiCall('/renewal', 'POST', body); if(res.success){alert("Renewal Rejected"); showDashboard();} else alert(res.error);
       }
 
       function getGeo() { navigator.geolocation.getCurrentPosition(p=>{document.getElementById("Latitude").value=p.coords.latitude;document.getElementById("Longitude").value=p.coords.longitude;}); }
