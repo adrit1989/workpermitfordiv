@@ -25,7 +25,6 @@
       }
       .status-badge { padding: 2px 8px; border-radius: 99px; font-weight: bold; font-size: 0.7rem; text-transform: uppercase; }
       #map { height: 100%; width: 100%; border-radius: 0.75rem; }
-      /* Sidebar List Styling */
       .permit-item { transition: all 0.2s; border-left: 4px solid transparent; }
       .permit-item:hover { background-color: #f1f5f9; border-left-color: #6366f1; }
     </style>
@@ -257,12 +256,16 @@
           window.users.Approvers.forEach(u=>aS.innerHTML+=`<option value="${u.email}">${u.name}</option>`);
           document.querySelectorAll('input, textarea, select').forEach(e=>e.disabled=false);
           document.getElementById("OfficialName").disabled=true;
+          
           document.querySelectorAll('input[type="radio"][value="Yes"]').forEach(r => r.checked = true);
           document.querySelectorAll('input[type="checkbox"]').forEach(c => c.checked = true);
+
+          // Force hide sections for new permit
           document.getElementById("fs-reviewer-section").classList.add('hidden'); 
           document.getElementById("fs-approver-section").classList.add('hidden');
           document.getElementById("renewals-section").classList.add('hidden'); 
           document.getElementById("closure-section").classList.add('hidden');
+
           document.getElementById("action-buttons").innerHTML = `<button type="button" onclick="submitNewPermit()" class="bg-blue-600 text-white px-6 py-2 rounded font-bold shadow hover:bg-blue-700">Submit Permit</button>`;
           showForm();
       }
@@ -281,7 +284,9 @@
       async function openPermit(id) {
           const p = await apiCall('/permit-data', 'POST', {permitId:id});
           currentPermitId=id;
+          
           document.querySelectorAll('input, textarea, select').forEach(e=>e.disabled=true);
+          
           Object.keys(p).forEach(key=>{ 
               const el=document.getElementById(key); 
               if(el) { if(el.type==='checkbox')el.checked=(p[key]==='Y'); else el.value=p[key]; }
@@ -290,15 +295,18 @@
               const checks = document.querySelectorAll(`input[type="checkbox"][name="${key}"]`);
               if(checks.length>0) checks.forEach(c=>{ if(p[key]==='Y') c.checked=true; });
           });
+
           if(p.H_Other === 'Y') {
               document.getElementById("H_Other_Detail").classList.remove("hidden");
               document.getElementById("H_Other_Detail").value = p.H_Other_Detail || "";
           } else {
               document.getElementById("H_Other_Detail").classList.add("hidden");
           }
+
           document.getElementById("fs-reviewer-section").classList.add('hidden'); document.getElementById("fs-approver-section").classList.add('hidden');
           document.getElementById("renewals-section").classList.add('hidden'); document.getElementById("closure-section").classList.add('hidden');
           document.getElementById("btn-reject-renewal").classList.add('hidden');
+          
           const btns = document.getElementById("action-buttons"); btns.innerHTML="";
           const r=currentUser.Role; const s=p.Status;
 
@@ -319,6 +327,7 @@
           if(s==='Active' || s.includes('Renewal')) {
               document.getElementById("renewals-section").classList.remove('hidden'); document.getElementById("closure-section").classList.remove('hidden');
               let html = `<a href="${API}/download-pdf/${currentPermitId}" target="_blank" class="bg-gray-800 text-white px-4 py-2 rounded font-bold">Download PDF</a>`;
+              
               if(r==='Requester' && s === 'Active') {
                   document.getElementById("form-renewal").classList.remove('hidden');
                   document.querySelectorAll("#form-renewal input").forEach(e=>e.disabled=false);
@@ -326,8 +335,10 @@
                   html += `<button onclick="upd('initiate_closure')" class="bg-amber-500 text-white px-4 py-2 rounded font-bold ml-2">Job Complete</button>`;
               }
               btns.innerHTML = html;
+              
               const rens=JSON.parse(p.RenewalsJSON||"[]"); const tbody=document.getElementById("renewals-table-body"); tbody.innerHTML=""; 
               const lastRen = rens[rens.length - 1];
+
               if(s === 'Renewal Pending Review' && r === 'Reviewer' && lastRen) {
                   document.getElementById("form-renewal").classList.remove('hidden');
                   populateRenewalForm(lastRen);
@@ -341,13 +352,23 @@
                   document.getElementById("btn-submit-renewal").innerText = "Approve Renewal";
                   document.getElementById("btn-reject-renewal").classList.remove('hidden');
               }
+
               rens.forEach(x=>{
-                  tbody.innerHTML+=`<tr class="border-b"><td>${x.valid_from.replace('T',' ')}<br>${x.valid_till.replace('T',' ')}</td><td>HC:${x.hc} Tox:${x.toxic} O2:${x.oxygen}</td><td class="font-bold text-blue-600 uppercase">${x.status}</td><td>${x.req_name}<br><span class="text-[9px]">${x.req_at}</span></td><td>${x.rev_name||'-'}<br><span class="text-[9px]">${x.rev_at||''}</span></td><td>${x.app_name||'-'}<br><span class="text-[9px]">${x.app_at||''}</span></td></tr>`;
+                  tbody.innerHTML+=`
+                  <tr class="border-b">
+                      <td>${x.valid_from.replace('T',' ')}<br>${x.valid_till.replace('T',' ')}</td>
+                      <td>HC:${x.hc} Tox:${x.toxic} O2:${x.oxygen}</td>
+                      <td class="font-bold text-blue-600 uppercase">${x.status}</td>
+                      <td>${x.req_name}<br><span class="text-[9px]">${x.req_at}</span></td>
+                      <td>${x.rev_name||'-'}<br><span class="text-[9px]">${x.rev_at||''}</span></td>
+                      <td>${x.app_name||'-'}<br><span class="text-[9px]">${x.app_at||''}</span></td>
+                  </tr>`;
               });
           }
           if(s.includes('Closure')) {
               document.getElementById("closure-section").classList.remove('hidden');
               document.getElementById("Site_Restored_Check").checked = (p.Site_Restored_Check === 'Yes');
+              
               if(s === 'Closure Pending Review' && r === 'Reviewer') {
                   document.getElementById("Reviewer_Remarks").disabled = false;
                   btns.innerHTML = `<button onclick="upd('reject_closure')" class="bg-red-500 text-white px-4 py-2 rounded font-bold">Reject</button><button onclick="upd('approve')" class="bg-emerald-600 text-white px-4 py-2 rounded font-bold">Verify Closure</button>`;
