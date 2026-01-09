@@ -11,18 +11,8 @@
       body { background: linear-gradient(135deg, #0f172a 0%, #312e81 50%, #4c1d95 100%); color: #1e293b; font-family: sans-serif; font-size: 0.85rem; }
       .glass-panel { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(12px); border-radius: 0.75rem; padding: 1.25rem; box-shadow: 0 10px 30px rgba(0,0,0,0.2); }
       input, select, textarea { width: 100%; border: 1px solid #cbd5e1; padding: 0.4rem; border-radius: 0.375rem; font-size: 0.85rem; }
-      input:disabled, select:disabled, textarea:disabled { 
-          background-color: #f8fafc; 
-          color: #0f172a; 
-          border-color: #cbd5e1; 
-          cursor: not-allowed; 
-          opacity: 1; 
-          font-weight: 500;
-      }
-      input[type="radio"]:disabled, input[type="checkbox"]:disabled {
-          accent-color: #4f46e5;
-          opacity: 0.8;
-      }
+      input:disabled, select:disabled, textarea:disabled { background-color: #f8fafc; color: #0f172a; border-color: #cbd5e1; cursor: not-allowed; opacity: 1; font-weight: 500; }
+      input[type="radio"]:disabled, input[type="checkbox"]:disabled { accent-color: #4f46e5; opacity: 0.8; }
       .status-badge { padding: 2px 8px; border-radius: 99px; font-weight: bold; font-size: 0.7rem; text-transform: uppercase; }
       #map { height: 100%; width: 100%; border-radius: 0.75rem; }
       .permit-item { transition: all 0.2s; border-left: 4px solid transparent; }
@@ -304,8 +294,10 @@
           const p = await apiCall('/permit-data', 'POST', {permitId:id});
           currentPermitId=id;
           
+          // Lock Everything by default
           document.querySelectorAll('input, textarea, select').forEach(e=>e.disabled=true);
           
+          // Populate Data
           Object.keys(p).forEach(key=>{ 
               const el=document.getElementById(key); 
               if(el) { if(el.type==='checkbox')el.checked=(p[key]==='Y'); else el.value=p[key]; }
@@ -337,25 +329,38 @@
           if(p.Closure_Approver_Remarks) document.getElementById("Closure_Approver_Remarks").value = p.Closure_Approver_Remarks;
           if(p.Closure_Approver_Date) document.getElementById("Closure_Approver_Date").innerText = p.Closure_Approver_Date;
 
-          // Init all hidden
+          // Init all closure blocks hidden
           document.getElementById("div-closure-req").classList.add('hidden');
           document.getElementById("div-closure-rev").classList.add('hidden');
           document.getElementById("div-closure-app").classList.add('hidden');
 
-          if(s.includes('Pending Review') && r==='Reviewer') {
-              document.getElementById("fs-reviewer-section").classList.remove('hidden');
-              document.getElementById("WorkType").disabled=false;
-              document.getElementById("Reviewer_Remarks").disabled=false;
-              document.querySelectorAll('#fs-reviewer-section input, #fs-reviewer-section textarea').forEach(e=>e.disabled=false);
-              document.getElementById("H_Other").onchange = function() { toggleOtherHazard(this); };
-              btns.innerHTML = `<button onclick="upd('reject')" class="bg-red-500 text-white px-4 py-2 rounded font-bold">Reject</button><button onclick="upd('review')" class="bg-emerald-600 text-white px-4 py-2 rounded font-bold">Submit Review</button>`;
+          // --- LOGIC: WHO CAN EDIT WHAT ---
+
+          // 1. PENDING REVIEW (Requester can Edit / Reviewer can Reject/Review)
+          if(s === 'Pending Review') {
+             if(r === 'Requester') {
+                 // Requester Edit Mode
+                 document.querySelectorAll('input, textarea, select').forEach(e=>e.disabled=false);
+                 document.getElementById("OfficialName").disabled=true;
+                 btns.innerHTML = `<button onclick="submitNewPermit()" class="bg-blue-600 text-white px-6 py-2 rounded font-bold">Update Permit</button>`;
+             }
+             if(r === 'Reviewer') {
+                 document.getElementById("fs-reviewer-section").classList.remove('hidden');
+                 document.getElementById("Reviewer_Remarks").disabled=false;
+                 document.querySelectorAll('#fs-reviewer-section input, #fs-reviewer-section textarea').forEach(e=>e.disabled=false);
+                 document.getElementById("H_Other").onchange = function() { toggleOtherHazard(this); };
+                 btns.innerHTML = `<button onclick="upd('reject')" class="bg-red-500 text-white px-4 py-2 rounded font-bold">Reject</button><button onclick="upd('review')" class="bg-emerald-600 text-white px-4 py-2 rounded font-bold">Submit Review</button>`;
+             }
           }
+
+          // 2. PENDING APPROVAL (Reviewer Read-Only / Approver Edit)
           if(s.includes('Pending Approval') && r==='Approver') {
               document.getElementById("fs-reviewer-section").classList.remove('hidden'); document.getElementById("fs-approver-section").classList.remove('hidden');
-              document.getElementById("WorkType").disabled=false;
               document.getElementById("Approver_Remarks").disabled=false; document.getElementById("ForceBackgroundColor").disabled=false;
               btns.innerHTML = `<button onclick="upd('reject')" class="bg-red-500 text-white px-4 py-2 rounded font-bold">Reject</button><button onclick="upd('approve')" class="bg-emerald-600 text-white px-4 py-2 rounded font-bold">Approve</button>`;
           }
+
+          // 3. ACTIVE / RENEWAL
           if(s==='Active' || s.includes('Renewal')) {
               document.getElementById("renewals-section").classList.remove('hidden'); document.getElementById("closure-section").classList.remove('hidden');
               let html = `<a href="${API}/download-pdf/${currentPermitId}" target="_blank" class="bg-gray-800 text-white px-4 py-2 rounded font-bold">Download PDF</a>`;
@@ -364,10 +369,8 @@
                   document.getElementById("form-renewal").classList.remove('hidden');
                   document.querySelectorAll("#form-renewal input").forEach(e=>e.disabled=false);
                   document.getElementById("btn-submit-renewal").innerText = "Submit Renewal";
-                  // Show closure initiate button
+                  // Closure Initiate
                   html += `<button onclick="upd('initiate_closure')" class="bg-amber-500 text-white px-4 py-2 rounded font-bold ml-2">Job Complete</button>`;
-                  
-                  // Show only req box editable
                   document.getElementById("div-closure-req").classList.remove('hidden');
                   document.getElementById("Closure_Requestor_Remarks").disabled = false;
               }
@@ -402,6 +405,8 @@
                   </tr>`;
               });
           }
+
+          // 4. CLOSURE WORKFLOW
           if(s.includes('Closure') || s === 'Closed') {
               document.getElementById("closure-section").classList.remove('hidden');
               document.getElementById("Site_Restored_Check").checked = (p.Site_Restored_Check === 'Yes');
