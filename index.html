@@ -25,7 +25,7 @@
     <div id="view-login" class="flex items-center justify-center min-h-screen">
       <div class="glass w-96 text-center shadow-2xl">
         <h1 class="text-2xl font-bold text-orange-600 mb-6">IndianOil Permit System</h1>
-        <form onsubmit="event.preventDefault(); handleLogin();" class="space-y-4">
+        <form onsubmit="event.preventDefault(); window.handleLogin();" class="space-y-4">
           <select id="login-role" class="w-full"><option>Loading...</option></select>
           <select id="login-name" class="w-full" disabled><option>Select Role First</option></select>
           <input type="password" id="login-password" placeholder="Password" class="w-full">
@@ -47,10 +47,10 @@
             <div class="flex justify-between mb-4">
                 <h2 class="text-lg font-bold text-gray-700">Active Permits</h2>
                 <div class="flex gap-2">
-                    <button onclick="showAddUser()" id="btn-add-user" class="bg-purple-600 text-white px-3 py-1 rounded hidden">Users</button>
-                    <button onclick="showMap()" id="btn-view-map" class="bg-blue-600 text-white px-3 py-1 rounded hidden">Map</button>
+                    <button onclick="window.showAddUser()" id="btn-add-user" class="bg-purple-600 text-white px-3 py-1 rounded hidden">Users</button>
+                    <button onclick="window.showMap()" id="btn-view-map" class="bg-blue-600 text-white px-3 py-1 rounded hidden">Map</button>
                     <button onclick="window.open('/api/download-excel')" id="btn-download-excel" class="bg-green-600 text-white px-3 py-1 rounded hidden">Excel</button>
-                    <button onclick="showNewPermit()" id="btn-new-permit" class="bg-orange-600 text-white px-4 py-1 rounded font-bold hidden">+ New Permit</button>
+                    <button onclick="window.showNewPermit()" id="btn-new-permit" class="bg-orange-600 text-white px-4 py-1 rounded font-bold hidden">+ New Permit</button>
                 </div>
             </div>
             
@@ -69,12 +69,12 @@
             <div class="glass overflow-x-auto"><table class="w-full text-left text-sm" id="table-other"><thead class="bg-gray-50"><tr><th class="p-2">ID</th><th>Type</th><th>Location</th><th>Status</th><th>Action</th></tr></thead><tbody></tbody></table></div>
         </div>
 
-        <div id="view-add-user" class="hidden flex justify-center"><div class="glass w-96 relative"><button onclick="showDashboard()" class="absolute top-2 right-2 font-bold">✕</button><h3 class="font-bold mb-4">Add User</h3><form onsubmit="event.preventDefault(); submitNewUser();" class="space-y-3"><input id="new-user-name" placeholder="Name" required><input id="new-user-email" placeholder="Email" required><select id="new-user-role"><option>Requester</option><option>Reviewer</option><option>Approver</option></select><input id="new-user-pass" type="password" placeholder="Password" required><button class="w-full bg-purple-600 text-white py-2 rounded">Add</button></form></div></div>
+        <div id="view-add-user" class="hidden flex justify-center"><div class="glass w-96 relative"><button onclick="window.showDashboard()" class="absolute top-2 right-2 font-bold">✕</button><h3 class="font-bold mb-4">Add User</h3><form onsubmit="event.preventDefault(); window.submitNewUser();" class="space-y-3"><input id="new-user-name" placeholder="Name" required><input id="new-user-email" placeholder="Email" required><select id="new-user-role"><option>Requester</option><option>Reviewer</option><option>Approver</option></select><input id="new-user-pass" type="password" placeholder="Password" required><button class="w-full bg-purple-600 text-white py-2 rounded">Add</button></form></div></div>
 
-        <div id="view-map" class="hidden h-screen flex flex-col"><button onclick="showDashboard()" class="mb-2 text-blue-600 font-bold">← Back</button><div class="flex-1 flex gap-2"><div class="w-1/4 glass overflow-y-auto" id="map-list"></div><div id="map" class="flex-1 rounded shadow"></div></div></div>
+        <div id="view-map" class="hidden h-screen flex flex-col"><button onclick="window.showDashboard()" class="mb-2 text-blue-600 font-bold">← Back</button><div class="flex-1 flex gap-2"><div class="w-1/4 glass overflow-y-auto" id="map-list"></div><div id="map" class="flex-1 rounded shadow"></div></div></div>
 
         <div id="view-form" class="hidden">
-            <button onclick="showDashboard()" class="text-blue-600 font-bold mb-2">← Back</button>
+            <button onclick="window.showDashboard()" class="text-blue-600 font-bold mb-2">← Back</button>
             <div id="permit-header-display" class="mb-4 p-3 bg-blue-100 text-blue-800 rounded font-bold text-center shadow-sm"></div>
 
             <form id="pf">
@@ -88,8 +88,8 @@
                         <div><label>Location</label><input name="ExactLocation" id="ExactLocation"></div>
                         <div><label>Section/Unit</label><input name="LocationUnit" id="LocationUnit" value="Pipeline"></div>
                         
-                        <div><label>Valid From</label><input type="datetime-local" name="ValidFrom" id="ValidFrom" onchange="checkDate()"></div>
-                        <div><label>Valid To</label><input type="datetime-local" name="ValidTo" id="ValidTo" onchange="checkDate()"></div>
+                        <div><label>Valid From</label><input type="datetime-local" name="ValidFrom" id="ValidFrom" onchange="window.checkDate()"></div>
+                        <div><label>Valid To</label><input type="datetime-local" name="ValidTo" id="ValidTo" onchange="window.checkDate()"></div>
                         <div><label>Requester</label><input name="RequesterName" id="RequesterName" readonly></div>
                         <div><label>Reviewer</label><select name="ReviewerEmail" id="ReviewerEmail"></select></div>
                         <div><label>Approver</label><select name="ApproverEmail" id="ApproverEmail"></select></div>
@@ -185,7 +185,7 @@
         const HAZARDS = ["Lack of Oxygen", "H2S", "Toxic Gases", "Combustible gases", "Pyrophoric Iron", "Corrosive Chemicals", "cave in formation", "Others"];
         const PPE = ["Helmet", "Safety Shoes", "Hand gloves", "Boiler suit", "Face Shield", "Apron", "Goggles", "Dust Respirator", "Fresh Air Mask", "Lifeline", "Safety Harness", "Airline", "Earmuff"];
 
-        document.addEventListener("DOMContentLoaded", () => { loadUsers(); renderUI(); });
+        document.addEventListener("DOMContentLoaded", () => { window.loadUsers(); renderUI(); });
 
         function renderUI() {
             let h = '';
@@ -218,7 +218,7 @@
             } finally { loader.style.display = 'none'; }
         }
 
-        async function loadUsers() { const u=await apiCall('/users'); window.users=u; const s=document.getElementById("login-role"); s.innerHTML='<option>Requester</option><option>Reviewer</option><option>Approver</option>'; s.onchange=()=>{const l=u[s.value+'s']; const n=document.getElementById("login-name"); n.disabled=false; n.innerHTML=""; l.forEach(x=>n.innerHTML+=`<option value="${x.email}">${x.name}</option>`);};}
+        window.loadUsers = async function() { const u=await apiCall('/users'); window.users=u; const s=document.getElementById("login-role"); s.innerHTML='<option>Requester</option><option>Reviewer</option><option>Approver</option>'; s.onchange=()=>{const l=u[s.value+'s']; const n=document.getElementById("login-name"); n.disabled=false; n.innerHTML=""; l.forEach(x=>n.innerHTML+=`<option value="${x.email}">${x.name}</option>`);};}
         window.handleLogin = async function() { const r=document.getElementById("login-role").value; const n=document.getElementById("login-name").options[document.getElementById("login-name").selectedIndex].text; const e=document.getElementById("login-name").value; const p=document.getElementById("login-password").value; const res=await apiCall('/login','POST',{role:r,name:e,password:p}); if(res.success){currentUser={...res.user, name:n}; document.getElementById("view-login").style.display='none'; document.getElementById("app-container").style.display='block'; document.getElementById("user-info").innerText=`${n} (${r})`; updateRoleUI(); loadDashboard();} else alert(res.message); }
         function updateRoleUI() { if(currentUser.Role==='Requester') document.getElementById("btn-new-permit").classList.remove('hidden'); if(currentUser.Role!=='Requester') { document.getElementById("btn-view-map").classList.remove('hidden'); document.getElementById("btn-download-excel").classList.remove('hidden'); document.getElementById("charts-container").classList.remove('hidden'); loadStats(); if(currentUser.Role==='Approver') document.getElementById("btn-add-user").classList.remove('hidden'); } }
         async function loadStats() { const res=await apiCall('/stats','POST'); if(chartS)chartS.destroy(); if(chartT)chartT.destroy(); chartS=new Chart(document.getElementById('chartStatus'),{type:'doughnut',data:{labels:Object.keys(res.statusCounts),datasets:[{data:Object.values(res.statusCounts)}]}}); chartT=new Chart(document.getElementById('chartType'),{type:'bar',data:{labels:Object.keys(res.typeCounts),datasets:[{label:'Types',data:Object.values(res.typeCounts)}]}}); }
@@ -239,9 +239,22 @@
             currentPermitId = id;
             document.getElementById("permit-header-display").innerText = `PERMIT: ${id} [${p.Status}]`;
             
-            const rS=document.getElementById("ReviewerEmail"), aS=document.getElementById("ApproverEmail"); rS.innerHTML=""; aS.innerHTML=""; if(window.users){window.users.Reviewers.forEach(u=>rS.innerHTML+=`<option value="${u.email}">${u.name}</option>`); window.users.Approvers.forEach(u=>aS.innerHTML+=`<option value="${u.email}">${u.name}</option>`);}
+            // Populate Dropdowns
+            const rS=document.getElementById("ReviewerEmail"), aS=document.getElementById("ApproverEmail"); 
+            rS.innerHTML = ""; aS.innerHTML = ""; 
+            if(window.users){
+                window.users.Reviewers.forEach(u=>rS.innerHTML+=`<option value="${u.email}">${u.name}</option>`); 
+                window.users.Approvers.forEach(u=>aS.innerHTML+=`<option value="${u.email}">${u.name}</option>`);
+            }
+
+            // Safe Set Helper
+            const safeSet = (id, val) => { const el = document.getElementById(id); if(el) el.value = val; };
+            const safeCheck = (id, val) => { const el = document.getElementById(id); if(el) el.checked = val; };
+
             document.querySelectorAll('#pf input, #pf select, #pf textarea').forEach(e => {
-                if(e.type==='radio'){if(e.value===p[e.name])e.checked=true;} else if(e.type==='checkbox'){e.checked=(p[e.name]==='Y');} else {e.value=p[e.name]||'';}
+                if(e.type==='radio'){ if(e.value===p[e.name]) e.checked=true; }
+                else if(e.type==='checkbox'){ e.checked=(p[e.name]==='Y'); }
+                else { e.value=p[e.name]||''; }
                 e.disabled=true; 
             });
 
@@ -256,12 +269,25 @@
             let btns = "";
 
             if(s.includes('Pending Review')) {
-                if(r==='Requester') { document.querySelectorAll('#pf input, #pf select, #pf textarea').forEach(e=>e.disabled=false); btns=`<button type="button" onclick="window.savePermit()" class="bg-blue-600 text-white px-4 py-2 rounded">Update</button>`; }
-                if(r==='Reviewer') { document.getElementById("fs-reviewer-section").classList.remove('hidden'); document.querySelectorAll('#fs-reviewer-section *, #hazards-section input').forEach(e=>e.disabled=false); btns=`<button type="button" onclick="window.upd('reject')" class="bg-red-600 text-white px-4 py-2 rounded">Reject</button><button type="button" onclick="window.upd('review')" class="bg-green-600 text-white px-4 py-2 rounded">Submit Review</button>`; }
+                if(r==='Requester') { 
+                    document.querySelectorAll('#pf input, #pf select, #pf textarea').forEach(e=>e.disabled=false); 
+                    document.getElementById("OfficialName").disabled=true;
+                    document.getElementById("RequesterName").disabled=true;
+                    btns=`<button type="button" onclick="window.savePermit()" class="bg-blue-600 text-white px-4 py-2 rounded">Update</button>`; 
+                }
+                if(r==='Reviewer') { 
+                    document.getElementById("fs-reviewer-section").classList.remove('hidden'); 
+                    document.querySelectorAll('#fs-reviewer-section *, #hazards-section input').forEach(e=>e.disabled=false); 
+                    btns=`<button type="button" onclick="window.upd('reject')" class="bg-red-600 text-white px-4 py-2 rounded">Reject</button><button type="button" onclick="window.upd('review')" class="bg-green-600 text-white px-4 py-2 rounded">Submit Review</button>`; 
+                }
             }
             if(s.includes('Pending Approval')) {
                 document.getElementById("fs-reviewer-section").classList.remove('hidden');
-                if(r==='Approver') { document.getElementById("fs-approver-section").classList.remove('hidden'); document.getElementById("Approver_Remarks").disabled=false; btns=`<button type="button" onclick="window.upd('reject')" class="bg-red-600 text-white px-4 py-2 rounded">Reject</button><button type="button" onclick="window.upd('approve')" class="bg-green-600 text-white px-4 py-2 rounded">Approve</button>`; }
+                if(r==='Approver') { 
+                    document.getElementById("fs-approver-section").classList.remove('hidden'); 
+                    document.getElementById("Approver_Remarks").disabled=false; 
+                    btns=`<button type="button" onclick="window.upd('reject')" class="bg-red-600 text-white px-4 py-2 rounded">Reject</button><button type="button" onclick="window.upd('approve')" class="bg-green-600 text-white px-4 py-2 rounded">Approve</button>`; 
+                }
             }
             if(s==='Active' || s.includes('Renewal')) {
                 document.getElementById("fs-reviewer-section").classList.remove('hidden');
@@ -350,7 +376,38 @@
             if(res.success) { alert("Done"); showDashboard(); } else alert(res.error);
         }
 
-        window.showNewPermit = function() { document.getElementById("pf").reset(); currentPermitId=null; document.getElementById("Status").value="New"; document.getElementById("permit-header-display").innerText = "New Permit"; const rS=document.getElementById("ReviewerEmail"), aS=document.getElementById("ApproverEmail"); rS.innerHTML=""; aS.innerHTML=""; if(window.users){window.users.Reviewers.forEach(u=>rS.innerHTML+=`<option value="${u.email}">${u.name}</option>`); window.users.Approvers.forEach(u=>aS.innerHTML+=`<option value="${u.email}">${u.name}</option>`);} document.querySelectorAll('input, textarea, select').forEach(e=>e.disabled=false); document.getElementById("OfficialName").value=currentUser.name; document.getElementById("OfficialName").disabled=true; document.getElementById("RequesterName").value=currentUser.name; document.getElementById("RequesterName").disabled=true; document.getElementById("fs-reviewer-section").classList.add('hidden'); document.getElementById("fs-approver-section").classList.add('hidden'); document.getElementById("renewals-section").classList.add('hidden'); document.getElementById("closure-section").classList.add('hidden'); document.getElementById("actions").innerHTML = `<button type="button" onclick="window.savePermit()" class="bg-blue-600 text-white px-6 py-2 rounded font-bold">Submit</button>`; document.getElementById("view-dashboard").classList.add('hidden'); document.getElementById("view-form").classList.remove('hidden'); }
+        window.showNewPermit = function() { 
+           document.getElementById("pf").reset(); 
+           currentPermitId=null; 
+           document.getElementById("Status").value="New"; 
+           document.getElementById("permit-header-display").innerText = "New Permit"; 
+           
+           // Safe Populate
+           const rS=document.getElementById("ReviewerEmail"), aS=document.getElementById("ApproverEmail"); 
+           if(rS && aS) {
+               rS.innerHTML=""; aS.innerHTML=""; 
+               if(window.users){
+                   window.users.Reviewers.forEach(u=>rS.innerHTML+=`<option value="${u.email}">${u.name}</option>`); 
+                   window.users.Approvers.forEach(u=>aS.innerHTML+=`<option value="${u.email}">${u.name}</option>`);
+               }
+           }
+
+           document.querySelectorAll('input, textarea, select').forEach(e=>e.disabled=false); 
+           
+           // Safe Set
+           const setV = (id,v) => { const el=document.getElementById(id); if(el) { el.value=v; el.disabled=true; } };
+           setV("OfficialName", currentUser.name);
+           setV("RequesterName", currentUser.name);
+           
+           document.getElementById("fs-reviewer-section").classList.add('hidden'); 
+           document.getElementById("fs-approver-section").classList.add('hidden'); 
+           document.getElementById("renewals-section").classList.add('hidden'); 
+           document.getElementById("closure-section").classList.add('hidden'); 
+           document.getElementById("actions").innerHTML = `<button type="button" onclick="window.savePermit()" class="bg-blue-600 text-white px-6 py-2 rounded font-bold">Submit</button>`; 
+           document.getElementById("view-dashboard").classList.add('hidden'); 
+           document.getElementById("view-form").classList.remove('hidden'); 
+        }
+        
         window.savePermit = async function() { const fd=new FormData(document.getElementById("pf")); document.querySelectorAll('input[type="checkbox"]').forEach(c=>fd.set(c.name, c.checked?"Y":"N")); fd.append("RequesterEmail", currentUser.Email); if(currentPermitId) fd.set("PermitID", currentPermitId); const res=await fetch(API+'/save-permit', {method:'POST', body:fd}); const json=await res.json(); if(json.success){alert("Saved: "+json.permitId); showDashboard();} else alert(json.error); }
         window.checkDate = function() { const vf=new Date(document.getElementById("ValidFrom").value); const vt=new Date(document.getElementById("ValidTo").value); if(vf && vt && (vt-vf)/(1000*60*60*24)>7) { alert("Max 7 Days"); document.getElementById("ValidTo").value=""; } }
         window.showDashboard = function() { document.getElementById("view-dashboard").classList.remove('hidden'); document.getElementById("view-form").classList.add('hidden'); loadDashboard(); }
