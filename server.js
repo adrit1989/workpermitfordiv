@@ -34,15 +34,14 @@ function getNowIST() {
         hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false 
     }).replace(',', ''); 
 }
-
-function formatDate(dateStr) {
-    if (!dateStr) return '-';
-    const d = new Date(dateStr);
+function formatDate(dateStr) { 
+    if (!dateStr) return '-'; 
+    const d = new Date(dateStr); 
     if (isNaN(d.getTime())) return dateStr; 
     return d.toLocaleString("en-GB", { 
         day: '2-digit', month: '2-digit', year: 'numeric', 
         hour: '2-digit', minute: '2-digit', hour12: false 
-    }).replace(',', '');
+    }).replace(',', ''); 
 }
 
 // --- CHECKLIST DATA ---
@@ -182,7 +181,6 @@ app.post('/api/save-worker', async (req, res) => {
             if(cur.recordset.length === 0) return res.status(404).json({error:"Worker not found"});
             let st = cur.recordset[0].Status;
             let dataObj = JSON.parse(cur.recordset[0].DataJSON);
-
             let nextSt = st;
             if (Action === 'approve') {
                 if (st.includes('Pending Review')) nextSt = st.replace('Review', 'Approval');
@@ -303,7 +301,7 @@ app.post('/api/renewal', async (req, res) => {
                 if(userRole==='Approver') { last.app_name = userName; last.app_at = now; last.app_rem = rejectionReason; }
             }
         }
-        let newStatus = r[r.length-1].status==='approved'?'Active':(r[r.length-1].status==='rejected'?'Active':(userRole==='Requester'?'Renewal Pending Review':'Renewal Pending Approval'));
+        let newStatus = r[r.length-1].status==='approved'?'Active':(r[r.length-1].status==='rejected'?'Active':'Renewal Pending ' + (userRole==='Requester'?'Review':'Approval'));
         await pool.request().input('p', PermitID).input('r', JSON.stringify(r)).input('s', newStatus).query("UPDATE Permits SET RenewalsJSON=@r, Status=@s WHERE PermitID=@p");
         res.json({ success: true });
     } catch (e) { res.status(500).json({ error: e.message }); }
@@ -328,19 +326,10 @@ app.get('/api/download-pdf/:id', async (req, res) => {
         drawHeader(doc, bgColor); doc.y = 135; doc.fontSize(9).font('Helvetica');
         const infoY = doc.y; const c1 = 40, c2 = 300;
         doc.text(`Permit No: ${p.PermitID}`, c1, infoY).text(`Validity: ${formatDate(p.ValidFrom)} - ${formatDate(p.ValidTo)}`, c2, infoY);
-        doc.text(`Issued To: ${d.IssuedToDept} (${d.Vendor})`, c1, infoY+15).text(`Location: ${d.ExactLocation}`, c2, infoY+15);
+        doc.text(`Issued To: ${d.IssuedToDept} (${d.Vendor})`, c1, infoY+15).text(`Location: ${d.ExactLocation} (${d.WorkLocationDetail||''})`, c2, infoY+15);
         doc.text(`Desc: ${d.Desc}`, c1, infoY+30,{width:500}).text(`Site Person: ${d.RequesterName}`, c1, infoY+60).text(`Security: ${d.SecurityGuard||'-'}`, c2, infoY+60);
         doc.text(`Emergency: ${d.EmergencyContact||'-'}`, c1, infoY+75).text(`Fire Stn: ${d.FireStation||'-'}`, c2, infoY+75);
-        doc.text(`Specific Loc: ${d.WorkLocationDetail||'-'}`, c1, infoY+90);
-        doc.rect(30,infoY-5,535,110).stroke(); doc.y=infoY+115;
-
-        // HEADER E: Attachment Details
-        if(doc.y>650){doc.addPage(); drawHeader(doc, bgColor); doc.y=135;}
-        doc.font('Helvetica-Bold').text("E. DETAILS FOR ATTACHMENT", 30, doc.y); doc.y+=15;
-        doc.fontSize(8).font('Helvetica');
-        doc.text(`SOP No: ${d.SopNo||'-'} | JSA No: ${d.JsaNo||'-'}`, 30, doc.y); doc.y+=12;
-        doc.text(`IOCL Equip: ${d.IoclEquip||'-'} | Contractor Equip: ${d.ContEquip||'-'}`, 30, doc.y); doc.y+=12;
-        doc.text(`Work Order: ${d.WorkOrder||'-'}`, 30, doc.y); doc.y+=20;
+        doc.rect(30,infoY-5,535,95).stroke(); doc.y=infoY+100;
 
         // Checklists
         const drawChecklist = (t,i,pr) => { 
@@ -356,6 +345,15 @@ app.get('/api/download-pdf/:id', async (req, res) => {
         };
         drawChecklist("SECTION A: GENERAL", CHECKLIST_DATA.A,'A'); drawChecklist("SECTION B: HOT WORK", CHECKLIST_DATA.B,'B'); drawChecklist("SECTION C: VEHICLE", CHECKLIST_DATA.C,'C'); drawChecklist("SECTION D: EXCAVATION", CHECKLIST_DATA.D,'D');
 
+        // HEADER E (NEW)
+        if(doc.y>650){doc.addPage(); drawHeader(doc, bgColor); doc.y=135;}
+        doc.font('Helvetica-Bold').text("E. DETAILS FOR ATTACHMENT", 30, doc.y); doc.y+=15;
+        doc.fontSize(8).font('Helvetica');
+        doc.text(`SOP No: ${d.SopNo||'-'} | JSA No: ${d.JsaNo||'-'}`, 30, doc.y); doc.y+=12;
+        doc.text(`IOCL Equip: ${d.IoclEquip||'-'} | Contractor Equip: ${d.ContEquip||'-'}`, 30, doc.y); doc.y+=12;
+        doc.text(`Work Order: ${d.WorkOrder||'-'}`, 30, doc.y); doc.y+=20;
+
+        // Hazards
         if(doc.y>650){doc.addPage(); drawHeader(doc, bgColor); doc.y=135;}
         doc.font('Helvetica-Bold').text("HAZARDS & PRECAUTIONS",30,doc.y); doc.y+=15; doc.rect(30,doc.y,535,60).stroke();
         const hazKeys = ["Lack of Oxygen", "H2S", "Toxic Gases", "Combustible gases", "Pyrophoric Iron", "Corrosive Chemicals", "cave in formation"];
@@ -384,7 +382,7 @@ app.get('/api/download-pdf/:id', async (req, res) => {
         doc.rect(208,sY,178,40).stroke().text(`REV: ${d.Reviewer_Sig||'-'}`,213,sY+5);
         doc.rect(386,sY,179,40).stroke().text(`APP: ${d.Approver_Sig||'-'}`,391,sY+5); doc.y=sY+50;
 
-        // Renewals (Updated Headers)
+        // Renewals (Overlap Fix)
         doc.font('Helvetica-Bold').text("CLEARANCE RENEWAL",30,doc.y); doc.y+=15;
         let ry = doc.y;
         doc.rect(30,ry,60,25).stroke().text("From",32,ry+5); doc.rect(90,ry,60,25).stroke().text("To",92,ry+5); doc.rect(150,ry,70,25).stroke().text("Gas",152,ry+5); doc.rect(220,ry,80,25).stroke().text("Precautions",222,ry+5); doc.rect(300,ry,85,25).stroke().text("Req (Name/Date)",302,ry+5); doc.rect(385,ry,85,25).stroke().text("Rev (Name/Date)",387,ry+5); doc.rect(470,ry,85,25).stroke().text("App (Name/Date)",472,ry+5); ry+=25;
@@ -392,17 +390,18 @@ app.get('/api/download-pdf/:id', async (req, res) => {
         doc.font('Helvetica').fontSize(8);
         renewals.forEach(r => {
              if(ry>700){doc.addPage(); drawHeader(doc, bgColor); doc.y=135; ry=135;}
-             doc.rect(30,ry,60,35).stroke().text(r.valid_from.replace('T','\n'), 32, ry+5);
-             doc.rect(90,ry,60,35).stroke().text(r.valid_till.replace('T','\n'), 92, ry+5);
-             doc.rect(150,ry,70,35).stroke().text(`${r.hc}/${r.toxic}/${r.oxygen}`, 152, ry+5);
-             doc.rect(220,ry,80,35).stroke().text(r.precautions||'-', 222, ry+5);
-             doc.rect(300,ry,85,35).stroke().text(`${r.req_name}\n${r.req_at}`, 302, ry+5);
-             doc.rect(385,ry,85,35).stroke().text(`${r.rev_name||'-'}\n${r.rev_at||'-'}`, 387, ry+5);
-             doc.rect(470,ry,85,35).stroke().text(`${r.app_name||'-'}\n${r.app_at||'-'}`, 472, ry+5);
+             doc.rect(30,ry,60,35).stroke().text(r.valid_from.replace('T','\n'), 32, ry+5, {width:55});
+             doc.rect(90,ry,60,35).stroke().text(r.valid_till.replace('T','\n'), 92, ry+5, {width:55});
+             doc.rect(150,ry,70,35).stroke().text(`${r.hc}/${r.toxic}/${r.oxygen}`, 152, ry+5, {width:65});
+             doc.rect(220,ry,80,35).stroke().text(r.precautions||'-', 222, ry+5, {width:75});
+             doc.rect(300,ry,85,35).stroke().text(`${r.req_name}\n${r.req_at}`, 302, ry+5, {width:80});
+             doc.rect(385,ry,85,35).stroke().text(`${r.rev_name||'-'}\n${r.rev_at||'-'}`, 387, ry+5, {width:80});
+             doc.rect(470,ry,85,35).stroke().text(`${r.app_name||'-'}\n${r.app_at||'-'}`, 472, ry+5, {width:80});
              ry += 35;
         });
         doc.y = ry + 20;
 
+        // Closure Table (Overlap Fix)
         if(doc.y>650){doc.addPage(); drawHeader(doc, bgColor); doc.y=135;}
         doc.font('Helvetica-Bold').text("CLOSURE OF WORK PERMIT",30,doc.y); doc.y+=15;
         let cy = doc.y;
@@ -410,13 +409,13 @@ app.get('/api/download-pdf/:id', async (req, res) => {
         const closureSteps = [ {role:'Requestor', name:d.RequesterName, date:d.Closure_Requestor_Date, rem:d.Closure_Requestor_Remarks}, {role:'Reviewer', name:d.Reviewer_Sig, date:d.Closure_Reviewer_Date, rem:d.Closure_Reviewer_Remarks}, {role:'Approver', name:d.Closure_Issuer_Sig, date:d.Closure_Approver_Date, rem:d.Closure_Approver_Remarks} ];
         doc.font('Helvetica').fontSize(8);
         closureSteps.forEach(s => {
-             doc.rect(30,cy,80,30).stroke().text(s.role,35,cy+5); doc.rect(110,cy,120,30).stroke().text(s.name||'-',115,cy+5); doc.rect(230,cy,100,30).stroke().text(s.date||'-',235,cy+5); doc.rect(330,cy,235,30).stroke().text(s.rem||'-',335,cy+5); cy+=30;
+             doc.rect(30,cy,80,30).stroke().text(s.role,35,cy+5); doc.rect(110,cy,120,30).stroke().text(s.name||'-',115,cy+5, {width:110}); doc.rect(230,cy,100,30).stroke().text(s.date||'-',235,cy+5, {width:90}); doc.rect(330,cy,235,30).stroke().text(s.rem||'-',335,cy+5, {width:225}); cy+=30;
         });
         doc.y = cy + 20;
         
         if(doc.y>500){doc.addPage(); drawHeader(doc, bgColor); doc.y=135;}
         doc.font('Helvetica-Bold').fontSize(10).text("GENERAL INSTRUCTIONS", 30, doc.y); doc.y += 15; doc.font('Helvetica').fontSize(8);
-        const instructions = ["1. The work permit shall be filled up carefully.", "2. Appropriate safeguards and PPEs shall be determined.", "3. Requirement of standby personnel shall be mentioned.", "4. Means of communication must be available.", "5. Shift-wise communication to Main Control Room.", "6. Only certified vehicles and electrical equipment allowed.", "7. Welding machines shall be placed in ventilated areas.", "8. No hot work unless explosive meter reading is Zero.", "9. Standby person mandatory for confined space.", "10. Compressed gas cylinders not allowed inside.", "11. While filling trench, men/equipment must be outside.", "12. For renewal, issuer must ensure conditions are satisfactory.", "13. Max renewal up to 7 calendar days.", "14. Permit must be available at site.", "15. On completion, permit must be closed.", "16. Follow latest SOP for Trenching.", "17. CCTV and gas monitoring should be utilized.", "18. Refer to PLHO guidelines for details."];
+        const instructions = ["1. The work permit shall be filled up carefully.", "2. Appropriate safeguards and PPEs shall be determined.", "3. Requirement of standby personnel shall be mentioned.", "4. Means of communication must be available.", "5. Shift-wise communication to Main Control Room.", "6. Only certified vehicles and electrical equipment allowed.", "7. Welding machines shall be placed in ventilated areas.", "8. No hot work unless explosive meter reading is Zero.", "9. Standby person mandatory for confined space.", "10. Compressed gas cylinders not allowed inside.", "11. While filling trench, men/equipment must be outside.", "12. For renewal, issuer must ensure conditions are satisfactory.", "13. Max renewal up to 7 calendar days.", "14. Permit must be available at site.", "15. On completion, permit must be closed.", "16. Follow latest SOP for Trenching.", "17. CCTV and gas monitoring should be utilized.", "18. Refer to PLHO guidelines for details.", "19. Original permit must be with receiver.", "20. On completion, TBT/JSA/Permit to be handed to Issuer.", "21. Group for every work (SIC, EIC, Issuer etc).", "22. Renewal via digital platform.", "23. No additional worker unless approved."];
         instructions.forEach(i => { doc.text(i, 30, doc.y); doc.y += 12; });
 
         const wm = p.Status.includes('Closed') ? 'CLOSED' : 'ACTIVE';
