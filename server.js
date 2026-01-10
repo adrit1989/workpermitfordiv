@@ -243,19 +243,20 @@ app.post('/api/save-permit', upload.single('file'), async (req, res) => {
         const data = { ...req.body, SelectedWorkers: workers, PermitID: pid, CreatedDate: getNowIST() }; 
         const q = pool.request().input('p', pid).input('s', 'Pending Review').input('w', req.body.WorkType).input('re', req.body.RequesterEmail).input('rv', req.body.ReviewerEmail).input('ap', req.body.ApproverEmail).input('vf', vf).input('vt', vt).input('j', JSON.stringify(data));
         
-        // --- FIX: ROBUST NULL CHECK FOR LAT/LNG ---
+        // --- STRICT LAT/LONG SANITIZATION ---
+        // Ensure values are either a string or explicit NULL. Never undefined.
         let lat = req.body.Latitude;
         let lng = req.body.Longitude;
         if (lat === undefined || lat === 'undefined' || lat === 'null' || String(lat).trim() === '') lat = null;
         if (lng === undefined || lng === 'undefined' || lng === 'null' || String(lng).trim() === '') lng = null;
 
-        q.input('lat', sql.NVarChar, lat).input('lng', sql.NVarChar, lng);
+        q.input('lat', sql.NVarChar(50), lat).input('lng', sql.NVarChar(50), lng);
 
         if (chk.recordset.length > 0) await q.query("UPDATE Permits SET FullDataJSON=@j, WorkType=@w, ValidFrom=@vf, ValidTo=@vt, Latitude=@lat, Longitude=@lng WHERE PermitID=@p");
         else await q.query("INSERT INTO Permits (PermitID, Status, WorkType, RequesterEmail, ReviewerEmail, ApproverEmail, ValidFrom, ValidTo, Latitude, Longitude, FullDataJSON, RenewalsJSON) VALUES (@p, @s, @w, @re, @rv, @ap, @vf, @vt, @lat, @lng, @j, '[]')");
         
         res.json({ success: true, permitId: pid });
-    } catch (e) { console.error(e); res.status(500).json({ error: e.message }); }
+    } catch (e) { console.error("SAVE ERROR:", e); res.status(500).json({ error: e.message }); }
 });
 
 app.post('/api/update-status', async (req, res) => {
@@ -268,7 +269,7 @@ app.post('/api/update-status', async (req, res) => {
         Object.assign(d, extras);
         if(bgColor) d.PdfBgColor = bgColor;
         
-        // --- FIX: Explicitly save closure remarks from body ---
+        // MERGE CLOSURE REMARKS
         if(req.body.Closure_Requestor_Remarks) d.Closure_Requestor_Remarks = req.body.Closure_Requestor_Remarks;
         if(req.body.Closure_Reviewer_Remarks) d.Closure_Reviewer_Remarks = req.body.Closure_Reviewer_Remarks;
         if(req.body.Closure_Approver_Remarks) d.Closure_Approver_Remarks = req.body.Closure_Approver_Remarks;
