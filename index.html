@@ -276,9 +276,8 @@
                 window.users.Approvers.forEach(u=>aS.innerHTML+=`<option value="${u.email}">${u.name}</option>`);
             }
 
-            // Safe Set Helper
+            // Safe Set Helpers
             const safeSet = (id, val) => { const el = document.getElementById(id); if(el) el.value = val; };
-            const safeCheck = (id, val) => { const el = document.getElementById(id); if(el) el.checked = val; };
             const setText = (id, val) => { const el = document.getElementById(id); if(el) el.innerText = val; };
 
             document.querySelectorAll('#pf input, #pf select, #pf textarea').forEach(e => {
@@ -296,13 +295,15 @@
             document.getElementById("renewals-section").classList.add('hidden');
             document.getElementById("closure-section").classList.add('hidden');
             document.getElementById("pending-renewal-display").classList.add('hidden');
+            document.getElementById("action-renewal").classList.add('hidden'); // Ensure hidden by default
             let btns = "";
 
-            if(s === 'Pending Review') { // Strict check to avoid "Renewal Pending Review"
+            // MAIN PERMIT FLOW
+            if(s === 'Pending Review') {
                 if(r==='Requester') { 
                     document.querySelectorAll('#pf input, #pf select, #pf textarea').forEach(e=>e.disabled=false); 
-                    safeSet("OfficialName", currentUser.name); safeSet("RequesterName", currentUser.name);
-                    document.getElementById("OfficialName").disabled=true; document.getElementById("RequesterName").disabled=true;
+                    document.getElementById("OfficialName").disabled=true;
+                    document.getElementById("RequesterName").disabled=true;
                     btns=`<button type="button" onclick="window.savePermit()" class="bg-blue-600 text-white px-4 py-2 rounded">Update</button>`; 
                 }
                 if(r==='Reviewer') { 
@@ -319,6 +320,8 @@
                     btns=`<button type="button" onclick="window.upd('reject')" class="bg-red-600 text-white px-4 py-2 rounded">Reject</button><button type="button" onclick="window.upd('approve')" class="bg-green-600 text-white px-4 py-2 rounded">Approve</button>`; 
                 }
             }
+
+            // RENEWALS FLOW
             if(s==='Active' || s.includes('Renewal')) {
                 document.getElementById("fs-reviewer-section").classList.remove('hidden');
                 document.getElementById("fs-approver-section").classList.remove('hidden');
@@ -335,6 +338,8 @@
                     </tr>`).join('');
                 
                 const last = rens[rens.length-1];
+                
+                // REQUESTOR: New Renewal / Closure
                 if(r==='Requester' && (!last || (last.status!=='pending_review' && last.status!=='pending_approval'))) {
                      document.getElementById("form-renewal").classList.remove('hidden');
                      document.querySelectorAll('#form-renewal input').forEach(e => e.disabled = false);
@@ -345,6 +350,7 @@
                      btns += `<button type="button" onclick="window.upd('initiate_closure')" class="bg-red-600 text-white px-4 py-2 rounded ml-2">Job Complete</button>`;
                 }
                 
+                // REVIEWER / APPROVER: View Pending Renewal Data
                 if(last && (last.status==='pending_review' || last.status==='pending_approval')) {
                     if(r!=='Requester') {
                         document.getElementById("pending-renewal-display").classList.remove('hidden');
@@ -352,16 +358,23 @@
                         setText("disp-ren-gas", `${last.hc}/${last.toxic}/${last.oxygen}`); setText("disp-ren-prec", last.precautions);
                     }
                 }
+
+                // STRICT: ONLY SHOW RENEWAL BUTTONS IF PENDING (HIDE MAIN BUTTONS)
                 if(r==='Reviewer' && last && last.status==='pending_review') {
                     document.getElementById("action-renewal").classList.remove('hidden');
                     document.getElementById("RenewalRemark").disabled = false;
-                }
-                if(r==='Approver' && last && last.status==='pending_approval') {
+                    btns = ""; // Clear main buttons
+                } else if(r==='Approver' && last && last.status==='pending_approval') {
                     document.getElementById("action-renewal").classList.remove('hidden');
                     document.getElementById("RenewalRemark").disabled = false;
+                    btns = ""; // Clear main buttons
+                } else {
+                    // If no action required on renewal, allow PDF download
+                    btns += `<a href="${API}/download-pdf/${id}" target="_blank" class="bg-gray-600 text-white px-4 py-2 rounded ml-2">PDF</a>`;
                 }
-                btns += `<a href="${API}/download-pdf/${id}" target="_blank" class="bg-gray-600 text-white px-4 py-2 rounded ml-2">PDF</a>`;
             }
+
+            // CLOSURE FLOW
             if(s.includes('Closure') || s === 'Closed') {
                  document.getElementById("closure-section").classList.remove('hidden');
                  document.getElementById("div-closure-req").classList.remove('hidden');
@@ -446,7 +459,7 @@
 
            document.querySelectorAll('input, textarea, select').forEach(e=>e.disabled=false); 
            
-           // Safe Set (Crucial Fix)
+           // Safe Set (Fixed Null Error)
            const safeSet = (id, val) => { const el = document.getElementById(id); if(el) { el.value = val; el.disabled = true; } };
            safeSet("OfficialName", currentUser.name);
            safeSet("RequesterName", currentUser.name);
