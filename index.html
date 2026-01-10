@@ -134,7 +134,7 @@
                     </div>
                 </div>
 
-                <div class="glass">
+                <div class="glass" id="section-e">
                     <h3 class="section-title">E. Attachment Details</h3>
                     <div class="grid grid-cols-4 gap-4">
                         <input name="SopNo" id="SopNo" placeholder="SOP/SWP/SMP No">
@@ -145,15 +145,15 @@
                     </div>
                 </div>
 
+                <div class="glass">
+                    <h3 class="section-title">2. Checklists</h3>
+                    <div id="checklists-wrapper"></div>
+                </div>
+
                 <div class="glass" id="worker-select-section">
                     <h3 class="section-title">Select Workers (Approved Only)</h3>
                     <div id="worker-checkboxes" class="grid grid-cols-3 gap-2"></div>
                     <div id="worker-readonly-table" class="hidden overflow-x-auto"><table class="w-full text-xs text-left custom-table"><thead><tr><th>Name</th><th>Gender</th><th>Age</th><th>Contractor</th></tr></thead><tbody></tbody></table></div>
-                </div>
-
-                <div class="glass">
-                    <h3 class="section-title">2. Checklists</h3>
-                    <div id="checklists-wrapper"></div>
                 </div>
 
                 <div class="glass" id="hazards-section">
@@ -362,7 +362,7 @@
             const rS=document.getElementById("ReviewerEmail"), aS=document.getElementById("ApproverEmail"); rS.innerHTML=""; aS.innerHTML=""; 
             if(window.users){ window.users.Reviewers.forEach(u=>rS.innerHTML+=`<option value="${u.email}">${u.name}</option>`); window.users.Approvers.forEach(u=>aS.innerHTML+=`<option value="${u.email}">${u.name}</option>`); }
 
-            // Helpers
+            // Safe Set Helper
             const safeSet = (id, val) => { const el = document.getElementById(id); if(el) el.value = val; };
             const setText = (id, val) => { const el = document.getElementById(id); if(el) el.innerText = val; };
 
@@ -374,7 +374,7 @@
                 e.disabled=true; 
             });
 
-            // WORKER LOGIC
+            // Populate Approved Workers List
             await loadWorkers('permit_dropdown');
             let workersArr = [];
             if(p.SelectedWorkers) {
@@ -384,7 +384,6 @@
 
             const r=currentUser.Role, s=p.Status;
             
-            // IF EDIT MODE (Pending Review & Requester) -> Show Checkboxes
             if(s==='Pending Review' && r==='Requester') {
                 document.getElementById('worker-checkboxes').classList.remove('hidden');
                 document.getElementById('worker-readonly-table').classList.add('hidden');
@@ -394,7 +393,6 @@
                     c.disabled = false;
                 });
             } else {
-                // READ ONLY MODE -> Show Table
                 document.getElementById('worker-checkboxes').classList.add('hidden');
                 const wTable = document.querySelector('#worker-readonly-table tbody');
                 wTable.innerHTML = workersArr.map(w => `<tr><td>${w.Name}</td><td>${w.Gender}</td><td>${w.Age}</td><td>${p.RequesterName}</td></tr>`).join('');
@@ -453,7 +451,6 @@
                 if(r==='Requester' && (!last || (last.status!=='pending_review' && last.status!=='pending_approval'))) {
                      document.getElementById("form-renewal").classList.remove('hidden');
                      document.querySelectorAll('#form-renewal input').forEach(e => e.disabled = false);
-                     
                      document.getElementById("div-closure-req").classList.remove('hidden');
                      document.getElementById("Closure_Requestor_Remarks").disabled = false;
                      document.getElementById("Site_Restored_Check").disabled = false;
@@ -484,30 +481,19 @@
                  document.getElementById("closure-section").classList.remove('hidden');
                  document.getElementById("div-closure-req").classList.remove('hidden');
                  setText("ts-clos-req", p.Closure_Requestor_Date);
-                 
                  if(s!=='Closure Pending Review') { document.getElementById("div-closure-rev").classList.remove('hidden'); setText("ts-clos-rev", p.Closure_Reviewer_Date); }
                  if(s==='Closed') { document.getElementById("div-closure-app").classList.remove('hidden'); setText("ts-clos-app", p.Closure_Approver_Date); }
-
-                 if(s==='Closure Pending Review' && r==='Reviewer') { 
-                     document.getElementById("div-closure-rev").classList.remove('hidden'); 
-                     document.getElementById("Closure_Reviewer_Remarks").disabled=false; 
-                     btns=`<button onclick="window.upd('reject_closure')" class="bg-red-600 text-white px-4 py-2 rounded">Reject Closure</button><button onclick="window.upd('approve_closure')" class="bg-green-600 text-white px-4 py-2 rounded">Verify Closure</button>`; 
-                 }
-                 if(s==='Closure Pending Approval' && r==='Approver') { 
-                     document.getElementById("div-closure-app").classList.remove('hidden'); 
-                     document.getElementById("Closure_Approver_Remarks").disabled=false; 
-                     btns=`<button onclick="window.upd('reject_closure')" class="bg-red-600 text-white px-4 py-2 rounded">Reject Closure</button><button onclick="window.upd('approve')" class="bg-black text-white px-4 py-2 rounded">Final Close</button>`; 
-                 }
+                 if(s==='Closure Pending Review' && r==='Reviewer') { document.getElementById("div-closure-rev").classList.remove('hidden'); document.getElementById("Closure_Reviewer_Remarks").disabled=false; btns=`<button onclick="window.upd('reject_closure')" class="bg-red-600 text-white px-4 py-2 rounded">Reject Closure</button><button onclick="window.upd('approve_closure')" class="bg-green-600 text-white px-4 py-2 rounded">Verify Closure</button>`; }
+                 if(s==='Closure Pending Approval' && r==='Approver') { document.getElementById("div-closure-app").classList.remove('hidden'); document.getElementById("Closure_Approver_Remarks").disabled=false; btns=`<button onclick="window.upd('reject_closure')" class="bg-red-600 text-white px-4 py-2 rounded">Reject Closure</button><button onclick="window.upd('approve')" class="bg-black text-white px-4 py-2 rounded">Final Close</button>`; }
                  if(s==='Closed') btns = `<a href="${API}/download-pdf/${id}" target="_blank" class="bg-gray-600 text-white px-4 py-2 rounded ml-2">PDF</a>`;
             }
 
             // Populate Signature History
             document.getElementById("signature-history").classList.remove('hidden');
             setText("sig-app", p.Approver_Sig || 'Pending');
-            // Simplified logic for showing latest renewal sig
             const rens = JSON.parse(p.RenewalsJSON || "[]");
             const lastRen = rens[rens.length-1];
-            setText("sig-ren", lastRen ? `${lastRen.app_name} on ${lastRen.app_at}` : 'None');
+            setText("sig-ren", (lastRen && lastRen.app_name) ? `${lastRen.app_name} on ${lastRen.app_at}` : 'None');
             setText("sig-clos", p.Closure_Issuer_Sig || 'Pending');
 
             document.getElementById("actions").innerHTML = btns;
@@ -618,7 +604,6 @@
                 const content = `<div><b>${x.PermitID}</b><br>Loc: ${x.ExactLocation}<br>Req: ${x.RequesterName}<br>Valid: ${x.ValidTo}</div>`;
                 marker.addListener("click", () => { infoWindow.setContent(content); infoWindow.open(mapInstance, marker); });
                 
-                // Sidebar Item
                 const item = document.createElement("div");
                 item.className = "p-2 border-b cursor-pointer hover:bg-gray-100 text-xs";
                 item.innerHTML = `<b>${x.PermitID}</b><br>${x.WorkType}`;
