@@ -243,10 +243,10 @@ app.post('/api/save-permit', upload.single('file'), async (req, res) => {
         const data = { ...req.body, SelectedWorkers: workers, PermitID: pid, CreatedDate: getNowIST() }; 
         const q = pool.request().input('p', pid).input('s', 'Pending Review').input('w', req.body.WorkType).input('re', req.body.RequesterEmail).input('rv', req.body.ReviewerEmail).input('ap', req.body.ApproverEmail).input('vf', vf).input('vt', vt).input('j', JSON.stringify(data));
         
-        // --- STRICT LAT/LONG SANITIZATION ---
-        // Ensure values are either a string or explicit NULL. Never undefined.
+        // --- STRICT LAT/LONG SANITIZATION FOR SQL ---
         let lat = req.body.Latitude;
         let lng = req.body.Longitude;
+        // Ensure values are NULL if undefined or empty string
         if (lat === undefined || lat === 'undefined' || lat === 'null' || String(lat).trim() === '') lat = null;
         if (lng === undefined || lng === 'undefined' || lng === 'null' || String(lng).trim() === '') lng = null;
 
@@ -269,7 +269,7 @@ app.post('/api/update-status', async (req, res) => {
         Object.assign(d, extras);
         if(bgColor) d.PdfBgColor = bgColor;
         
-        // MERGE CLOSURE REMARKS
+        // MERGE CLOSURE REMARKS EXPLICITLY
         if(req.body.Closure_Requestor_Remarks) d.Closure_Requestor_Remarks = req.body.Closure_Requestor_Remarks;
         if(req.body.Closure_Reviewer_Remarks) d.Closure_Reviewer_Remarks = req.body.Closure_Reviewer_Remarks;
         if(req.body.Closure_Approver_Remarks) d.Closure_Approver_Remarks = req.body.Closure_Approver_Remarks;
@@ -394,7 +394,7 @@ app.get('/api/download-pdf/:id', async (req, res) => {
         doc.y = wy+20;
 
         doc.font('Helvetica-Bold').text("SIGNATURES",30,doc.y); doc.y+=15; const sY=doc.y;
-        doc.rect(30,sY,178,40).stroke().text(`REQ: ${d.RequesterName} on ${d.CreatedDate||'-'}`,35,sY+5);
+        doc.rect(30,sY,178,40).stroke().text(`REQ: ${d.RequesterName}\n${d.CreatedDate||''}`,35,sY+5);
         doc.rect(208,sY,178,40).stroke().text(`REV: ${d.Reviewer_Sig||'-'}`,213,sY+5);
         doc.rect(386,sY,179,40).stroke().text(`APP: ${d.Approver_Sig||'-'}`,391,sY+5); doc.y=sY+50;
 
@@ -417,16 +417,18 @@ app.get('/api/download-pdf/:id', async (req, res) => {
         });
         doc.y = ry + 20;
 
-        // Closure Table
+        // Closure Table (FIXED)
         if(doc.y>650){doc.addPage(); drawHeader(doc, bgColor); doc.y=135;}
         doc.font('Helvetica-Bold').text("CLOSURE OF WORK PERMIT",30,doc.y); doc.y+=15;
         let cy = doc.y;
         doc.rect(30,cy,80,20).stroke().text("Stage",35,cy+5); doc.rect(110,cy,120,20).stroke().text("Name/Sig",115,cy+5); doc.rect(230,cy,100,20).stroke().text("Date/Time",235,cy+5); doc.rect(330,cy,235,20).stroke().text("Remarks",335,cy+5); cy+=20;
+        
         const closureSteps = [
             {role:'Requestor', name:d.RequesterName, date:d.Closure_Requestor_Date, rem:d.Closure_Requestor_Remarks},
             {role:'Reviewer', name:d.Reviewer_Sig, date:d.Closure_Reviewer_Date, rem:d.Closure_Reviewer_Remarks},
             {role:'Approver', name:d.Closure_Issuer_Sig, date:d.Closure_Approver_Date, rem:d.Closure_Approver_Remarks}
         ];
+        
         doc.font('Helvetica').fontSize(8);
         closureSteps.forEach(s => {
              doc.rect(30,cy,80,30).stroke().text(s.role,35,cy+5); 
