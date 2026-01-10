@@ -163,15 +163,22 @@ app.post('/api/save-permit', upload.single('file'), async (req, res) => {
             else if (c.recordset.length > 0) return res.status(400).json({error: "Cannot edit processed permit"});
             else pid = null;
         }
+
         if (!pid) {
             const idRes = await pool.request().query("SELECT TOP 1 PermitID FROM Permits ORDER BY Id DESC");
             pid = `WP-${parseInt(idRes.recordset.length > 0 ? idRes.recordset[0].PermitID.split('-')[1] : 1000) + 1}`;
         }
+
         const data = { ...req.body, PermitID: pid };
-        const q = pool.request().input('p', pid).input('s', 'Pending Review').input('w', req.body.WorkType).input('re', req.body.RequesterEmail).input('rv', req.body.ReviewerEmail).input('ap', req.body.ApproverEmail).input('vf', vf).input('vt', vt).input('j', JSON.stringify(data));
-        
+        const q = pool.request().input('p', sql.NVarChar, pid).input('s', sql.NVarChar, 'Pending Review').input('w', sql.NVarChar, req.body.WorkType)
+            .input('re', sql.NVarChar, req.body.RequesterEmail).input('rv', sql.NVarChar, req.body.ReviewerEmail).input('ap', sql.NVarChar, req.body.ApproverEmail)
+            .input('vf', sql.DateTime, new Date(req.body.ValidFrom)).input('vt', sql.DateTime, new Date(req.body.ValidTo))
+            .input('j', sql.NVarChar, JSON.stringify(data));
+
         if (isUpdate) await q.query("UPDATE Permits SET FullDataJSON=@j, WorkType=@w, ReviewerEmail=@rv, ApproverEmail=@ap, ValidFrom=@vf, ValidTo=@vt WHERE PermitID=@p");
         else await q.query("INSERT INTO Permits (PermitID, Status, WorkType, RequesterEmail, ReviewerEmail, ApproverEmail, ValidFrom, ValidTo, FullDataJSON, RenewalsJSON) VALUES (@p, @s, @w, @re, @rv, @ap, @vf, @vt, @j, '[]')");
+        
+        if(req.file && containerClient) await containerClient.getBlockBlobClient(`${pid}_${req.file.originalname}`).uploadData(req.file.buffer);
         res.json({ success: true, permitId: pid });
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -189,7 +196,7 @@ app.post('/api/update-status', async (req, res) => {
         const now = getNowIST();
         
         if(req.body.role==='Reviewer' && req.body.action==='review') { st='Pending Approval'; d.Reviewer_Sig=`${req.body.user} on ${now}`; }
-        if(req.body.role==='Approver' && req.body.action==='approve') { st=st.includes('Closure')?'Closed':'Active'; if(!st.includes('Closed')) d.Approver_Sig=`${req.body.user} on ${now}`; }
+        if(req.body.role==='Approver' && req.body.action==='approve') { st=st.includes('Closure')?'Closed':'Active'; if(!st.includes('Closed')) d.Approver_Sig=`${req.body.user} on ${now}`; else d.Closure_Issuer_Sig=`${req.body.user} on ${now}`; }
         if(req.body.action==='reject') { st='Rejected'; }
         if(req.body.action==='initiate_closure') { st='Closure Pending Review'; d.Closure_Requestor_Date=now; }
         
@@ -275,7 +282,7 @@ app.get('/api/download-pdf/:id', async (req, res) => {
         doc.rect(30, infoY - 5, 535, 95).stroke(); 
         doc.y = infoY + 100;
 
-        // CHECKLISTS
+        // CHECKLIST TABLES
         const drawChecklistTable = (title, items, idPrefix) => {
             if(doc.y > 650) { doc.addPage(); drawHeader(doc); doc.y = 135; }
             doc.font('Helvetica-Bold').fontSize(10).text(title, 30, doc.y + 10);
