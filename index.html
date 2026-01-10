@@ -50,16 +50,12 @@
                     <button onclick="showNewPermit()" id="btn-new-permit" class="bg-orange-600 text-white px-4 py-1 rounded font-bold hidden">+ New Permit</button>
                 </div>
             </div>
-            
-            <div class="glass overflow-x-auto">
-                <table class="w-full text-left text-sm"><thead class="bg-gray-100"><tr><th class="p-2">ID</th><th>Type</th><th>Location</th><th>Requester</th><th>Status</th><th>Action</th></tr></thead><tbody id="permit-list"></tbody></table>
-            </div>
-            <div id="charts-container" class="grid grid-cols-2 gap-4 hidden"><div class="glass h-64"><canvas id="chartStatus"></canvas></div><div class="glass h-64"><canvas id="chartType"></canvas></div></div>
+            <div class="glass overflow-x-auto"><table class="w-full text-left text-sm"><thead class="bg-gray-100"><tr><th class="p-2">ID</th><th>Type</th><th>Location</th><th>Requester</th><th>Status</th><th>Action</th></tr></thead><tbody id="permit-list"></tbody></table></div>
         </div>
 
-        <div id="view-map" class="hidden h-screen flex flex-col"><button onclick="showDashboard()" class="mb-2 text-blue-600 font-bold">← Back</button><div class="flex-1 flex gap-2"><div class="w-1/4 glass overflow-y-auto" id="map-list"></div><div id="map" class="flex-1 rounded shadow"></div></div></div>
-
         <div id="view-add-user" class="hidden flex justify-center"><div class="glass w-96 relative"><button onclick="showDashboard()" class="absolute top-2 right-2 font-bold">✕</button><h3 class="font-bold mb-4">Add User</h3><form onsubmit="event.preventDefault(); submitNewUser();" class="space-y-3"><input id="new-user-name" placeholder="Name" required><input id="new-user-email" placeholder="Email" required><select id="new-user-role"><option>Requester</option><option>Reviewer</option><option>Approver</option></select><input id="new-user-pass" type="password" placeholder="Password" required><button class="w-full bg-purple-600 text-white py-2 rounded">Add</button></form></div></div>
+
+        <div id="view-map" class="hidden h-screen flex flex-col"><button onclick="showDashboard()" class="mb-2 text-blue-600 font-bold">← Back</button><div class="flex-1 flex gap-2"><div class="w-1/4 glass overflow-y-auto" id="map-list"></div><div id="map" class="flex-1 rounded shadow"></div></div></div>
 
         <div id="view-form" class="hidden">
             <button onclick="showDashboard()" class="text-blue-600 font-bold mb-2">← Back</button>
@@ -102,27 +98,17 @@
 
                 <div class="glass">
                     <h3 class="section-title">2. Checklists (OISD-105)</h3>
-                    <div class="font-bold bg-orange-100 p-2 text-orange-800">SECTION A: General Points (16 Pts)</div>
-                    <table class="custom-table" id="table-A"><thead><tr><th style="width:50%">Item</th><th>Status</th><th>Remarks/Gas Reading</th></tr></thead><tbody></tbody></table>
-                    
-                    <div class="font-bold bg-orange-100 p-2 mt-4 text-orange-800">SECTION B: Hot Work / Confined Space (15 Pts)</div>
-                    <table class="custom-table" id="table-B"><thead><tr><th style="width:50%">Item</th><th>Status</th><th>Remarks</th></tr></thead><tbody></tbody></table>
-
-                    <div class="font-bold bg-orange-100 p-2 mt-4 text-orange-800">SECTION C: Vehicle Entry (1 Pt)</div>
-                    <table class="custom-table" id="table-C"><thead><tr><th style="width:50%">Item</th><th>Status</th><th>Remarks</th></tr></thead><tbody></tbody></table>
-
-                    <div class="font-bold bg-orange-100 p-2 mt-4 text-orange-800">SECTION D: Excavation (4 Pts)</div>
-                    <table class="custom-table" id="table-D"><thead><tr><th style="width:50%">Item</th><th>Status</th><th>Remarks</th></tr></thead><tbody></tbody></table>
+                    <div id="checklists-wrapper"></div>
                 </div>
-                
+
                 <div class="glass" id="hazards-section">
-                    <h3 class="section-title">3. Hazard Identification (Requester & Reviewer)</h3>
+                    <h3 class="section-title">3. Hazard Identification</h3>
                     <div class="grid grid-cols-2 md:grid-cols-4 gap-2 mb-4" id="hazards-container"></div>
                     <div id="other-hazard-div" class="hidden mb-2"><input id="H_Others_Detail" name="H_Others_Detail" placeholder="Specify other hazards..." class="w-full"></div>
                 </div>
 
                 <div id="fs-reviewer-section" class="glass hidden border-l-4 border-yellow-500">
-                     <h3 class="section-title text-yellow-700">4. Reviewer Assessment (Safety Officer)</h3>
+                     <h3 class="section-title text-yellow-700">4. Reviewer Assessment</h3>
                      <div class="mb-4 font-bold">PPE Required:</div>
                      <div class="grid grid-cols-2 md:grid-cols-4 gap-2 mb-4" id="ppe-container"></div>
                      <textarea name="Reviewer_Remarks" id="Reviewer_Remarks" placeholder="Reviewer Remarks" class="w-full"></textarea>
@@ -130,26 +116,28 @@
                 </div>
 
                 <div id="fs-approver-section" class="glass hidden border-l-4 border-green-500">
-                     <h3 class="section-title text-green-700">5. Final Approval (Issuer)</h3>
+                     <h3 class="section-title text-green-700">5. Final Approval</h3>
                      <textarea name="Approver_Remarks" id="Approver_Remarks" placeholder="Approver Remarks" class="w-full"></textarea>
                 </div>
 
                 <div id="renewals-section" class="glass hidden">
-                    <h3 class="section-title">Clearance Renewal</h3>
+                    <h3 class="section-title">Renewals</h3>
                     <div id="renewals-list" class="mb-4 text-xs"></div>
                     <div id="form-renewal" class="hidden p-4 bg-blue-50">
-                        <label>New Renewal:</label>
-                        <input type="datetime-local" id="RenewalValidFrom"> to <input type="datetime-local" id="RenewalValidTill">
+                        <div class="grid grid-cols-4 gap-2 mb-2">
+                             <input type="datetime-local" id="RenewalValidFrom"> <input type="datetime-local" id="RenewalValidTo">
+                             <input id="RenewalGas" placeholder="Gas Readings"> <input id="RenewalPrec" placeholder="Precautions">
+                        </div>
                         <button type="button" onclick="submitRenewal('approve')" class="bg-blue-600 text-white px-3 py-1 rounded">Submit</button>
                     </div>
                 </div>
-
+                
                 <div id="closure-section" class="glass hidden">
                     <h3 class="section-title">Closure</h3>
-                    <label class="flex items-center gap-2 mb-2 font-bold text-red-600"><input type="checkbox" id="Site_Restored_Check" name="Site_Restored_Check"> Site Restored & Cleared</label>
-                    <div id="div-closure-req" class="hidden"><textarea id="Closure_Requestor_Remarks" placeholder="Requestor Closure Remarks" class="w-full"></textarea></div>
-                    <div id="div-closure-rev" class="hidden mt-2"><textarea id="Closure_Reviewer_Remarks" placeholder="Reviewer Verification" class="w-full"></textarea></div>
-                    <div id="div-closure-app" class="hidden mt-2"><textarea id="Closure_Approver_Remarks" placeholder="Approver Final Close" class="w-full"></textarea></div>
+                    <label class="flex items-center gap-2 mb-2 font-bold text-red-600"><input type="checkbox" id="Site_Restored_Check" name="Site_Restored_Check"> Site Restored</label>
+                    <div id="div-closure-req" class="hidden"><textarea id="Closure_Requestor_Remarks" placeholder="Req Remarks" class="w-full"></textarea></div>
+                    <div id="div-closure-rev" class="hidden mt-2"><textarea id="Closure_Reviewer_Remarks" placeholder="Rev Remarks" class="w-full"></textarea></div>
+                    <div id="div-closure-app" class="hidden mt-2"><textarea id="Closure_Approver_Remarks" placeholder="App Remarks" class="w-full"></textarea></div>
                 </div>
 
                 <div id="actions" class="mt-4 flex justify-end gap-2 sticky bottom-0 bg-white p-4 shadow z-50"></div>
@@ -159,46 +147,41 @@
 
     <script>
         const API = "/api";
-        let currentUser = null, currentPermitId = null;
+        let currentUser = null, currentPermitId = null, mapInstance = null;
 
         const CL_DATA = {
-            A: ["1. Equipment / Work Area inspected.", "2. Surrounding area checked, cleaned.", "3. Manholes covered.", "4. Hazards considered.", "5. Equipment blinded/isolated.", "6. Drained & Depressurized.", "7. Steamed/Purged.", "8. Water Flushed.", "9. Fire Tender Access.", "10. Iron Sulfide removed.", "11. Electrically Isolated.", "12. Gas Test (HC/Tox/O2).", "13. Fire Extinguisher / Water hose.", "14. Area Cordoned.", "15. CCTV Available.", "16. Ventilation/Lighting."],
-            B: ["1. Means of Exit.", "2. Standby Personnel.", "3. Trapped Oil/Gas Check.", "4. Shield against spark.", "5. Equipment Grounded.", "6. Confined Space Standby.", "7. Communication.", "8. Rescue Equip/SCBA.", "9. Space Cooled.", "10. Inert Gas Flow.", "11. Earthing/ELCB.", "12. Cylinders outside.", "13. Spark Arrestor.", "14. Welding Machine Loc.", "15. Height Permit."],
+            A: ["1. Equipment / Work Area inspected.", "2. Surrounding area checked, cleaned. Oil/RAGS removed.", "3. Manholes, Sewers, CBD etc. covered.", "4. Hazards from other ops considered.", "5. Equipment blinded/isolated.", "6. Drained & Depressurized.", "7. Steamed/Purged.", "8. Water Flushed.", "9. Fire Tender Access.", "10. Iron Sulfide removed.", "11. Electrically Isolated.", "12. Gas Test: HC / Toxic / O2 checked.", "13. Fire Extinguisher / Water hose.", "14. Area cordoned off.", "15. CCTV Available.", "16. Ventilation/Lighting."],
+            B: ["1. Means of Exit.", "2. Standby Personnel.", "3. Trapped Oil/Gas Check.", "4. Shield against spark.", "5. Portable equipment grounded.", "6. Confined Space Standby.", "7. Communication.", "8. Rescue Equip/SCBA.", "9. Space Cooled.", "10. Inert Gas Flow.", "11. Earthing/ELCB.", "12. Cylinders outside.", "13. Spark Arrestor.", "14. Welding Machine Loc.", "15. Height Permit."],
             C: ["1. PESO Approved Spark Arrestor on Vehicle."],
             D: ["1. Shoring/Sloping provided.", "2. Soil at safe distance.", "3. Safe Access.", "4. Heavy Vehicle Prohibited."]
         };
-
-        const hazards = ["Lack of Oxygen", "H2S", "Toxic Gases", "Combustible gases", "Pyrophoric Iron", "Corrosive Chemicals", "cave in formation", "Others"];
+        const HAZARDS = ["Lack of Oxygen", "H2S", "Toxic Gases", "Combustible gases", "Pyrophoric Iron", "Corrosive Chemicals", "cave in formation", "Others"];
         const PPE = ["Helmet", "Safety Shoes", "Hand gloves", "Boiler suit", "Face Shield", "Apron", "Goggles", "Dust Respirator", "Fresh Air Mask", "Lifeline", "Safety Harness", "Airline", "Earmuff"];
 
-        document.addEventListener("DOMContentLoaded", () => {
-            loadUsers();
-            renderTables();
-            renderHazards();
-        });
+        document.addEventListener("DOMContentLoaded", () => { loadUsers(); renderUI(); });
 
-        function renderTables() {
+        function renderUI() {
+            let h = '';
             ['A','B','C','D'].forEach(sec => {
-                const tb = document.querySelector(`#table-${sec} tbody`);
-                tb.innerHTML = CL_DATA[sec].map((t, i) => {
+                h += `<div class="font-bold bg-gray-100 p-2 mt-2">SECTION ${sec}</div><table class="custom-table"><thead><tr><th style="width:50%">Item</th><th>Status</th><th>Remarks</th></tr></thead><tbody>`;
+                h += CL_DATA[sec].map((t, i) => {
                     const id = `${sec}_Q${i+1}`;
-                    let remInput = `<input name="${id}_Detail" placeholder="Remarks" class="text-xs w-full">`;
-                    if(sec==='A' && i===11) remInput = `<div class="flex gap-1"><input name="GP_Q12_HC" placeholder="HC%" class="w-1/3"><input name="GP_Q12_ToxicGas" placeholder="Tox" class="w-1/3"><input name="GP_Q12_Oxygen" placeholder="O2%" class="w-1/3"></div>`;
-                    return `<tr><td>${t}</td><td class="w-32 flex gap-1 items-center"><label class="flex items-center gap-1"><input type="radio" name="${id}" value="Yes" checked> Yes</label> <label class="flex items-center gap-1"><input type="radio" name="${id}" value="NA"> NA</label> <label class="flex items-center gap-1"><input type="radio" name="${id}" value="No"> No</label></td><td>${remInput}</td></tr>`;
+                    let rem = `<input name="${id}_Detail" placeholder="Remarks" class="text-xs w-full">`;
+                    if(sec==='A' && i===11) rem = `<div class="flex gap-1"><input name="GP_Q12_HC" placeholder="HC%"><input name="GP_Q12_ToxicGas" placeholder="Tox"><input name="GP_Q12_Oxygen" placeholder="O2%"></div>`;
+                    return `<tr><td>${t}</td><td class="w-32 flex items-center gap-2"><label class="flex items-center"><input type="radio" name="${id}" value="Yes" checked> Yes</label> <label class="flex items-center"><input type="radio" name="${id}" value="NA"> NA</label> <label class="flex items-center"><input type="radio" name="${id}" value="No"> No</label></td><td>${rem}</td></tr>`;
                 }).join('');
+                h += `</tbody></table>`;
             });
-        }
+            document.getElementById('checklists-wrapper').innerHTML = h;
 
-        function renderHazards() {
-            document.getElementById('hazards-container').innerHTML = hazards.map(h => {
-               const val = h.replace(/ /g,'');
-               const change = h==='Others' ? `onchange="document.getElementById('other-hazard-div').classList.toggle('hidden', !this.checked)"` : '';
-               return `<label class="flex items-center gap-1 border p-1 rounded hover:bg-gray-50"><input type="checkbox" name="H_${val}" value="Y" ${change}> ${h}</label>`;
+            document.getElementById('hazards-container').innerHTML = HAZARDS.map(z => {
+                const v = z.replace(/ /g,'');
+                const ch = z==='Others' ? `onchange="document.getElementById('other-hazard-div').classList.toggle('hidden',!this.checked)"` : '';
+                return `<label class="flex items-center gap-1 border p-1 rounded hover:bg-gray-50"><input type="checkbox" name="H_${v}" value="Y" ${ch}> ${z}</label>`;
             }).join('');
             document.getElementById('ppe-container').innerHTML = PPE.map(p => `<label class="flex items-center gap-1 border p-1 rounded hover:bg-gray-50"><input type="checkbox" name="P_${p.replace(/ /g,'')}" value="Y"> ${p}</label>`).join('');
         }
 
-        // --- AUTH & DATA LOADING ---
         async function apiCall(ep, meth="GET", body=null) {
             const opts = { method:meth, headers:{'Content-Type':'application/json'} };
             if(body) opts.body = JSON.stringify(body);
@@ -210,7 +193,7 @@
             const sel = document.getElementById("login-role");
             sel.innerHTML = '<option value="">Select Role</option><option>Requester</option><option>Reviewer</option><option>Approver</option>';
             sel.onchange = () => {
-                const list = u[sel.value+'s']; // Fixed Pluralization key check
+                const list = u[sel.value+'s']; // Fixed Pluralization check
                 const n = document.getElementById("login-name");
                 n.disabled = false; n.innerHTML = "";
                 if(list) list.forEach(x => n.innerHTML += `<option value="${x.email}">${x.name}</option>`);
@@ -228,19 +211,16 @@
                 document.getElementById("view-login").style.display = 'none';
                 document.getElementById("app-container").style.display = 'block';
                 document.getElementById("user-info").innerText = `${name} (${role})`;
-                updateRoleUI();
-                loadDashboard();
+                updateRoleUI(); loadDashboard();
             } else alert(res.message);
         }
 
         function updateRoleUI() {
-            const r = currentUser.Role;
-            if(r==='Requester') document.getElementById("btn-new-permit").classList.remove('hidden');
-            if(r==='Reviewer'||r==='Approver') {
+            if(currentUser.Role==='Requester') document.getElementById("btn-new-permit").classList.remove('hidden');
+            if(currentUser.Role==='Reviewer' || currentUser.Role==='Approver') {
                 document.getElementById("btn-view-map").classList.remove('hidden');
                 document.getElementById("btn-download-excel").classList.remove('hidden');
-                document.getElementById("charts-container").classList.remove('hidden');
-                document.getElementById("btn-add-user").classList.remove('hidden');
+                if(currentUser.Role==='Approver') document.getElementById("btn-add-user").classList.remove('hidden');
             }
         }
 
@@ -253,54 +233,6 @@
             ).join('');
         }
 
-        function checkDate() {
-            const vf = new Date(document.getElementById("ValidFrom").value);
-            const vt = new Date(document.getElementById("ValidTo").value);
-            if(vf && vt) {
-                const diff = (vt - vf) / (1000 * 60 * 60 * 24);
-                if(diff > 7) { alert("Max duration is 7 days!"); document.getElementById("ValidTo").value = ""; }
-            }
-        }
-
-        // --- FORM LOGIC ---
-        function showNewPermit() {
-            document.getElementById("pf").reset();
-            currentPermitId = null;
-            document.getElementById("Status").value = "New";
-            document.getElementById("permit-header-display").innerText = "New Permit: Final permit number will be allotted after successful submission.";
-            document.getElementById("RequesterName").value = currentUser.name;
-            document.getElementById("OfficialName").value = currentUser.name;
-            
-            const rS = document.getElementById("ReviewerEmail"), aS = document.getElementById("ApproverEmail");
-            rS.innerHTML = ""; aS.innerHTML = "";
-            window.users.Reviewers.forEach(u => rS.innerHTML += `<option value="${u.email}">${u.name}</option>`);
-            window.users.Approvers.forEach(u => aS.innerHTML += `<option value="${u.email}">${u.name}</option>`);
-
-            document.querySelectorAll('input, textarea, select').forEach(e => e.disabled = false);
-            document.getElementById("OfficialName").disabled = true;
-            document.getElementById("RequesterName").disabled = true;
-            
-            document.getElementById("fs-reviewer-section").classList.add('hidden');
-            document.getElementById("fs-approver-section").classList.add('hidden');
-            document.getElementById("renewals-section").classList.add('hidden');
-            document.getElementById("closure-section").classList.add('hidden');
-
-            document.getElementById("actions").innerHTML = `<button type="button" onclick="savePermit()" class="bg-blue-600 text-white px-6 py-2 rounded font-bold">Submit</button>`;
-            document.getElementById("view-dashboard").classList.add('hidden');
-            document.getElementById("view-form").classList.remove('hidden');
-        }
-
-        async function savePermit() {
-            const fd = new FormData(document.getElementById("pf"));
-            document.querySelectorAll('input[type="checkbox"]').forEach(c => fd.set(c.name, c.checked ? "Y" : "N"));
-            fd.append("RequesterEmail", currentUser.Email);
-            if(currentPermitId) fd.set("PermitID", currentPermitId);
-
-            const res = await fetch(API+'/save-permit', {method:'POST', body:fd});
-            const json = await res.json();
-            if(json.success) { alert("Saved: " + json.permitId); showDashboard(); } else alert(json.error);
-        }
-
         async function openPermit(id) {
             const p = await apiCall('/permit-data', 'POST', {permitId:id});
             currentPermitId = id;
@@ -308,16 +240,17 @@
             
             const rS = document.getElementById("ReviewerEmail"), aS = document.getElementById("ApproverEmail");
             rS.innerHTML = ""; aS.innerHTML = "";
-            window.users.Reviewers.forEach(u => rS.innerHTML += `<option value="${u.email}">${u.name}</option>`);
-            window.users.Approvers.forEach(u => aS.innerHTML += `<option value="${u.email}">${u.name}</option>`);
+            if(window.users) {
+                window.users.Reviewers.forEach(u => rS.innerHTML += `<option value="${u.email}">${u.name}</option>`);
+                window.users.Approvers.forEach(u => aS.innerHTML += `<option value="${u.email}">${u.name}</option>`);
+            }
 
-            document.querySelectorAll('input, textarea, select').forEach(e => {
+            document.querySelectorAll('#pf input, #pf select, #pf textarea').forEach(e => {
                 if(e.type === 'radio') { if(e.value === p[e.name]) e.checked = true; }
                 else if(e.type === 'checkbox') { e.checked = (p[e.name] === 'Y'); }
                 else { e.value = p[e.name] || ''; }
-                e.disabled = true; 
+                e.disabled = true;
             });
-
             if(p.H_Others==='Y') document.getElementById('other-hazard-div').classList.remove('hidden');
 
             const r = currentUser.Role, s = p.Status;
@@ -353,19 +286,46 @@
                 document.getElementById("fs-approver-section").classList.remove('hidden');
                 document.getElementById("renewals-section").classList.remove('hidden');
                 document.getElementById("closure-section").classList.remove('hidden');
+                
+                const rens = JSON.parse(p.RenewalsJSON || "[]");
+                document.getElementById("renewals-list").innerHTML = rens.map(x => `
+                    <div class="border-b p-2 text-xs grid grid-cols-4">
+                        <div>${x.valid_from}<br>${x.valid_till}</div>
+                        <div>${x.readings}</div>
+                        <div>${x.status}</div>
+                        <div>${x.rej_reason || '-'}</div>
+                    </div>`).join('');
+                
                 btns = `<a href="${API}/download-pdf/${id}" target="_blank" class="bg-gray-600 text-white px-4 py-2 rounded">PDF</a>`;
+
                 if(r === 'Requester') {
                      document.getElementById("div-closure-req").classList.remove('hidden');
                      document.getElementById("Closure_Requestor_Remarks").disabled = false;
+                     document.getElementById("Site_Restored_Check").disabled = false;
                      document.getElementById("form-renewal").classList.remove('hidden');
                      document.querySelectorAll('#form-renewal input').forEach(e => e.disabled = false);
                      btns += `<button type="button" onclick="upd('initiate_closure')" class="bg-red-600 text-white px-4 py-2 rounded ml-2">Job Complete</button>`;
                 }
             }
-            // Populate Renewals List
-            const renList = document.getElementById("renewals-list");
-            const rens = JSON.parse(p.RenewalsJSON || "[]");
-            renList.innerHTML = rens.map(x => `<div class="border-b p-1">${x.valid_from} - ${x.valid_to} [${x.status}]</div>`).join('');
+
+            // CLOSURE LOGIC
+            if(s.includes('Closure') || s === 'Closed') {
+                 document.getElementById("closure-section").classList.remove('hidden');
+                 document.getElementById("div-closure-req").classList.remove('hidden');
+                 if(s!=='Closure Pending Review') document.getElementById("div-closure-rev").classList.remove('hidden');
+                 if(s==='Closed') document.getElementById("div-closure-app").classList.remove('hidden');
+                 
+                 if(s==='Closure Pending Review' && r==='Reviewer') {
+                     document.getElementById("div-closure-rev").classList.remove('hidden');
+                     document.getElementById("Closure_Reviewer_Remarks").disabled=false;
+                     btns=`<button onclick="upd('approve')" class="bg-green-600 text-white px-4 py-2 rounded">Verify</button>`;
+                 }
+                 if(s==='Closure Pending Approval' && r==='Approver') {
+                     document.getElementById("div-closure-app").classList.remove('hidden');
+                     document.getElementById("Closure_Approver_Remarks").disabled=false;
+                     btns=`<button onclick="upd('approve')" class="bg-black text-white px-4 py-2 rounded">Close Permit</button>`;
+                 }
+            }
 
             document.getElementById("actions").innerHTML = btns;
             document.getElementById("view-dashboard").classList.add('hidden');
@@ -373,45 +333,53 @@
         }
 
         async function upd(act) {
-            // SAFE ACCESS to elements that might be hidden/null for different roles
-            const revRem = document.getElementById("Reviewer_Remarks");
-            const appRem = document.getElementById("Approver_Remarks");
-            const closRem = document.getElementById("Closure_Requestor_Remarks");
-
+            // FIX: Safe Access to Elements
+            const getVal = (id) => document.getElementById(id) ? document.getElementById(id).value : '';
             const body = { 
                 PermitID: currentPermitId, action: act, role: currentUser.Role, user: currentUser.name,
-                comment: (revRem ? revRem.value : (appRem ? appRem.value : "")),
-                Closure_Requestor_Remarks: closRem ? closRem.value : ""
+                comment: (currentUser.Role==='Reviewer' ? getVal("Reviewer_Remarks") : getVal("Approver_Remarks")),
+                Closure_Requestor_Remarks: getVal("Closure_Requestor_Remarks"),
+                Closure_Reviewer_Remarks: getVal("Closure_Reviewer_Remarks"),
+                Closure_Approver_Remarks: getVal("Closure_Approver_Remarks")
             };
             
             if(currentUser.Role === 'Reviewer') {
-                 // Collect checkboxes manually to ensure state is captured
+                 const fd = new FormData(document.getElementById("pf"));
                  document.querySelectorAll('#hazards-section input[type=checkbox]').forEach(c => body[c.name] = c.checked ? 'Y' : 'N');
                  document.querySelectorAll('#ppe-container input[type=checkbox]').forEach(c => body[c.name] = c.checked ? 'Y' : 'N');
-                 const addPrec = document.getElementById("AdditionalPrecautions");
-                 if(addPrec) body.AdditionalPrecautions = addPrec.value;
+                 body.AdditionalPrecautions = getVal("AdditionalPrecautions");
             }
-
             const res = await apiCall('/update-status', 'POST', body);
-            if(res.success) showDashboard(); else alert(res.error);
+            if(res.success) showDashboard();
         }
 
         async function submitRenewal(act) {
             const body = {
-                PermitID: currentPermitId, userRole: currentUser.Role, userName: currentUser.name,
+                PermitID: currentPermitId, userRole: currentUser.Role, userName: currentUser.name, action: act,
                 RenewalValidFrom: document.getElementById("RenewalValidFrom").value,
-                RenewalValidTill: document.getElementById("RenewalValidTill").value,
-                RenewalHC: document.getElementById("RenewalHC").value,
-                RenewalPrecautions: document.getElementById("RenewalPrecautions").value
+                RenewalValidTo: document.getElementById("RenewalValidTo").value,
+                GasReadings: document.getElementById("RenewalGas").value,
+                Precautions: document.getElementById("RenewalPrec").value
             };
             const res = await apiCall('/renewal', 'POST', body);
-            if(res.success) { alert("Renewal Submitted"); showDashboard(); }
+            if(res.success) { alert("Renewal Submitted"); showDashboard(); } else alert(res.error);
         }
 
+        function showNewPermit() { document.getElementById("pf").reset(); currentPermitId=null; document.getElementById("Status").value="New"; document.getElementById("permit-header-display").innerText = "New Permit"; 
+           const rS=document.getElementById("ReviewerEmail"), aS=document.getElementById("ApproverEmail"); rS.innerHTML=""; aS.innerHTML=""; if(window.users){window.users.Reviewers.forEach(u=>rS.innerHTML+=`<option value="${u.email}">${u.name}</option>`); window.users.Approvers.forEach(u=>aS.innerHTML+=`<option value="${u.email}">${u.name}</option>`);}
+           document.querySelectorAll('input, textarea, select').forEach(e=>e.disabled=false); document.getElementById("OfficialName").value=currentUser.name; document.getElementById("OfficialName").disabled=true; document.getElementById("RequesterName").value=currentUser.name; document.getElementById("RequesterName").disabled=true;
+           document.getElementById("fs-reviewer-section").classList.add('hidden'); document.getElementById("fs-approver-section").classList.add('hidden'); document.getElementById("renewals-section").classList.add('hidden'); document.getElementById("closure-section").classList.add('hidden');
+           document.getElementById("actions").innerHTML = `<button type="button" onclick="savePermit()" class="bg-blue-600 text-white px-6 py-2 rounded font-bold">Submit</button>`;
+           document.getElementById("view-dashboard").classList.add('hidden'); document.getElementById("view-form").classList.remove('hidden');
+        }
+        async function savePermit() { const fd=new FormData(document.getElementById("pf")); document.querySelectorAll('input[type="checkbox"]').forEach(c=>fd.set(c.name, c.checked?"Y":"N")); fd.append("RequesterEmail", currentUser.Email); if(currentPermitId) fd.set("PermitID", currentPermitId); const res=await fetch(API+'/save-permit', {method:'POST', body:fd}); const json=await res.json(); if(json.success){alert("Saved: "+json.permitId); showDashboard();} else alert(json.error); }
+        function checkDate() { const vf=new Date(document.getElementById("ValidFrom").value); const vt=new Date(document.getElementById("ValidTo").value); if(vf && vt && (vt-vf)/(1000*60*60*24)>7) { alert("Max 7 Days"); document.getElementById("ValidTo").value=""; } }
         function showDashboard() { document.getElementById("view-dashboard").classList.remove('hidden'); document.getElementById("view-form").classList.add('hidden'); loadDashboard(); }
-        function getGeo() { navigator.geolocation.getCurrentPosition(p=>{document.getElementById("Latitude").value=p.coords.latitude;document.getElementById("Longitude").value=p.coords.longitude;}); }
         function showAddUser() { document.getElementById("view-dashboard").classList.add('hidden'); document.getElementById("view-add-user").classList.remove('hidden'); }
-        function showMap() { document.getElementById("view-dashboard").classList.add('hidden'); document.getElementById("view-map").classList.remove('hidden'); /* Call loadMapData() */ }
+        async function submitNewUser() { const n=document.getElementById("new-user-name").value; const e=document.getElementById("new-user-email").value; const r=document.getElementById("new-user-role").value; const p=document.getElementById("new-user-pass").value; const res=await apiCall('/add-user','POST',{name:n,email:e,role:r,password:p}); if(res.success){alert("User Added"); showDashboard();} else alert(res.error); }
+        function showMap() { document.getElementById("view-dashboard").classList.add('hidden'); document.getElementById("view-map").classList.remove('hidden'); loadMapData(); }
+        function getGeo() { navigator.geolocation.getCurrentPosition(p=>{document.getElementById("Latitude").value=p.coords.latitude;document.getElementById("Longitude").value=p.coords.longitude;}); }
+        async function loadMapData() { const p = await apiCall('/map-data', 'POST'); if(!mapInstance) mapInstance=new google.maps.Map(document.getElementById("map"),{center:{lat:22.57,lng:88.36},zoom:5}); document.getElementById("map-list").innerHTML = p.map(x=>`<div class="p-2 border-b cursor-pointer hover:bg-gray-100" onclick="mapInstance.setCenter({lat:${x.lat},lng:${x.lng}}); mapInstance.setZoom(12);">${x.PermitID}</div>`).join(''); p.forEach(x=>{ new google.maps.Marker({position:{lat:x.lat,lng:x.lng},map:mapInstance,title:x.PermitID}); }); }
     </script>
   </body>
 </html>
