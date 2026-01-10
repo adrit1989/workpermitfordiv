@@ -109,7 +109,8 @@
 
             <form id="pf">
                 <input type="hidden" id="PermitID" name="PermitID"><input type="hidden" id="Status" name="Status">
-                
+                <input type="hidden" id="Latitude" name="Latitude"><input type="hidden" id="Longitude" name="Longitude">
+
                 <div class="glass">
                     <h3 class="section-title">1. Permit Details</h3>
                     <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -134,6 +135,11 @@
                     </div>
                 </div>
 
+                <div class="glass">
+                    <h3 class="section-title">2. Checklists</h3>
+                    <div id="checklists-wrapper"></div>
+                </div>
+
                 <div class="glass" id="section-e">
                     <h3 class="section-title">E. Attachment Details</h3>
                     <div class="grid grid-cols-4 gap-4">
@@ -143,11 +149,6 @@
                         <input name="ContEquip" id="ContEquip" placeholder="Contractor Equip">
                         <input name="WorkOrder" id="WorkOrder" placeholder="Work Order No & Date">
                     </div>
-                </div>
-
-                <div class="glass">
-                    <h3 class="section-title">2. Checklists</h3>
-                    <div id="checklists-wrapper"></div>
                 </div>
 
                 <div class="glass" id="worker-select-section">
@@ -373,8 +374,12 @@
                 else { e.value=p[e.name]||''; }
                 e.disabled=true; 
             });
+            // Also populate closure remarks fields explicitly
+            safeSet("Closure_Requestor_Remarks", p.Closure_Requestor_Remarks || "");
+            safeSet("Closure_Reviewer_Remarks", p.Closure_Reviewer_Remarks || "");
+            safeSet("Closure_Approver_Remarks", p.Closure_Approver_Remarks || "");
 
-            // Populate Approved Workers List
+            // WORKER LOGIC
             await loadWorkers('permit_dropdown');
             let workersArr = [];
             if(p.SelectedWorkers) {
@@ -384,6 +389,7 @@
 
             const r=currentUser.Role, s=p.Status;
             
+            // IF EDIT MODE (Pending Review & Requester) -> Show Checkboxes
             if(s==='Pending Review' && r==='Requester') {
                 document.getElementById('worker-checkboxes').classList.remove('hidden');
                 document.getElementById('worker-readonly-table').classList.add('hidden');
@@ -393,6 +399,7 @@
                     c.disabled = false;
                 });
             } else {
+                // READ ONLY MODE -> Show Table
                 document.getElementById('worker-checkboxes').classList.add('hidden');
                 const wTable = document.querySelector('#worker-readonly-table tbody');
                 wTable.innerHTML = workersArr.map(w => `<tr><td>${w.Name}</td><td>${w.Gender}</td><td>${w.Age}</td><td>${p.RequesterName}</td></tr>`).join('');
@@ -592,6 +599,10 @@
             document.querySelectorAll('#worker-checkboxes input:checked').forEach(c => { selectedWorkers.push(JSON.parse(c.value)); });
             fd.append("SelectedWorkers", JSON.stringify(selectedWorkers));
             fd.append("RequesterEmail", currentUser.Email); 
+            // Append Lat/Long explicitly
+            fd.append("Latitude", document.getElementById("Latitude").value);
+            fd.append("Longitude", document.getElementById("Longitude").value);
+
             if(currentPermitId) fd.set("PermitID", currentPermitId); 
             const res=await fetch(API+'/save-permit', {method:'POST', body:fd}); 
             const json=await res.json(); 
@@ -600,7 +611,13 @@
         
         window.checkDate = function() { const vf=new Date(document.getElementById("ValidFrom").value); const vt=new Date(document.getElementById("ValidTo").value); if(vf && vt && (vt-vf)/(1000*60*60*24)>7) { alert("Max 7 Days"); document.getElementById("ValidTo").value=""; } }
         window.showDashboard = function() { document.getElementById("view-dashboard").classList.remove('hidden'); document.getElementById("view-form").classList.add('hidden'); document.getElementById("view-add-user").classList.add('hidden'); document.getElementById("view-worker-management").classList.add('hidden'); loadDashboard(); }
-        window.getGeo = function() { navigator.geolocation.getCurrentPosition(p=>{document.getElementById("ExactLocation").value=`${p.coords.latitude}, ${p.coords.longitude}`;}); }
+        window.getGeo = function() { 
+            navigator.geolocation.getCurrentPosition(p=>{
+                document.getElementById("ExactLocation").value=`${p.coords.latitude}, ${p.coords.longitude}`;
+                document.getElementById("Latitude").value = p.coords.latitude;
+                document.getElementById("Longitude").value = p.coords.longitude;
+            }); 
+        }
         window.showAddUser = function() { document.getElementById("view-dashboard").classList.add('hidden'); document.getElementById("view-add-user").classList.remove('hidden'); }
         window.submitNewUser = async function() { const n=document.getElementById("new-user-name").value; const e=document.getElementById("new-user-email").value; const r=document.getElementById("new-user-role").value; const p=document.getElementById("new-user-pass").value; const res=await apiCall('/add-user','POST',{name:n,email:e,role:r,password:p}); if(res.success){alert("User Added"); showDashboard();} else alert(res.error); }
         window.showMap = function() { document.getElementById("view-dashboard").classList.add('hidden'); document.getElementById("view-map").classList.remove('hidden'); loadMapData(); }
