@@ -153,8 +153,8 @@
 
                     <div id="action-renewal" class="hidden p-4 bg-yellow-50 mt-2 rounded">
                         <textarea id="RenewalRemark" placeholder="Reason for Rejection / Remarks" class="w-full mb-2"></textarea>
-                        <button type="button" onclick="window.submitRenewal('approve')" class="bg-green-600 text-white px-3 py-1 rounded">Approve Renewal</button>
-                        <button type="button" onclick="window.submitRenewal('reject')" class="bg-red-600 text-white px-3 py-1 rounded">Reject Renewal</button>
+                        <button type="button" onclick="window.submitRenewal('approve')" class="bg-green-600 text-white px-3 py-1 rounded">Approve</button>
+                        <button type="button" onclick="window.submitRenewal('reject')" class="bg-red-600 text-white px-3 py-1 rounded">Reject</button>
                     </div>
                 </div>
                 
@@ -252,9 +252,22 @@
             currentPermitId = id;
             document.getElementById("permit-header-display").innerText = `PERMIT: ${id} [${p.Status}]`;
             
-            const rS=document.getElementById("ReviewerEmail"), aS=document.getElementById("ApproverEmail"); rS.innerHTML=""; aS.innerHTML=""; if(window.users){window.users.Reviewers.forEach(u=>rS.innerHTML+=`<option value="${u.email}">${u.name}</option>`); window.users.Approvers.forEach(u=>aS.innerHTML+=`<option value="${u.email}">${u.name}</option>`);}
+            // Populate Dropdowns
+            const rS=document.getElementById("ReviewerEmail"), aS=document.getElementById("ApproverEmail"); 
+            rS.innerHTML = ""; aS.innerHTML = ""; 
+            if(window.users){
+                window.users.Reviewers.forEach(u=>rS.innerHTML+=`<option value="${u.email}">${u.name}</option>`); 
+                window.users.Approvers.forEach(u=>aS.innerHTML+=`<option value="${u.email}">${u.name}</option>`);
+            }
+
+            // Safe Set Helper
+            const safeSet = (id, val) => { const el = document.getElementById(id); if(el) el.value = val; };
+            const safeCheck = (id, val) => { const el = document.getElementById(id); if(el) el.checked = val; };
+
             document.querySelectorAll('#pf input, #pf select, #pf textarea').forEach(e => {
-                if(e.type==='radio'){if(e.value===p[e.name])e.checked=true;} else if(e.type==='checkbox'){e.checked=(p[e.name]==='Y');} else {e.value=p[e.name]||'';}
+                if(e.type==='radio'){ if(e.value===p[e.name]) e.checked=true; }
+                else if(e.type==='checkbox'){ e.checked=(p[e.name]==='Y'); }
+                else { e.value=p[e.name]||''; }
                 e.disabled=true; 
             });
 
@@ -269,12 +282,25 @@
             let btns = "";
 
             if(s.includes('Pending Review')) {
-                if(r==='Requester') { document.querySelectorAll('#pf input, #pf select, #pf textarea').forEach(e=>e.disabled=false); btns=`<button type="button" onclick="window.savePermit()" class="bg-blue-600 text-white px-4 py-2 rounded">Update</button>`; }
-                if(r==='Reviewer') { document.getElementById("fs-reviewer-section").classList.remove('hidden'); document.querySelectorAll('#fs-reviewer-section *, #hazards-section input').forEach(e=>e.disabled=false); btns=`<button type="button" onclick="window.upd('reject')" class="bg-red-600 text-white px-4 py-2 rounded">Reject</button><button type="button" onclick="window.upd('review')" class="bg-green-600 text-white px-4 py-2 rounded">Submit Review</button>`; }
+                if(r==='Requester') { 
+                    document.querySelectorAll('#pf input, #pf select, #pf textarea').forEach(e=>e.disabled=false); 
+                    document.getElementById("OfficialName").disabled=true;
+                    document.getElementById("RequesterName").disabled=true;
+                    btns=`<button type="button" onclick="window.savePermit()" class="bg-blue-600 text-white px-4 py-2 rounded">Update</button>`; 
+                }
+                if(r==='Reviewer') { 
+                    document.getElementById("fs-reviewer-section").classList.remove('hidden'); 
+                    document.querySelectorAll('#fs-reviewer-section *, #hazards-section input').forEach(e=>e.disabled=false); 
+                    btns=`<button type="button" onclick="window.upd('reject')" class="bg-red-600 text-white px-4 py-2 rounded">Reject</button><button type="button" onclick="window.upd('review')" class="bg-green-600 text-white px-4 py-2 rounded">Submit Review</button>`; 
+                }
             }
             if(s.includes('Pending Approval')) {
                 document.getElementById("fs-reviewer-section").classList.remove('hidden');
-                if(r==='Approver') { document.getElementById("fs-approver-section").classList.remove('hidden'); document.getElementById("Approver_Remarks").disabled=false; btns=`<button type="button" onclick="window.upd('reject')" class="bg-red-600 text-white px-4 py-2 rounded">Reject</button><button type="button" onclick="window.upd('approve')" class="bg-green-600 text-white px-4 py-2 rounded">Approve</button>`; }
+                if(r==='Approver') { 
+                    document.getElementById("fs-approver-section").classList.remove('hidden'); 
+                    document.getElementById("Approver_Remarks").disabled=false; 
+                    btns=`<button type="button" onclick="window.upd('reject')" class="bg-red-600 text-white px-4 py-2 rounded">Reject</button><button type="button" onclick="window.upd('approve')" class="bg-green-600 text-white px-4 py-2 rounded">Approve</button>`; 
+                }
             }
             if(s==='Active' || s.includes('Renewal')) {
                 document.getElementById("fs-reviewer-section").classList.remove('hidden');
