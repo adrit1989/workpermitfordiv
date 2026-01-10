@@ -60,7 +60,7 @@
             </div>
 
             <h3 class="font-bold text-gray-600">Action Required</h3>
-            <div class="glass overflow-x-auto mb-4"><table class="w-full text-left text-sm" id="table-pending"><thead class="bg-red-50"><tr><th class="p-2">ID</th><th>Type</th><th>Location</th><th>Status</th><th>Action</th></tr></thead><tbody></tbody></table></div>
+            <div class="glass overflow-x-auto mb-4"><table class="w-full text-left text-sm" id="table-pending"><thead class="bg-red-50"><tr><th class="p-2">ID</th><th>Type</th><th>Location</th><th>Status</th><th>Pending With</th><th>Action</th></tr></thead><tbody></tbody></table></div>
             
             <h3 class="font-bold text-gray-600">Active Permits</h3>
             <div class="glass overflow-x-auto mb-4"><table class="w-full text-left text-sm" id="table-active"><thead class="bg-green-50"><tr><th class="p-2">ID</th><th>Type</th><th>Location</th><th>Status</th><th>Action</th></tr></thead><tbody></tbody></table></div>
@@ -153,8 +153,8 @@
 
                     <div id="action-renewal" class="hidden p-4 bg-yellow-50 mt-2 rounded">
                         <textarea id="RenewalRemark" placeholder="Reason for Rejection / Remarks" class="w-full mb-2"></textarea>
-                        <button type="button" onclick="window.submitRenewal('approve')" class="bg-green-600 text-white px-3 py-1 rounded">Approve</button>
-                        <button type="button" onclick="window.submitRenewal('reject')" class="bg-red-600 text-white px-3 py-1 rounded">Reject</button>
+                        <button type="button" onclick="window.submitRenewal('approve')" class="bg-green-600 text-white px-3 py-1 rounded">Approve Renewal</button>
+                        <button type="button" onclick="window.submitRenewal('reject')" class="bg-red-600 text-white px-3 py-1 rounded">Reject Renewal</button>
                     </div>
                 </div>
                 
@@ -229,7 +229,11 @@
             const tA = document.querySelector('#table-active tbody'); tA.innerHTML = "";
             const tO = document.querySelector('#table-other tbody'); tO.innerHTML = "";
             res.forEach(p => {
-                const row = `<tr class="border-b hover:bg-gray-100 cursor-pointer" onclick="window.openPermit('${p.PermitID}')"><td class="p-2 font-bold text-blue-600">${p.PermitID}</td><td>${p.WorkType}</td><td>${p.LocationUnit}</td><td>${p.Status}</td><td>Open</td></tr>`;
+                let pendingWith = "-";
+                if(p.Status.includes('Review')) pendingWith = p.ReviewerEmail;
+                if(p.Status.includes('Approval')) pendingWith = p.ApproverEmail;
+
+                const row = `<tr class="border-b hover:bg-gray-100 cursor-pointer" onclick="window.openPermit('${p.PermitID}')"><td class="p-2 font-bold text-blue-600">${p.PermitID}</td><td>${p.WorkType}</td><td>${p.LocationUnit}</td><td>${p.Status}</td><td>${pendingWith}</td><td>Open</td></tr>`;
                 
                 // Strict Action Filtering
                 let isAction = false;
@@ -239,6 +243,9 @@
                 } 
                 else if(currentUser.Role === 'Approver') {
                     if((s === 'Pending Approval' || s === 'Renewal Pending Approval' || s === 'Closure Pending Approval') && p.ApproverEmail === currentUser.Email) isAction = true;
+                }
+                else if (currentUser.Role === 'Requester') {
+                     if (s.includes('Pending')) isAction = true;
                 }
 
                 if(isAction) tP.innerHTML += row;
