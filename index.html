@@ -451,6 +451,7 @@
                 if(r==='Requester' && (!last || (last.status!=='pending_review' && last.status!=='pending_approval'))) {
                      document.getElementById("form-renewal").classList.remove('hidden');
                      document.querySelectorAll('#form-renewal input').forEach(e => e.disabled = false);
+                     
                      document.getElementById("div-closure-req").classList.remove('hidden');
                      document.getElementById("Closure_Requestor_Remarks").disabled = false;
                      document.getElementById("Site_Restored_Check").disabled = false;
@@ -481,10 +482,20 @@
                  document.getElementById("closure-section").classList.remove('hidden');
                  document.getElementById("div-closure-req").classList.remove('hidden');
                  setText("ts-clos-req", p.Closure_Requestor_Date);
+                 
                  if(s!=='Closure Pending Review') { document.getElementById("div-closure-rev").classList.remove('hidden'); setText("ts-clos-rev", p.Closure_Reviewer_Date); }
                  if(s==='Closed') { document.getElementById("div-closure-app").classList.remove('hidden'); setText("ts-clos-app", p.Closure_Approver_Date); }
-                 if(s==='Closure Pending Review' && r==='Reviewer') { document.getElementById("div-closure-rev").classList.remove('hidden'); document.getElementById("Closure_Reviewer_Remarks").disabled=false; btns=`<button onclick="window.upd('reject_closure')" class="bg-red-600 text-white px-4 py-2 rounded">Reject Closure</button><button onclick="window.upd('approve_closure')" class="bg-green-600 text-white px-4 py-2 rounded">Verify Closure</button>`; }
-                 if(s==='Closure Pending Approval' && r==='Approver') { document.getElementById("div-closure-app").classList.remove('hidden'); document.getElementById("Closure_Approver_Remarks").disabled=false; btns=`<button onclick="window.upd('reject_closure')" class="bg-red-600 text-white px-4 py-2 rounded">Reject Closure</button><button onclick="window.upd('approve')" class="bg-black text-white px-4 py-2 rounded">Final Close</button>`; }
+
+                 if(s==='Closure Pending Review' && r==='Reviewer') { 
+                     document.getElementById("div-closure-rev").classList.remove('hidden'); 
+                     document.getElementById("Closure_Reviewer_Remarks").disabled=false; 
+                     btns=`<button onclick="window.upd('reject_closure')" class="bg-red-600 text-white px-4 py-2 rounded">Reject Closure</button><button onclick="window.upd('approve_closure')" class="bg-green-600 text-white px-4 py-2 rounded">Verify Closure</button>`; 
+                 }
+                 if(s==='Closure Pending Approval' && r==='Approver') { 
+                     document.getElementById("div-closure-app").classList.remove('hidden'); 
+                     document.getElementById("Closure_Approver_Remarks").disabled=false; 
+                     btns=`<button onclick="window.upd('reject_closure')" class="bg-red-600 text-white px-4 py-2 rounded">Reject Closure</button><button onclick="window.upd('approve')" class="bg-black text-white px-4 py-2 rounded">Final Close</button>`; 
+                 }
                  if(s==='Closed') btns = `<a href="${API}/download-pdf/${id}" target="_blank" class="bg-gray-600 text-white px-4 py-2 rounded ml-2">PDF</a>`;
             }
 
