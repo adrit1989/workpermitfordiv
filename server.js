@@ -14,19 +14,27 @@ app.use(cors());
 app.use(bodyParser.json({ limit: '50mb' }));
 app.use(express.static(path.join(__dirname, '.')));
 
-// --- AZURE STORAGE ---
+// --- AZURE STORAGE SETUP ---
 const AZURE_CONN_STR = process.env.AZURE_STORAGE_CONNECTION_STRING;
-let containerClient;
+let containerClient, kmlContainerClient;
+
 if (AZURE_CONN_STR) {
     try {
         const blobServiceClient = BlobServiceClient.fromConnectionString(AZURE_CONN_STR);
         containerClient = blobServiceClient.getContainerClient("permit-attachments");
-        (async () => { try { await containerClient.createIfNotExists(); } catch(e) {} })();
-    } catch (err) { console.error("Blob Storage Error:", err.message); }
+        kmlContainerClient = blobServiceClient.getContainerClient("map-layers");
+        (async () => {
+            try { await containerClient.createIfNotExists(); } catch(e) {}
+            try { await kmlContainerClient.createIfNotExists({ access: 'blob' }); } catch(e) {}
+        })();
+    } catch (err) { 
+        console.error("Blob Storage Error:", err.message); 
+    }
 }
+
 const upload = multer({ storage: multer.memoryStorage() });
 
-// --- HELPERS ---
+// --- HELPER FUNCTIONS ---
 function getNowIST() { 
     return new Date().toLocaleString("en-GB", { 
         timeZone: "Asia/Kolkata", 
@@ -34,17 +42,18 @@ function getNowIST() {
         hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false 
     }).replace(',', ''); 
 }
-function formatDate(dateStr) { 
-    if (!dateStr) return '-'; 
-    const d = new Date(dateStr); 
+
+function formatDate(dateStr) {
+    if (!dateStr) return '-';
+    const d = new Date(dateStr);
     if (isNaN(d.getTime())) return dateStr; 
     return d.toLocaleString("en-GB", { 
         day: '2-digit', month: '2-digit', year: 'numeric', 
         hour: '2-digit', minute: '2-digit', hour12: false 
-    }).replace(',', ''); 
+    }).replace(',', '');
 }
 
-// --- CHECKLIST DATA ---
+// --- CHECKLIST DATA (FULL OISD-105 TEXT) ---
 const CHECKLIST_DATA = {
     A: [
         "1. Equipment / Work Area inspected.",
@@ -81,7 +90,9 @@ const CHECKLIST_DATA = {
         "14. Welding Machine Checked for Safe Location.",
         "15. Permit taken for working at height Vide Permit No."
     ],
-    C: ["1. PESO approved spark elimination system provided on the mobile equipment/ vehicle provided."],
+    C: [
+        "1. PESO approved spark elimination system provided on the mobile equipment/ vehicle provided."
+    ],
     D: [
         "1. For excavated trench/ pit proper slop/ shoring/ shuttering provided to prevent soil collapse.",
         "2. Excavated soil kept at safe distance from trench/pit edge (min. pit depth).",
@@ -99,6 +110,7 @@ function drawHeader(doc, bgColor) {
         doc.rect(0, 0, doc.page.width, doc.page.height).fill();
         doc.restore();
     }
+
     const startX=30, startY=30; doc.lineWidth(1);
     doc.rect(startX,startY,535,95).stroke();
     doc.rect(startX,startY,80,95).stroke();
@@ -181,6 +193,7 @@ app.post('/api/save-worker', async (req, res) => {
             if(cur.recordset.length === 0) return res.status(404).json({error:"Worker not found"});
             let st = cur.recordset[0].Status;
             let dataObj = JSON.parse(cur.recordset[0].DataJSON);
+
             let nextSt = st;
             if (Action === 'approve') {
                 if (st.includes('Pending Review')) nextSt = st.replace('Review', 'Approval');
@@ -238,7 +251,7 @@ app.post('/api/save-permit', upload.single('file'), async (req, res) => {
         let workers = req.body.SelectedWorkers;
         if (typeof workers === 'string') { try { workers = JSON.parse(workers); } catch (e) { workers = []; } }
         
-        const data = { ...req.body, SelectedWorkers: workers, PermitID: pid };
+        const data = { ...req.body, SelectedWorkers: workers, PermitID: pid, CreatedDate: getNowIST() }; // Save timestamp on creation
         const q = pool.request().input('p', pid).input('s', 'Pending Review').input('w', req.body.WorkType).input('re', req.body.RequesterEmail).input('rv', req.body.ReviewerEmail).input('ap', req.body.ApproverEmail).input('vf', vf).input('vt', vt).input('j', JSON.stringify(data));
         
         if (chk.recordset.length > 0) await q.query("UPDATE Permits SET FullDataJSON=@j, WorkType=@w, ValidFrom=@vf, ValidTo=@vt WHERE PermitID=@p");
@@ -310,7 +323,7 @@ app.post('/api/renewal', async (req, res) => {
 app.post('/api/permit-data', async (req, res) => { try { const pool = await getConnection(); const r = await pool.request().input('p', sql.NVarChar, req.body.permitId).query("SELECT * FROM Permits WHERE PermitID=@p"); if(r.recordset.length) res.json({...JSON.parse(r.recordset[0].FullDataJSON), Status:r.recordset[0].Status, RenewalsJSON:r.recordset[0].RenewalsJSON, FullDataJSON:null}); else res.json({error:"404"}); } catch(e){res.status(500).json({error:e.message})} });
 app.post('/api/map-data', async (req, res) => { try { const pool = await getConnection(); const r = await pool.request().query("SELECT PermitID, FullDataJSON, Latitude, Longitude FROM Permits WHERE Status='Active'"); res.json(r.recordset.map(x=>({PermitID:x.PermitID, lat:parseFloat(x.Latitude), lng:parseFloat(x.Longitude), ...JSON.parse(x.FullDataJSON)}))); } catch(e){res.status(500).json({error:e.message})} });
 app.post('/api/stats', async (req, res) => { try { const pool = await getConnection(); const r = await pool.request().query("SELECT Status, WorkType FROM Permits"); const s={}, t={}; r.recordset.forEach(x=>{s[x.Status]=(s[x.Status]||0)+1; t[x.WorkType]=(t[x.WorkType]||0)+1;}); res.json({success:true, statusCounts:s, typeCounts:t}); } catch(e){res.status(500).json({error:e.message})} });
-app.get('/api/download-excel', async (req, res) => { try { const pool = await getConnection(); const result = await pool.request().query("SELECT * FROM Permits ORDER BY Id DESC"); const workbook = new ExcelJS.Workbook(); const sheet = workbook.addWorksheet('Permits'); sheet.columns = [{header:'Permit ID',key:'id',width:15},{header:'Status',key:'status',width:20},{header:'Work',key:'wt',width:25},{header:'Requester',key:'req',width:25},{header:'Location',key:'loc',width:30},{header:'Vendor',key:'ven',width:20},{header:'Valid From',key:'vf',width:20},{header:'Valid To',key:'vt',width:20}]; sheet.getRow(1).font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 12 }; sheet.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFED7D31' } }; result.recordset.forEach(r => { const d = JSON.parse(r.FullDataJSON || "{}"); sheet.addRow({ id: r.PermitID, status: r.Status, wt: d.WorkType, req: d.RequesterName, loc: d.ExactLocation, ven: d.Vendor, vf: formatDate(r.ValidFrom), vt: formatDate(r.ValidTo) }); }); res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'); res.setHeader('Content-Disposition', 'attachment; filename=IndianOil_Permits.xlsx'); await workbook.xlsx.write(res); res.end(); } catch (e) { res.status(500).send(e.message); } });
+app.get('/api/download-excel', async (req, res) => { try { const pool = await getConnection(); const result = await pool.request().query("SELECT * FROM Permits ORDER BY Id DESC"); const workbook = new ExcelJS.Workbook(); const sheet = workbook.addWorksheet('Permits'); sheet.columns = [{header:'Permit ID',key:'id',width:15},{header:'Status',key:'status',width:20},{header:'Work Type',key:'wt',width:25},{header:'Requester',key:'req',width:25},{header:'Location',key:'loc',width:30},{header:'Vendor',key:'ven',width:20},{header:'Valid From',key:'vf',width:20},{header:'Valid To',key:'vt',width:20}]; sheet.getRow(1).font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 12 }; sheet.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFED7D31' } }; result.recordset.forEach(r => { const d = JSON.parse(r.FullDataJSON || "{}"); sheet.addRow({ id: r.PermitID, status: r.Status, wt: d.WorkType, req: d.RequesterName, loc: d.ExactLocation, ven: d.Vendor, vf: formatDate(r.ValidFrom), vt: formatDate(r.ValidTo) }); }); res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'); res.setHeader('Content-Disposition', 'attachment; filename=IndianOil_Permits.xlsx'); await workbook.xlsx.write(res); res.end(); } catch (e) { res.status(500).send(e.message); } });
 
 // 8. PDF GENERATION
 app.get('/api/download-pdf/:id', async (req, res) => {
@@ -345,7 +358,7 @@ app.get('/api/download-pdf/:id', async (req, res) => {
         };
         drawChecklist("SECTION A: GENERAL", CHECKLIST_DATA.A,'A'); drawChecklist("SECTION B: HOT WORK", CHECKLIST_DATA.B,'B'); drawChecklist("SECTION C: VEHICLE", CHECKLIST_DATA.C,'C'); drawChecklist("SECTION D: EXCAVATION", CHECKLIST_DATA.D,'D');
 
-        // HEADER E (NEW)
+        // HEADER E
         if(doc.y>650){doc.addPage(); drawHeader(doc, bgColor); doc.y=135;}
         doc.font('Helvetica-Bold').text("E. DETAILS FOR ATTACHMENT", 30, doc.y); doc.y+=15;
         doc.fontSize(8).font('Helvetica');
@@ -378,11 +391,11 @@ app.get('/api/download-pdf/:id', async (req, res) => {
         doc.y = wy+20;
 
         doc.font('Helvetica-Bold').text("SIGNATURES",30,doc.y); doc.y+=15; const sY=doc.y;
-        doc.rect(30,sY,178,40).stroke().text(`REQ: ${d.RequesterName}`,35,sY+5);
+        doc.rect(30,sY,178,40).stroke().text(`REQ: ${d.RequesterName}\n${d.CreatedDate||''}`,35,sY+5);
         doc.rect(208,sY,178,40).stroke().text(`REV: ${d.Reviewer_Sig||'-'}`,213,sY+5);
         doc.rect(386,sY,179,40).stroke().text(`APP: ${d.Approver_Sig||'-'}`,391,sY+5); doc.y=sY+50;
 
-        // Renewals (Overlap Fix)
+        // Renewals (Updated Headers)
         doc.font('Helvetica-Bold').text("CLEARANCE RENEWAL",30,doc.y); doc.y+=15;
         let ry = doc.y;
         doc.rect(30,ry,60,25).stroke().text("From",32,ry+5); doc.rect(90,ry,60,25).stroke().text("To",92,ry+5); doc.rect(150,ry,70,25).stroke().text("Gas",152,ry+5); doc.rect(220,ry,80,25).stroke().text("Precautions",222,ry+5); doc.rect(300,ry,85,25).stroke().text("Req (Name/Date)",302,ry+5); doc.rect(385,ry,85,25).stroke().text("Rev (Name/Date)",387,ry+5); doc.rect(470,ry,85,25).stroke().text("App (Name/Date)",472,ry+5); ry+=25;
@@ -401,12 +414,18 @@ app.get('/api/download-pdf/:id', async (req, res) => {
         });
         doc.y = ry + 20;
 
-        // Closure Table (Overlap Fix)
+        // Closure Table (FIXED)
         if(doc.y>650){doc.addPage(); drawHeader(doc, bgColor); doc.y=135;}
         doc.font('Helvetica-Bold').text("CLOSURE OF WORK PERMIT",30,doc.y); doc.y+=15;
         let cy = doc.y;
         doc.rect(30,cy,80,20).stroke().text("Stage",35,cy+5); doc.rect(110,cy,120,20).stroke().text("Name/Sig",115,cy+5); doc.rect(230,cy,100,20).stroke().text("Date/Time",235,cy+5); doc.rect(330,cy,235,20).stroke().text("Remarks",335,cy+5); cy+=20;
-        const closureSteps = [ {role:'Requestor', name:d.RequesterName, date:d.Closure_Requestor_Date, rem:d.Closure_Requestor_Remarks}, {role:'Reviewer', name:d.Reviewer_Sig, date:d.Closure_Reviewer_Date, rem:d.Closure_Reviewer_Remarks}, {role:'Approver', name:d.Closure_Issuer_Sig, date:d.Closure_Approver_Date, rem:d.Closure_Approver_Remarks} ];
+        
+        const closureSteps = [
+            {role:'Requestor', name:d.RequesterName, date:d.Closure_Requestor_Date, rem:d.Closure_Requestor_Remarks},
+            {role:'Reviewer', name:d.Reviewer_Sig, date:d.Closure_Reviewer_Date, rem:d.Closure_Reviewer_Remarks},
+            {role:'Approver', name:d.Closure_Issuer_Sig, date:d.Closure_Approver_Date, rem:d.Closure_Approver_Remarks}
+        ];
+        
         doc.font('Helvetica').fontSize(8);
         closureSteps.forEach(s => {
              doc.rect(30,cy,80,30).stroke().text(s.role,35,cy+5); doc.rect(110,cy,120,30).stroke().text(s.name||'-',115,cy+5, {width:110}); doc.rect(230,cy,100,30).stroke().text(s.date||'-',235,cy+5, {width:90}); doc.rect(330,cy,235,30).stroke().text(s.rem||'-',335,cy+5, {width:225}); cy+=30;
