@@ -161,9 +161,18 @@
                 <div id="closure-section" class="glass hidden">
                     <h3 class="section-title">Closure</h3>
                     <label class="flex items-center gap-2 mb-2 font-bold text-red-600"><input type="checkbox" id="Site_Restored_Check" name="Site_Restored_Check"> Site Restored</label>
-                    <div id="div-closure-req" class="hidden"><textarea id="Closure_Requestor_Remarks" placeholder="Req Remarks" class="w-full"></textarea></div>
-                    <div id="div-closure-rev" class="hidden mt-2"><textarea id="Closure_Reviewer_Remarks" placeholder="Rev Remarks" class="w-full"></textarea></div>
-                    <div id="div-closure-app" class="hidden mt-2"><textarea id="Closure_Approver_Remarks" placeholder="App Remarks" class="w-full"></textarea></div>
+                    <div id="div-closure-req" class="hidden">
+                        <textarea id="Closure_Requestor_Remarks" placeholder="Req Remarks" class="w-full"></textarea>
+                        <span id="ts-clos-req" class="text-xs text-gray-500 float-right"></span>
+                    </div>
+                    <div id="div-closure-rev" class="hidden mt-2">
+                        <textarea id="Closure_Reviewer_Remarks" placeholder="Rev Remarks" class="w-full"></textarea>
+                        <span id="ts-clos-rev" class="text-xs text-gray-500 float-right"></span>
+                    </div>
+                    <div id="div-closure-app" class="hidden mt-2">
+                        <textarea id="Closure_Approver_Remarks" placeholder="App Remarks" class="w-full"></textarea>
+                        <span id="ts-clos-app" class="text-xs text-gray-500 float-right"></span>
+                    </div>
                 </div>
 
                 <div id="actions" class="mt-4 flex justify-end gap-2 sticky bottom-0 bg-white p-4 shadow z-50"></div>
@@ -270,6 +279,7 @@
             // Safe Set Helper
             const safeSet = (id, val) => { const el = document.getElementById(id); if(el) el.value = val; };
             const safeCheck = (id, val) => { const el = document.getElementById(id); if(el) el.checked = val; };
+            const setText = (id, val) => { const el = document.getElementById(id); if(el) el.innerText = val; };
 
             document.querySelectorAll('#pf input, #pf select, #pf textarea').forEach(e => {
                 if(e.type==='radio'){ if(e.value===p[e.name]) e.checked=true; }
@@ -288,11 +298,11 @@
             document.getElementById("pending-renewal-display").classList.add('hidden');
             let btns = "";
 
-            if(s.includes('Pending Review')) {
+            if(s === 'Pending Review') { // Strict check to avoid "Renewal Pending Review"
                 if(r==='Requester') { 
                     document.querySelectorAll('#pf input, #pf select, #pf textarea').forEach(e=>e.disabled=false); 
-                    document.getElementById("OfficialName").disabled=true;
-                    document.getElementById("RequesterName").disabled=true;
+                    safeSet("OfficialName", currentUser.name); safeSet("RequesterName", currentUser.name);
+                    document.getElementById("OfficialName").disabled=true; document.getElementById("RequesterName").disabled=true;
                     btns=`<button type="button" onclick="window.savePermit()" class="bg-blue-600 text-white px-4 py-2 rounded">Update</button>`; 
                 }
                 if(r==='Reviewer') { 
@@ -301,7 +311,7 @@
                     btns=`<button type="button" onclick="window.upd('reject')" class="bg-red-600 text-white px-4 py-2 rounded">Reject</button><button type="button" onclick="window.upd('review')" class="bg-green-600 text-white px-4 py-2 rounded">Submit Review</button>`; 
                 }
             }
-            if(s.includes('Pending Approval')) {
+            if(s === 'Pending Approval') {
                 document.getElementById("fs-reviewer-section").classList.remove('hidden');
                 if(r==='Approver') { 
                     document.getElementById("fs-approver-section").classList.remove('hidden'); 
@@ -338,23 +348,44 @@
                 if(last && (last.status==='pending_review' || last.status==='pending_approval')) {
                     if(r!=='Requester') {
                         document.getElementById("pending-renewal-display").classList.remove('hidden');
-                        document.getElementById("disp-ren-from").innerText = last.valid_from;
-                        document.getElementById("disp-ren-to").innerText = last.valid_till;
-                        document.getElementById("disp-ren-gas").innerText = `${last.hc}/${last.toxic}/${last.oxygen}`;
-                        document.getElementById("disp-ren-prec").innerText = last.precautions;
+                        setText("disp-ren-from", last.valid_from); setText("disp-ren-to", last.valid_till);
+                        setText("disp-ren-gas", `${last.hc}/${last.toxic}/${last.oxygen}`); setText("disp-ren-prec", last.precautions);
                     }
                 }
-                if(r==='Reviewer' && last && last.status==='pending_review') document.getElementById("action-renewal").classList.remove('hidden');
-                if(r==='Approver' && last && last.status==='pending_approval') document.getElementById("action-renewal").classList.remove('hidden');
+                if(r==='Reviewer' && last && last.status==='pending_review') {
+                    document.getElementById("action-renewal").classList.remove('hidden');
+                    document.getElementById("RenewalRemark").disabled = false;
+                }
+                if(r==='Approver' && last && last.status==='pending_approval') {
+                    document.getElementById("action-renewal").classList.remove('hidden');
+                    document.getElementById("RenewalRemark").disabled = false;
+                }
                 btns += `<a href="${API}/download-pdf/${id}" target="_blank" class="bg-gray-600 text-white px-4 py-2 rounded ml-2">PDF</a>`;
             }
             if(s.includes('Closure') || s === 'Closed') {
                  document.getElementById("closure-section").classList.remove('hidden');
                  document.getElementById("div-closure-req").classList.remove('hidden');
-                 if(s!=='Closure Pending Review') document.getElementById("div-closure-rev").classList.remove('hidden');
-                 if(s==='Closed') document.getElementById("div-closure-app").classList.remove('hidden');
-                 if(s==='Closure Pending Review' && r==='Reviewer') { document.getElementById("div-closure-rev").classList.remove('hidden'); document.getElementById("Closure_Reviewer_Remarks").disabled=false; btns=`<button onclick="window.upd('reject_closure')" class="bg-red-600 text-white px-4 py-2 rounded">Reject Closure</button><button onclick="window.upd('approve')" class="bg-green-600 text-white px-4 py-2 rounded">Verify Closure</button>`; }
-                 if(s==='Closure Pending Approval' && r==='Approver') { document.getElementById("div-closure-app").classList.remove('hidden'); document.getElementById("Closure_Approver_Remarks").disabled=false; btns=`<button onclick="window.upd('reject_closure')" class="bg-red-600 text-white px-4 py-2 rounded">Reject Closure</button><button onclick="window.upd('approve')" class="bg-black text-white px-4 py-2 rounded">Final Close</button>`; }
+                 setText("ts-clos-req", p.Closure_Requestor_Date);
+                 
+                 if(s!=='Closure Pending Review') {
+                     document.getElementById("div-closure-rev").classList.remove('hidden');
+                     setText("ts-clos-rev", p.Closure_Reviewer_Date);
+                 }
+                 if(s==='Closed') {
+                     document.getElementById("div-closure-app").classList.remove('hidden');
+                     setText("ts-clos-app", p.Closure_Approver_Date);
+                 }
+
+                 if(s==='Closure Pending Review' && r==='Reviewer') { 
+                     document.getElementById("div-closure-rev").classList.remove('hidden'); 
+                     document.getElementById("Closure_Reviewer_Remarks").disabled=false; 
+                     btns=`<button onclick="window.upd('reject_closure')" class="bg-red-600 text-white px-4 py-2 rounded">Reject Closure</button><button onclick="window.upd('approve_closure')" class="bg-green-600 text-white px-4 py-2 rounded">Verify Closure</button>`; 
+                 }
+                 if(s==='Closure Pending Approval' && r==='Approver') { 
+                     document.getElementById("div-closure-app").classList.remove('hidden'); 
+                     document.getElementById("Closure_Approver_Remarks").disabled=false; 
+                     btns=`<button onclick="window.upd('reject_closure')" class="bg-red-600 text-white px-4 py-2 rounded">Reject Closure</button><button onclick="window.upd('approve')" class="bg-black text-white px-4 py-2 rounded">Final Close</button>`; 
+                 }
                  if(s==='Closed') btns = `<a href="${API}/download-pdf/${id}" target="_blank" class="bg-gray-600 text-white px-4 py-2 rounded ml-2">PDF</a>`;
             }
             document.getElementById("actions").innerHTML = btns;
@@ -382,15 +413,16 @@
         }
 
         window.submitRenewal = async function(act) {
+            const getVal = (id) => { const el = document.getElementById(id); return el ? el.value : ''; };
             const body = {
                 PermitID: currentPermitId, userRole: currentUser.Role, userName: currentUser.name, action: act,
-                RenewalValidFrom: document.getElementById("RenewalValidFrom").value,
-                RenewalValidTo: document.getElementById("RenewalValidTo").value,
-                hc: document.getElementById("RenewalHC").value,
-                toxic: document.getElementById("RenewalToxic").value,
-                oxygen: document.getElementById("RenewalOxygen").value,
-                precautions: document.getElementById("RenewalPrec").value,
-                rejectionReason: document.getElementById("RenewalRemark").value
+                RenewalValidFrom: getVal("RenewalValidFrom"),
+                RenewalValidTo: getVal("RenewalValidTo"),
+                hc: getVal("RenewalHC"),
+                toxic: getVal("RenewalToxic"),
+                oxygen: getVal("RenewalOxygen"),
+                precautions: getVal("RenewalPrec"),
+                rejectionReason: getVal("RenewalRemark")
             };
             const res = await apiCall('/renewal', 'POST', body);
             if(res.success) { alert("Done"); showDashboard(); } else alert(res.error);
@@ -414,10 +446,10 @@
 
            document.querySelectorAll('input, textarea, select').forEach(e=>e.disabled=false); 
            
-           // Safe Set
-           const setV = (id,v) => { const el=document.getElementById(id); if(el) { el.value=v; el.disabled=true; } };
-           setV("OfficialName", currentUser.name);
-           setV("RequesterName", currentUser.name);
+           // Safe Set (Crucial Fix)
+           const safeSet = (id, val) => { const el = document.getElementById(id); if(el) { el.value = val; el.disabled = true; } };
+           safeSet("OfficialName", currentUser.name);
+           safeSet("RequesterName", currentUser.name);
            
            document.getElementById("fs-reviewer-section").classList.add('hidden'); 
            document.getElementById("fs-approver-section").classList.add('hidden'); 
