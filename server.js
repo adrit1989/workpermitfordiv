@@ -29,9 +29,7 @@ if (AZURE_CONN_STR) {
             try { await containerClient.createIfNotExists(); } catch(e) {}
             try { await kmlContainerClient.createIfNotExists({ access: 'blob' }); } catch(e) {}
         })();
-    } catch (err) { 
-        console.error("Blob Storage Error:", err.message); 
-    }
+    } catch (err) { console.error("Blob Storage Error:", err.message); }
 }
 
 const upload = multer({ storage: multer.memoryStorage() });
@@ -118,7 +116,7 @@ app.post('/api/dashboard', async (req, res) => {
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// 4. SAVE PERMIT (CRITICAL FIX FOR UPDATE)
+// 4. SAVE PERMIT (FIXED VALIDATION LOGIC)
 app.post('/api/save-permit', upload.single('file'), async (req, res) => {
     try {
         const vf = new Date(req.body.ValidFrom);
@@ -129,23 +127,16 @@ app.post('/api/save-permit', upload.single('file'), async (req, res) => {
 
         const pool = await getConnection();
         
-        // --- 1. SANITIZE ID ---
-        let inputId = req.body.PermitID;
+        // --- SANITIZE ID ---
+        let rawId = req.body.PermitID;
+        if (rawId === 'undefined' || rawId === 'null' || rawId === '') rawId = null;
         
-        // Handle array case (duplicate inputs)
-        if (Array.isArray(inputId)) inputId = inputId[0]; 
-        
-        // Handle bad strings
-        if (inputId && (inputId === 'undefined' || inputId === 'null' || inputId.trim() === '')) {
-            inputId = null;
-        }
-
-        let permitId = inputId;
+        let permitId = rawId;
         let isUpdate = false;
 
-        // --- 2. CHECK EXISTENCE ---
+        // 1. CHECK EXISTENCE
         if (permitId) {
-            const checkReq = pool.request();
+            const checkReq = pool.request(); 
             const check = await checkReq.input('pid', sql.NVarChar, String(permitId)).query("SELECT Status FROM Permits WHERE PermitID = @pid");
             
             if (check.recordset.length > 0) {
@@ -153,14 +144,14 @@ app.post('/api/save-permit', upload.single('file'), async (req, res) => {
                 if (currentStatus === 'Pending Review' || currentStatus === 'New') {
                     isUpdate = true;
                 } else {
-                    return res.status(400).json({ error: "Cannot edit. Current status: " + currentStatus });
+                    return res.status(400).json({ error: "Cannot edit an Active/Processed permit." });
                 }
             } else {
                 permitId = null; // Passed ID not found, create new
             }
         }
 
-        // --- 3. GENERATE ID IF NEW ---
+        // 2. GENERATE ID IF NEW
         if (!permitId) {
             const idReq = pool.request();
             const idRes = await idReq.query("SELECT TOP 1 PermitID FROM Permits ORDER BY Id DESC");
@@ -170,7 +161,7 @@ app.post('/api/save-permit', upload.single('file'), async (req, res) => {
 
         const fullData = { ...req.body, PermitID: permitId };
         
-        // --- 4. EXECUTE SQL ---
+        // 3. EXECUTE SAVE
         const saveReq = pool.request();
         saveReq.input('pid', sql.NVarChar, String(permitId))
                .input('status', sql.NVarChar, 'Pending Review')
@@ -215,13 +206,12 @@ app.post('/api/save-permit', upload.single('file'), async (req, res) => {
         }
 
         if(req.file && containerClient) {
-            const blobClient = containerClient.getBlockBlobClient(`${permitId}_${req.file.originalname}`);
-            await blobClient.uploadData(req.file.buffer);
+            await containerClient.getBlockBlobClient(`${permitId}_${req.file.originalname}`).uploadData(req.file.buffer);
         }
 
         res.json({ success: true, permitId: permitId });
     } catch (e) { 
-        console.error("SAVE ERROR:", e);
+        console.error("Save Error:", e);
         res.status(500).json({ error: e.message }); 
     }
 });
@@ -249,112 +239,33 @@ app.post('/api/update-status', async (req, res) => {
             data.Closure_Requestor_Date = now;
         }
         else if (role === 'Reviewer') {
-            if (action === 'reject') { 
-                status = 'Rejected'; 
-                data.Reviewer_Remarks = (data.Reviewer_Remarks||"") + `\n[Rejected by ${user}: ${comment}]`; 
-            } else if (action === 'review') { 
-                status = 'Pending Approval'; 
-                data.Reviewer_Sig = sig; 
-                data.Reviewer_Remarks = comment; 
-            } else if (action === 'approve' && status.includes('Closure')) { 
-                status = 'Closure Pending Approval'; 
-                data.Closure_Reviewer_Remarks = req.body.Closure_Reviewer_Remarks;
-                data.Closure_Reviewer_Date = now;
-                data.Closure_Reviewer_Sig = sig; 
-            } else if (action === 'reject_closure') {
-                status = 'Active'; 
-                data.Closure_Reviewer_Remarks = `[REJECTED by ${user}]: ${req.body.Closure_Reviewer_Remarks}`;
-                data.Closure_Reviewer_Date = now;
-            }
+            if (action === 'reject') { status = 'Rejected'; data.Reviewer_Remarks = (data.Reviewer_Remarks||"") + `\n[Rejected by ${user}: ${comment}]`; }
+            else if (action === 'review') { status = 'Pending Approval'; data.Reviewer_Sig = sig; data.Reviewer_Remarks = comment; }
+            else if (action === 'approve' && status.includes('Closure')) { status = 'Closure Pending Approval'; data.Closure_Reviewer_Remarks = req.body.Closure_Reviewer_Remarks; data.Closure_Reviewer_Date = now; data.Closure_Reviewer_Sig = sig; }
+            else if (action === 'reject_closure') { status = 'Active'; data.Closure_Reviewer_Remarks = `[REJECTED by ${user}]: ${req.body.Closure_Reviewer_Remarks}`; data.Closure_Reviewer_Date = now; }
         }
         else if (role === 'Approver') {
-            if (action === 'reject') { 
-                status = 'Rejected'; 
-                data.Approver_Remarks = (data.Approver_Remarks||"") + `\n[Rejected by ${user}: ${comment}]`; 
-            } else if (action === 'approve' && status === 'Pending Approval') { 
-                status = 'Active'; 
-                data.Approver_Sig = sig; 
-                data.Approver_Remarks = comment; 
-            } else if (action === 'approve' && status.includes('Closure')) { 
-                status = 'Closed'; 
-                data.Closure_Approver_Remarks = req.body.Closure_Approver_Remarks;
-                data.Closure_Approver_Date = now;
-                data.Closure_Issuer_Sig = sig; 
-                data.Closure_Issuer_Remarks = comment; 
-            } else if (action === 'reject_closure') {
-                status = 'Active'; 
-                data.Closure_Approver_Remarks = `[REJECTED by ${user}]: ${req.body.Closure_Approver_Remarks}`;
-                data.Closure_Approver_Date = now;
-            }
+            if (action === 'reject') { status = 'Rejected'; data.Approver_Remarks = (data.Approver_Remarks||"") + `\n[Rejected by ${user}: ${comment}]`; }
+            else if (action === 'approve' && status === 'Pending Approval') { status = 'Active'; data.Approver_Sig = sig; data.Approver_Remarks = comment; }
+            else if (action === 'approve' && status.includes('Closure')) { status = 'Closed'; data.Closure_Approver_Remarks = req.body.Closure_Approver_Remarks; data.Closure_Approver_Date = now; data.Closure_Issuer_Sig = sig; data.Closure_Issuer_Remarks = comment; }
+            else if (action === 'reject_closure') { status = 'Active'; data.Closure_Approver_Remarks = `[REJECTED by ${user}]: ${req.body.Closure_Approver_Remarks}`; data.Closure_Approver_Date = now; }
         }
 
-        let q = pool.request()
-            .input('pid', sql.NVarChar, PermitID)
-            .input('status', sql.NVarChar, status)
-            .input('json', sql.NVarChar, JSON.stringify(data));
-            
-        if(extras.WorkType) {
-             q.input('wt', sql.NVarChar, extras.WorkType)
-              .query("UPDATE Permits SET Status = @status, FullDataJSON = @json, WorkType = @wt WHERE PermitID = @pid");
-        } else {
-             q.query("UPDATE Permits SET Status = @status, FullDataJSON = @json WHERE PermitID = @pid");
-        }
+        let q = pool.request().input('pid', sql.NVarChar, PermitID).input('status', sql.NVarChar, status).input('json', sql.NVarChar, JSON.stringify(data));
+        if(extras.WorkType) q.input('wt', sql.NVarChar, extras.WorkType).query("UPDATE Permits SET Status = @status, FullDataJSON = @json, WorkType = @wt WHERE PermitID = @pid");
+        else q.query("UPDATE Permits SET Status = @status, FullDataJSON = @json WHERE PermitID = @pid");
         res.json({ success: true });
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-app.post('/api/permit-data', async (req, res) => {
-    try {
-        const pool = await getConnection();
-        const result = await pool.request().input('pid', sql.NVarChar, req.body.permitId).query("SELECT * FROM Permits WHERE PermitID = @pid");
-        if (result.recordset.length === 0) return res.json({ error: "Not found" });
-        const p = result.recordset[0];
-        res.json({ ...JSON.parse(p.FullDataJSON), PermitID: p.PermitID, Status: p.Status, RenewalsJSON: p.RenewalsJSON, Latitude: p.Latitude, Longitude: p.Longitude });
-    } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-app.post('/api/renewal', async (req, res) => {
-    try {
-        const { PermitID, userRole, userName, action, rejectionReason, ...data } = req.body;
-        const pool = await getConnection();
-        const current = await pool.request().input('pid', sql.NVarChar, PermitID).query("SELECT RenewalsJSON, Status, ValidFrom, ValidTo FROM Permits WHERE PermitID = @pid");
-        let renewals = JSON.parse(current.recordset[0].RenewalsJSON || "[]");
-        let status = current.recordset[0].Status;
-        const permitStart = new Date(current.recordset[0].ValidFrom);
-        const permitEnd = new Date(current.recordset[0].ValidTo);
-        const now = getNowIST();
-
-        if (userRole === 'Requester') {
-             const reqStart = new Date(data.RenewalValidFrom);
-             const reqEnd = new Date(data.RenewalValidTill);
-             if (reqStart < permitStart || reqEnd > permitEnd) return res.status(400).json({ error: "Out of validity" });
-             if (reqStart >= reqEnd) return res.status(400).json({ error: "Invalid Time" });
-             if ((reqEnd - reqStart) / 36e5 > 8) return res.status(400).json({ error: "Max 8 Hours" });
-             renewals.push({ status: 'pending_review', valid_from: data.RenewalValidFrom, valid_till: data.RenewalValidTill, hc: data.RenewalHC, toxic: data.RenewalToxic, oxygen: data.RenewalOxygen, precautions: data.RenewalPrecautions, req_name: userName, req_at: now });
-             status = "Renewal Pending Review";
-        } 
-        else if (userRole === 'Reviewer') {
-            const last = renewals[renewals.length - 1];
-            if (action === 'reject') { last.status = 'rejected'; last.rev_name = userName; last.rev_at = now; last.rejection_reason = rejectionReason; status = 'Active'; }
-            else { last.status = 'pending_approval'; last.rev_name = userName; last.rev_at = now; Object.assign(last, { valid_from: data.RenewalValidFrom, valid_till: data.RenewalValidTill, hc: data.RenewalHC, toxic: data.RenewalToxic, oxygen: data.RenewalOxygen, precautions: data.RenewalPrecautions }); status = "Renewal Pending Approval"; }
-        }
-        else if (userRole === 'Approver') {
-            const last = renewals[renewals.length - 1];
-            if (action === 'reject') { last.status = 'rejected'; last.app_name = userName; last.app_at = now; last.rejection_reason = rejectionReason; status = 'Active'; }
-            else { last.status = 'approved'; last.app_name = userName; last.app_at = now; status = "Active"; }
-        }
-        await pool.request().input('pid', sql.NVarChar, PermitID).input('status', sql.NVarChar, status).input('ren', sql.NVarChar, JSON.stringify(renewals)).query("UPDATE Permits SET Status = @status, RenewalsJSON = @ren WHERE PermitID = @pid");
-        res.json({ success: true });
-    } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
+app.post('/api/permit-data', async (req, res) => { try { const pool = await getConnection(); const result = await pool.request().input('pid', sql.NVarChar, req.body.permitId).query("SELECT * FROM Permits WHERE PermitID = @pid"); if (result.recordset.length === 0) return res.json({ error: "Not found" }); const p = result.recordset[0]; res.json({ ...JSON.parse(p.FullDataJSON), PermitID: p.PermitID, Status: p.Status, RenewalsJSON: p.RenewalsJSON, Latitude: p.Latitude, Longitude: p.Longitude }); } catch (e) { res.status(500).json({ error: e.message }); } });
+app.post('/api/renewal', async (req, res) => { try { const { PermitID, userRole, userName, action, rejectionReason, ...data } = req.body; const pool = await getConnection(); const current = await pool.request().input('pid', sql.NVarChar, PermitID).query("SELECT RenewalsJSON, Status, ValidFrom, ValidTo FROM Permits WHERE PermitID = @pid"); let renewals = JSON.parse(current.recordset[0].RenewalsJSON || "[]"); let status = current.recordset[0].Status; const now = getNowIST(); if (userRole === 'Requester') { renewals.push({ status: 'pending_review', valid_from: data.RenewalValidFrom, valid_till: data.RenewalValidTill, hc: data.RenewalHC, toxic: data.RenewalToxic, oxygen: data.RenewalOxygen, precautions: data.RenewalPrecautions, req_name: userName, req_at: now }); status = "Renewal Pending Review"; } else if (userRole === 'Reviewer') { const last = renewals[renewals.length - 1]; if (action === 'reject') { last.status = 'rejected'; last.rev_name = userName; last.rev_at = now; last.rejection_reason = rejectionReason; status = 'Active'; } else { last.status = 'pending_approval'; last.rev_name = userName; last.rev_at = now; Object.assign(last, { valid_from: data.RenewalValidFrom, valid_till: data.RenewalValidTill, hc: data.RenewalHC, toxic: data.RenewalToxic, oxygen: data.RenewalOxygen, precautions: data.RenewalPrecautions }); status = "Renewal Pending Approval"; } } else if (userRole === 'Approver') { const last = renewals[renewals.length - 1]; if (action === 'reject') { last.status = 'rejected'; last.app_name = userName; last.app_at = now; last.rejection_reason = rejectionReason; status = 'Active'; } else { last.status = 'approved'; last.app_name = userName; last.app_at = now; status = "Active"; } } await pool.request().input('pid', sql.NVarChar, PermitID).input('status', sql.NVarChar, status).input('ren', sql.NVarChar, JSON.stringify(renewals)).query("UPDATE Permits SET Status = @status, RenewalsJSON = @ren WHERE PermitID = @pid"); res.json({ success: true }); } catch (e) { res.status(500).json({ error: e.message }); } });
 app.post('/api/map-data', async (req, res) => { try { const pool = await getConnection(); const result = await pool.request().query("SELECT PermitID, FullDataJSON, Latitude, Longitude FROM Permits WHERE Status = 'Active' AND Latitude IS NOT NULL"); res.json(result.recordset.map(row => { const d = JSON.parse(row.FullDataJSON); return { PermitID: row.PermitID, lat: parseFloat(row.Latitude), lng: parseFloat(row.Longitude), WorkType: d.WorkType, Desc: d.Desc, ExactLocation: d.ExactLocation }; })); } catch (e) { res.status(500).json({ error: e.message }); } });
-app.get('/api/kml', async (req, res) => { if(!kmlContainerClient) return res.json([]); let b=[]; for await(const x of kmlContainerClient.listBlobsFlat()) b.push({name:x.name,url:kmlContainerClient.getBlockBlobClient(x.name).url}); res.json(b); });
-app.post('/api/kml', upload.single('file'), async (req, res) => { if(!kmlContainerClient) return; const b = kmlContainerClient.getBlockBlobClient(`${Date.now()}-${req.file.originalname}`); await b.uploadData(req.file.buffer, {blobHTTPHeaders:{blobContentType:"application/vnd.google-earth.kml+xml"}}); res.json({success:true, url:b.url}); });
-app.delete('/api/kml/:name', async (req, res) => { if(!kmlContainerClient) return; await kmlContainerClient.getBlockBlobClient(req.params.name).delete(); res.json({success:true}); });
+app.get('/api/kml', async (req, res) => { if(!kmlContainerClient) return res.json([]); let b=[]; for await(const x of kmlContainerClient.listBlobsFlat()) b.push({name:x.name,url:kmlContainerClient.getBlockBlobClient(x.name).url}); res.json(b); }); app.post('/api/kml', upload.single('file'), async (req, res) => { if(!kmlContainerClient) return; const b = kmlContainerClient.getBlockBlobClient(`${Date.now()}-${req.file.originalname}`); await b.uploadData(req.file.buffer, {blobHTTPHeaders:{blobContentType:"application/vnd.google-earth.kml+xml"}}); res.json({success:true, url:b.url}); }); app.delete('/api/kml/:name', async (req, res) => { if(!kmlContainerClient) return; await kmlContainerClient.getBlockBlobClient(req.params.name).delete(); res.json({success:true}); });
 app.post('/api/stats', async (req, res) => { try { const pool = await getConnection(); const result = await pool.request().query("SELECT Status, WorkType FROM Permits"); const s={}, t={}; result.recordset.forEach(r => { s[r.Status]=(s[r.Status]||0)+1; t[r.WorkType]=(t[r.WorkType]||0)+1; }); res.json({ success: true, statusCounts: s, typeCounts: t }); } catch (e) { res.status(500).json({ error: e.message }); } });
 app.get('/api/download-excel', async (req, res) => { try { const pool = await getConnection(); const result = await pool.request().query("SELECT * FROM Permits ORDER BY Id DESC"); const workbook = new ExcelJS.Workbook(); const worksheet = workbook.addWorksheet('Permits'); worksheet.columns = [{header:'ID',key:'id'},{header:'Status',key:'status'},{header:'Work',key:'wt'},{header:'Req',key:'req'},{header:'From',key:'vf'},{header:'To',key:'vt'}]; result.recordset.forEach(r => { const d = JSON.parse(r.FullDataJSON); worksheet.addRow({id:r.PermitID, status:r.Status, wt:d.WorkType, req:d.RequesterName, vf:formatDate(r.ValidFrom), vt:formatDate(r.ValidTo)}); }); res.setHeader('Content-Type','application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'); res.setHeader('Content-Disposition','attachment; filename=Permits.xlsx'); await workbook.xlsx.write(res); res.end(); } catch (e) { res.status(500).send(e.message); } });
 
+// 12. PDF DOWNLOAD (RESTORED FULL DETAIL TABLES)
 app.get('/api/download-pdf/:id', async (req, res) => {
     try {
         const pool = await getConnection();
@@ -368,42 +279,49 @@ app.get('/api/download-pdf/:id', async (req, res) => {
         const splitSig = (sigStr) => { if (!sigStr) return { name: 'Pending', date: '' }; const parts = sigStr.split(' on '); return { name: parts[0], date: parts[1] || '' }; };
         function drawTable(startY, rows, colsWidth) { let currentY = startY; doc.fontSize(8).font('Helvetica'); rows.forEach((row) => { let currentX = 40; let maxH = 0; row.forEach((cell, j) => { const h = doc.heightOfString(cell, { width: colsWidth[j] - 10 }); if(h > maxH) maxH = h; }); maxH += 10; row.forEach((cell, j) => { doc.rect(currentX, currentY, colsWidth[j], maxH).stroke(); doc.text(cell, currentX + 5, currentY + 5, { width: colsWidth[j] - 10 }); currentX += colsWidth[j]; }); currentY += maxH; if(currentY > 750) { doc.addPage(); currentY = 40; } }); return currentY; }
 
-        doc.font('Helvetica-Bold').fontSize(14).text('INDIAN OIL CORPORATION LIMITED', { align: 'center' }); doc.moveDown();
+        doc.rect(40, 40, 515, 60).stroke();
+        doc.font('Helvetica-Bold').fontSize(14).text('INDIAN OIL CORPORATION LIMITED', 40, 55, { align: 'center', width: 515 });
+        doc.fontSize(10).text('Pipeline Division', 40, 75, { align: 'center', width: 515 });
+        doc.moveDown(4); doc.fontSize(12).text('COMPOSITE WORK PERMIT', { align: 'center', underline:true }); doc.moveDown();
         doc.fontSize(9).font('Helvetica');
-        const startY = doc.y; doc.text(`Permit No: ${p.PermitID}`, 40, startY); doc.text(`Work: ${d.WorkType}`, 300, startY); doc.moveDown(4);
-        
-        doc.font('Helvetica-Bold').text('OTHER DETAILS & CHECKLISTS');
+        const startY = doc.y; doc.text(`Permit No: ${p.PermitID}`, 40, startY); doc.text(`Work: ${d.WorkType}`, 300, startY); doc.text(`Valid From: ${formatDate(p.ValidFrom)}`, 40, startY + 15); doc.text(`Valid To: ${formatDate(p.ValidTo)}`, 300, startY + 15); doc.moveDown(4);
+
+        doc.font('Helvetica-Bold').text('OTHER PERMIT DETAILS');
         let y = drawTable(doc.y, [[`Vendor: ${d.Vendor}`, `Location: ${d.ExactLocation}`]], [257, 258]); doc.y = y + 10;
-        
+
+        doc.font('Helvetica-Bold').text('GENERAL CHECKLIST');
+        const gpQs = [{id:"GP_Q1", t:"Equipment/Work Area Inspected"}, {id:"GP_Q2", t:"Surrounding Area Cleaned"}, {id:"GP_Q3", t:"Sewer Manhole Covered"}, {id:"GP_Q4", t:"Hazards Considered"}, {id:"GP_Q5", t:"Equipment Blinded", d:"GP_Q5_Detail"}, {id:"GP_Q6", t:"Drained & Depressurized"}, {id:"GP_Q7", t:"Steamed/Purged"}, {id:"GP_Q8", t:"Water Flushed"}, {id:"GP_Q9", t:"Fire Tender Access"}, {id:"GP_Q10", t:"Iron Sulfide Removed"}, {id:"GP_Q11", t:"Electrically Isolated", d:"GP_Q11_Detail"}, {id:"GP_Q12", t:"Gas Test (Toxic/HC/O2)"}, {id:"GP_Q13", t:"Fire Extinguisher"}, {id:"GP_Q14", t:"Area Cordoned Off"}];
+        const gpRows = gpQs.map((q, i) => { let ans = d[q.id] === 'Yes' ? 'YES' : 'NA'; if(q.id === "GP_Q12") ans = `Tox:${d.GP_Q12_ToxicGas||'-'} HC:${d.GP_Q12_HC||'-'} O2:${d.GP_Q12_Oxygen||'-'}`; return [`${i+1}`, q.t, ans, d[q.d]||'']; });
+        drawTable(doc.y, [['No', 'Question', 'Status', 'Remarks'], ...gpRows], [30, 250, 80, 155]);
+
+        doc.addPage(); doc.font('Helvetica-Bold').fontSize(10).text('SPECIFIC WORK CHECKLIST');
+        const spQs = [{id:"HW_Q1", t:"Ventilation/Lighting"}, {id:"HW_Q2", t:"Means of Exit"}, {id:"HW_Q3", t:"Standby Person"}, {id:"HW_Q4", t:"Trapped Oil/Gas Check"}, {id:"HW_Q5", t:"Shield Against Spark"}, {id:"HW_Q6", t:"Equipment Grounded"}, {id:"HW_Q16", t:"Height Permit Taken", d:"HW_Q16_Detail"}, {id:"VE_Q1", t:"Spark Arrestor (Veh)"}, {id:"EX_Q1", t:"Excavation Clear"}];
+        const spRows = spQs.map((q, i) => { let ans = d[q.id] === 'Yes' ? 'YES' : 'NA'; return [`${i+1}`, q.t, ans, d[q.d]||'']; });
+        y = drawTable(doc.y, [['No', 'Question', 'Status', 'Remarks'], ...spRows], [30, 250, 80, 155]); doc.y = y + 10;
+
         const hazards = ["H_H2S", "H_LackOxygen", "H_Corrosive", "H_ToxicGas", "H_Combustible", "H_Steam", "H_PyroIron", "H_N2Gas", "H_Height", "H_LooseEarth", "H_HighNoise", "H_Radiation", "H_Other"];
         let hList = hazards.filter(h => d[h] === 'Y').map(h => h.replace('H_','')).join(', ');
         if(d.H_Other === 'Y' && d.H_Other_Detail) hList += ` (Other: ${d.H_Other_Detail})`;
-        
         const ppe = ["P_FaceShield", "P_FreshAirMask", "P_CompressedBA", "P_Goggles", "P_DustRespirator", "P_Earmuff", "P_LifeLine", "P_Apron", "P_SafetyHarness", "P_SafetyNet", "P_Airline"];
         let pList = ppe.filter(p => d[p] === 'Y').map(p => p.replace('P_','')).join(', ');
 
-        doc.rect(40, doc.y, 515, 60).stroke();
-        doc.text(`HAZARDS: ${hList || 'None'}`, 45, doc.y + 5, {width: 505});
-        doc.text(`PPE: ${pList || 'Standard'}`, 45, doc.y + 30, {width: 505});
-        doc.y += 70;
+        doc.rect(40, doc.y, 515, 60).stroke(); doc.text(`HAZARDS: ${hList || 'None'}`, 45, doc.y + 5, {width: 505}); doc.text(`PPE: ${pList || 'Standard'}`, 45, doc.y + 30, {width: 505}); doc.y += 70;
 
-        doc.addPage(); doc.font('Helvetica-Bold').text('DIGITAL SIGNATURES');
+        doc.font('Helvetica-Bold').text('DIGITAL SIGNATURES');
         const reqSig = { name: d.RequesterName, date: formatDate(p.ValidFrom) }; const revSig = splitSig(d.Reviewer_Sig); const appSig = splitSig(d.Approver_Sig);
         drawTable(doc.y, [['Role', 'Name', 'Date/Time'], ['Requester', reqSig.name, reqSig.date], ['Reviewer', revSig.name, revSig.date], ['Approver', appSig.name, appSig.date]], [100, 250, 165]);
 
-        doc.addPage(); doc.font('Helvetica-Bold').text('CLOSURE DETAILS');
-        const closureRows = [
-            ['Role', 'Remarks', 'Date/Time'],
-            ['Requestor', d.Closure_Requestor_Remarks || '-', d.Closure_Requestor_Date || '-'],
-            ['Reviewer', d.Closure_Reviewer_Remarks || '-', d.Closure_Reviewer_Date || '-'],
-            ['Approver', d.Closure_Approver_Remarks || '-', d.Closure_Approver_Date || '-']
-        ];
+        doc.addPage(); doc.font('Helvetica-Bold').text('CLEARANCE RENEWAL HISTORY');
+        const rens = JSON.parse(p.RenewalsJSON || "[]");
+        const renRows = rens.map(r => [ `${formatDate(r.valid_from)}\n${formatDate(r.valid_till)}`, `HC:${r.hc} Tox:${r.toxic} O2:${r.oxygen}`, r.status.toUpperCase() + (r.status==='rejected' ? `\n(Reason: ${r.rejection_reason || 'N/A'})` : ''), `Req: ${r.req_name}\nRev: ${r.rev_name||'-'}\nApp: ${r.app_name||'-'}` ]);
+        if(renRows.length > 0) drawTable(doc.y, [['Period', 'Readings', 'Status', 'Signatures'], ...renRows], [100, 100, 80, 235]); else doc.text("No renewals recorded.");
+
+        doc.moveDown(2); doc.font('Helvetica-Bold').text('CLOSURE DETAILS');
+        const closureRows = [['Role', 'Remarks', 'Date/Time'], ['Requestor', d.Closure_Requestor_Remarks || '-', d.Closure_Requestor_Date || '-'], ['Reviewer', d.Closure_Reviewer_Remarks || '-', d.Closure_Reviewer_Date || '-'], ['Approver', d.Closure_Approver_Remarks || '-', d.Closure_Approver_Date || '-']];
         drawTable(doc.y, closureRows, [80, 300, 135]);
 
-        const wmText = p.Status.includes('Closed') ? 'CLOSED' : 'ACTIVE';
-        const wmColor = p.Status.includes('Closed') ? '#ef4444' : '#22c55e';
-        const range = doc.bufferedPageRange();
-        for (let i = 0; i < range.count; i++) { doc.switchToPage(i); doc.save(); doc.rotate(-45, { origin: [300, 400] }); doc.fontSize(80).fillColor(wmColor).opacity(0.15).text(wmText, 100, 350, { align: 'center', width: 400 }); doc.restore(); }
+        const wmText = p.Status.includes('Closed') ? 'CLOSED' : 'ACTIVE'; const wmColor = p.Status.includes('Closed') ? '#ef4444' : '#22c55e';
+        const range = doc.bufferedPageRange(); for (let i = 0; i < range.count; i++) { doc.switchToPage(i); doc.save(); doc.rotate(-45, { origin: [300, 400] }); doc.fontSize(80).fillColor(wmColor).opacity(0.15).text(wmText, 100, 350, { align: 'center', width: 400 }); doc.restore(); }
         doc.end();
     } catch (e) { res.status(500).send(e.message); }
 });
