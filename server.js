@@ -15,7 +15,7 @@ app.use(bodyParser.json({ limit: '50mb' }));
 app.use(express.static(path.join(__dirname, '.')));
 
 // ==========================================
-// 1. AZURE BLOB STORAGE CONFIGURATION
+// AZURE BLOB STORAGE SETUP
 // ==========================================
 const AZURE_CONN_STR = process.env.AZURE_STORAGE_CONNECTION_STRING;
 let containerClient, kmlContainerClient;
@@ -37,7 +37,7 @@ if (AZURE_CONN_STR) {
 const upload = multer({ storage: multer.memoryStorage() });
 
 // ==========================================
-// 2. HELPER FUNCTIONS
+// HELPER FUNCTIONS
 // ==========================================
 function getNowIST() { 
     return new Date().toLocaleString("en-GB", { 
@@ -57,7 +57,7 @@ function formatDate(dateStr) {
 }
 
 // ==========================================
-// 3. API ROUTES
+// API ROUTES
 // ==========================================
 
 app.post('/api/login', async (req, res) => {
@@ -118,7 +118,7 @@ app.post('/api/dashboard', async (req, res) => {
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// 4. SAVE PERMIT (FIXED FOR UPDATE)
+// 4. SAVE PERMIT (CRITICAL FIX FOR UPDATE)
 app.post('/api/save-permit', upload.single('file'), async (req, res) => {
     try {
         const vf = new Date(req.body.ValidFrom);
@@ -129,18 +129,23 @@ app.post('/api/save-permit', upload.single('file'), async (req, res) => {
 
         const pool = await getConnection();
         
-        // --- SANITIZE PERMIT ID ---
-        let rawId = req.body.PermitID;
-        if (!rawId || rawId === 'undefined' || rawId === 'null' || rawId.trim() === '') {
-            rawId = null;
+        // --- 1. SANITIZE ID ---
+        let inputId = req.body.PermitID;
+        
+        // Handle array case (duplicate inputs)
+        if (Array.isArray(inputId)) inputId = inputId[0]; 
+        
+        // Handle bad strings
+        if (inputId && (inputId === 'undefined' || inputId === 'null' || inputId.trim() === '')) {
+            inputId = null;
         }
 
-        let permitId = rawId;
+        let permitId = inputId;
         let isUpdate = false;
 
-        // 1. Check if ID exists (Separate Request)
+        // --- 2. CHECK EXISTENCE ---
         if (permitId) {
-            const checkReq = pool.request(); 
+            const checkReq = pool.request();
             const check = await checkReq.input('pid', sql.NVarChar, String(permitId)).query("SELECT Status FROM Permits WHERE PermitID = @pid");
             
             if (check.recordset.length > 0) {
@@ -148,14 +153,14 @@ app.post('/api/save-permit', upload.single('file'), async (req, res) => {
                 if (currentStatus === 'Pending Review' || currentStatus === 'New') {
                     isUpdate = true;
                 } else {
-                    return res.status(400).json({ error: "Cannot edit an Active/Processed permit." });
+                    return res.status(400).json({ error: "Cannot edit. Current status: " + currentStatus });
                 }
             } else {
-                permitId = null; // ID sent but not found in DB
+                permitId = null; // Passed ID not found, create new
             }
         }
 
-        // 2. Generate New ID if needed
+        // --- 3. GENERATE ID IF NEW ---
         if (!permitId) {
             const idReq = pool.request();
             const idRes = await idReq.query("SELECT TOP 1 PermitID FROM Permits ORDER BY Id DESC");
@@ -165,7 +170,7 @@ app.post('/api/save-permit', upload.single('file'), async (req, res) => {
 
         const fullData = { ...req.body, PermitID: permitId };
         
-        // 3. Save Data (Separate Request)
+        // --- 4. EXECUTE SQL ---
         const saveReq = pool.request();
         saveReq.input('pid', sql.NVarChar, String(permitId))
                .input('status', sql.NVarChar, 'Pending Review')
@@ -215,7 +220,10 @@ app.post('/api/save-permit', upload.single('file'), async (req, res) => {
         }
 
         res.json({ success: true, permitId: permitId });
-    } catch (e) { res.status(500).json({ error: e.message }); }
+    } catch (e) { 
+        console.error("SAVE ERROR:", e);
+        res.status(500).json({ error: e.message }); 
+    }
 });
 
 app.post('/api/update-status', async (req, res) => {
@@ -291,7 +299,6 @@ app.post('/api/update-status', async (req, res) => {
         } else {
              q.query("UPDATE Permits SET Status = @status, FullDataJSON = @json WHERE PermitID = @pid");
         }
-
         res.json({ success: true });
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
