@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>IndianOil Permit System</title>
+    <title>IndianOil Permit System for ERPL muzaffarpur  </title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyADwuqMDCwNSaZKBnWURDCYdqlMxfiWBnU"></script>
@@ -454,24 +454,25 @@
                 document.getElementById("closure-section").classList.remove('hidden');
                 
                 const rens = JSON.parse(p.RenewalsJSON || "[]");
+                // FIXED: Display Correct Remarks (x.app_rem instead of x.rev_rem for Approver)
                 document.getElementById("renewals-list").innerHTML = rens.map(x => `
                     <tr class="border-b text-xs">
                         <td>${x.valid_from}<br>${x.valid_till}</td>
                         <td>H:${x.hc} T:${x.toxic} O:${x.oxygen}</td>
                         <td>${x.precautions||'-'}</td>
                         <td>${x.status}</td>
-                        <td>Req:${x.req_name} (${x.req_at})<br>Rev:${x.rev_name||'-'} <br>Rem:${x.rev_rem||'-'}<br>App:${x.app_name||'-'} <br>Rem:${x.app_rem||'-'}</td>
+                        <td>Req:${x.req_name} (${x.req_at})<br>Rev:${x.rev_name||'-'} ${x.rev_rem||''}<br>App:${x.app_name||'-'} ${x.app_rem||''}</td>
                     </tr>`).join('');
                 
                 const last = rens[rens.length-1];
                 if(r==='Requester' && (!last || (last.status!=='pending_review' && last.status!=='pending_approval'))) {
-                     document.getElementById("form-renewal").classList.remove('hidden');
-                     document.querySelectorAll('#form-renewal input').forEach(e => e.disabled = false);
-                     
-                     document.getElementById("div-closure-req").classList.remove('hidden');
-                     document.getElementById("Closure_Requestor_Remarks").disabled = false;
-                     document.getElementById("Site_Restored_Check").disabled = false;
-                     btns += `<button type="button" onclick="window.upd('initiate_closure')" class="bg-red-600 text-white px-4 py-2 rounded ml-2">Job Complete</button>`;
+                      document.getElementById("form-renewal").classList.remove('hidden');
+                      document.querySelectorAll('#form-renewal input').forEach(e => e.disabled = false);
+                      
+                      document.getElementById("div-closure-req").classList.remove('hidden');
+                      document.getElementById("Closure_Requestor_Remarks").disabled = false;
+                      document.getElementById("Site_Restored_Check").disabled = false;
+                      btns += `<button type="button" onclick="window.upd('initiate_closure')" class="bg-red-600 text-white px-4 py-2 rounded ml-2">Job Complete</button>`;
                 }
                 
                 if(last && (last.status==='pending_review' || last.status==='pending_approval')) {
@@ -503,14 +504,14 @@
                  if(s==='Closed') { document.getElementById("div-closure-app").classList.remove('hidden'); setText("ts-clos-app", p.Closure_Approver_Date); }
 
                  if(s==='Closure Pending Review' && r==='Reviewer') { 
-                     document.getElementById("div-closure-rev").classList.remove('hidden'); 
-                     document.getElementById("Closure_Reviewer_Remarks").disabled=false; 
-                     btns=`<button onclick="window.upd('reject_closure')" class="bg-red-600 text-white px-4 py-2 rounded">Reject Closure</button><button onclick="window.upd('approve_closure')" class="bg-green-600 text-white px-4 py-2 rounded">Verify Closure</button>`; 
+                      document.getElementById("div-closure-rev").classList.remove('hidden'); 
+                      document.getElementById("Closure_Reviewer_Remarks").disabled=false; 
+                      btns=`<button onclick="window.upd('reject_closure')" class="bg-red-600 text-white px-4 py-2 rounded">Reject Closure</button><button onclick="window.upd('approve_closure')" class="bg-green-600 text-white px-4 py-2 rounded">Verify Closure</button>`; 
                  }
                  if(s==='Closure Pending Approval' && r==='Approver') { 
-                     document.getElementById("div-closure-app").classList.remove('hidden'); 
-                     document.getElementById("Closure_Approver_Remarks").disabled=false; 
-                     btns=`<button onclick="window.upd('reject_closure')" class="bg-red-600 text-white px-4 py-2 rounded">Reject Closure</button><button onclick="window.upd('approve')" class="bg-black text-white px-4 py-2 rounded">Final Close</button>`; 
+                      document.getElementById("div-closure-app").classList.remove('hidden'); 
+                      document.getElementById("Closure_Approver_Remarks").disabled=false; 
+                      btns=`<button onclick="window.upd('reject_closure')" class="bg-red-600 text-white px-4 py-2 rounded">Reject Closure</button><button onclick="window.upd('approve')" class="bg-black text-white px-4 py-2 rounded">Final Close</button>`; 
                  }
                  if(s==='Closed') btns = `<a href="${API}/download-pdf/${id}" target="_blank" class="bg-gray-600 text-white px-4 py-2 rounded ml-2">PDF</a>`;
             }
