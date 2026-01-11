@@ -107,6 +107,7 @@
             </div>
             <div class="flex gap-2">
                 <button onclick="window.toggleWorkerMode()" class="bg-white/20 p-2 rounded-lg hover:bg-white/30" title="Workers">👷</button>
+                <button onclick="window.showMap()" class="bg-white/20 p-2 rounded-lg hover:bg-white/30" title="Map">🗺️</button>
                 <button onclick="location.reload()" class="bg-white/20 p-2 rounded-lg hover:bg-white/30" title="Logout">🚪</button>
             </div>
         </div>
@@ -145,7 +146,17 @@
              <button onclick="window.openWorkerForm('create')" id="btn-add-worker" class="w-full bg-orange-600 text-white py-3 rounded-lg font-bold mb-4 shadow hidden">+ Add New Worker</button>
              
              <table class="mobile-table w-full text-left text-sm" id="table-workers">
-                <thead class="hidden md:table-header-group bg-gray-100 text-gray-700"><tr><th>Name</th><th>Full Details</th><th>Status</th><th>Approval Trail</th><th>Action</th></tr></thead>
+                <thead class="hidden md:table-header-group bg-gray-100 text-gray-700">
+                    <tr>
+                        <th>Name</th>
+                        <th>Father Name</th>
+                        <th>ID Details</th>
+                        <th>Address & Contact</th>
+                        <th>Requestor</th>
+                        <th>Status</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
                 <tbody class="divide-y divide-gray-200"></tbody>
              </table>
         </div>
@@ -225,7 +236,7 @@
                 <button onclick="window.showDashboard()" class="bg-white border text-gray-600 px-3 py-2 rounded-lg font-bold shadow-sm">← Back</button>
                 <div id="permit-header-display" class="flex-1 p-2 bg-blue-100 text-blue-800 rounded-lg font-bold text-center text-sm truncate"></div>
             </div>
-
+            
             <div id="permit-worker-audit-display" class="glass border-l-4 border-orange-500 mb-4 hidden">
                 <h3 class="font-bold border-b pb-2 mb-2 text-orange-800">Deployed Workers & Approval Status</h3>
                 <div id="assigned-worker-audit" class="overflow-x-auto"></div>
@@ -506,8 +517,9 @@
             const idTypeRaw = document.getElementById("w-id-type").value;
             const idTypeFinal = idTypeRaw === "Other" ? document.getElementById("w-id-type-other").value : idTypeRaw;
 
+            // RECTIFY A: Pass Requestor Name to Backend
             const body = {
-                Action: act, Role: currentUser.Role, RequestorEmail: currentUser.Email, WorkerID: document.getElementById('w-id').value, ApproverName: currentUser.name,
+                Action: act, Role: currentUser.Role, RequestorEmail: currentUser.Email, WorkerID: document.getElementById('w-id').value, ApproverName: currentUser.name, RequestorName: currentUser.name, // NEW
                 Details: { 
                     Name:document.getElementById("w-name").value, 
                     Father:document.getElementById("w-father").value, 
@@ -529,25 +541,21 @@
                 con.innerHTML = res.map(w => `<label class="flex items-center gap-2 border p-3 rounded-lg bg-gray-50"><input type="checkbox" name="Worker_${w.WorkerID}" value='${JSON.stringify(w)}' class="w-5 h-5"> <span class="font-bold">${w.Name}</span> <span class="text-xs text-gray-500">(${w.Age})</span></label>`).join('');
             } else {
                 const t = document.querySelector('#table-workers tbody');
-                // UPDATED TABLE ROW for RECTIFY B (Full Details + Approval Trail)
+                // RECTIFY A: Detailed Columns for Worker Table
                 t.innerHTML = res.map(w => `<tr>
                     <td data-label="Name" class="font-bold text-blue-600">${w.Name}</td>
-                    <td data-label="Full Details" class="text-xs text-gray-600">
-                        <strong>Father:</strong> ${w.Father}<br>
-                        <strong>Address:</strong> ${w.Address}<br>
-                        <strong>Contact:</strong> ${w.Contact}<br>
-                        <strong>ID:</strong> ${w.IDType} - ${w.ID}<br>
-                        <strong>Age/Gender:</strong> ${w.Age} / ${w.Gender}
-                    </td>
-                    <td data-label="Status"><span class="px-2 py-1 rounded text-xs font-bold ${w.Status==='Approved'?'bg-green-100 text-green-800':'bg-yellow-100 text-yellow-800'}">${w.Status}</span></td>
-                    <td data-label="Approval Trail" class="text-xs">
-                        ${w.ApprovedBy ? `<div class="text-green-700 font-bold">Approved By: ${w.ApprovedBy}<br>On: ${w.ApprovedAt}</div>` : '<span class="text-orange-500">Pending</span>'}
+                    <td data-label="Father">${w.Father}</td>
+                    <td data-label="ID Details">${w.IDType}: ${w.ID}</td>
+                    <td data-label="Address/Contact">${w.Address}<br><span class="text-xs text-blue-600">${w.Contact}</span></td>
+                    <td data-label="Requestor" class="font-bold text-indigo-600">${w.RequestorName || 'Unknown'}</td> <td data-label="Status">
+                        <span class="px-2 py-1 rounded text-xs font-bold ${w.Status==='Approved'?'bg-green-100 text-green-800':(w.Status==='Rejected'?'bg-red-100 text-red-800':'bg-yellow-100 text-yellow-800')}">${w.Status}</span>
+                        ${w.ApprovedBy ? `<div class="text-[10px] mt-1 text-green-700">App: ${w.ApprovedBy}<br>${w.ApprovedAt}</div>` : ''}
                     </td>
                     <td data-label="Action">
-                    ${(currentUser.Role==='Requester' && w.Status==='Approved') ? `<button onclick='window.openWorkerForm("edit_request", ${JSON.stringify(w)})' class="text-blue-600 font-bold mr-2">Edit</button> <button onclick="window.workerAction('${w.WorkerID}','delete')" class="text-red-600 font-bold">Del</button>` : ''}
-                    ${(currentUser.Role==='Reviewer' && w.Status.includes('Review')) ? `<button onclick="window.workerAction('${w.WorkerID}','approve')" class="text-green-600 font-bold mr-2">Approve</button> <button onclick="window.workerAction('${w.WorkerID}','reject')" class="text-red-600 font-bold">Reject</button>` : ''}
-                    ${(currentUser.Role==='Approver' && w.Status.includes('Approval')) ? `<button onclick="window.workerAction('${w.WorkerID}','approve')" class="text-green-600 font-bold mr-2">Approve</button> <button onclick="window.workerAction('${w.WorkerID}','reject')" class="text-red-600 font-bold">Reject</button>` : ''}
-                </td></tr>`).join('');
+                        ${(currentUser.Role !== 'Requester' && w.Status.includes('Pending')) ? `<button onclick="window.workerAction('${w.WorkerID}','approve')" class="text-green-600 font-bold border p-1 rounded hover:bg-green-50">Approve</button> <button onclick="window.workerAction('${w.WorkerID}','reject')" class="text-red-600 font-bold border p-1 rounded hover:bg-red-50 ml-2">Reject</button>` : ''}
+                        ${(currentUser.Role==='Requester' && w.Status==='Approved') ? `<button onclick='window.openWorkerForm("edit_request", ${JSON.stringify(w)})' class="text-blue-600 font-bold mr-2">Edit</button> <button onclick="window.workerAction('${w.WorkerID}','delete')" class="text-red-600 font-bold">Del</button>` : ''}
+                    </td>
+                </tr>`).join('');
             }
         }
         window.workerAction = async function(id, act) { await apiCall('/save-worker', 'POST', {WorkerID:id, Action:act, Role:currentUser.Role, ApproverName: currentUser.name}); loadWorkers('dashboard'); }
@@ -588,17 +596,18 @@
             currentPermitId = id;
             document.getElementById("permit-header-display").innerText = `${id} | ${p.Status}`;
             
-            // RECTIFY B: Populate Worker Audit Table in Permit Console
+            // RECTIFY B: Populate Worker Audit Table in Permit Console with Requestor Name
             const workerAuditTable = document.getElementById("assigned-worker-audit");
-            document.getElementById("permit-worker-audit-display").classList.remove("hidden"); // Show container
+            document.getElementById("permit-worker-audit-display").classList.remove("hidden"); 
             workerAuditTable.innerHTML = `
                 <table class="mobile-table w-full text-xs">
-                    <thead><tr><th>Name</th><th>ID Details</th><th>Father Name</th><th>Approval Trail</th></tr></thead>
+                    <thead><tr><th>Name</th><th>ID Details</th><th>Father</th><th>Requestor</th><th>Approval Trail</th></tr></thead>
                     <tbody>${p.SelectedWorkers.map(w=>`
                         <tr>
-                            <td data-label="Name">${w.Name}</td>
+                            <td data-label="Name">${w.Name} (${w.Age})</td>
                             <td data-label="ID">${w.IDType || 'ID'}: ${w.ID}</td>
                             <td data-label="Father">${w.Father}</td>
+                            <td data-label="Requestor">${w.RequestorName || '-'}</td>
                             <td data-label="Approval"><span class="text-green-700 font-bold">Approved by ${w.ApprovedBy||'Admin'} on ${w.ApprovedAt||p.CreatedDate}</span></td>
                         </tr>`).join('')}
                     </tbody>
@@ -701,27 +710,20 @@
                 
                 const rens = JSON.parse(p.RenewalsJSON || "[]");
                 
-                // RECTIFY B: Enhanced Renewal List with Timestamps and Comments
-                document.getElementById("renewals-list").innerHTML = rens.map(x => `
-                    <tr class="border-b text-xs hover:bg-gray-50">
-                        <td data-label="Time" class="font-mono text-gray-600">
-                            <div class="font-bold">Start: ${x.valid_from.split('T')[1]}</div>
-                            <div>End: ${x.valid_till.split('T')[1]}</div>
+                // RECTIFY C: Date and Time in Renewal Table
+                document.querySelector("#table-renewals tbody").innerHTML = rens.map(r => `
+                    <tr>
+                        <td data-label="Time" class="font-mono text-xs">
+                            Start: ${r.valid_from.replace('T',' ')}<br>
+                            End: &nbsp;&nbsp;${r.valid_till.replace('T',' ')}
                         </td>
-                        <td data-label="Gas" class="font-medium">
-                            <div>HC: ${x.hc}</div>
-                            <div>Tox: ${x.toxic}</div>
-                            <div>O2: ${x.oxygen}</div>
-                        </td>
-                        <td data-label="Prec" class="text-gray-700 italic">${x.precautions||'-'}</td>
-                        <td data-label="Sts"><span class="font-bold uppercase tracking-wider text-xs px-2 py-1 rounded-full ${x.status==='approved'?'bg-green-100 text-green-700':(x.status==='rejected'?'bg-red-100 text-red-700':'bg-yellow-100 text-yellow-700')}">${x.status}</span></td>
+                        <td data-label="Gas">HC:${r.hc}, O2:${r.oxygen}, Tox:${r.toxic}</td>
+                        <td data-label="Prec">${r.precautions}</td>
+                        <td data-label="Status">${r.status}</td>
                         <td data-label="Audit">
-                            <div class="space-y-1">
-                                <div class="text-blue-700"><strong>Req:</strong> ${x.req_name} <span class="text-gray-400 text-[10px]">(${x.req_at})</span></div>
-                                <div class="text-purple-700"><strong>Rev:</strong> ${x.rev_name||'-'} <span class="text-gray-400 text-[10px]">(${x.rev_at||'-'})</span> <br><span class="italic text-gray-500">${x.rev_rem||''}</span></div>
-                                <div class="text-green-700"><strong>App:</strong> ${x.app_name||'-'} <span class="text-gray-400 text-[10px]">(${x.app_at||'-'})</span> <br><span class="italic text-gray-500">${x.app_rem||''}</span></div>
-                                ${x.status === 'rejected' ? `<div class="text-red-600 font-bold border-t mt-1 pt-1">REJECTED BY: ${x.rej_by} <br> Reason: ${x.rej_reason}</div>` : ''}
-                            </div>
+                            <strong>Req:</strong> ${r.req_name}<br>
+                            <strong>Rev:</strong> ${r.rev_name||'-'}<br>
+                            <strong>App:</strong> ${r.app_name||'-'}
                         </td>
                     </tr>`).join('');
                 
@@ -923,14 +925,11 @@
             const infoWindow = new google.maps.InfoWindow();
 
             p.forEach(x => {
-                const marker = new google.maps.Marker({position:{lat:x.lat,lng:x.lng}, map:mapInstance, title:x.PermitID});
-                const content = `<div><b>${x.PermitID}</b><br>Loc: ${x.ExactLocation}<br>Req: ${x.RequesterName}<br>Valid: ${x.ValidTo}</div>`;
-                marker.addListener("click", () => { infoWindow.setContent(content); infoWindow.open(mapInstance, marker); });
-                
+                const marker = new google.maps.Marker({position:{lat:x.lat,lng:x.lng}, map:mapInstance});
                 const item = document.createElement("div");
                 item.className = "p-3 border-b cursor-pointer hover:bg-orange-50 text-sm flex justify-between";
                 item.innerHTML = `<div><b>${x.PermitID}</b><div class="text-xs text-gray-500">${x.ExactLocation}</div></div><div class="text-xs font-bold text-orange-600">${x.WorkType}</div>`;
-                item.onclick = () => { mapInstance.setCenter({lat:x.lat,lng:x.lng}); mapInstance.setZoom(12); infoWindow.setContent(content); infoWindow.open(mapInstance, marker); };
+                item.onclick = () => { mapInstance.setCenter({lat:x.lat,lng:x.lng}); mapInstance.setZoom(12); infoWindow.setContent(`<b>${x.PermitID}</b><br>${x.WorkType}`); infoWindow.open(mapInstance, marker); };
                 listEl.appendChild(item);
             });
         }
