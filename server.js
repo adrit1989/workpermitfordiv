@@ -107,17 +107,14 @@ function drawHeader(doc, bgColor) {
     // Logo Box (Left)
     doc.rect(startX,startY,80,95).stroke();
     
-    // --- LOGO INSERTION LOGIC (UPDATED) ---
+    // --- LOGO INSERTION LOGIC ---
     if (fs.existsSync('logo.png')) {
         try {
-            // UPDATED: Removed padding (+0) and set fit to full box size [80, 95]
-            // This ensures the logo fills the red-circled area in your screenshot completely.
             doc.image('logo.png', startX, startY, { fit: [80, 95], align: 'center', valign: 'center' });
         } catch (err) {
             console.error("Error loading logo:", err.message);
         }
     }
-    // --------------------------------------
 
     doc.rect(startX+80,startY,320,95).stroke();
     doc.font('Helvetica-Bold').fontSize(12).fillColor('black').text('INDIAN OIL CORPORATION LIMITED', startX+80, startY+15, {width:320, align:'center'});
@@ -243,7 +240,6 @@ app.post('/api/dashboard', async (req, res) => {
 app.post('/api/save-permit', upload.single('file'), async (req, res) => {
     try {
         const vf = new Date(req.body.ValidFrom); const vt = new Date(req.body.ValidTo);
-        // ADDED: Explicit Start < End check
         if (vt <= vf) return res.status(400).json({ error: "End date must be after Start date" });
         if ((vt-vf)/(1000*60*60*24) > 7) return res.status(400).json({ error: "Max 7 days allowed" });
         
@@ -262,13 +258,17 @@ app.post('/api/save-permit', upload.single('file'), async (req, res) => {
         const data = { ...req.body, SelectedWorkers: workers, PermitID: pid, CreatedDate: getNowIST() }; 
         const q = pool.request().input('p', pid).input('s', 'Pending Review').input('w', req.body.WorkType).input('re', req.body.RequesterEmail).input('rv', req.body.ReviewerEmail).input('ap', req.body.ApproverEmail).input('vf', vf).input('vt', vt).input('j', JSON.stringify(data));
         
-        // --- BULLETPROOF LAT/LONG SANITIZATION ---
+        // --- ROBUST LAT/LONG SANITIZATION (FIXES 500 ERROR) ---
         let lat = req.body.Latitude;
         let lng = req.body.Longitude;
         
-        // Ensure values are strings or NULL (prevent "undefined" string)
-        if (lat === undefined || lat === 'undefined' || lat === 'null' || String(lat).trim() === '') lat = null;
-        if (lng === undefined || lng === 'undefined' || lng === 'null' || String(lng).trim() === '') lng = null;
+        const cleanGeo = (val) => {
+            if (!val || val === 'undefined' || val === 'null' || String(val).trim() === '') return null;
+            return String(val); // Force string conversion for SQL
+        };
+
+        lat = cleanGeo(lat);
+        lng = cleanGeo(lng);
 
         q.input('lat', sql.NVarChar(50), lat).input('lng', sql.NVarChar(50), lng);
 
