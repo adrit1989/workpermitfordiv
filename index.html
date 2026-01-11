@@ -44,14 +44,14 @@
         #actions button, #actions a { width: 100%; display: block; text-align: center; padding: 12px; font-size: 1.1rem; }
       }
 
-      /* Desktop Table Styles */
+      /* RECTIFY E: Desktop Friendly View */
       @media (min-width: 769px) {
-        table.custom-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
-        table.custom-table th { background: #ea580c; color: white; padding: 12px; text-align: left; border-radius: 6px 6px 0 0; }
-        table.custom-table td { border-bottom: 1px solid #e5e7eb; padding: 12px; }
-        table.mobile-table { width: 100%; border-collapse: separate; border-spacing: 0; }
-        table.mobile-table th { background: #ea580c; color: white; padding: 12px; text-align: left; }
-        table.mobile-table td { border-bottom: 1px solid #e5e7eb; padding: 12px; }
+        table.mobile-table { width: 100%; border-collapse: collapse; display: table; }
+        table.mobile-table thead { display: table-header-group; }
+        table.mobile-table tr { display: table-row; border: none; box-shadow: none; background: transparent; }
+        table.mobile-table th { background: #ea580c; color: white; padding: 12px; text-align: left; border-bottom: 2px solid #c2410c; }
+        table.mobile-table td { display: table-cell; border-bottom: 1px solid #e5e7eb; padding: 12px; text-align: left; vertical-align: top; }
+        table.mobile-table td::before { content: none; } /* Remove mobile labels */
       }
     </style>
   </head>
@@ -618,14 +618,29 @@
                 document.getElementById("closure-section").classList.remove('hidden');
                 
                 const rens = JSON.parse(p.RenewalsJSON || "[]");
-                // Added data-labels for mobile renewal table
+                
+                // RECTIFY B: Enhanced Renewal List with Timestamps and Comments
                 document.getElementById("renewals-list").innerHTML = rens.map(x => `
-                    <tr class="border-b text-xs">
-                        <td data-label="Time" class="font-mono">${x.valid_from.split('T')[1]}<br>${x.valid_till.split('T')[1]}</td>
-                        <td data-label="Gas">${x.hc}/${x.toxic}/${x.oxygen}</td>
-                        <td data-label="Prec">${x.precautions||'-'}</td>
-                        <td data-label="Sts"><span class="font-bold ${x.status==='approved'?'text-green-600':'text-yellow-600'}">${x.status}</span></td>
-                        <td data-label="Audit">R:${x.req_name}<br>A:${x.app_name||'-'} ${x.app_rem||''}</td>
+                    <tr class="border-b text-xs hover:bg-gray-50">
+                        <td data-label="Time" class="font-mono text-gray-600">
+                            <div class="font-bold">Start: ${x.valid_from.split('T')[1]}</div>
+                            <div>End: ${x.valid_till.split('T')[1]}</div>
+                        </td>
+                        <td data-label="Gas" class="font-medium">
+                            <div>HC: ${x.hc}</div>
+                            <div>Tox: ${x.toxic}</div>
+                            <div>O2: ${x.oxygen}</div>
+                        </td>
+                        <td data-label="Prec" class="text-gray-700 italic">${x.precautions||'-'}</td>
+                        <td data-label="Sts"><span class="font-bold uppercase tracking-wider text-xs px-2 py-1 rounded-full ${x.status==='approved'?'bg-green-100 text-green-700':(x.status==='rejected'?'bg-red-100 text-red-700':'bg-yellow-100 text-yellow-700')}">${x.status}</span></td>
+                        <td data-label="Audit">
+                            <div class="space-y-1">
+                                <div class="text-blue-700"><strong>Req:</strong> ${x.req_name} <span class="text-gray-400 text-[10px]">(${x.req_at})</span></div>
+                                <div class="text-purple-700"><strong>Rev:</strong> ${x.rev_name||'-'} <span class="text-gray-400 text-[10px]">(${x.rev_at||'-'})</span> <br><span class="italic text-gray-500">${x.rev_rem||''}</span></div>
+                                <div class="text-green-700"><strong>App:</strong> ${x.app_name||'-'} <span class="text-gray-400 text-[10px]">(${x.app_at||'-'})</span> <br><span class="italic text-gray-500">${x.app_rem||''}</span></div>
+                                ${x.status === 'rejected' ? `<div class="text-red-600 font-bold border-t mt-1 pt-1">REJECTED BY: ${x.rej_by} <br> Reason: ${x.rej_reason}</div>` : ''}
+                            </div>
+                        </td>
                     </tr>`).join('');
                 
                 const last = rens[rens.length-1];
@@ -715,6 +730,12 @@
 
         window.submitRenewal = async function(act) {
             const getVal = (id) => { const el = document.getElementById(id); return el ? el.value : ''; };
+            const vf = new Date(getVal("RenewalValidFrom"));
+            const vt = new Date(getVal("RenewalValidTo"));
+            
+            // RECTIFY A: Client-side Check
+            if (vt <= vf) { alert("End time must be greater than Start time"); return; }
+
             const body = {
                 PermitID: currentPermitId, userRole: currentUser.Role, userName: currentUser.name, action: act,
                 RenewalValidFrom: getVal("RenewalValidFrom"),
