@@ -117,10 +117,10 @@ function drawHeader(doc, bgColor) {
     }
 
     doc.rect(startX+80,startY,320,95).stroke();
-    doc.font('Helvetica-Bold').fontSize(12).fillColor('black').text('INDIAN OIL CORPORATION LIMITED', startX+80, startY+15, {width:320, align:'center'});
-    doc.fontSize(10).text('EASTERN REGION PIPELINES', startX+80, startY+30, {width:320, align:'center'});
+    doc.font('Helvetica-Bold').fontSize(11).fillColor('black').text('INDIAN OIL CORPORATION LIMITED', startX+80, startY+15, {width:320, align:'center'});
+    doc.fontSize(9).text('EASTERN REGION PIPELINES', startX+80, startY+30, {width:320, align:'center'});
     doc.text('HSE DEPT.', startX+80, startY+45, {width:320, align:'center'});
-    doc.fontSize(9).text('COMPOSITE WORK PERMIT (OISD-105)', startX+80, startY+65, {width:320, align:'center'});
+    doc.fontSize(8).text('COMPOSITE WORK PERMIT (OISD-105)', startX+80, startY+65, {width:320, align:'center'});
     doc.rect(startX+400,startY,135,95).stroke();
     doc.fontSize(8).font('Helvetica');
     doc.text('Doc No: ERPL/HS&E/25-26', startX+405, startY+60);
@@ -165,16 +165,21 @@ app.post('/api/add-user', async (req, res) => {
 // WORKER MANAGEMENT
 app.post('/api/save-worker', async (req, res) => {
     try {
-        const { WorkerID, Action, Role, Details, RequestorEmail } = req.body;
+        const { WorkerID, Action, Role, Details, RequestorEmail, ApproverName } = req.body;
         const pool = await getConnection();
         if ((Action === 'create' || Action === 'edit_request') && Details && parseInt(Details.Age) < 18) return res.status(400).json({error: "Worker must be 18+"});
 
         if (Action === 'create') {
             const idRes = await pool.request().query("SELECT TOP 1 WorkerID FROM Workers ORDER BY WorkerID DESC");
             const wid = `W-${parseInt(idRes.recordset.length > 0 ? idRes.recordset[0].WorkerID.split('-')[1] : 1000) + 1}`;
-            const dataObj = { Current: {}, Pending: Details };
-            await pool.request().input('w', wid).input('s', 'Pending Review').input('r', RequestorEmail).input('j', JSON.stringify(dataObj))
-                .query("INSERT INTO Workers (WorkerID, Status, RequestorEmail, DataJSON) VALUES (@w, @s, @r, @j)");
+            const dataObj = { Current: {}, Pending: Details }; 
+            
+            // Added IDType to SQL Insert
+            await pool.request()
+                .input('w', wid).input('s', 'Pending Review').input('r', RequestorEmail)
+                .input('j', JSON.stringify(dataObj))
+                .input('idt', sql.NVarChar, Details.IDType) 
+                .query("INSERT INTO Workers (WorkerID, Status, RequestorEmail, DataJSON, IDType) VALUES (@w, @s, @r, @j, @idt)");
             res.json({success:true});
         } 
         else if (Action === 'edit_request') {
@@ -182,8 +187,11 @@ app.post('/api/save-worker', async (req, res) => {
             if(cur.recordset.length === 0) return res.status(404).json({error:"Worker not found"});
             let dataObj = JSON.parse(cur.recordset[0].DataJSON);
             dataObj.Pending = { ...dataObj.Current, ...Details };
-            await pool.request().input('w', WorkerID).input('s', 'Edit Pending Review').input('j', JSON.stringify(dataObj))
-                .query("UPDATE Workers SET Status=@s, DataJSON=@j WHERE WorkerID=@w");
+            
+            await pool.request()
+                .input('w', WorkerID).input('s', 'Edit Pending Review').input('j', JSON.stringify(dataObj))
+                .input('idt', sql.NVarChar, Details.IDType)
+                .query("UPDATE Workers SET Status=@s, DataJSON=@j, IDType=@idt WHERE WorkerID=@w");
             res.json({success:true});
         }
         else if (Action === 'delete') {
@@ -196,14 +204,27 @@ app.post('/api/save-worker', async (req, res) => {
             let st = cur.recordset[0].Status;
             let dataObj = JSON.parse(cur.recordset[0].DataJSON);
 
-            let nextSt = st;
+            let appBy = null; let appOn = null;
+
             if (Action === 'approve') {
-                if (st.includes('Pending Review')) nextSt = st.replace('Review', 'Approval');
-                else if (st.includes('Pending Approval')) { nextSt = 'Approved'; dataObj.Current = dataObj.Pending; dataObj.Pending = null; }
+                if (st.includes('Pending Review')) st = st.replace('Review', 'Approval');
+                else if (st.includes('Pending Approval')) { 
+                    st = 'Approved'; 
+                    appBy = ApproverName;
+                    appOn = getNowIST();
+                    dataObj.Current = { ...dataObj.Pending, ApprovedBy: appBy, ApprovedAt: appOn }; 
+                    dataObj.Pending = null; 
+                }
             } else if (Action === 'reject') {
-                nextSt = 'Rejected'; dataObj.Pending = null;
+                st = 'Rejected'; dataObj.Pending = null;
             }
-            await pool.request().input('w', WorkerID).input('s', nextSt).input('j', JSON.stringify(dataObj)).query("UPDATE Workers SET Status=@s, DataJSON=@j WHERE WorkerID=@w");
+            
+            // Added ApprovedBy and ApprovedOn to SQL Update
+            await pool.request()
+                .input('w', WorkerID).input('s', st).input('j', JSON.stringify(dataObj))
+                .input('aby', sql.NVarChar, appBy)
+                .input('aon', sql.NVarChar, appOn)
+                .query("UPDATE Workers SET Status=@s, DataJSON=@j, ApprovedBy=@aby, ApprovedOn=@aon WHERE WorkerID=@w");
             res.json({success:true});
         }
     } catch(e) { res.status(500).json({error: e.message}); }
@@ -216,11 +237,16 @@ app.post('/api/get-workers', async (req, res) => {
         const list = r.recordset.map(w => {
             const d = JSON.parse(w.DataJSON);
             const details = d.Pending || d.Current || {};
+            // Merge SQL column data for robustness
+            details.IDType = w.IDType || details.IDType;
+            details.ApprovedBy = w.ApprovedBy || details.ApprovedBy;
+            details.ApprovedAt = w.ApprovedOn || details.ApprovedAt;
+            
             return { ...details, WorkerID: w.WorkerID, Status: w.Status, RequestorEmail: w.RequestorEmail, IsEdit: w.Status.includes('Edit') };
         });
-        if(req.body.context === 'permit_dropdown') res.json(list.filter(w => w.Status === 'Approved' && w.RequestorEmail === req.body.email));
+        if(req.body.context === 'permit_dropdown') res.json(list.filter(w => w.Status === 'Approved'));
         else {
-            if(req.body.role === 'Requester') res.json(list.filter(w => w.RequestorEmail === req.body.email));
+            if(req.body.role === 'Requester') res.json(list.filter(w => w.RequestorEmail === req.body.email || w.Status === 'Approved')); // Requestor sees approved too
             else res.json(list);
         }
     } catch(e) { res.status(500).json({error: e.message}); }
@@ -240,7 +266,6 @@ app.post('/api/dashboard', async (req, res) => {
 app.post('/api/save-permit', upload.single('file'), async (req, res) => {
     try {
         const vf = new Date(req.body.ValidFrom); const vt = new Date(req.body.ValidTo);
-        // RECTIFY A: Validation for Start < End
         if (vt <= vf) return res.status(400).json({ error: "End date must be after Start date" });
         if ((vt-vf)/(1000*60*60*24) > 7) return res.status(400).json({ error: "Max 7 days allowed" });
         
@@ -322,10 +347,10 @@ app.post('/api/renewal', async (req, res) => {
              const rs = new Date(data.RenewalValidFrom); const re = new Date(data.RenewalValidTo);
              const pS = new Date(cur.recordset[0].ValidFrom); const pE = new Date(cur.recordset[0].ValidTo);
              
-             // RECTIFY A: Validation
              if (re <= rs) return res.status(400).json({error: "Renewal End time must be later than Start time"});
              if (rs < pS || re > pE) return res.status(400).json({error: "Renewal must be within permit validity"});
              if ((re - rs) / 36e5 > 8) return res.status(400).json({error: "Max 8 hours per clearance"});
+             
              if(r.length > 0) {
                  const last = r[r.length-1];
                  if(last.status !== 'rejected' && last.status !== 'approved') return res.status(400).json({error: "Previous renewal pending"});
@@ -339,7 +364,6 @@ app.post('/api/renewal', async (req, res) => {
                 last.rej_by = userName; 
                 last.rej_at = now; 
                 last.rej_reason = rejectionReason; 
-                // RECTIFY D: Save role to display in correct PDF column
                 last.rej_role = userRole; 
             }
             else { 
@@ -370,7 +394,17 @@ app.get('/api/download-pdf/:id', async (req, res) => {
         res.setHeader('Content-Type', 'application/pdf'); res.setHeader('Content-Disposition', `attachment; filename=${p.PermitID}.pdf`); doc.pipe(res);
 
         const bgColor = d.PdfBgColor || 'White';
-        drawHeader(doc, bgColor); doc.y = 135; doc.fontSize(9).font('Helvetica');
+        
+        // Helper to redraw header on new pages
+        const drawHeaderOnAll = () => {
+            drawHeader(doc, bgColor);
+            doc.y = 135; 
+            doc.fontSize(9).font('Helvetica');
+        };
+
+        drawHeaderOnAll();
+        
+        // MAIN INFO
         const infoY = doc.y; const c1 = 40, c2 = 300;
         doc.text(`Permit No: ${p.PermitID}`, c1, infoY).text(`Validity: ${formatDate(p.ValidFrom)} - ${formatDate(p.ValidTo)}`, c2, infoY);
         doc.text(`Issued To: ${d.IssuedToDept} (${d.Vendor})`, c1, infoY+15).text(`Location: ${d.ExactLocation} (${d.WorkLocationDetail||''})`, c2, infoY+15);
@@ -380,12 +414,12 @@ app.get('/api/download-pdf/:id', async (req, res) => {
 
         // Checklists
         const drawChecklist = (t,i,pr) => { 
-            if(doc.y>650){doc.addPage(); drawHeader(doc, bgColor); doc.y=135;} 
+            if(doc.y>650){doc.addPage(); drawHeaderOnAll(); doc.y=135;} 
             doc.font('Helvetica-Bold').fillColor('black').text(t,30,doc.y+10); doc.y+=25; 
             let y=doc.y; doc.rect(30,y,350,20).stroke().text("Item",35,y+5); doc.rect(380,y,60,20).stroke().text("Sts",385,y+5); doc.rect(440,y,125,20).stroke().text("Rem",445,y+5); y+=20;
             doc.font('Helvetica').fontSize(8);
             i.forEach((x,k)=>{
-                if(y>750){doc.addPage(); drawHeader(doc, bgColor); doc.y=135; y=135;}
+                if(y>750){doc.addPage(); drawHeaderOnAll(); doc.y=135; y=135;}
                 const st = d[`${pr}_Q${k+1}`]||'NA';
                 if(d[`${pr}_Q${k+1}`]) { doc.rect(30,y,350,20).stroke().text(x,35,y+5,{width:340}); doc.rect(380,y,60,20).stroke().text(st,385,y+5); doc.rect(440,y,125,20).stroke().text(d[`${pr}_Q${k+1}_Detail`]||'',445,y+5); y+=20; }
             }); doc.y=y;
@@ -393,7 +427,7 @@ app.get('/api/download-pdf/:id', async (req, res) => {
         drawChecklist("SECTION A: GENERAL", CHECKLIST_DATA.A,'A'); drawChecklist("SECTION B: HOT WORK", CHECKLIST_DATA.B,'B'); drawChecklist("SECTION C: VEHICLE", CHECKLIST_DATA.C,'C'); drawChecklist("SECTION D: EXCAVATION", CHECKLIST_DATA.D,'D');
 
         // HEADER E
-        if(doc.y>650){doc.addPage(); drawHeader(doc, bgColor); doc.y=135;}
+        if(doc.y>650){doc.addPage(); drawHeaderOnAll(); doc.y=135;}
         doc.font('Helvetica-Bold').text("E. DETAILS FOR ATTACHMENT", 30, doc.y); doc.y+=15;
         doc.fontSize(8).font('Helvetica');
         doc.text(`SOP No: ${d.SopNo||'-'} | JSA No: ${d.JsaNo||'-'}`, 30, doc.y); doc.y+=12;
@@ -401,7 +435,7 @@ app.get('/api/download-pdf/:id', async (req, res) => {
         doc.text(`Work Order: ${d.WorkOrder||'-'}`, 30, doc.y); doc.y+=20;
 
         // Hazards
-        if(doc.y>650){doc.addPage(); drawHeader(doc, bgColor); doc.y=135;}
+        if(doc.y>650){doc.addPage(); drawHeaderOnAll(); doc.y=135;}
         doc.font('Helvetica-Bold').text("HAZARDS & PRECAUTIONS",30,doc.y); doc.y+=15; doc.rect(30,doc.y,535,60).stroke();
         const hazKeys = ["Lack of Oxygen", "H2S", "Toxic Gases", "Combustible gases", "Pyrophoric Iron", "Corrosive Chemicals", "cave in formation"];
         const foundHaz = hazKeys.filter(k => d[`H_${k.replace(/ /g,'')}`] === 'Y'); if(d.H_Others==='Y') foundHaz.push(`Others: ${d.H_Others_Detail}`);
@@ -411,16 +445,27 @@ app.get('/api/download-pdf/:id', async (req, res) => {
         doc.text(`PPE: ${foundPPE.join(', ')}`,35,doc.y+25); doc.y+=70;
 
         // Workers Table
-        if(doc.y>650){doc.addPage(); drawHeader(doc, bgColor); doc.y=135;}
+        if(doc.y>650){doc.addPage(); drawHeaderOnAll(); doc.y=135;}
         doc.font('Helvetica-Bold').text("WORKERS DEPLOYED",30,doc.y); doc.y+=15; 
         let wy = doc.y;
-        doc.rect(30,wy,150,20).stroke().text("Name",35,wy+5); doc.rect(180,wy,50,20).stroke().text("Gender",185,wy+5); doc.rect(230,wy,40,20).stroke().text("Age",235,wy+5); doc.rect(270,wy,200,20).stroke().text("Contractor",275,wy+5); wy+=20;
+        
+        // Added columns for ID and Approval
+        doc.rect(30,wy,100,20).stroke().text("Name",35,wy+5); 
+        doc.rect(130,wy,40,20).stroke().text("Age",135,wy+5); 
+        doc.rect(170,wy,120,20).stroke().text("ID Details",175,wy+5); 
+        doc.rect(290,wy,275,20).stroke().text("Worker approved on Date and Time, by Approver name",295,wy+5); 
+        wy+=20;
+        
         let workers = d.SelectedWorkers || [];
         if (typeof workers === 'string') { try { workers = JSON.parse(workers); } catch (e) { workers = []; } }
         doc.font('Helvetica').fontSize(8);
         workers.forEach(w => {
-            if(wy>750){doc.addPage(); drawHeader(doc, bgColor); doc.y=135; wy=135;}
-            doc.rect(30,wy,150,20).stroke().text(w.Name,35,wy+5); doc.rect(180,wy,50,20).stroke().text(w.Gender,185,wy+5); doc.rect(230,wy,40,20).stroke().text(w.Age,235,wy+5); doc.rect(270,wy,200,20).stroke().text(d.RequesterName,275,wy+5); wy+=20;
+            if(wy>750){doc.addPage(); drawHeaderOnAll(); doc.y=135; wy=135;}
+            doc.rect(30,wy,100,35).stroke().text(w.Name,35,wy+5); 
+            doc.rect(130,wy,40,35).stroke().text(w.Age,135,wy+5); 
+            doc.rect(170,wy,120,35).stroke().text(`${w.IDType || ''}: ${w.ID || '-'}`,175,wy+5); 
+            doc.rect(290,wy,275,35).stroke().text(`Approved on ${w.ApprovedAt || '-'} by ${w.ApprovedBy || 'Admin'}`,295,wy+5); 
+            wy+=35;
         });
         doc.y = wy+20;
 
@@ -436,35 +481,29 @@ app.get('/api/download-pdf/:id', async (req, res) => {
         const renewals = JSON.parse(p.RenewalsJSON || "[]");
         doc.font('Helvetica').fontSize(8);
         renewals.forEach(r => {
-             if(ry>700){doc.addPage(); drawHeader(doc, bgColor); doc.y=135; ry=135;}
+             if(ry>700){doc.addPage(); drawHeaderOnAll(); doc.y=135; ry=135;}
              
-             // Row height is now 55 (35 for dates + 20 for remarks space)
              doc.rect(30,ry,60,55).stroke().text(r.valid_from.replace('T','\n'), 32, ry+5, {width:55});
              doc.rect(90,ry,60,55).stroke().text(r.valid_till.replace('T','\n'), 92, ry+5, {width:55});
-             // RECTIFY C: Clear Gas Values
              doc.rect(150,ry,70,55).stroke().text(`HC: ${r.hc}\nTox: ${r.toxic}\nO2: ${r.oxygen}`, 152, ry+5, {width:65});
              doc.rect(220,ry,80,55).stroke().text(r.precautions||'-', 222, ry+5, {width:75});
              
-             // Requestor Column
              doc.rect(300,ry,85,55).stroke();
              doc.text(`${r.req_name}\n${r.req_at}`, 302, ry+5, {width:80});
              
              let revText = `${r.rev_name||'-'}\n${r.rev_at||'-'}\nRem: ${r.rev_rem||'-'}`;
              let appText = `${r.app_name||'-'}\n${r.app_at||'-'}\nRem: ${r.app_rem||'-'}`;
 
-             // RECTIFY D: Display rejection in correct column
              if (r.status === 'rejected') {
                  const rejText = `REJECTED BY:\n${r.rej_by}\n${r.rej_at}\nReason: ${r.rej_reason}`;
                  if (r.rej_role === 'Reviewer') revText = rejText;
                  else if (r.rej_role === 'Approver') appText = rejText;
-                 else appText = rejText; // Fallback
+                 else appText = rejText; 
              }
 
-             // Reviewer Column 
              doc.rect(385,ry,85,55).stroke();
              doc.text(revText, 387, ry+5, {width:80});
              
-             // Approver Column 
              doc.rect(470,ry,85,55).stroke();
              doc.text(appText, 472, ry+5, {width:80});
              
@@ -473,12 +512,11 @@ app.get('/api/download-pdf/:id', async (req, res) => {
         doc.y = ry + 20;
 
         // Closure Table
-        if(doc.y>650){doc.addPage(); drawHeader(doc, bgColor); doc.y=135;}
+        if(doc.y>650){doc.addPage(); drawHeaderOnAll(); doc.y=135;}
         doc.font('Helvetica-Bold').text("CLOSURE OF WORK PERMIT",30,doc.y); doc.y+=15;
         let cy = doc.y;
         doc.rect(30,cy,80,20).stroke().text("Stage",35,cy+5); doc.rect(110,cy,120,20).stroke().text("Name/Sig",115,cy+5); doc.rect(230,cy,100,20).stroke().text("Date/Time",235,cy+5); doc.rect(330,cy,235,20).stroke().text("Remarks",335,cy+5); cy+=20;
         
-        // --- Logic to extract only Name from "Name on Date" ---
         const getName = (sig) => (sig || '').split(' on ')[0]; 
 
         const closureSteps = [
@@ -497,7 +535,7 @@ app.get('/api/download-pdf/:id', async (req, res) => {
         });
         doc.y = cy + 20;
         
-        if(doc.y>500){doc.addPage(); drawHeader(doc, bgColor); doc.y=135;}
+        if(doc.y>500){doc.addPage(); drawHeaderOnAll(); doc.y=135;}
         doc.font('Helvetica-Bold').fontSize(10).text("GENERAL INSTRUCTIONS", 30, doc.y); doc.y += 15; doc.font('Helvetica').fontSize(8);
         const instructions = ["1. The work permit shall be filled up carefully.", "2. Appropriate safeguards and PPEs shall be determined.", "3. Requirement of standby personnel shall be mentioned.", "4. Means of communication must be available.", "5. Shift-wise communication to Main Control Room.", "6. Only certified vehicles and electrical equipment allowed.", "7. Welding machines shall be placed in ventilated areas.", "8. No hot work unless explosive meter reading is Zero.", "9. Standby person mandatory for confined space.", "10. Compressed gas cylinders not allowed inside.", "11. While filling trench, men/equipment must be outside.", "12. For renewal, issuer must ensure conditions are satisfactory.", "13. Max renewal up to 7 calendar days.", "14. Permit must be available at site.", "15. On completion, permit must be closed.", "16. Follow latest SOP for Trenching.", "17. CCTV and gas monitoring should be utilized.", "18. Refer to PLHO guidelines for details.", "19. This original permit must always be available with permit receiver.", "20. On completion of the work, the permit must be closed and the original copy of TBT, JSA, Permission etc. associated with permit to be handed over to Permit issuer", "21. A group shall be made for every work with SIC, EIC, permit issuer, Permit receiver, Mainline In charge and authorized contractor supervisor for digital platform", "22. The renewal of permits shall be done through confirmation by digital platform. However, the regularization on permits for renewal shall be done before closure of permit.", "23. No additional worker/supervisor to be engaged unless approved by Permit Receiver."];
         instructions.forEach(i => { doc.text(i, 30, doc.y); doc.y += 12; });
