@@ -304,7 +304,7 @@
             </div>
             <div class="flex gap-2">
                 <button onclick="window.toggleWorkerMode()" class="bg-white/20 p-2 rounded-lg hover:bg-white/30" title="Workers">👷</button>
-                <button onclick="window.showMap()" class="bg-white/20 p-2 rounded-lg hover:bg-white/30" title="Map">🗺️</button>
+                <button onclick="window.showMap()" id="btn-header-map" class="bg-white/20 p-2 rounded-lg hover:bg-white/30 hidden" title="Map">🗺️</button>
                 <button onclick="location.reload()" class="bg-white/20 p-2 rounded-lg hover:bg-white/30" title="Logout">🚪</button>
             </div>
         </div>
@@ -543,7 +543,7 @@
 
                     <div class="overflow-x-auto mb-4">
                         <table class="mobile-table w-full text-xs text-left" id="table-renewals">
-                            <thead class="hidden md:table-header-group"><tr><th>Time</th><th>Gas</th><th>Prec</th><th>Sts</th><th>Audit</th></tr></thead>
+                            <thead class="hidden md:table-header-group"><tr><th>Period</th><th>Gas & Precautions</th><th>Requester</th><th>Reviewer</th><th>Approver</th><th>Status</th></tr></thead>
                             <tbody id="renewals-list" class="divide-y"></tbody>
                         </table>
                     </div>
@@ -712,11 +712,16 @@
             if(currentUser.Role==='Requester') { 
                 document.getElementById("btn-new-permit").classList.remove('hidden'); 
                 document.getElementById("btn-add-worker").classList.remove('hidden'); 
+                // Ensure Map button in Header is hidden for Requester
+                document.getElementById("btn-header-map").classList.add('hidden');
             } 
             if(currentUser.Role!=='Requester') { 
                 document.getElementById("btn-view-map").classList.remove('hidden'); 
                 document.getElementById("btn-download-excel").classList.remove('hidden'); 
                 document.getElementById("charts-container").classList.remove('hidden'); 
+                // Unhide Header Map button for Reviewer/Approver
+                document.getElementById("btn-header-map").classList.remove('hidden');
+                
                 loadStats(); 
                 if(currentUser.Role==='Approver') document.getElementById("btn-add-user").classList.remove('hidden'); 
             } 
@@ -970,7 +975,8 @@
                     btns=`<button type="button" onclick="window.upd('reject')" class="bg-red-600 text-white px-4 py-3 rounded-lg font-bold flex-1">Reject</button><button type="button" onclick="window.upd('approve')" class="bg-green-600 text-white px-4 py-3 rounded-lg font-bold flex-1">Approve</button>`; 
                 }
             }
-            if(s==='Active' || s.includes('Renewal')) {
+            // MODIFIED: Ensure Reviewer/Renewal section is visible for Closed as well
+            if(s==='Active' || s.includes('Renewal') || s.includes('Closure') || s==='Closed') {
                 document.getElementById("fs-reviewer-section").classList.remove('hidden');
                 document.getElementById("fs-approver-section").classList.remove('hidden');
                 document.getElementById("renewals-section").classList.remove('hidden');
@@ -978,20 +984,28 @@
                 
                 const rens = JSON.parse(p.RenewalsJSON || "[]");
                 
-                // RECTIFY C: Date and Time in Renewal Table
+                // MODIFIED: Date and Time in Renewal Table
                 document.querySelector("#table-renewals tbody").innerHTML = rens.map(r => `
                     <tr>
-                        <td data-label="Time" class="font-mono text-xs">
+                        <td data-label="Period" class="font-mono text-xs">
                             Start: ${r.valid_from.replace('T',' ')}<br>
                             End: &nbsp;&nbsp;${r.valid_till.replace('T',' ')}
                         </td>
-                        <td data-label="Gas">HC:${r.hc}, O2:${r.oxygen}, Tox:${r.toxic}</td>
-                        <td data-label="Prec">${r.precautions}</td>
-                        <td data-label="Status">${r.status}</td>
-                        <td data-label="Audit">
-                            <strong>Req:</strong> ${r.req_name}<br>
-                            <strong>Rev:</strong> ${r.rev_name||'-'}<br>
-                            <strong>App:</strong> ${r.app_name||'-'}
+                        <td data-label="Gas & Prec">
+                            <strong>Gas:</strong> HC:${r.hc}, O2:${r.oxygen}, Tox:${r.toxic}<br>
+                            <strong>Prec:</strong> ${r.precautions || '-'}
+                        </td>
+                        <td data-label="Req">
+                            ${r.req_name}<br><span class="text-[10px] text-gray-500">${r.req_at}</span>
+                        </td>
+                        <td data-label="Rev">
+                            ${r.rev_name||'-'}<br><span class="text-[10px] text-gray-500">${r.rev_at||''}</span>
+                        </td>
+                        <td data-label="App">
+                            ${r.app_name||'-'}<br><span class="text-[10px] text-gray-500">${r.app_at||''}</span>
+                        </td>
+                        <td data-label="Status">
+                            <span class="font-bold ${r.status==='rejected'?'text-red-600':'text-green-600'}">${r.status}</span>
                         </td>
                     </tr>`).join('');
                 
