@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
+<head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
     <meta name="theme-color" content="#ea580c">
@@ -9,91 +9,274 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyADwuqMDCwNSaZKBnWURDCYdqlMxfiWBnU"></script>
     <style>
-      body { background-color: #f3f4f6; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 16px; -webkit-tap-highlight-color: transparent; }
-      
-      /* Mobile-First Glass Card */
-      .glass { background: white; padding: 1rem; border-radius: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); margin-bottom: 1rem; border: 1px solid #e5e7eb; }
-      
-      /* Inputs & Buttons - Touch Friendly */
-      input, select, textarea { width: 100%; border: 1px solid #d1d5db; padding: 10px 12px; border-radius: 8px; font-size: 1rem; background: #fff; margin-bottom: 0.5rem; }
-      input:focus, select:focus, textarea:focus { border-color: #ea580c; outline: none; ring: 2px solid #fdba74; }
-      input:disabled, select:disabled, textarea:disabled { background-color: #f9fafb; color: #6b7280; border-color: #e5e7eb; }
-      button { touch-action: manipulation; transition: transform 0.1s; }
-      button:active { transform: scale(0.98); }
+        body {
+            background-color: #f3f4f6;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            font-size: 16px;
+            -webkit-tap-highlight-color: transparent;
+        }
 
-      /* Section Titles */
-      .section-title { font-weight: 800; color: #c2410c; margin: 1.5rem 0 1rem 0; border-bottom: 2px solid #fdba74; padding-bottom: 0.5rem; font-size: 1.1rem; }
+        /* Mobile-First Glass Card */
+        .glass {
+            background: white;
+            padding: 1rem;
+            border-radius: 12px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+            margin-bottom: 1rem;
+            border: 1px solid #e5e7eb;
+        }
 
-      /* Loader */
-      .loader { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255,255,255,0.9); display: none; justify-content: center; align-items: center; z-index: 2000; font-size: 1.5rem; color: #ea580c; font-weight: bold; flex-direction: column; gap: 10px; }
+        /* Inputs & Buttons - Touch Friendly */
+        input, select, textarea {
+            width: 100%;
+            border: 1px solid #d1d5db;
+            padding: 10px 12px;
+            border-radius: 8px;
+            font-size: 1rem;
+            background: #fff;
+            margin-bottom: 0.5rem;
+        }
 
-      /* --- RESPONSIVE TABLE (Mobile Cards) --- */
-      @media (max-width: 768px) {
-        .mobile-table thead { display: none; }
-        .mobile-table tr { display: block; margin-bottom: 1rem; background: white; border: 1px solid #e5e7eb; border-radius: 12px; padding: 1rem; box-shadow: 0 2px 4px rgba(0,0,0,0.05); position: relative; }
-        .mobile-table td { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #f3f4f6; padding: 0.75rem 0; text-align: right; }
-        .mobile-table td:last-child { border-bottom: none; padding-bottom: 0; }
-        .mobile-table td::before { content: attr(data-label); font-weight: 600; color: #6b7280; text-align: left; margin-right: 1rem; flex-shrink: 0; }
-        
-        /* Specific tweaks for checklist radio buttons on mobile */
-        .checklist-row { flex-direction: column; align-items: flex-start; }
-        .checklist-options { width: 100%; display: flex; justify-content: space-between; margin-top: 0.5rem; }
-        
-        /* Bottom Sticky Actions */
-        #actions { position: fixed; bottom: 0; left: 0; right: 0; background: white; border-top: 1px solid #e5e7eb; padding: 1rem; box-shadow: 0 -4px 6px rgba(0,0,0,0.05); z-index: 100; flex-direction: column; gap: 0.5rem; }
-        #actions button, #actions a { width: 100%; display: block; text-align: center; padding: 12px; font-size: 1.1rem; }
+        input:focus, select:focus, textarea:focus {
+            border-color: #ea580c;
+            outline: none;
+            ring: 2px solid #fdba74;
+        }
 
-        /* RECTIFY D & E: Map View Mobile */
-        #view-map { flex-direction: column; }
-        #map-list { height: 35%; order: 2; width: 100%; border-top: 2px solid #ccc; }
-        #map-container { height: 65%; order: 1; width: 100%; }
-      }
+        input:disabled, select:disabled, textarea:disabled {
+            background-color: #f9fafb;
+            color: #6b7280;
+            border-color: #e5e7eb;
+        }
 
-      /* RECTIFY E: Desktop Friendly View */
-      @media (min-width: 769px) {
-        .desktop-container { max-width: 1200px; margin: 0 auto; padding: 20px; }
-        table.mobile-table { width: 100%; border-collapse: collapse; display: table; }
-        table.mobile-table thead { display: table-header-group; }
-        table.mobile-table tr { display: table-row; border: none; box-shadow: none; background: transparent; }
-        table.mobile-table th { background: #ea580c; color: white; padding: 12px; text-align: left; border-bottom: 2px solid #c2410c; }
-        table.mobile-table td { display: table-cell; border-bottom: 1px solid #e5e7eb; padding: 12px; text-align: left; vertical-align: top; }
-        table.mobile-table td::before { content: none; } /* Remove mobile labels */
+        button {
+            touch-action: manipulation;
+            transition: transform 0.1s;
+        }
 
-        /* RECTIFY D: Map Side Table Desktop */
-        #view-map { flex-direction: row; }
-        #map-list { width: 350px; height: 100%; border-right: 1px solid #ddd; overflow-y: auto; }
-        #map-container { flex: 1; height: 100%; }
-      }
+        button:active {
+            transform: scale(0.98);
+        }
+
+        /* Section Titles */
+        .section-title {
+            font-weight: 800;
+            color: #c2410c;
+            margin: 1.5rem 0 1rem 0;
+            border-bottom: 2px solid #fdba74;
+            padding-bottom: 0.5rem;
+            font-size: 1.1rem;
+        }
+
+        /* Loader */
+        .loader {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.9);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 2000;
+            font-size: 1.5rem;
+            color: #ea580c;
+            font-weight: bold;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        /* --- RESPONSIVE TABLE (Mobile Cards) --- */
+        @media (max-width: 768px) {
+            .mobile-table thead {
+                display: none;
+            }
+
+            .mobile-table tr {
+                display: block;
+                margin-bottom: 1rem;
+                background: white;
+                border: 1px solid #e5e7eb;
+                border-radius: 12px;
+                padding: 1rem;
+                box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+                position: relative;
+            }
+
+            .mobile-table td {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                border-bottom: 1px solid #f3f4f6;
+                padding: 0.75rem 0;
+                text-align: right;
+            }
+
+            .mobile-table td:last-child {
+                border-bottom: none;
+                padding-bottom: 0;
+            }
+
+            .mobile-table td::before {
+                content: attr(data-label);
+                font-weight: 600;
+                color: #6b7280;
+                text-align: left;
+                margin-right: 1rem;
+                flex-shrink: 0;
+            }
+
+            /* Specific tweaks for checklist radio buttons on mobile */
+            .checklist-row {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .checklist-options {
+                width: 100%;
+                display: flex;
+                justify-content: space-between;
+                margin-top: 0.5rem;
+            }
+
+            /* Bottom Sticky Actions */
+            #actions {
+                position: fixed;
+                bottom: 0;
+                left: 0;
+                right: 0;
+                background: white;
+                border-top: 1px solid #e5e7eb;
+                padding: 1rem;
+                box-shadow: 0 -4px 6px rgba(0, 0, 0, 0.05);
+                z-index: 100;
+                flex-direction: column;
+                gap: 0.5rem;
+            }
+
+            #actions button, #actions a {
+                width: 100%;
+                display: block;
+                text-align: center;
+                padding: 12px;
+                font-size: 1.1rem;
+            }
+
+            /* RECTIFY D & E: Map View Mobile */
+            #view-map {
+                flex-direction: column;
+            }
+            #map-list {
+                height: 35%;
+                order: 2;
+                width: 100%;
+                border-top: 2px solid #ccc;
+            }
+            #map-container {
+                height: 65%;
+                order: 1;
+                width: 100%;
+            }
+        }
+
+        /* RECTIFY E: Desktop Friendly View */
+        @media (min-width: 769px) {
+            .desktop-container {
+                max-width: 1200px;
+                margin: 0 auto;
+                padding: 20px;
+            }
+
+            table.mobile-table {
+                width: 100%;
+                border-collapse: collapse;
+                display: table;
+            }
+
+            table.mobile-table thead {
+                display: table-header-group;
+                background: #ea580c;
+                color: white;
+            }
+
+            table.mobile-table tr {
+                display: table-row;
+                border: none;
+                box-shadow: none;
+                background: transparent;
+            }
+
+            table.mobile-table th {
+                background: #ea580c;
+                color: white;
+                padding: 12px;
+                text-align: left;
+                border-bottom: 2px solid #c2410c;
+            }
+
+            table.mobile-table td {
+                display: table-cell;
+                border-bottom: 1px solid #e5e7eb;
+                padding: 12px;
+                text-align: left;
+                vertical-align: top;
+            }
+
+            table.mobile-table td::before {
+                content: none;
+            }
+
+            /* RECTIFY D: Map Side Table Desktop */
+            #view-map {
+                flex-direction: row;
+            }
+            #map-list {
+                width: 350px;
+                height: 100%;
+                border-right: 1px solid #ddd;
+                overflow-y: auto;
+                position: static;
+            }
+            #map-container {
+                flex: 1;
+                height: 100%;
+                position: static;
+            }
+        }
     </style>
-  </head>
-  <body>
+</head>
+<body>
     <div id="loader" class="loader">
-      <div class="animate-spin rounded-full h-12 w-12 border-b-4 border-orange-600"></div>
-      <div>Processing...</div>
+        <div class="animate-spin rounded-full h-12 w-12 border-b-4 border-orange-600"></div>
+        <div>Processing...</div>
     </div>
 
     <div id="view-login" class="flex items-center justify-center min-h-screen p-4 bg-orange-50">
-      <div class="glass w-full max-w-md text-center shadow-xl border-t-4 border-orange-600">
-        <img src="logo.png" alt="IOCL Logo" class="mx-auto h-24 mb-4 object-contain">
-        
-        <h1 class="text-3xl font-extrabold text-orange-600 mb-2">IndianOil</h1>
-        <p class="text-gray-500 mb-6 font-semibold">e-Permit System (ERPL)</p>
-        <form onsubmit="event.preventDefault(); window.handleLogin();" class="space-y-4 text-left">
-          <div>
-            <label class="text-xs font-bold text-gray-500 uppercase ml-1">Role</label>
-            <select id="login-role" class="w-full bg-gray-50 h-12"><option>Loading...</option></select>
-          </div>
-          <div>
-            <label class="text-xs font-bold text-gray-500 uppercase ml-1">User</label>
-            <select id="login-name" class="w-full bg-gray-50 h-12" disabled><option>Select Role First</option></select>
-          </div>
-          <div>
-            <label class="text-xs font-bold text-gray-500 uppercase ml-1">Password</label>
-            <input type="password" id="login-password" placeholder="••••••" class="w-full bg-gray-50 h-12">
-          </div>
-          <button class="w-full bg-orange-600 text-white py-3.5 rounded-lg font-bold text-lg shadow-lg hover:bg-orange-700 active:bg-orange-800">Sign In</button>
-        </form>
-      </div>
+        <div class="glass w-full max-w-md text-center shadow-xl border-t-4 border-orange-600">
+            <img src="logo.png" alt="IOCL Logo" class="mx-auto h-24 mb-4 object-contain">
+            <h1 class="text-3xl font-extrabold text-orange-600 mb-2">IndianOil</h1>
+            <p class="text-gray-500 mb-6 font-semibold">e-Permit System (ERPL)</p>
+            <form onsubmit="event.preventDefault(); window.handleLogin();" class="space-y-4 text-left">
+                <div>
+                    <label class="text-xs font-bold text-gray-500 uppercase ml-1">Role</label>
+                    <select id="login-role" class="w-full bg-gray-50 h-12" onchange="loadUserNames()">
+                        <option>Loading...</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="text-xs font-bold text-gray-500 uppercase ml-1">User</label>
+                    <select id="login-name" class="w-full bg-gray-50 h-12" disabled>
+                        <option>Select Role First</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="text-xs font-bold text-gray-500 uppercase ml-1">Password</label>
+                    <input type="password" id="login-password" placeholder="••••••" class="w-full bg-gray-50 h-12">
+                </div>
+                <button class="w-full bg-orange-600 text-white py-3.5 rounded-lg font-bold text-lg shadow-lg hover:bg-orange-700 active:bg-orange-800">Sign In</button>
+            </form>
+        </div>
     </div>
 
     <div id="app-container" class="max-w-7xl mx-auto p-2 pb-24 hidden desktop-container">
@@ -113,39 +296,42 @@
         </div>
 
         <div id="view-worker-management" class="hidden">
-             <div class="flex justify-between items-center mb-4 px-1">
+            <div class="flex justify-between items-center mb-4 px-1">
                 <h2 class="text-xl font-bold text-gray-800">Worker Management</h2>
                 <button onclick="window.toggleWorkerMode()" class="text-blue-600 font-bold bg-blue-50 px-3 py-1 rounded">← Back</button>
-             </div>
-             
-             <div id="worker-form-container" class="glass hidden border-l-4 border-blue-500 animate-fade-in">
-                 <h3 class="font-bold mb-3 text-lg">Add/Edit Worker</h3>
-                 <form onsubmit="event.preventDefault(); window.saveWorker(window.currentWorkerAction);" class="grid grid-cols-1 md:grid-cols-2 gap-3">
-                     <input type="hidden" id="w-id">
-                     <input id="w-name" placeholder="Full Name" required>
-                     <input id="w-father" placeholder="Father's Name" required>
-                     <input id="w-address" placeholder="Address">
-                     <input id="w-contact" placeholder="Contact No" type="tel">
-                     
-                     <div>
-                         <select id="w-id-type" onchange="window.toggleOtherID()">
-                             <option value="Voter Card">Voter Card</option>
-                             <option value="PAN Card">PAN Card</option>
-                             <option value="Other">Any Other</option>
-                         </select>
-                         <input id="w-id-type-other" placeholder="Specify ID Type" class="hidden bg-yellow-50 mt-1">
-                     </div>
-                     <input id="w-idcard" placeholder="ID Number (No Aadhar)" required>
-                     
-                     <select id="w-gender"><option>Male</option><option>Female</option></select>
-                     <input id="w-age" type="number" placeholder="Age (Must be 18+)" min="19" required>
-                     <button class="bg-green-600 text-white py-3 rounded-lg font-bold mt-2 shadow md:col-span-2">Save Worker</button>
-                 </form>
-             </div>
+            </div>
 
-             <button onclick="window.openWorkerForm('create')" id="btn-add-worker" class="w-full bg-orange-600 text-white py-3 rounded-lg font-bold mb-4 shadow hidden">+ Add New Worker</button>
-             
-             <table class="mobile-table w-full text-left text-sm" id="table-workers">
+            <div id="worker-form-container" class="glass hidden border-l-4 border-blue-500 animate-fade-in">
+                <h3 class="font-bold mb-3 text-lg">Add/Edit Worker</h3>
+                <form onsubmit="event.preventDefault(); window.saveWorker(window.currentWorkerAction);" class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <input type="hidden" id="w-id">
+                    <input id="w-name" placeholder="Full Name" required>
+                    <input id="w-father" placeholder="Father's Name" required>
+                    <input id="w-address" placeholder="Address">
+                    <input id="w-contact" placeholder="Contact No" type="tel">
+
+                    <div>
+                        <select id="w-id-type" onchange="window.toggleOtherID()">
+                            <option value="Voter Card">Voter Card</option>
+                            <option value="PAN Card">PAN Card</option>
+                            <option value="Other">Any Other</option>
+                        </select>
+                        <input id="w-id-type-other" placeholder="Specify ID Type" class="hidden bg-yellow-50 mt-1">
+                    </div>
+                    <input id="w-idcard" placeholder="ID Number (No Aadhar)" required>
+
+                    <select id="w-gender">
+                        <option>Male</option>
+                        <option>Female</option>
+                    </select>
+                    <input id="w-age" type="number" placeholder="Age (Must be 18+)" min="19" required>
+                    <button class="bg-green-600 text-white py-3 rounded-lg font-bold mt-2 shadow md:col-span-2">Save Worker</button>
+                </form>
+            </div>
+
+            <button onclick="window.openWorkerForm('create')" id="btn-add-worker" class="w-full bg-orange-600 text-white py-3 rounded-lg font-bold mb-4 shadow hidden">+ Add New Worker</button>
+
+            <table class="mobile-table w-full text-left text-sm" id="table-workers">
                 <thead class="hidden md:table-header-group bg-gray-100 text-gray-700">
                     <tr>
                         <th>Name</th>
@@ -158,7 +344,7 @@
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-200"></tbody>
-             </table>
+            </table>
         </div>
 
         <div id="view-dashboard">
@@ -166,13 +352,13 @@
                 <h2 class="text-xl font-bold text-gray-800">Dashboard</h2>
                 <button onclick="window.showNewPermit()" id="btn-new-permit" class="bg-orange-600 text-white px-4 py-2 rounded-lg font-bold shadow hidden">+ New</button>
             </div>
-            
+
             <div class="grid grid-cols-3 gap-2 mb-4">
-                 <button onclick="window.showAddUser()" id="btn-add-user" class="bg-purple-100 text-purple-700 py-2 rounded font-bold text-sm hidden">Users</button>
-                 <button onclick="window.showMap()" id="btn-view-map" class="bg-blue-100 text-blue-700 py-2 rounded font-bold text-sm hidden">Map</button>
-                 <button onclick="window.open('/api/download-excel')" id="btn-download-excel" class="bg-green-100 text-green-700 py-2 rounded font-bold text-sm hidden">Excel</button>
+                <button onclick="window.showAddUser()" id="btn-add-user" class="bg-purple-100 text-purple-700 py-2 rounded font-bold text-sm hidden">Users</button>
+                <button onclick="window.showMap()" id="btn-view-map" class="bg-blue-100 text-blue-700 py-2 rounded font-bold text-sm hidden">Map</button>
+                <button onclick="window.open('/api/download-excel')" id="btn-download-excel" class="bg-green-100 text-green-700 py-2 rounded font-bold text-sm hidden">Excel</button>
             </div>
-            
+
             <div id="charts-container" class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4 hidden">
                 <div class="glass h-64"><canvas id="chartStatus"></canvas></div>
                 <div class="glass h-64"><canvas id="chartType"></canvas></div>
@@ -181,15 +367,32 @@
             <h3 class="font-bold text-gray-500 uppercase text-xs mb-2 tracking-wide">Action Required</h3>
             <div class="mb-6">
                 <table class="mobile-table w-full text-left text-sm" id="table-pending">
-                    <thead class="bg-red-50 text-red-900"><tr><th class="p-2">ID</th><th>Type</th><th>Location</th><th>Status</th><th>Pending With</th><th>Action</th></tr></thead>
+                    <thead class="bg-red-50 text-red-900">
+                        <tr>
+                            <th class="p-2">ID</th>
+                            <th>Type</th>
+                            <th>Location</th>
+                            <th>Status</th>
+                            <th>Pending With</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
                     <tbody></tbody>
                 </table>
             </div>
-            
+
             <h3 class="font-bold text-gray-500 uppercase text-xs mb-2 tracking-wide">Active Permits</h3>
             <div class="mb-6">
                 <table class="mobile-table w-full text-left text-sm" id="table-active">
-                    <thead class="bg-green-50 text-green-900"><tr><th class="p-2">ID</th><th>Type</th><th>Location</th><th>Status</th><th>Action</th></tr></thead>
+                    <thead class="bg-green-50 text-green-900">
+                        <tr>
+                            <th class="p-2">ID</th>
+                            <th>Type</th>
+                            <th>Location</th>
+                            <th>Status</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
                     <tbody></tbody>
                 </table>
             </div>
@@ -197,7 +400,15 @@
             <h3 class="font-bold text-gray-500 uppercase text-xs mb-2 tracking-wide">Closed / Other</h3>
             <div>
                 <table class="mobile-table w-full text-left text-sm" id="table-other">
-                    <thead class="bg-gray-50 text-gray-700"><tr><th class="p-2">ID</th><th>Type</th><th>Location</th><th>Status</th><th>Action</th></tr></thead>
+                    <thead class="bg-gray-50 text-gray-700">
+                        <tr>
+                            <th class="p-2">ID</th>
+                            <th>Type</th>
+                            <th>Location</th>
+                            <th>Status</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
                     <tbody></tbody>
                 </table>
             </div>
@@ -210,7 +421,11 @@
                 <form onsubmit="event.preventDefault(); window.submitNewUser();" class="space-y-3">
                     <input id="new-user-name" placeholder="Full Name" required>
                     <input id="new-user-email" placeholder="Email Address" required>
-                    <select id="new-user-role"><option>Requester</option><option>Reviewer</option><option>Approver</option></select>
+                    <select id="new-user-role">
+                        <option>Requester</option>
+                        <option>Reviewer</option>
+                        <option>Approver</option>
+                    </select>
                     <input id="new-user-pass" type="password" placeholder="Set Password" required>
                     <button class="w-full bg-purple-600 text-white py-3 rounded-lg font-bold shadow">Create User</button>
                 </form>
@@ -218,17 +433,17 @@
         </div>
 
         <div id="view-map" class="hidden fixed inset-0 z-50 bg-white flex">
-             <div id="map-list" class="bg-white border-r relative z-10 shadow-xl overflow-y-auto">
-                 <div class="p-3 bg-orange-600 text-white font-bold flex justify-between items-center sticky top-0">
-                     <span>Active Permits</span>
-                     <button onclick="window.showDashboard()" class="bg-white text-orange-600 px-2 rounded text-xs font-bold shadow">← Back</button>
-                 </div>
-                 <div id="map-list-content"></div>
-             </div>
-             
-             <div id="map-container" class="relative">
-                 <div id="map" class="w-full h-full"></div>
-             </div>
+            <div id="map-list" class="bg-white border-r relative z-10 shadow-xl overflow-y-auto">
+                <div class="p-3 bg-orange-600 text-white font-bold flex justify-between items-center sticky top-0">
+                    <span>Active Permits</span>
+                    <button onclick="window.showDashboard()" class="bg-white text-orange-600 px-2 rounded text-xs font-bold shadow">← Back</button>
+                </div>
+                <div id="map-list-content"></div>
+            </div>
+
+            <div id="map-container" class="relative">
+                <div id="map" class="w-full h-full"></div>
+            </div>
         </div>
 
         <div id="view-form" class="hidden">
@@ -236,7 +451,7 @@
                 <button onclick="window.showDashboard()" class="bg-white border text-gray-600 px-3 py-2 rounded-lg font-bold shadow-sm">← Back</button>
                 <div id="permit-header-display" class="flex-1 p-2 bg-blue-100 text-blue-800 rounded-lg font-bold text-center text-sm truncate"></div>
             </div>
-            
+
             <div id="permit-worker-audit-display" class="glass border-l-4 border-orange-500 mb-4 hidden">
                 <h3 class="font-bold border-b pb-2 mb-2 text-orange-800">Deployed Workers & Approval Status</h3>
                 <div id="assigned-worker-audit" class="overflow-x-auto"></div>
@@ -244,13 +459,13 @@
 
             <form id="pf" class="space-y-4">
                 <input type="hidden" id="PermitID" name="PermitID"><input type="hidden" id="Status" name="Status">
-                
+
                 <div class="glass">
                     <h3 class="section-title">1. Permit Details</h3>
                     <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
                         <div><label class="text-xs font-bold text-gray-500">Work Type</label><select name="WorkType" id="WorkType"><option>Hot</option><option>Cold</option><option>Confined Space</option><option>Excavation</option></select></div>
                         <div><label class="text-xs font-bold text-gray-500">Specific Work</label><input name="WorkTypeOther" id="WorkTypeOther"></div>
-                        
+
                         <div>
                             <label class="text-xs font-bold text-gray-500">Location (GPS)</label>
                             <div class="flex gap-2">
@@ -258,20 +473,20 @@
                                 <button type="button" onclick="window.getGeo()" class="bg-orange-100 text-orange-600 px-4 rounded-lg font-bold border border-orange-200" id="btn-get-geo">📍 GPS</button>
                             </div>
                         </div>
-                        
+
                         <input type="hidden" id="Latitude" name="Latitude">
                         <input type="hidden" id="Longitude" name="Longitude">
-                        
+
                         <div><label class="text-xs font-bold text-gray-500">Location Details</label><input name="WorkLocationDetail" id="WorkLocationDetail"></div>
                         <div><label class="text-xs font-bold text-gray-500">Section/Unit</label><input name="LocationUnit" id="LocationUnit" value="Pipeline"></div>
-                        
+
                         <div><label class="text-xs font-bold text-gray-500">Valid From</label><input type="datetime-local" name="ValidFrom" id="ValidFrom" onchange="window.checkDate()"></div>
                         <div><label class="text-xs font-bold text-gray-500">Valid To</label><input type="datetime-local" name="ValidTo" id="ValidTo" onchange="window.checkDate()"></div>
-                        
+
                         <div class="md:col-span-2"><label class="text-xs font-bold text-gray-500">Requester</label><input name="RequesterName" id="RequesterName"></div>
                         <div class="md:col-span-2"><label class="text-xs font-bold text-gray-500">Reviewer</label><select name="ReviewerEmail" id="ReviewerEmail"></select></div>
                         <div class="md:col-span-2"><label class="text-xs font-bold text-gray-500">Approver</label><select name="ApproverEmail" id="ApproverEmail"></select></div>
-                        
+
                         <div><label class="text-xs font-bold text-gray-500">Issued To Dept</label><input name="IssuedToDept" id="IssuedToDept"></div>
                         <div><label class="text-xs font-bold text-gray-500">Vendor</label><input name="Vendor" id="Vendor" readonly></div>
                         <div><label class="text-xs font-bold text-gray-500">Security Guard</label><input name="SecurityGuard" id="SecurityGuard"></div>
@@ -302,7 +517,14 @@
                     <div id="worker-checkboxes" class="grid grid-cols-1 md:grid-cols-3 gap-3"></div>
                     <div id="worker-readonly-table" class="hidden overflow-x-auto">
                         <table class="mobile-table w-full text-xs text-left">
-                            <thead class="hidden md:table-header-group"><tr><th>Name</th><th>Gender</th><th>Age</th><th>Contractor</th></tr></thead>
+                            <thead class="hidden md:table-header-group">
+                                <tr>
+                                    <th>Name</th>
+                                    <th>Gender</th>
+                                    <th>Age</th>
+                                    <th>Contractor</th>
+                                </tr>
+                            </thead>
                             <tbody class="divide-y"></tbody>
                         </table>
                     </div>
@@ -315,48 +537,62 @@
                 </div>
 
                 <div id="fs-reviewer-section" class="glass hidden border-l-4 border-yellow-500">
-                     <h3 class="section-title text-yellow-700">4. Reviewer</h3>
-                     <div class="mb-2 font-bold text-sm text-gray-600">PPE Required:</div>
-                     <div class="grid grid-cols-2 md:grid-cols-4 gap-2 mb-4" id="ppe-container"></div>
-                     <textarea name="Reviewer_Remarks" id="Reviewer_Remarks" placeholder="Reviewer Remarks" class="w-full"></textarea>
-                     <textarea name="AdditionalPrecautions" id="AdditionalPrecautions" placeholder="Additional Precautions" class="w-full mt-2"></textarea>
+                    <h3 class="section-title text-yellow-700">4. Reviewer</h3>
+                    <div class="mb-2 font-bold text-sm text-gray-600">PPE Required:</div>
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-2 mb-4" id="ppe-container"></div>
+                    <textarea name="Reviewer_Remarks" id="Reviewer_Remarks" placeholder="Reviewer Remarks" class="w-full"></textarea>
+                    <textarea name="AdditionalPrecautions" id="AdditionalPrecautions" placeholder="Additional Precautions" class="w-full mt-2"></textarea>
                 </div>
 
                 <div id="fs-approver-section" class="glass hidden border-l-4 border-green-500">
-                     <h3 class="section-title text-green-700">5. Approval</h3>
-                     <textarea name="Approver_Remarks" id="Approver_Remarks" placeholder="Approver Remarks" class="w-full"></textarea>
-                     <div id="pdf-color-select" class="mt-2 hidden">
+                    <h3 class="section-title text-green-700">5. Approval</h3>
+                    <textarea name="Approver_Remarks" id="Approver_Remarks" placeholder="Approver Remarks" class="w-full"></textarea>
+                    <div id="pdf-color-select" class="mt-2 hidden">
                         <label>PDF Background:</label>
-                        <select id="PdfBgColor"><option>White</option><option>Red</option><option>Green</option><option>Yellow</option><option>Auto</option></select>
-                     </div>
+                        <select id="PdfBgColor">
+                            <option>White</option>
+                            <option>Red</option>
+                            <option>Green</option>
+                            <option>Yellow</option>
+                            <option>Auto</option>
+                        </select>
+                    </div>
                 </div>
 
                 <div id="renewals-section" class="glass hidden">
                     <h3 class="section-title">Renewals</h3>
-                    
+
                     <div id="pending-renewal-display" class="hidden bg-yellow-50 p-4 rounded-lg mb-4 border border-yellow-200">
                         <h4 class="font-bold text-yellow-800 text-sm uppercase">⚠️ Pending Renewal</h4>
                         <div class="text-sm grid grid-cols-1 gap-2 mt-2">
-                             <div class="flex justify-between border-b pb-1"><span>From:</span> <span id="disp-ren-from" class="font-mono"></span></div>
-                             <div class="flex justify-between border-b pb-1"><span>To:</span> <span id="disp-ren-to" class="font-mono"></span></div>
-                             <div class="flex justify-between border-b pb-1"><span>Gas:</span> <span id="disp-ren-gas" class="font-mono"></span></div>
-                             <div><span>Prec:</span> <span id="disp-ren-prec"></span></div>
+                            <div class="flex justify-between border-b pb-1"><span>From:</span> <span id="disp-ren-from" class="font-mono"></span></div>
+                            <div class="flex justify-between border-b pb-1"><span>To:</span> <span id="disp-ren-to" class="font-mono"></span></div>
+                            <div class="flex justify-between border-b pb-1"><span>Gas:</span> <span id="disp-ren-gas" class="font-mono"></span></div>
+                            <div><span>Prec:</span> <span id="disp-ren-prec"></span></div>
                         </div>
                     </div>
 
                     <div class="overflow-x-auto mb-4">
-                        <table class="mobile-table w-full text-xs text-left">
-                            <thead class="hidden md:table-header-group"><tr><th>Time</th><th>Gas</th><th>Prec</th><th>Sts</th><th>Audit</th></tr></thead>
+                        <table class="mobile-table w-full text-xs text-left" id="table-renewals">
+                            <thead class="hidden md:table-header-group">
+                                <tr>
+                                    <th>Time</th>
+                                    <th>Gas</th>
+                                    <th>Prec</th>
+                                    <th>Sts</th>
+                                    <th>Audit</th>
+                                </tr>
+                            </thead>
                             <tbody id="renewals-list" class="divide-y"></tbody>
                         </table>
                     </div>
-                    
+
                     <div id="form-renewal" class="hidden p-4 bg-blue-50 mt-2 rounded-lg border border-blue-100">
                         <div class="grid grid-cols-1 md:grid-cols-5 gap-2 mb-2">
-                             <input type="datetime-local" id="RenewalValidFrom"> <input type="datetime-local" id="RenewalValidTo">
-                             <div class="flex gap-2">
+                            <input type="datetime-local" id="RenewalValidFrom"> <input type="datetime-local" id="RenewalValidTo">
+                            <div class="flex gap-2">
                                 <input id="RenewalHC" placeholder="HC %"> <input id="RenewalToxic" placeholder="Toxic"> <input id="RenewalOxygen" placeholder="O2 %">
-                             </div>
+                            </div>
                         </div>
                         <input id="RenewalPrec" placeholder="Precautions" class="w-full mb-2">
                         <button type="button" onclick="window.submitRenewal('approve')" class="w-full bg-blue-600 text-white py-3 rounded-lg font-bold shadow">Submit Renewal</button>
@@ -370,23 +606,23 @@
                         </div>
                     </div>
                 </div>
-                
+
                 <div id="closure-section" class="glass hidden">
                     <h3 class="section-title">Closure</h3>
                     <label class="flex items-center gap-2 mb-4 font-bold text-red-600 p-2 bg-red-50 rounded"><input type="checkbox" id="Site_Restored_Check" name="Site_Restored_Check" class="w-5 h-5"> Site Restored & Cleaned</label>
-                    
+
                     <div id="div-closure-req" class="hidden space-y-2">
                         <label class="text-xs font-bold text-gray-500">Requester Remarks</label>
                         <textarea id="Closure_Requestor_Remarks" placeholder="Remarks" class="w-full"></textarea>
                         <span id="ts-clos-req" class="text-xs text-gray-400 block text-right"></span>
                     </div>
-                    
+
                     <div id="div-closure-rev" class="hidden mt-4 space-y-2">
                         <label class="text-xs font-bold text-gray-500">Reviewer Remarks</label>
                         <textarea id="Closure_Reviewer_Remarks" placeholder="Remarks" class="w-full"></textarea>
                         <span id="ts-clos-rev" class="text-xs text-gray-400 block text-right"></span>
                     </div>
-                    
+
                     <div id="div-closure-app" class="hidden mt-4 space-y-2">
                         <label class="text-xs font-bold text-gray-500">Approver Remarks</label>
                         <textarea id="Closure_Approver_Remarks" placeholder="Remarks" class="w-full"></textarea>
@@ -410,29 +646,53 @@
 
     <script>
         const API = "/api";
-        let currentUser = null, currentPermitId = null, mapInstance = null, chartS=null, chartT=null;
+        let currentUser = null;
+        let usersData = {};
+        let mapInstance = null;
+        let chartS = null;
+        let chartT = null;
         const loader = document.getElementById('loader');
 
         const CL_DATA = {
-            A: ["1. Equipment Check","2. Area Clean","3. Manholes Covered","4. Hazards","5. Blinded","6. Drained","7. Steamed","8. Flushed","9. Fire Access","10. Iron Sulfide","11. Electrical Isolation","12. Gas Test","13. Fire Ext","14. Cordoned","15. CCTV","16. Ventilation"],
-            B: ["1. Exit","2. Standby","3. Trapped Gas","4. Spark Shield","5. Grounding","6. Confined Standby","7. Communication","8. Rescue Equip","9. Cooling","10. Inert Gas","11. ELCB","12. Cylinders Out","13. Spark Arrestor","14. Welding Loc","15. Height"],
+            A: ["1. Equipment Check", "2. Area Clean", "3. Manholes Covered", "4. Hazards", "5. Blinded", "6. Drained", "7. Steamed", "8. Flushed", "9. Fire Access", "10. Iron Sulfide", "11. Electrical Isolation", "12. Gas Test", "13. Fire Ext", "14. Cordoned", "15. CCTV", "16. Ventilation"],
+            B: ["1. Exit", "2. Standby", "3. Trapped Gas", "4. Spark Shield", "5. Grounding", "6. Confined Standby", "7. Communication", "8. Rescue Equip", "9. Cooling", "10. Inert Gas", "11. ELCB", "12. Cylinders Out", "13. Spark Arrestor", "14. Welding Loc", "15. Height"],
             C: ["1. PESO Spark Arrestor"],
-            D: ["1. Shoring","2. Soil Dist","3. Safe Access","4. No Heavy Vehicle"]
+            D: ["1. Shoring", "2. Soil Dist", "3. Safe Access", "4. No Heavy Vehicle"]
         };
         const HAZARDS = ["Lack of Oxygen", "H2S", "Toxic Gases", "Combustible gases", "Pyrophoric Iron", "Corrosive Chemicals", "cave in formation", "Others"];
         const PPE = ["Helmet", "Safety Shoes", "Hand gloves", "Boiler suit", "Face Shield", "Apron", "Goggles", "Dust Respirator", "Fresh Air Mask", "Lifeline", "Safety Harness", "Airline", "Earmuff"];
 
-        document.addEventListener("DOMContentLoaded", () => { window.loadUsers(); renderUI(); });
+        document.addEventListener("DOMContentLoaded", () => {
+            window.loadUsers();
+            renderUI();
+        });
+
+        async function apiCall(ep, meth = "GET", body = null) {
+            loader.style.display = 'flex';
+            try {
+                const opts = {
+                    method: meth,
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                };
+                if (body) opts.body = JSON.stringify(body);
+                const res = await fetch(API + ep, opts);
+                return await res.json();
+            } finally {
+                loader.style.display = 'none';
+            }
+        }
 
         function renderUI() {
             let h = '';
-            ['A','B','C','D'].forEach(sec => {
+            ['A', 'B', 'C', 'D'].forEach(sec => {
                 h += `<div class="glass p-3"><div class="font-bold text-orange-700 mb-2 border-b pb-1">SECTION ${sec}</div>`;
                 h += CL_DATA[sec].map((t, i) => {
                     const id = `${sec}_Q${i+1}`;
                     let remInput = `<input name="${id}_Detail" placeholder="Rem" class="text-sm mt-2 w-full border-gray-200">`;
-                    if(sec==='A' && i===11) remInput = `<div class="flex gap-1 mt-2"><input name="GP_Q12_HC" placeholder="HC%" class="w-1/3"><input name="GP_Q12_ToxicGas" placeholder="Tox" class="w-1/3"><input name="GP_Q12_Oxygen" placeholder="O2%" class="w-1/3"></div>`;
-                    
+                    if (sec === 'A' && i === 11) remInput = `<div class="flex gap-1 mt-2"><input name="GP_Q12_HC" placeholder="HC%" class="w-1/3"><input name="GP_Q12_ToxicGas" placeholder="Tox" class="w-1/3"><input name="GP_Q12_Oxygen" placeholder="O2%" class="w-1/3"></div>`;
+
                     return `<div class="mb-4 pb-2 border-b border-gray-100 last:border-0">
                                 <div class="text-sm font-medium text-gray-800 mb-2">${t}</div>
                                 <div class="flex justify-between items-center bg-gray-50 p-2 rounded">
@@ -450,50 +710,117 @@
             document.getElementById('checklists-wrapper').innerHTML = h;
 
             document.getElementById('hazards-container').innerHTML = HAZARDS.map(z => {
-                const v = z.replace(/ /g,'');
-                const ch = z==='Others' ? `onchange="document.getElementById('other-hazard-div').classList.toggle('hidden',!this.checked)"` : '';
+                const v = z.replace(/ /g, '');
+                const ch = z === 'Others' ? `onchange="document.getElementById('other-hazard-div').classList.toggle('hidden',!this.checked)"` : '';
                 return `<label class="flex items-center gap-2 border p-3 rounded-lg bg-gray-50 hover:bg-orange-50 transition"><input type="checkbox" name="H_${v}" value="Y" ${ch} class="w-5 h-5 text-orange-600"> <span class="text-sm font-medium">${z}</span></label>`;
             }).join('');
-            
+
             document.getElementById('ppe-container').innerHTML = PPE.map(p => `<label class="flex items-center gap-2 border p-3 rounded-lg bg-gray-50 hover:bg-blue-50 transition"><input type="checkbox" name="P_${p.replace(/ /g,'')}" value="Y" class="w-5 h-5 text-blue-600"> <span class="text-sm font-medium">${p}</span></label>`).join('');
         }
 
-        async function apiCall(ep, meth="GET", body=null) {
-            loader.style.display = 'flex';
-            try {
-                const opts={method:meth,headers:{'Content-Type':'application/json'}};
-                if(body)opts.body=JSON.stringify(body);
-                const res=await fetch(API+ep,opts); return await res.json();
-            } finally { loader.style.display = 'none'; }
+        window.loadUsers = async function() {
+            const u = await apiCall('/users');
+            usersData = u;
+            loadUserNames();
         }
 
-        // --- AUTH ---
-        window.loadUsers = async function() { const u=await apiCall('/users'); window.users=u; const s=document.getElementById("login-role"); s.innerHTML='<option>Requester</option><option>Reviewer</option><option>Approver</option>'; s.onchange=()=>{const l=u[s.value+'s']; const n=document.getElementById("login-name"); n.disabled=false; n.innerHTML=""; l.forEach(x=>n.innerHTML+=`<option value="${x.email}">${x.name}</option>`);};}
-        window.handleLogin = async function() { const r=document.getElementById("login-role").value; const n=document.getElementById("login-name").options[document.getElementById("login-name").selectedIndex].text; const e=document.getElementById("login-name").value; const p=document.getElementById("login-password").value; const res=await apiCall('/login','POST',{role:r,name:e,password:p}); if(res.success){currentUser={...res.user, name:n}; document.getElementById("view-login").style.display='none'; document.getElementById("app-container").classList.remove('hidden'); document.getElementById("user-info").innerText=`${n} (${r})`; updateRoleUI(); loadDashboard();} else alert(res.message); }
-        function updateRoleUI() { if(currentUser.Role==='Requester') { document.getElementById("btn-new-permit").classList.remove('hidden'); document.getElementById("btn-add-worker").classList.remove('hidden'); } if(currentUser.Role!=='Requester') { document.getElementById("btn-view-map").classList.remove('hidden'); document.getElementById("btn-download-excel").classList.remove('hidden'); document.getElementById("charts-container").classList.remove('hidden'); loadStats(); if(currentUser.Role==='Approver') document.getElementById("btn-add-user").classList.remove('hidden'); } }
-        async function loadStats() { const res=await apiCall('/stats','POST'); if(chartS)chartS.destroy(); if(chartT)chartT.destroy(); chartS=new Chart(document.getElementById('chartStatus'),{type:'doughnut',data:{labels:Object.keys(res.statusCounts),datasets:[{data:Object.values(res.statusCounts)}]}}); chartT=new Chart(document.getElementById('chartType'),{type:'bar',data:{labels:Object.keys(res.typeCounts),datasets:[{label:'Types',data:Object.values(res.typeCounts)}]}}); }
-        
-        // --- WORKER MANAGEMENT ---
+        window.loadUserNames = function() {
+            const role = document.getElementById("login-role").value;
+            const names = usersData[role + 's'] || [];
+            const sel = document.getElementById("login-name");
+            sel.disabled = false;
+            sel.innerHTML = names.map(u => `<option value="${u.email}">${u.name}</option>`).join('');
+        }
+
+        window.handleLogin = async function() {
+            const r = document.getElementById("login-role").value;
+            const n = document.getElementById("login-name").options[document.getElementById("login-name").selectedIndex].text;
+            const e = document.getElementById("login-name").value;
+            const p = document.getElementById("login-password").value;
+            const res = await apiCall('/login', 'POST', {
+                role: r,
+                name: e,
+                password: p
+            });
+            if (res.success) {
+                currentUser = { ...res.user,
+                    name: n
+                };
+                document.getElementById("view-login").classList.add('hidden');
+                document.getElementById("app-container").classList.remove('hidden');
+                document.getElementById("user-info").innerText = `${n} (${r})`;
+                updateRoleUI();
+                loadDashboard();
+            } else alert("Invalid Login");
+        }
+
+        function updateRoleUI() {
+            if (currentUser.Role === 'Requester') {
+                document.getElementById("btn-new-permit").classList.remove('hidden');
+                document.getElementById("btn-add-worker").classList.remove('hidden');
+            }
+            if (currentUser.Role !== 'Requester') {
+                document.getElementById("btn-view-map").classList.remove('hidden');
+                document.getElementById("btn-download-excel").classList.remove('hidden');
+                document.getElementById("charts-container").classList.remove('hidden');
+                loadStats();
+                if (currentUser.Role === 'Approver') document.getElementById("btn-add-user").classList.remove('hidden');
+            }
+        }
+
+        async function loadStats() {
+            const res = await apiCall('/stats', 'POST');
+            if (chartS) chartS.destroy();
+            if (chartT) chartT.destroy();
+            chartS = new Chart(document.getElementById('chartStatus'), {
+                type: 'doughnut',
+                data: {
+                    labels: Object.keys(res.statusCounts),
+                    datasets: [{
+                        data: Object.values(res.statusCounts)
+                    }]
+                }
+            });
+            chartT = new Chart(document.getElementById('chartType'), {
+                type: 'bar',
+                data: {
+                    labels: Object.keys(res.typeCounts),
+                    datasets: [{
+                        label: 'Types',
+                        data: Object.values(res.typeCounts)
+                    }]
+                }
+            });
+        }
+
         window.toggleOtherID = function() {
             const val = document.getElementById("w-id-type").value;
             const otherInput = document.getElementById("w-id-type-other");
-            if(val === "Other") otherInput.classList.remove("hidden");
+            if (val === "Other") otherInput.classList.remove("hidden");
             else otherInput.classList.add("hidden");
         }
 
-        window.toggleWorkerMode = function() { 
-            const dash = document.getElementById("view-dashboard"); const work = document.getElementById("view-worker-management"); 
+        window.toggleWorkerMode = function() {
+            const dash = document.getElementById("view-dashboard");
+            const work = document.getElementById("view-worker-management");
             // Also hide map if open
             document.getElementById("view-map").classList.add('hidden');
-            
-            if(dash.classList.contains('hidden')) { dash.classList.remove('hidden'); work.classList.add('hidden'); }
-            else { dash.classList.add('hidden'); work.classList.remove('hidden'); loadWorkers('dashboard'); }
+
+            if (dash.classList.contains('hidden')) {
+                dash.classList.remove('hidden');
+                work.classList.add('hidden');
+            } else {
+                dash.classList.add('hidden');
+                work.classList.remove('hidden');
+                loadWorkers('dashboard');
+            }
         }
-        window.openWorkerForm = function(act, data=null) {
+
+        window.openWorkerForm = function(act, data = null) {
             window.currentWorkerAction = act;
             const form = document.getElementById('worker-form-container');
             form.classList.remove('hidden');
-            if(act === 'create') {
+            if (act === 'create') {
                 document.getElementById('w-id').value = '';
                 document.querySelectorAll('#worker-form-container input').forEach(i => i.value = '');
             } else if (act === 'edit_request' && data) {
@@ -510,33 +837,48 @@
                 const isStandard = ["Voter Card", "PAN Card"].includes(idType);
                 document.getElementById("w-id-type").value = isStandard ? idType : "Other";
                 window.toggleOtherID();
-                if(!isStandard) document.getElementById("w-id-type-other").value = idType;
+                if (!isStandard) document.getElementById("w-id-type-other").value = idType;
             }
         }
+
         window.saveWorker = async function(act) {
             const idTypeRaw = document.getElementById("w-id-type").value;
             const idTypeFinal = idTypeRaw === "Other" ? document.getElementById("w-id-type-other").value : idTypeRaw;
 
             // RECTIFY A: Pass Requestor Name to Backend
             const body = {
-                Action: act, Role: currentUser.Role, RequestorEmail: currentUser.Email, WorkerID: document.getElementById('w-id').value, ApproverName: currentUser.name, RequestorName: currentUser.name, // NEW
-                Details: { 
-                    Name:document.getElementById("w-name").value, 
-                    Father:document.getElementById("w-father").value, 
-                    Address:document.getElementById("w-address").value, 
-                    Contact:document.getElementById("w-contact").value, 
-                    ID:document.getElementById("w-idcard").value, 
-                    Gender:document.getElementById("w-gender").value, 
-                    Age:document.getElementById("w-age").value,
-                    IDType: idTypeFinal 
+                Action: act,
+                Role: currentUser.Role,
+                RequestorEmail: currentUser.Email,
+                WorkerID: document.getElementById('w-id').value,
+                ApproverName: currentUser.name,
+                RequestorName: currentUser.name, // NEW
+                Details: {
+                    Name: document.getElementById("w-name").value,
+                    Father: document.getElementById("w-father").value,
+                    Address: document.getElementById("w-address").value,
+                    Contact: document.getElementById("w-contact").value,
+                    ID: document.getElementById("w-idcard").value,
+                    Gender: document.getElementById("w-gender").value,
+                    Age: document.getElementById("w-age").value,
+                    IDType: idTypeFinal
                 }
             };
             const res = await apiCall('/save-worker', 'POST', body);
-            if(res.success) { alert("Saved"); loadWorkers('dashboard'); document.getElementById('worker-form-container').classList.add('hidden'); } else alert(res.error);
+            if (res.success) {
+                alert("Saved");
+                loadWorkers('dashboard');
+                document.getElementById('worker-form-container').classList.add('hidden');
+            } else alert(res.error);
         }
+
         async function loadWorkers(context) {
-            const res = await apiCall('/get-workers', 'POST', {role:currentUser.Role, email:currentUser.Email, context:context});
-            if(context === 'permit_dropdown') {
+            const res = await apiCall('/get-workers', 'POST', {
+                role: currentUser.Role,
+                email: currentUser.Email,
+                context: context
+            });
+            if (context === 'permit_dropdown') {
                 const con = document.getElementById('worker-checkboxes');
                 con.innerHTML = res.map(w => `<label class="flex items-center gap-2 border p-3 rounded-lg bg-gray-50"><input type="checkbox" name="Worker_${w.WorkerID}" value='${JSON.stringify(w)}' class="w-5 h-5"> <span class="font-bold">${w.Name}</span> <span class="text-xs text-gray-500">(${w.Age})</span></label>`).join('');
             } else {
@@ -558,20 +900,36 @@
                 </tr>`).join('');
             }
         }
-        window.workerAction = async function(id, act) { await apiCall('/save-worker', 'POST', {WorkerID:id, Action:act, Role:currentUser.Role, ApproverName: currentUser.name}); loadWorkers('dashboard'); }
+
+        window.workerAction = async function(id, act) {
+            await apiCall('/save-worker', 'POST', {
+                WorkerID: id,
+                Action: act,
+                Role: currentUser.Role,
+                ApproverName: currentUser.name
+            });
+            loadWorkers('dashboard');
+        }
 
         // --- DASHBOARD ---
-        async function loadDashboard() { 
-            const res = await apiCall('/dashboard', 'POST', {role:currentUser.Role, email:currentUser.Email});
-            const tP=document.querySelector('#table-pending tbody'), tA=document.querySelector('#table-active tbody'), tO=document.querySelector('#table-other tbody'); 
-            tP.innerHTML=""; tA.innerHTML=""; tO.innerHTML="";
+        async function loadDashboard() {
+            const res = await apiCall('/dashboard', 'POST', {
+                role: currentUser.Role,
+                email: currentUser.Email
+            });
+            const tP = document.querySelector('#table-pending tbody'),
+                tA = document.querySelector('#table-active tbody'),
+                tO = document.querySelector('#table-other tbody');
+            tP.innerHTML = "";
+            tA.innerHTML = "";
+            tO.innerHTML = "";
             res.forEach(p => {
                 let pendingWith = "-";
-                if(p.Status.includes('Review')) pendingWith = p.ReviewerEmail ? p.ReviewerEmail.split('@')[0] : '-';
-                if(p.Status.includes('Approval')) pendingWith = p.ApproverEmail ? p.ApproverEmail.split('@')[0] : '-';
-                
-                const statusColor = p.Status.includes('Pending') ? 'text-red-600' : (p.Status==='Active' ? 'text-green-600' : 'text-gray-600');
-                
+                if (p.Status.includes('Review')) pendingWith = p.ReviewerEmail ? p.ReviewerEmail.split('@')[0] : '-';
+                if (p.Status.includes('Approval')) pendingWith = p.ApproverEmail ? p.ApproverEmail.split('@')[0] : '-';
+
+                const statusColor = p.Status.includes('Pending') ? 'text-red-600' : (p.Status === 'Active' ? 'text-green-600' : 'text-gray-600');
+
                 const row = `<tr class="cursor-pointer hover:bg-orange-50 transition" onclick="window.openPermit('${p.PermitID}')">
                     <td data-label="ID" class="font-bold text-blue-600 text-lg">${p.PermitID}</td>
                     <td data-label="Type" class="font-medium">${p.WorkType}</td>
@@ -580,25 +938,33 @@
                     <td data-label="With" class="text-sm text-gray-500">${pendingWith}</td>
                     <td data-label="Action"><span class="bg-blue-50 text-blue-600 px-3 py-1 rounded-full text-xs font-bold">OPEN</span></td>
                 </tr>`;
-                
+
                 let isAction = false;
                 const s = p.Status;
-                if(currentUser.Role === 'Reviewer') { if((s === 'Pending Review' || s === 'Renewal Pending Review' || s === 'Closure Pending Review') && p.ReviewerEmail === currentUser.Email) isAction = true; } 
-                else if(currentUser.Role === 'Approver') { if((s === 'Pending Approval' || s === 'Renewal Pending Approval' || s === 'Closure Pending Approval') && p.ApproverEmail === currentUser.Email) isAction = true; }
-                else if (currentUser.Role === 'Requester') { if (s.includes('Pending')) isAction = true; }
+                if (currentUser.Role === 'Reviewer') {
+                    if ((s === 'Pending Review' || s === 'Renewal Pending Review' || s === 'Closure Pending Review') && p.ReviewerEmail === currentUser.Email) isAction = true;
+                } else if (currentUser.Role === 'Approver') {
+                    if ((s === 'Pending Approval' || s === 'Renewal Pending Approval' || s === 'Closure Pending Approval') && p.ApproverEmail === currentUser.Email) isAction = true;
+                } else if (currentUser.Role === 'Requester') {
+                    if (s.includes('Pending')) isAction = true;
+                }
 
-                if(isAction) tP.innerHTML += row; else if(s === 'Active') tA.innerHTML += row; else tO.innerHTML += row;
+                if (isAction) tP.innerHTML += row;
+                else if (s === 'Active') tA.innerHTML += row;
+                else tO.innerHTML += row;
             });
         }
 
         window.openPermit = async function(id) {
-            const p = await apiCall('/permit-data', 'POST', {permitId:id});
+            const p = await apiCall('/permit-data', 'POST', {
+                permitId: id
+            });
             currentPermitId = id;
             document.getElementById("permit-header-display").innerText = `${id} | ${p.Status}`;
-            
+
             // RECTIFY B: Populate Worker Audit Table in Permit Console with Requestor Name
             const workerAuditTable = document.getElementById("assigned-worker-audit");
-            document.getElementById("permit-worker-audit-display").classList.remove("hidden"); 
+            document.getElementById("permit-worker-audit-display").classList.remove("hidden"); // Show container
             workerAuditTable.innerHTML = `
                 <table class="mobile-table w-full text-xs">
                     <thead><tr><th>Name</th><th>ID Details</th><th>Father</th><th>Requestor</th><th>Approval Trail</th></tr></thead>
@@ -613,19 +979,35 @@
                     </tbody>
                 </table>`;
 
-            const rS=document.getElementById("ReviewerEmail"), aS=document.getElementById("ApproverEmail"); rS.innerHTML=""; aS.innerHTML=""; 
-            if(window.users){ window.users.Reviewers.forEach(u=>rS.innerHTML+=`<option value="${u.email}">${u.name}</option>`); window.users.Approvers.forEach(u=>aS.innerHTML+=`<option value="${u.email}">${u.name}</option>`); }
+            const rS = document.getElementById("ReviewerEmail"),
+                aS = document.getElementById("ApproverEmail");
+            rS.innerHTML = "";
+            aS.innerHTML = "";
+            if (window.users) {
+                window.users.Reviewers.forEach(u => rS.innerHTML += `<option value="${u.email}">${u.name}</option>`);
+                window.users.Approvers.forEach(u => aS.innerHTML += `<option value="${u.email}">${u.name}</option>`);
+            }
 
             // Safe Set Helper
-            const safeSet = (id, val) => { const el = document.getElementById(id); if(el) el.value = val; };
-            const setText = (id, val) => { const el = document.getElementById(id); if(el) el.innerText = val; };
+            const safeSet = (id, val) => {
+                const el = document.getElementById(id);
+                if (el) el.value = val;
+            };
+            const setText = (id, val) => {
+                const el = document.getElementById(id);
+                if (el) el.innerText = val;
+            };
 
             // Fill Form
             document.querySelectorAll('#pf input, #pf select, #pf textarea').forEach(e => {
-                if(e.type==='radio'){ if(e.value===p[e.name]) e.checked=true; }
-                else if(e.type==='checkbox'){ e.checked=(p[e.name]==='Y'); }
-                else { e.value=p[e.name]||''; }
-                e.disabled=true; 
+                if (e.type === 'radio') {
+                    if (e.value === p[e.name]) e.checked = true;
+                } else if (e.type === 'checkbox') {
+                    e.checked = (p[e.name] === 'Y');
+                } else {
+                    e.value = p[e.name] || '';
+                }
+                e.disabled = true;
             });
             safeSet("Closure_Requestor_Remarks", p.Closure_Requestor_Remarks || "");
             safeSet("Closure_Reviewer_Remarks", p.Closure_Reviewer_Remarks || "");
@@ -634,19 +1016,24 @@
             // WORKER LOGIC
             await loadWorkers('permit_dropdown');
             let workersArr = [];
-            if(p.SelectedWorkers) {
-                if(Array.isArray(p.SelectedWorkers)) workersArr = p.SelectedWorkers;
-                else if(typeof p.SelectedWorkers === 'string') { try { workersArr = JSON.parse(p.SelectedWorkers); } catch(e){} }
+            if (p.SelectedWorkers) {
+                if (Array.isArray(p.SelectedWorkers)) workersArr = p.SelectedWorkers;
+                else if (typeof p.SelectedWorkers === 'string') {
+                    try {
+                        workersArr = JSON.parse(p.SelectedWorkers);
+                    } catch (e) {}
+                }
             }
 
-            const r=currentUser.Role, s=p.Status;
-            
-            if(s==='Pending Review' && r==='Requester') {
+            const r = currentUser.Role,
+                s = p.Status;
+
+            if (s === 'Pending Review' && r === 'Requester') {
                 document.getElementById('worker-checkboxes').classList.remove('hidden');
                 document.getElementById('worker-readonly-table').classList.add('hidden');
                 document.querySelectorAll('#worker-checkboxes input').forEach(c => {
                     const wData = JSON.parse(c.value);
-                    if(workersArr.find(sw => sw.WorkerID === wData.WorkerID)) c.checked = true;
+                    if (workersArr.find(sw => sw.WorkerID === wData.WorkerID)) c.checked = true;
                     c.disabled = false;
                 });
             } else {
@@ -661,16 +1048,16 @@
                 </tr>`).join('');
                 document.getElementById('worker-readonly-table').classList.remove('hidden');
             }
-            
+
             // LOCK LOCATION
-            if(s !== 'New') {
-                 document.getElementById("ExactLocation").disabled = true;
-                 document.getElementById("btn-get-geo").disabled = true;
-                 document.getElementById("Latitude").disabled = true;
-                 document.getElementById("Longitude").disabled = true;
+            if (s !== 'New') {
+                document.getElementById("ExactLocation").disabled = true;
+                document.getElementById("btn-get-geo").disabled = true;
+                document.getElementById("Latitude").disabled = true;
+                document.getElementById("Longitude").disabled = true;
             }
 
-            if(p.H_Others==='Y') document.getElementById('other-hazard-div').classList.remove('hidden');
+            if (p.H_Others === 'Y') document.getElementById('other-hazard-div').classList.remove('hidden');
 
             document.getElementById("fs-reviewer-section").classList.add('hidden');
             document.getElementById("fs-approver-section").classList.add('hidden');
@@ -681,35 +1068,36 @@
             document.getElementById("signature-history").classList.add('hidden');
             let btns = "";
 
-            if(s === 'Pending Review') {
-                if(r==='Requester') { 
-                    document.querySelectorAll('#pf input, #pf select, #pf textarea').forEach(e=>e.disabled=false); 
-                    document.getElementById("Vendor").value = currentUser.name; document.getElementById("Vendor").disabled=true;
-                    document.getElementById("RequesterName").disabled=false; 
-                    btns=`<button type="button" onclick="window.savePermit()" class="w-full bg-blue-600 text-white px-3 rounded-lg font-bold shadow-lg">Update Permit</button>`; 
+            if (s === 'Pending Review') {
+                if (r === 'Requester') {
+                    document.querySelectorAll('#pf input, #pf select, #pf textarea').forEach(e => e.disabled = false);
+                    document.getElementById("Vendor").value = currentUser.name;
+                    document.getElementById("Vendor").disabled = true;
+                    document.getElementById("RequesterName").disabled = false;
+                    btns = `<button type="button" onclick="window.savePermit()" class="w-full bg-blue-600 text-white px-3 rounded-lg font-bold shadow-lg">Update Permit</button>`;
                 }
-                if(r==='Reviewer') { 
-                    document.getElementById("fs-reviewer-section").classList.remove('hidden'); 
-                    document.querySelectorAll('#fs-reviewer-section *, #hazards-section input').forEach(e=>e.disabled=false); 
-                    btns=`<button type="button" onclick="window.upd('reject')" class="bg-red-600 text-white px-4 py-3 rounded-lg font-bold flex-1">Reject</button><button type="button" onclick="window.upd('review')" class="bg-green-600 text-white px-4 py-3 rounded-lg font-bold flex-1">Submit Review</button>`; 
+                if (r === 'Reviewer') {
+                    document.getElementById("fs-reviewer-section").classList.remove('hidden');
+                    document.querySelectorAll('#fs-reviewer-section *, #hazards-section input').forEach(e => e.disabled = false);
+                    btns = `<button type="button" onclick="window.upd('reject')" class="bg-red-600 text-white px-4 py-3 rounded-lg font-bold flex-1">Reject</button><button type="button" onclick="window.upd('review')" class="bg-green-600 text-white px-4 py-3 rounded-lg font-bold flex-1">Submit Review</button>`;
                 }
             }
-            if(s === 'Pending Approval') {
+            if (s === 'Pending Approval') {
                 document.getElementById("fs-reviewer-section").classList.remove('hidden');
-                if(r==='Approver') { 
-                    document.getElementById("fs-approver-section").classList.remove('hidden'); 
-                    document.getElementById("Approver_Remarks").disabled=false; 
-                    btns=`<button type="button" onclick="window.upd('reject')" class="bg-red-600 text-white px-4 py-3 rounded-lg font-bold flex-1">Reject</button><button type="button" onclick="window.upd('approve')" class="bg-green-600 text-white px-4 py-3 rounded-lg font-bold flex-1">Approve</button>`; 
+                if (r === 'Approver') {
+                    document.getElementById("fs-approver-section").classList.remove('hidden');
+                    document.getElementById("Approver_Remarks").disabled = false;
+                    btns = `<button type="button" onclick="window.upd('reject')" class="bg-red-600 text-white px-4 py-3 rounded-lg font-bold flex-1">Reject</button><button type="button" onclick="window.upd('approve')" class="bg-green-600 text-white px-4 py-3 rounded-lg font-bold flex-1">Approve</button>`;
                 }
             }
-            if(s==='Active' || s.includes('Renewal')) {
+            if (s === 'Active' || s.includes('Renewal')) {
                 document.getElementById("fs-reviewer-section").classList.remove('hidden');
                 document.getElementById("fs-approver-section").classList.remove('hidden');
                 document.getElementById("renewals-section").classList.remove('hidden');
                 document.getElementById("closure-section").classList.remove('hidden');
-                
+
                 const rens = JSON.parse(p.RenewalsJSON || "[]");
-                
+
                 // RECTIFY C: Date and Time in Renewal Table
                 document.querySelector("#table-renewals tbody").innerHTML = rens.map(r => `
                     <tr>
@@ -726,64 +1114,72 @@
                             <strong>App:</strong> ${r.app_name||'-'}
                         </td>
                     </tr>`).join('');
-                
-                const last = rens[rens.length-1];
-                if(r==='Requester' && (!last || (last.status!=='pending_review' && last.status!=='pending_approval'))) {
-                      document.getElementById("form-renewal").classList.remove('hidden');
-                      document.querySelectorAll('#form-renewal input').forEach(e => e.disabled = false);
-                      
-                      document.getElementById("div-closure-req").classList.remove('hidden');
-                      document.getElementById("Closure_Requestor_Remarks").disabled = false;
-                      document.getElementById("Site_Restored_Check").disabled = false;
-                      btns += `<button type="button" onclick="window.upd('initiate_closure')" class="bg-red-600 text-white px-6 py-3 rounded-lg font-bold shadow flex-1">Job Complete</button>`;
+
+                const last = rens[rens.length - 1];
+                if (r === 'Requester' && (!last || (last.status !== 'pending_review' && last.status !== 'pending_approval'))) {
+                    document.getElementById("form-renewal").classList.remove('hidden');
+                    document.querySelectorAll('#form-renewal input').forEach(e => e.disabled = false);
+
+                    document.getElementById("div-closure-req").classList.remove('hidden');
+                    document.getElementById("Closure_Requestor_Remarks").disabled = false;
+                    document.getElementById("Site_Restored_Check").disabled = false;
+                    btns += `<button type="button" onclick="window.upd('initiate_closure')" class="bg-red-600 text-white px-6 py-3 rounded-lg font-bold shadow flex-1">Job Complete</button>`;
                 }
-                
-                if(last && (last.status==='pending_review' || last.status==='pending_approval')) {
-                    if(r!=='Requester') {
+
+                if (last && (last.status === 'pending_review' || last.status === 'pending_approval')) {
+                    if (r !== 'Requester') {
                         document.getElementById("pending-renewal-display").classList.remove('hidden');
-                        setText("disp-ren-from", last.valid_from.replace('T', ' ')); setText("disp-ren-to", last.valid_till.replace('T', ' '));
-                        setText("disp-ren-gas", `${last.hc}/${last.toxic}/${last.oxygen}`); setText("disp-ren-prec", last.precautions);
+                        setText("disp-ren-from", last.valid_from.replace('T', ' '));
+                        setText("disp-ren-to", last.valid_till.replace('T', ' '));
+                        setText("disp-ren-gas", `${last.hc}/${last.toxic}/${last.oxygen}`);
+                        setText("disp-ren-prec", last.precautions);
                     }
                 }
-                if(r==='Reviewer' && last && last.status==='pending_review') {
+                if (r === 'Reviewer' && last && last.status === 'pending_review') {
                     document.getElementById("action-renewal").classList.remove('hidden');
                     document.getElementById("RenewalRemark").disabled = false;
-                    btns="";
-                } else if(r==='Approver' && last && last.status==='pending_approval') {
+                    btns = "";
+                } else if (r === 'Approver' && last && last.status === 'pending_approval') {
                     document.getElementById("action-renewal").classList.remove('hidden');
                     document.getElementById("RenewalRemark").disabled = false;
-                    btns="";
+                    btns = "";
                 } else {
-                    if(r==='Approver') document.getElementById("pdf-color-select").classList.remove('hidden');
+                    if (r === 'Approver') document.getElementById("pdf-color-select").classList.remove('hidden');
                     btns += `<a href="${API}/download-pdf/${id}" target="_blank" class="bg-gray-700 text-white px-6 py-3 rounded-lg font-bold shadow flex-1 text-center">Download PDF</a>`;
                 }
             }
-            if(s.includes('Closure') || s === 'Closed') {
-                 document.getElementById("closure-section").classList.remove('hidden');
-                 document.getElementById("div-closure-req").classList.remove('hidden');
-                 setText("ts-clos-req", p.Closure_Requestor_Date);
-                 
-                 if(s!=='Closure Pending Review') { document.getElementById("div-closure-rev").classList.remove('hidden'); setText("ts-clos-rev", p.Closure_Reviewer_Date); }
-                 if(s==='Closed') { document.getElementById("div-closure-app").classList.remove('hidden'); setText("ts-clos-app", p.Closure_Approver_Date); }
+            if (s.includes('Closure') || s === 'Closed') {
+                document.getElementById("closure-section").classList.remove('hidden');
+                document.getElementById("div-closure-req").classList.remove('hidden');
+                setText("ts-clos-req", p.Closure_Requestor_Date);
 
-                 if(s==='Closure Pending Review' && r==='Reviewer') { 
-                      document.getElementById("div-closure-rev").classList.remove('hidden'); 
-                      document.getElementById("Closure_Reviewer_Remarks").disabled=false; 
-                      btns=`<button onclick="window.upd('reject_closure')" class="bg-red-600 text-white px-4 py-3 rounded-lg font-bold flex-1">Reject</button><button onclick="window.upd('approve_closure')" class="bg-green-600 text-white px-4 py-3 rounded-lg font-bold flex-1">Verify</button>`; 
-                 }
-                 if(s==='Closure Pending Approval' && r==='Approver') { 
-                      document.getElementById("div-closure-app").classList.remove('hidden'); 
-                      document.getElementById("Closure_Approver_Remarks").disabled=false; 
-                      btns=`<button onclick="window.upd('reject_closure')" class="bg-red-600 text-white px-4 py-3 rounded-lg font-bold flex-1">Reject</button><button onclick="window.upd('approve')" class="bg-black text-white px-4 py-3 rounded-lg font-bold flex-1">Close Permit</button>`; 
-                 }
-                 if(s==='Closed') btns = `<a href="${API}/download-pdf/${id}" target="_blank" class="bg-gray-700 text-white px-6 py-3 rounded-lg font-bold shadow flex-1 text-center">Download PDF</a>`;
+                if (s !== 'Closure Pending Review') {
+                    document.getElementById("div-closure-rev").classList.remove('hidden');
+                    setText("ts-clos-rev", p.Closure_Reviewer_Date);
+                }
+                if (s === 'Closed') {
+                    document.getElementById("div-closure-app").classList.remove('hidden');
+                    setText("ts-clos-app", p.Closure_Approver_Date);
+                }
+
+                if (s === 'Closure Pending Review' && r === 'Reviewer') {
+                    document.getElementById("div-closure-rev").classList.remove('hidden');
+                    document.getElementById("Closure_Reviewer_Remarks").disabled = false;
+                    btns = `<button onclick="window.upd('reject_closure')" class="bg-red-600 text-white px-4 py-3 rounded-lg font-bold flex-1">Reject</button><button onclick="window.upd('approve_closure')" class="bg-green-600 text-white px-4 py-3 rounded-lg font-bold flex-1">Verify</button>`;
+                }
+                if (s === 'Closure Pending Approval' && r === 'Approver') {
+                    document.getElementById("div-closure-app").classList.remove('hidden');
+                    document.getElementById("Closure_Approver_Remarks").disabled = false;
+                    btns = `<button onclick="window.upd('reject_closure')" class="bg-red-600 text-white px-4 py-3 rounded-lg font-bold flex-1">Reject</button><button onclick="window.upd('approve')" class="bg-black text-white px-4 py-3 rounded-lg font-bold flex-1">Close Permit</button>`;
+                }
+                if (s === 'Closed') btns = `<a href="${API}/download-pdf/${id}" target="_blank" class="bg-gray-700 text-white px-6 py-3 rounded-lg font-bold shadow flex-1 text-center">Download PDF</a>`;
             }
 
             // Populate Signature History
             document.getElementById("signature-history").classList.remove('hidden');
             setText("sig-app", p.Approver_Sig || 'Pending');
             const rens = JSON.parse(p.RenewalsJSON || "[]");
-            const lastRen = rens[rens.length-1];
+            const lastRen = rens[rens.length - 1];
             setText("sig-ren", (lastRen && lastRen.app_name) ? `${lastRen.app_name} on ${lastRen.app_at}` : 'None');
             setText("sig-clos", p.Closure_Issuer_Sig || 'Pending');
 
@@ -793,35 +1189,51 @@
         }
 
         window.upd = async function(act) {
-            const getVal = (id) => { const el = document.getElementById(id); return el ? el.value : ''; };
-            const body = { 
-                PermitID: currentPermitId, action: act, role: currentUser.Role, user: currentUser.name,
-                comment: (currentUser.Role==='Reviewer' ? getVal("Reviewer_Remarks") : getVal("Approver_Remarks")),
+            const getVal = (id) => {
+                const el = document.getElementById(id);
+                return el ? el.value : '';
+            };
+            const body = {
+                PermitID: currentPermitId,
+                action: act,
+                role: currentUser.Role,
+                user: currentUser.name,
+                comment: (currentUser.Role === 'Reviewer' ? getVal("Reviewer_Remarks") : getVal("Approver_Remarks")),
                 Closure_Requestor_Remarks: getVal("Closure_Requestor_Remarks"),
                 Closure_Reviewer_Remarks: getVal("Closure_Reviewer_Remarks"),
                 Closure_Approver_Remarks: getVal("Closure_Approver_Remarks"),
                 bgColor: getVal("PdfBgColor")
             };
-            if(currentUser.Role === 'Reviewer' && act==='review') {
-                 const fd = new FormData(document.getElementById("pf"));
-                 document.querySelectorAll('#hazards-section input[type=checkbox]').forEach(c => body[c.name] = c.checked ? 'Y' : 'N');
-                 document.querySelectorAll('#ppe-container input[type=checkbox]').forEach(c => body[c.name] = c.checked ? 'Y' : 'N');
-                 body.AdditionalPrecautions = getVal("AdditionalPrecautions");
+            if (currentUser.Role === 'Reviewer' && act === 'review') {
+                const fd = new FormData(document.getElementById("pf"));
+                document.querySelectorAll('#hazards-section input[type=checkbox]').forEach(c => body[c.name] = c.checked ? 'Y' : 'N');
+                document.querySelectorAll('#ppe-container input[type=checkbox]').forEach(c => body[c.name] = c.checked ? 'Y' : 'N');
+                body.AdditionalPrecautions = getVal("AdditionalPrecautions");
             }
             const res = await apiCall('/update-status', 'POST', body);
-            if(res.success) showDashboard(); else alert(res.error);
+            if (res.success) showDashboard();
+            else alert(res.error);
         }
 
         window.submitRenewal = async function(act) {
-            const getVal = (id) => { const el = document.getElementById(id); return el ? el.value : ''; };
+            const getVal = (id) => {
+                const el = document.getElementById(id);
+                return el ? el.value : '';
+            };
             const vf = new Date(getVal("RenewalValidFrom"));
             const vt = new Date(getVal("RenewalValidTo"));
-            
+
             // RECTIFY A: Client-side Check
-            if (vt <= vf) { alert("End time must be greater than Start time"); return; }
+            if (vt <= vf) {
+                alert("End time must be greater than Start time");
+                return;
+            }
 
             const body = {
-                PermitID: currentPermitId, userRole: currentUser.Role, userName: currentUser.name, action: act,
+                PermitID: currentPermitId,
+                userRole: currentUser.Role,
+                userName: currentUser.name,
+                action: act,
                 RenewalValidFrom: getVal("RenewalValidFrom"),
                 RenewalValidTo: getVal("RenewalValidTo"),
                 hc: getVal("RenewalHC"),
@@ -831,108 +1243,185 @@
                 rejectionReason: getVal("RenewalRemark")
             };
             const res = await apiCall('/renewal', 'POST', body);
-            if(res.success) { alert("Done"); showDashboard(); } else alert(res.error);
+            if (res.success) {
+                alert("Done");
+                showDashboard();
+            } else alert(res.error);
         }
 
-        window.showNewPermit = async function() { 
-           document.getElementById("pf").reset(); 
-           currentPermitId=null; 
-           document.getElementById("Status").value="New"; 
-           document.getElementById("permit-header-display").innerText = "New Permit"; 
-           document.getElementById("permit-worker-audit-display").classList.add("hidden"); // Hide audit initially
+        window.showNewPermit = async function() {
+            document.getElementById("pf").reset();
+            currentPermitId = null;
+            document.getElementById("Status").value = "New";
+            document.getElementById("permit-header-display").innerText = "New Permit";
+            document.getElementById("permit-worker-audit-display").classList.add("hidden"); // Hide audit initially
 
-           const rS=document.getElementById("ReviewerEmail"), aS=document.getElementById("ApproverEmail"); 
-           if(rS && aS) {
-               rS.innerHTML=""; aS.innerHTML=""; 
-               if(window.users){
-                   window.users.Reviewers.forEach(u=>rS.innerHTML+=`<option value="${u.email}">${u.name}</option>`); 
-                   window.users.Approvers.forEach(u=>aS.innerHTML+=`<option value="${u.email}">${u.name}</option>`);
-               }
-           }
+            const rS = document.getElementById("ReviewerEmail"),
+                aS = document.getElementById("ApproverEmail");
+            if (rS && aS) {
+                rS.innerHTML = "";
+                aS.innerHTML = "";
+                if (window.users) {
+                    window.users.Reviewers.forEach(u => rS.innerHTML += `<option value="${u.email}">${u.name}</option>`);
+                    window.users.Approvers.forEach(u => aS.innerHTML += `<option value="${u.email}">${u.name}</option>`);
+                }
+            }
 
-           document.querySelectorAll('input, textarea, select').forEach(e=>e.disabled=false); 
-           
-           const safeSet = (id, val) => { const el = document.getElementById(id); if(el) { el.value = val; } };
-           safeSet("RequesterName", currentUser.name);
-           safeSet("Vendor", currentUser.name);
-           document.getElementById("Vendor").disabled=true;
-           document.getElementById("RequesterName").disabled=false;
+            document.querySelectorAll('input, textarea, select').forEach(e => e.disabled = false);
 
-           await loadWorkers('permit_dropdown');
-           document.querySelectorAll('#worker-checkboxes input').forEach(c => c.disabled = false);
-           document.getElementById('worker-checkboxes').classList.remove('hidden');
-           document.getElementById('worker-readonly-table').classList.add('hidden');
+            const safeSet = (id, val) => {
+                const el = document.getElementById(id);
+                if (el) {
+                    el.value = val;
+                }
+            };
+            safeSet("RequesterName", currentUser.name);
+            safeSet("Vendor", currentUser.name);
+            document.getElementById("Vendor").disabled = true;
+            document.getElementById("RequesterName").disabled = false;
 
-           document.getElementById("fs-reviewer-section").classList.add('hidden'); 
-           document.getElementById("fs-approver-section").classList.add('hidden'); 
-           document.getElementById("renewals-section").classList.add('hidden'); 
-           document.getElementById("closure-section").classList.add('hidden'); 
-           document.getElementById("actions").innerHTML = `<button type="button" onclick="window.savePermit()" class="w-full bg-blue-600 text-white px-6 py-3 rounded-lg font-bold shadow-lg">Submit Permit</button>`; 
-           document.getElementById("view-dashboard").classList.add('hidden'); 
-           document.getElementById("view-form").classList.remove('hidden'); 
+            await loadWorkers('permit_dropdown');
+            document.querySelectorAll('#worker-checkboxes input').forEach(c => c.disabled = false);
+            document.getElementById('worker-checkboxes').classList.remove('hidden');
+            document.getElementById('worker-readonly-table').classList.add('hidden');
+
+            document.getElementById("fs-reviewer-section").classList.add('hidden');
+            document.getElementById("fs-approver-section").classList.add('hidden');
+            document.getElementById("renewals-section").classList.add('hidden');
+            document.getElementById("closure-section").classList.add('hidden');
+            document.getElementById("actions").innerHTML = `<button type="button" onclick="window.savePermit()" class="w-full bg-blue-600 text-white px-6 py-3 rounded-lg font-bold shadow-lg">Submit Permit</button>`;
+            document.getElementById("view-dashboard").classList.add('hidden');
+            document.getElementById("view-form").classList.remove('hidden');
         }
-        
-        window.savePermit = async function() { 
-            const fd=new FormData(document.getElementById("pf")); 
-            document.querySelectorAll('input[type="checkbox"]').forEach(c=>fd.set(c.name, c.checked?"Y":"N")); 
+
+        window.savePermit = async function() {
+            const fd = new FormData(document.getElementById("pf"));
+            document.querySelectorAll('input[type="checkbox"]').forEach(c => fd.set(c.name, c.checked ? "Y" : "N"));
             const selectedWorkers = [];
-            document.querySelectorAll('#worker-checkboxes input:checked').forEach(c => { selectedWorkers.push(JSON.parse(c.value)); });
+            document.querySelectorAll('#worker-checkboxes input:checked').forEach(c => {
+                selectedWorkers.push(JSON.parse(c.value));
+            });
             fd.append("SelectedWorkers", JSON.stringify(selectedWorkers));
-            fd.append("RequesterEmail", currentUser.Email); 
+            fd.append("RequesterEmail", currentUser.Email);
             // Append Lat/Long explicitly
             fd.append("Latitude", document.getElementById("Latitude").value);
             fd.append("Longitude", document.getElementById("Longitude").value);
 
-            if(currentPermitId) fd.set("PermitID", currentPermitId); 
-            const res=await fetch(API+'/save-permit', {method:'POST', body:fd}); 
-            const json=await res.json(); 
-            if(json.success){alert("Saved: "+json.permitId); showDashboard();} else alert(json.error); 
+            if (currentPermitId) fd.set("PermitID", currentPermitId);
+            const res = await fetch(API + '/save-permit', {
+                method: 'POST',
+                body: fd
+            });
+            const json = await res.json();
+            if (json.success) {
+                alert("Saved: " + json.permitId);
+                showDashboard();
+            } else alert(json.error);
         }
-        
-        window.checkDate = function() { const vf=new Date(document.getElementById("ValidFrom").value); const vt=new Date(document.getElementById("ValidTo").value); if(vf && vt) { if(vt <= vf) { alert("End time must be greater than Start time"); document.getElementById("ValidTo").value=""; return; } if((vt-vf)/(1000*60*60*24) > 7) { alert("Max 7 Days"); document.getElementById("ValidTo").value=""; } } }
-        
+
+        window.checkDate = function() {
+            const vf = new Date(document.getElementById("ValidFrom").value);
+            const vt = new Date(document.getElementById("ValidTo").value);
+            if (vf && vt) {
+                if (vt <= vf) {
+                    alert("End time must be greater than Start time");
+                    document.getElementById("ValidTo").value = "";
+                    return;
+                }
+                if ((vt - vf) / (1000 * 60 * 60 * 24) > 7) {
+                    alert("Max 7 Days");
+                    document.getElementById("ValidTo").value = "";
+                }
+            }
+        }
+
         // RECTIFY E: Fix Back Button Logic
-        window.showDashboard = function() { 
-            document.getElementById("view-dashboard").classList.remove('hidden'); 
-            document.getElementById("view-form").classList.add('hidden'); 
-            document.getElementById("view-add-user").classList.add('hidden'); 
-            document.getElementById("view-worker-management").classList.add('hidden'); 
-            document.getElementById("view-map").classList.add('hidden'); 
-            loadDashboard(); 
+        window.showDashboard = function() {
+            document.getElementById("view-dashboard").classList.remove('hidden');
+            document.getElementById("view-form").classList.add('hidden');
+            document.getElementById("view-add-user").classList.add('hidden');
+            document.getElementById("view-worker-management").classList.add('hidden');
+            document.getElementById("view-map").classList.add('hidden');
+            loadDashboard();
         }
-        
-        window.getGeo = function() { 
-            navigator.geolocation.getCurrentPosition(p=>{
-                document.getElementById("ExactLocation").value=`${p.coords.latitude}, ${p.coords.longitude}`;
+
+        window.getGeo = function() {
+            navigator.geolocation.getCurrentPosition(p => {
+                document.getElementById("ExactLocation").value = `${p.coords.latitude}, ${p.coords.longitude}`;
                 document.getElementById("Latitude").value = p.coords.latitude;
                 document.getElementById("Longitude").value = p.coords.longitude;
-            }); 
+            });
         }
-        window.showAddUser = function() { document.getElementById("view-add-user").classList.remove('hidden'); }
-        window.submitNewUser = async function() { const n=document.getElementById("new-user-name").value; const e=document.getElementById("new-user-email").value; const r=document.getElementById("new-user-role").value; const p=document.getElementById("new-user-pass").value; const res=await apiCall('/add-user','POST',{name:n,email:e,role:r,password:p}); if(res.success){alert("User Added"); document.getElementById("view-add-user").classList.add('hidden');} else alert(res.error); }
-        
+        window.showAddUser = function() {
+            document.getElementById("view-add-user").classList.remove('hidden');
+        }
+        window.submitNewUser = async function() {
+            const n = document.getElementById("new-user-name").value;
+            const e = document.getElementById("new-user-email").value;
+            const r = document.getElementById("new-user-role").value;
+            const p = document.getElementById("new-user-pass").value;
+            const res = await apiCall('/add-user', 'POST', {
+                name: n,
+                email: e,
+                role: r,
+                password: p
+            });
+            if (res.success) {
+                alert("User Added");
+                document.getElementById("view-add-user").classList.add('hidden');
+            } else alert(res.error);
+        }
+
         // RECTIFY D: Side Table Logic for Map
-        window.showMap = function() { 
-            document.getElementById("view-dashboard").classList.add('hidden'); 
-            document.getElementById("view-map").classList.remove('hidden'); 
-            loadMapData(); 
+        window.showMap = function() {
+            document.getElementById("view-dashboard").classList.add('hidden');
+            document.getElementById("view-map").classList.remove('hidden');
+            loadMapData();
         }
-        
-        async function loadMapData() { 
-            const p = await apiCall('/map-data', 'POST'); 
-            if(!mapInstance) mapInstance=new google.maps.Map(document.getElementById("map"),{center:{lat:22.57,lng:88.36},zoom:5}); 
-            const listEl = document.getElementById("map-list-content"); listEl.innerHTML = "";
+
+        async function loadMapData() {
+            const p = await apiCall('/map-data', 'POST');
+            if (!mapInstance) mapInstance = new google.maps.Map(document.getElementById("map"), {
+                center: {
+                    lat: 22.57,
+                    lng: 88.36
+                },
+                zoom: 5
+            });
+            const listEl = document.getElementById("map-list-content");
+            listEl.innerHTML = "";
             const infoWindow = new google.maps.InfoWindow();
 
             p.forEach(x => {
-                const marker = new google.maps.Marker({position:{lat:x.lat,lng:x.lng}, map:mapInstance});
+                const marker = new google.maps.Marker({
+                    position: {
+                        lat: x.lat,
+                        lng: x.lng
+                    },
+                    map: mapInstance,
+                    title: x.PermitID
+                });
+                const content = `<div><b>${x.PermitID}</b><br>Loc: ${x.ExactLocation}<br>Req: ${x.RequesterName}<br>Valid: ${x.ValidTo}</div>`;
+                marker.addListener("click", () => {
+                    infoWindow.setContent(content);
+                    infoWindow.open(mapInstance, marker);
+                });
+
                 const item = document.createElement("div");
                 item.className = "p-3 border-b cursor-pointer hover:bg-orange-50 text-sm flex justify-between";
                 item.innerHTML = `<div><b>${x.PermitID}</b><div class="text-xs text-gray-500">${x.ExactLocation}</div></div><div class="text-xs font-bold text-orange-600">${x.WorkType}</div>`;
-                item.onclick = () => { mapInstance.setCenter({lat:x.lat,lng:x.lng}); mapInstance.setZoom(12); infoWindow.setContent(`<b>${x.PermitID}</b><br>${x.WorkType}`); infoWindow.open(mapInstance, marker); };
+                item.onclick = () => {
+                    mapInstance.setCenter({
+                        lat: x.lat,
+                        lng: x.lng
+                    });
+                    mapInstance.setZoom(12);
+                    infoWindow.setContent(`<b>${x.PermitID}</b><br>${x.WorkType}`);
+                    infoWindow.open(mapInstance, marker);
+                };
                 listEl.appendChild(item);
             });
         }
     </script>
-  </body>
+</body>
 </html>
