@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>IndianOil Permit System for ERPL muzaffarpur  </title>
+    <title>IndianOil Permit System</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyADwuqMDCwNSaZKBnWURDCYdqlMxfiWBnU"></script>
@@ -460,7 +460,7 @@
                         <td>H:${x.hc} T:${x.toxic} O:${x.oxygen}</td>
                         <td>${x.precautions||'-'}</td>
                         <td>${x.status}</td>
-                        <td>Req:${x.req_name} (${x.req_at})<br>Rev:${x.rev_name||'-'} ${x.rev_rem||''}<br>App:${x.app_name||'-'} ${x.rev_rem||''}</td>
+                        <td>Req:${x.req_name} (${x.req_at})<br>Rev:${x.rev_name||'-'} <br>Rem:${x.rev_rem||'-'}<br>App:${x.app_name||'-'} <br>Rem:${x.app_rem||'-'}</td>
                     </tr>`).join('');
                 
                 const last = rens[rens.length-1];
@@ -651,5 +651,3 @@
     </script>
   </body>
 </html>
-
-
