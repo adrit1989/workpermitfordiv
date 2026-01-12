@@ -337,41 +337,41 @@ app.post('/api/update-status', async (req, res) => {
 
         const now = getNowIST();
 
-        // LOGIC FIX: Check specific actions first to avoid status overwrite issues
+        // ---------------- FIXED LOGIC BLOCK START ----------------
+        // Order matters. Check specific actions before general role checks.
         
         if(action === 'reject_closure') {
-            // FIX C & A: Rejecting closure reverts to Active
-            st = 'Active';
+            st = 'Active'; // Reset to Active
         }
         else if(action === 'approve_closure') {
-            // FIX C: Reviewer approval moves to pending approval
-            st = 'Closure Pending Approval';
-            d.Closure_Reviewer_Sig = `${user} on ${now}`;
-            d.Closure_Reviewer_Date = now;
-        }
-        else if(action === 'reject') {
-            st = 'Rejected';
+            st = 'Closure Pending Approval'; 
+            d.Closure_Reviewer_Sig = `${user} on ${now}`; 
+            d.Closure_Reviewer_Date = now; 
         }
         else if(action === 'initiate_closure') {
-            st = 'Closure Pending Review';
-            d.Closure_Requestor_Date = now;
-            d.Closure_Receiver_Sig = `${user} on ${now}`;
+             st = 'Closure Pending Review'; 
+             d.Closure_Requestor_Date = now; 
+             d.Closure_Receiver_Sig = `${user} on ${now}`; 
+        }
+        else if(action === 'reject') {
+             st = 'Rejected';
         }
         else if(role === 'Reviewer' && action === 'review') {
-            st = 'Pending Approval';
-            d.Reviewer_Sig = `${user} on ${now}`;
+             st = 'Pending Approval'; 
+             d.Reviewer_Sig = `${user} on ${now}`;
         }
-        else if(role === 'Approver' && action === 'approve') {
-            // FIX A: Approver Approval logic for Closure vs Normal
+        else if(role === 'Approver' && action === 'approve') { 
+            // FIX: If closing vs just approving permit
             if(st.includes('Closure Pending Approval')) {
-                st = 'Closed';
-                d.Closure_Issuer_Sig = `${user} on ${now}`;
-                d.Closure_Approver_Date = now;
+                st = 'Closed'; 
+                d.Closure_Issuer_Sig = `${user} on ${now}`; 
+                d.Closure_Approver_Date = now; 
             } else {
-                st = 'Active';
-                d.Approver_Sig = `${user} on ${now}`;
+                st = 'Active'; 
+                d.Approver_Sig = `${user} on ${now}`; 
             }
         }
+        // ---------------- FIXED LOGIC BLOCK END ----------------
         
         await pool.request().input('p', PermitID).input('s', st).input('j', JSON.stringify(d)).query("UPDATE Permits SET Status=@s, FullDataJSON=@j WHERE PermitID=@p");
         res.json({success:true});
@@ -411,7 +411,7 @@ app.post('/api/renewal', async (req, res) => {
                  hc: data.hc, toxic: data.toxic, oxygen: data.oxygen, precautions: data.precautions, 
                  req_name: userName, 
                  req_at: now,
-                 worker_list: renewalWorkers || []
+                 worker_list: renewalWorkers || [] 
              });
         } else {
             const last = r[r.length-1];
@@ -489,17 +489,18 @@ app.get('/api/download-pdf/:id', async (req, res) => {
         doc.text(`IOCL Equipment: ${d.IoclEquip||'-'} | Contractor Equipment: ${d.ContEquip||'-'}`, 30, doc.y); doc.y+=12;
         doc.text(`Work Order: ${d.WorkOrder||'-'}`, 30, doc.y); doc.y+=20;
 
-        // --- AUTHORIZED SUPERVISORS TABLES (FIXED GAP AND AUDIT TRAIL) ---
+        // --- AUTHORIZED SUPERVISORS TABLES (FIXED GAP) ---
         const drawSupTable = (title, headers, dataRows) => {
              if(doc.y > 650) { doc.addPage(); drawHeaderOnAll(); doc.y=135; }
              doc.font('Helvetica-Bold').text(title, 30, doc.y); 
-             doc.y+=5; // Fix E: Minimized gap
+             // FIX B: Minimizing gap
+             doc.y+=5; 
              
              // Headers
              let hx = 30;
              const headerY = doc.y;
              headers.forEach(h => { doc.rect(hx, headerY, h.w, 15).stroke(); doc.text(h.t, hx+2, headerY+4); hx += h.w; });
-             // Fix B: Explicitly advance Y to remove gap
+             // FIX B: Force start Y
              doc.y = headerY + 15; 
              
              // Rows
@@ -507,15 +508,15 @@ app.get('/api/download-pdf/:id', async (req, res) => {
              dataRows.forEach(row => {
                  if(doc.y > 700) { doc.addPage(); drawHeaderOnAll(); doc.y=135; }
                  let rx = 30;
-                 const rowY = doc.y; 
-                 const rowH = 15; 
+                 const rowY = doc.y;
+                 const rowH = 15;
                  
                  row.forEach((cell, idx) => {
                      doc.rect(rx, rowY, headers[idx].w, rowH).stroke(); 
                      doc.text(cell, rx+2, rowY+4, {width: headers[idx].w - 4, lineBreak: false, ellipsis: true}); 
                      rx += headers[idx].w;
                  });
-                 doc.y += rowH; 
+                 doc.y += rowH;
              });
              doc.y += 10;
         };
@@ -583,7 +584,7 @@ app.get('/api/download-pdf/:id', async (req, res) => {
         doc.rect(386,sY,179,40).stroke().text(`APP: ${d.Approver_Sig||'-'}\nRem: ${d.Approver_Remarks||'-'}`, 391, sY+5, {width:169}); 
         doc.y=sY+50;
 
-        // Renewals (Modified for Workers List)
+        // Renewals
         if(doc.y>650){doc.addPage(); drawHeaderOnAll(); doc.y=135;}
         doc.font('Helvetica-Bold').text("CLEARANCE RENEWAL",30,doc.y); doc.y+=15;
         let ry = doc.y;
