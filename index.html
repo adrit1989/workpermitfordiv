@@ -10,7 +10,7 @@
     <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyADwuqMDCwNSaZKBnWURDCYdqlMxfiWBnU"></script>
     
     <style>
-        /* GLOBAL STYLES */
+        /* --- GLOBAL STYLES --- */
         body { 
             background-color: #f3f4f6; 
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; 
@@ -346,9 +346,9 @@
                 <thead class="hidden md:table-header-group bg-gray-100 text-gray-700">
                     <tr>
                        <th>Name</th>
-                        <th>Father Name</th>
-                        <th>ID Details</th>
-                        <th>Address & Contact</th>
+                       <th>Father Name</th>
+                       <th>ID Details</th>
+                       <th>Address & Contact</th>
                        <th>Requestor</th>
                        <th>Status</th>
                        <th>Action</th>
@@ -514,7 +514,7 @@
                 <div id="fs-reviewer-section" class="glass hidden border-l-4 border-yellow-500">
                      <h3 class="section-title text-yellow-700">4. Reviewer</h3>
                      
-                     <div class="mb-4" id="iocl-reviewer-wrapper">
+                     <div class="mb-4 hidden" id="iocl-reviewer-wrapper">
                         <label class="font-bold text-sm text-gray-700">Authorized IOCL Supervisors</label>
                         <div id="iocl-sup-container-rev" class="space-y-2 mt-2"></div>
                         <button type="button" onclick="window.addIOCLRow('iocl-sup-container-rev')" class="mt-2 text-xs bg-gray-200 px-2 py-1 rounded hover:bg-gray-300 font-bold">+ Add Supervisor</button>
@@ -529,7 +529,7 @@
                 <div id="fs-approver-section" class="glass hidden border-l-4 border-green-500">
                      <h3 class="section-title text-green-700">5. Approval</h3>
                      
-                     <div class="mb-4" id="iocl-approver-wrapper">
+                     <div class="mb-4 hidden" id="iocl-approver-wrapper">
                         <label class="font-bold text-sm text-gray-700">Authorized IOCL Supervisors (Verify/Edit)</label>
                         <div id="iocl-sup-container-app" class="space-y-2 mt-2"></div>
                         <button type="button" onclick="window.addIOCLRow('iocl-sup-container-app')" class="mt-2 text-xs bg-gray-200 px-2 py-1 rounded hover:bg-gray-300 font-bold">+ Add Supervisor</button>
@@ -545,7 +545,7 @@
                 <div id="iocl-sup-display-section" class="glass hidden">
                     <h3 class="section-title">Authorized Supervisors (IOCL)</h3>
                     <table class="mobile-table w-full text-xs text-left" id="table-iocl-display">
-                        <thead><tr><th>Name</th><th>Designation</th><th>Contact</th></tr></thead>
+                        <thead><tr><th>Name</th><th>Designation</th><th>Contact</th><th>Audit</th></tr></thead>
                         <tbody></tbody>
                     </table>
                 </div>
@@ -598,7 +598,7 @@
                 
                 <div id="closure-section" class="glass hidden">
                     <h3 class="section-title">Closure</h3>
-                    <label class="flex items-center gap-2 mb-4 font-bold text-red-600 p-2 bg-red-50 rounded"><input type="checkbox" id="Site_Restored_Check" name="Site_Restored_Check" class="w-5 h-5"> Site Restored & Cleaned</label>
+                    <label class="flex items-center gap-2 mb-4 font-bold text-red-600 p-2 bg-red-50 rounded" id="lbl-site-restored"><input type="checkbox" id="Site_Restored_Check" name="Site_Restored_Check" class="w-5 h-5"> Site Restored & Cleaned</label>
                     
                     <div id="div-closure-req" class="hidden space-y-2">
                         <label class="text-xs font-bold text-gray-500">Requester Remarks</label>
@@ -640,14 +640,14 @@
         let mapInstance = null; 
         let chartS = null; 
         let chartT = null;
-        let currentPermitWorkers = []; // NEW: Store workers for renewal logic
+        let currentPermitWorkers = []; 
         const loader = document.getElementById('loader');
 
         const CL_DATA = {
             A: [
                 "1. Equipment / Work Area inspected.",
                 "2. Surrounding area checked, cleaned and covered. Oil/RAGS/Grass etc. removed.",
-                "3. Sewers, Manholes, CBD etc. and nearby hot surface covered.",
+                "3. Sewers, Manholes, CBD etc. and hot nearby surface covered.",
                 "4. Considered hazards from other routine, non-routine operations and concerned person alerted.",
                 "5. Equipment blinded/ disconnected/ closed/ isolated/ wedge opened.",
                 "6. Equipment properly drained and depressurized.",
@@ -865,32 +865,82 @@
             });
         }
 
-        // --- NEW REQ A: Helper for IOCL Rows ---
-        window.addIOCLRow = function(containerId, data = {name:'', desig:'', contact:''}) {
+        // --- AUDIT TRAIL LOGIC ---
+        
+        // Helper: Format Date
+        const getNow = () => new Date().toLocaleString("en-GB").replace(',','');
+
+        // Helper: Add Row
+        window.addIOCLRow = function(containerId, data = {}) {
+            // Do not show deleted items in edit view
+            if(data.is_deleted) return;
+
             const div = document.createElement('div');
-            div.className = "flex gap-1 iocl-row";
+            div.className = "flex gap-1 iocl-row items-center";
+            const auditData = `
+                <input type="hidden" class="iocl-added-by" value="${data.added_by || currentUser.name}">
+                <input type="hidden" class="iocl-added-at" value="${data.added_at || getNow()}">
+            `;
+            
             div.innerHTML = `
-                <input placeholder="Name" value="${data.name}" class="iocl-name w-1/3 text-xs border border-gray-300 rounded p-1">
-                <input placeholder="Desig" value="${data.desig}" class="iocl-desig w-1/3 text-xs border border-gray-300 rounded p-1">
-                <input placeholder="Contact" value="${data.contact}" class="iocl-contact w-1/3 text-xs border border-gray-300 rounded p-1">
-                <button type="button" onclick="this.parentElement.remove()" class="text-red-500 font-bold px-2">x</button>
+                ${auditData}
+                <input placeholder="Name" value="${data.name||''}" class="iocl-name w-1/3 text-xs border border-gray-300 rounded p-1">
+                <input placeholder="Desig" value="${data.desig||''}" class="iocl-desig w-1/3 text-xs border border-gray-300 rounded p-1">
+                <input placeholder="Contact" value="${data.contact||''}" class="iocl-contact w-1/3 text-xs border border-gray-300 rounded p-1">
+                <button type="button" onclick="window.markIOCLDeleted(this)" class="text-red-500 font-bold px-2 hover:bg-red-50 rounded">x</button>
             `;
             document.getElementById(containerId).appendChild(div);
         }
 
-        // Helper to extract IOCL Data
+        // Helper: Mark Deleted
+        window.markIOCLDeleted = function(btn) {
+            const row = btn.parentElement;
+            row.classList.add('hidden', 'marked-deleted');
+        }
+
+        // Helper: Extract Data (including Deleted)
         window.getIOCLData = function(containerId) {
             const rows = document.querySelectorAll(`#${containerId} .iocl-row`);
-            return Array.from(rows).map(r => ({
-                name: r.querySelector('.iocl-name').value,
-                desig: r.querySelector('.iocl-desig').value,
-                contact: r.querySelector('.iocl-contact').value
-            })).filter(x => x.name.trim() !== '');
+            const results = [];
+            
+            rows.forEach(r => {
+                const name = r.querySelector('.iocl-name').value;
+                if(!name) return; 
+                
+                const isDel = r.classList.contains('marked-deleted');
+                const obj = {
+                    name: name,
+                    desig: r.querySelector('.iocl-desig').value,
+                    contact: r.querySelector('.iocl-contact').value,
+                    added_by: r.querySelector('.iocl-added-by').value,
+                    added_at: r.querySelector('.iocl-added-at').value,
+                    is_deleted: isDel
+                };
+                
+                if(isDel) {
+                    obj.deleted_by = currentUser.name;
+                    obj.deleted_at = getNow();
+                }
+                
+                results.push(obj);
+            });
+            
+            // Merge already deleted items from history
+            if(window.currentPermitIOCLData) {
+                const alreadyDeleted = window.currentPermitIOCLData.filter(x => x.is_deleted);
+                alreadyDeleted.forEach(d => results.push(d));
+            }
+            
+            return results;
         }
 
         window.openPermit = async function(id) {
             const p = await apiCall('/permit-data', 'POST', {permitId:id});
             currentPermitId = id;
+            
+            // Save for Audit Logic
+            window.currentPermitIOCLData = p.IOCLSupervisors || [];
+
             document.getElementById("permit-header-display").innerText = `${id} | ${p.Status}`;
             
             document.getElementById("permit-worker-audit-display").classList.remove("hidden");
@@ -946,7 +996,6 @@
                document.getElementById('worker-readonly-table').classList.remove('hidden');
             }
             
-            // NEW REQ D: OPTIONAL & EDITABLE GPS LOGIC
             if(r === 'Requester' && (s === 'New' || s === 'Pending Review')) {
                 document.getElementById("ExactLocation").disabled = false;
                 document.getElementById("btn-get-geo").disabled = false;
@@ -969,7 +1018,7 @@
             document.getElementById("action-renewal").classList.add('hidden');
             document.getElementById("signature-history").classList.add('hidden');
             
-            // --- IOCL SUPERVISORS LOGIC (Strict Requirements A, B, C, D) ---
+            // --- IOCL SUPERVISORS LOGIC ---
             const ioclData = p.IOCLSupervisors || [];
             document.getElementById("iocl-sup-container-rev").innerHTML = "";
             document.getElementById("iocl-sup-container-app").innerHTML = "";
@@ -980,35 +1029,40 @@
                 window.addIOCLRow('iocl-sup-container-app', d);
             });
             
-            // Populate Read-only Display Table
+            // Populate Read-only Display Table with Audit Trail
             const dispTable = document.querySelector('#table-iocl-display tbody');
-            dispTable.innerHTML = ioclData.length ? ioclData.map(x => `<tr><td>${x.name}</td><td>${x.desig}</td><td>${x.contact}</td></tr>`).join('') : '<tr><td colspan="3" class="text-gray-400">No Supervisors Added</td></tr>';
+            let dispHTML = "";
+            if(ioclData.length === 0) dispHTML = '<tr><td colspan="4" class="text-gray-400">No Supervisors Added</td></tr>';
+            else {
+                dispHTML = ioclData.map(x => {
+                    let style = x.is_deleted ? 'style="text-decoration: line-through; color: red;"' : '';
+                    let audit = `Added by ${x.added_by} on ${x.added_at}`;
+                    if(x.is_deleted) audit += `<br><span class="text-red-600 font-bold">Deleted by ${x.deleted_by} on ${x.deleted_at}</span>`;
+                    return `<tr ${style}><td>${x.name}</td><td>${x.desig}</td><td>${x.contact}</td><td class="text-[10px]">${audit}</td></tr>`;
+                }).join('');
+            }
+            dispTable.innerHTML = dispHTML;
             
-            // 1. Hide EDITABLE containers by default
+            // Default visibility settings
             document.getElementById("iocl-reviewer-wrapper").classList.add('hidden'); 
             document.getElementById("iocl-approver-wrapper").classList.add('hidden');
-            // 2. Hide READ-ONLY table by default
             document.getElementById("iocl-sup-display-section").classList.add('hidden');
 
-            // 3. Logic Application
+            // Apply Logic
             if (r === 'Requester') {
-                // Req A: Requestor NEVER sees add/edit. Only sees display if Approved/Active/Closed
                 if(s === 'Active' || s === 'Closed' || s.includes('Renewal') || s.includes('Closure')) {
                     document.getElementById("iocl-sup-display-section").classList.remove('hidden');
                 }
             }
             else if (r === 'Reviewer') {
                 if (s === 'Pending Review') {
-                    // Reviewer sees Edit box in their section
                     document.getElementById("iocl-reviewer-wrapper").classList.remove('hidden');
                 } else if (s === 'Active' || s === 'Closed' || s.includes('Closure')) {
-                    // Reviewer sees Read Only later
                     document.getElementById("iocl-sup-display-section").classList.remove('hidden');
                 }
             }
             else if (r === 'Approver') {
                 if (s === 'Pending Approval' || s === 'Active' || s.includes('Renewal')) {
-                    // Req B & C: Approver sees ONE edit window in Approver Section while Active
                     document.getElementById("iocl-approver-wrapper").classList.remove('hidden');
                 } else if (s === 'Closed' || s.includes('Closure')) {
                     document.getElementById("iocl-sup-display-section").classList.remove('hidden');
@@ -1026,7 +1080,9 @@
                 }
                 if(r==='Reviewer') { 
                    document.getElementById("fs-reviewer-section").classList.remove('hidden');
-                   document.querySelectorAll('#fs-reviewer-section *, #hazards-section input').forEach(e=>e.disabled=false); 
+                   document.querySelectorAll('#fs-reviewer-section *, #hazards-section input').forEach(e=>e.disabled=false);
+                   document.getElementById("iocl-sup-display-section").classList.add('hidden');
+                   document.getElementById("iocl-reviewer-wrapper").classList.remove('hidden'); 
                    btns=`<button type="button" onclick="window.upd('reject')" class="bg-red-600 text-white px-4 py-3 rounded-lg font-bold flex-1">Reject</button><button type="button" onclick="window.upd('review')" class="bg-green-600 text-white px-4 py-3 rounded-lg font-bold flex-1">Submit Review</button>`; 
                 }
             }
@@ -1035,6 +1091,8 @@
                if(r==='Approver') { 
                    document.getElementById("fs-approver-section").classList.remove('hidden');
                    document.getElementById("Approver_Remarks").disabled=false; 
+                   document.getElementById("iocl-sup-display-section").classList.add('hidden');
+                   document.getElementById("iocl-approver-wrapper").classList.remove('hidden');
                    btns=`<button type="button" onclick="window.upd('reject')" class="bg-red-600 text-white px-4 py-3 rounded-lg font-bold flex-1">Reject</button><button type="button" onclick="window.upd('approve')" class="bg-green-600 text-white px-4 py-3 rounded-lg font-bold flex-1">Approve</button>`; 
                }
             }
@@ -1042,14 +1100,21 @@
                document.getElementById("fs-reviewer-section").classList.remove('hidden');
                document.getElementById("fs-approver-section").classList.remove('hidden');
                document.getElementById("renewals-section").classList.remove('hidden');
-               // Req E: Hide Closure Section initially for Approver/Reviewer - revealed below based on logic
                
                const rens = JSON.parse(p.RenewalsJSON || "[]");
-               document.querySelector("#table-renewals tbody").innerHTML = rens.map(r => `<tr><td data-label="Period" class="font-mono text-xs">Start: ${r.valid_from.replace('T',' ')}<br>End: &nbsp;&nbsp;${r.valid_till.replace('T',' ')}</td><td data-label="Gas & Prec"><strong>Gas:</strong> HC:${r.hc}, O2:${r.oxygen}, Tox:${r.toxic}<br><strong>Prec:</strong> ${r.precautions || '-'}</td><td data-label="Workers" class="text-xs text-gray-600">${r.worker_list ? r.worker_list.join(', ') : 'All'}</td><td data-label="Req">${r.req_name}<br><span class="text-[10px] text-gray-500">${r.req_at}</span></td><td data-label="Rev">${r.rev_name||'-'}<br><span class="text-[10px] text-gray-500">${r.rev_at||''}</span></td><td data-label="App">${r.app_name||'-'}<br><span class="text-[10px] text-gray-500">${r.app_at||''}</span></td><td data-label="Status"><span class="font-bold ${r.status==='rejected'?'text-red-600':'text-green-600'}">${r.status}</span></td></tr>`).join('');
+               document.querySelector("#table-renewals tbody").innerHTML = rens.map(r => `
+                   <tr>
+                       <td data-label="Period" class="font-mono text-xs">Start: ${r.valid_from.replace('T',' ')}<br>End: &nbsp;&nbsp;${r.valid_till.replace('T',' ')}</td>
+                       <td data-label="Gas & Prec"><strong>Gas:</strong> HC:${r.hc}, O2:${r.oxygen}, Tox:${r.toxic}<br><strong>Prec:</strong> ${r.precautions || '-'}</td>
+                       <td data-label="Workers" class="text-xs text-gray-600">${r.worker_list ? r.worker_list.join(', ') : 'All'}</td>
+                       <td data-label="Req">${r.req_name}<br><span class="text-[10px] text-gray-500">${r.req_at}</span></td>
+                       <td data-label="Rev">${r.rev_name||'-'}<br><span class="text-[10px] text-gray-500">${r.rev_at||''}</span></td>
+                       <td data-label="App">${r.app_name||'-'}<br><span class="text-[10px] text-gray-500">${r.app_at||''}</span></td>
+                       <td data-label="Status"><span class="font-bold ${r.status==='rejected'?'text-red-600':'text-green-600'}">${r.status}</span></td>
+                   </tr>`).join('');
                
                const last = rens[rens.length-1];
                if(r==='Requester' && (!last || (last.status!=='pending_review' && last.status!=='pending_approval'))) {
-                     // Req E: Always available in Requestor console
                      document.getElementById("closure-section").classList.remove('hidden');
                      document.getElementById("div-closure-req").classList.remove('hidden');
                      document.getElementById("Closure_Requestor_Remarks").disabled = false;
@@ -1081,7 +1146,8 @@
                } else {
                    // Active State Actions
                    if(r==='Approver' && s==='Active') { 
-                        // Req C: Approver can Edit supervisors while active
+                        document.getElementById("iocl-sup-display-section").classList.add('hidden'); // Hide read
+                        document.getElementById("iocl-approver-wrapper").classList.remove('hidden'); // Show Edit
                         btns += `<button type="button" onclick="window.upd('approve')" class="bg-blue-600 text-white px-6 py-3 rounded-lg font-bold shadow flex-1 text-center">Update Supervisors</button>`;
                         document.getElementById("pdf-color-select").classList.remove('hidden');
                    }
@@ -1092,7 +1158,6 @@
                 document.getElementById("closure-section").classList.remove('hidden');
                 document.getElementById("div-closure-req").classList.remove('hidden');
                 setText("ts-clos-req", p.Closure_Requestor_Date);
-                // Req E: Checkbox is checked and disabled for reviewers/approvers
                 document.getElementById("Site_Restored_Check").checked = true;
                 document.getElementById("Site_Restored_Check").disabled = true;
                 
@@ -1106,7 +1171,9 @@
                      document.getElementById("div-closure-app").classList.remove('hidden'); document.getElementById("Closure_Approver_Remarks").disabled=false;
                      btns=`<button onclick="window.upd('reject_closure')" class="bg-red-600 text-white px-4 py-3 rounded-lg font-bold flex-1">Reject</button><button onclick="window.upd('approve')" class="bg-black text-white px-4 py-3 rounded-lg font-bold flex-1">Close Permit</button>`; 
                 }
-                if(s==='Closed') btns = `<a href="${API}/download-pdf/${id}" target="_blank" class="bg-gray-700 text-white px-6 py-3 rounded-lg font-bold shadow flex-1 text-center">Download PDF</a>`;
+                if(s==='Closed') {
+                    btns = `<a href="${API}/download-pdf/${id}" target="_blank" class="bg-gray-700 text-white px-6 py-3 rounded-lg font-bold shadow flex-1 text-center">Download PDF</a>`;
+                }
             }
 
             document.getElementById("signature-history").classList.remove('hidden');
@@ -1122,7 +1189,6 @@
         }
 
         window.upd = async function(act) {
-            // Req E: Mandatory Checkbox for Requestor
             if(act === 'initiate_closure') {
                 if(!document.getElementById("Site_Restored_Check").checked) {
                     alert("You must certify that the Site is Restored & Cleaned.");
@@ -1132,7 +1198,6 @@
 
             const getVal = (id) => { const el = document.getElementById(id); return el ? el.value : ''; };
             let ioclData = [];
-            // Req B & C: Only fetch data from the container valid for the specific role
             if(currentUser.Role === 'Reviewer') ioclData = window.getIOCLData('iocl-sup-container-rev');
             if(currentUser.Role === 'Approver') ioclData = window.getIOCLData('iocl-sup-container-app');
 
@@ -1180,7 +1245,6 @@
            document.getElementById("permit-worker-audit-display").classList.add("hidden");
            document.getElementById("iocl-sup-display-section").classList.add('hidden'); 
            
-           // Hide Approver/Reviewer IOCL Inputs on New Permit
            document.getElementById("iocl-reviewer-wrapper").classList.add('hidden');
            document.getElementById("iocl-approver-wrapper").classList.add('hidden');
 
@@ -1208,7 +1272,6 @@
         }
         
         window.savePermit = async function() { 
-            // Req G: Loader logic added
             document.getElementById('loader').style.display = 'flex';
             try {
                 const fd=new FormData(document.getElementById("pf")); 
