@@ -108,7 +108,6 @@ function drawHeader(doc, bgColor) {
     // Logo Box (Left)
     doc.rect(startX,startY,80,95).stroke();
     
-    // --- LOGO INSERTION LOGIC ---
     if (fs.existsSync('logo.png')) {
         try {
             doc.image('logo.png', startX, startY, { fit: [80, 95], align: 'center', valign: 'center' });
@@ -270,7 +269,18 @@ app.post('/api/save-permit', upload.single('file'), async (req, res) => {
             pid = `WP-${parseInt(idRes.recordset.length > 0 ? idRes.recordset[0].PermitID.split('-')[1] : 1000) + 1}`;
         }
         const chk = await pool.request().input('p', pid).query("SELECT Status FROM Permits WHERE PermitID=@p");
-        if(chk.recordset.length > 0 && chk.recordset[0].Status !== 'Pending Review' && chk.recordset[0].Status !== 'New') { return res.status(400).json({error:"Cannot edit active permit"}); }
+        
+        // CHECK: Ensure permit is editable
+        if(chk.recordset.length > 0) {
+             const status = chk.recordset[0].Status;
+             // STRICTLY BLOCK IF CLOSED
+             if (status === 'Closed' || status.includes('Closed')) {
+                 return res.status(400).json({error: "Permit is CLOSED. Editing denied."});
+             }
+             if (status !== 'Pending Review' && status !== 'New') { 
+                 return res.status(400).json({error: "Cannot edit active permit"}); 
+             }
+        }
         
         let workers = req.body.SelectedWorkers;
         if (typeof workers === 'string') { try { workers = JSON.parse(workers); } catch (e) { workers = []; } }
@@ -278,12 +288,11 @@ app.post('/api/save-permit', upload.single('file'), async (req, res) => {
         const data = { ...req.body, SelectedWorkers: workers, PermitID: pid, CreatedDate: getNowIST() }; 
         const q = pool.request().input('p', pid).input('s', 'Pending Review').input('w', req.body.WorkType).input('re', req.body.RequesterEmail).input('rv', req.body.ReviewerEmail).input('ap', req.body.ApproverEmail).input('vf', vf).input('vt', vt).input('j', JSON.stringify(data));
         
-        // --- ROBUST LAT/LONG SANITIZATION (EDITABLE/OPTIONAL) ---
         let lat = req.body.Latitude;
         let lng = req.body.Longitude;
         
         const cleanGeo = (val) => {
-            if (!val || val === 'undefined' || val === 'null' || String(val).trim() === '') return ''; // Allow empty string
+            if (!val || val === 'undefined' || val === 'null' || String(val).trim() === '') return ''; 
             return String(val); 
         };
 
@@ -305,11 +314,18 @@ app.post('/api/update-status', async (req, res) => {
         const pool = await getConnection();
         const cur = await pool.request().input('p', PermitID).query("SELECT * FROM Permits WHERE PermitID=@p");
         if(cur.recordset.length===0) return res.json({error:"Not found"});
+        
+        let st = cur.recordset[0].Status;
+        
+        // STRICT SECURITY: PREVENT ACTION IF CLOSED
+        if (st === 'Closed') {
+             return res.status(400).json({error: "Permit is strictly CLOSED. No further actions allowed."});
+        }
+        
         let d = JSON.parse(cur.recordset[0].FullDataJSON);
         Object.assign(d, extras);
         if(bgColor) d.PdfBgColor = bgColor;
         
-        // SAVE IOCL SUPERVISORS (MERGE LOGIC HANDLED BY FRONTEND SENDING COMPLETE LIST)
         if (IOCLSupervisors) {
             d.IOCLSupervisors = IOCLSupervisors;
         }
@@ -322,26 +338,22 @@ app.post('/api/update-status', async (req, res) => {
         if(req.body.Closure_Reviewer_Remarks) d.Closure_Reviewer_Remarks = req.body.Closure_Reviewer_Remarks;
         if(req.body.Closure_Approver_Remarks) d.Closure_Approver_Remarks = req.body.Closure_Approver_Remarks;
 
-        let st = cur.recordset[0].Status;
         const now = getNowIST();
 
         if(action==='reject') { st='Rejected'; }
         else if(role==='Reviewer' && action==='review') { st='Pending Approval'; d.Reviewer_Sig=`${user} on ${now}`; }
         else if(role==='Approver' && action==='approve') { 
-            // Fix F: Ensure Status Transition Logic for Closure
-            if (st.includes('Closure Pending Approval')) {
+            if(st.includes('Closure Pending Approval')) {
                 st = 'Closed'; 
-                d.Closure_Issuer_Sig = `${user} on ${now}`; 
-                d.Closure_Approver_Date = now;
+                d.Closure_Issuer_Sig=`${user} on ${now}`; 
+                d.Closure_Approver_Date=now; 
             } else {
                 st = 'Active'; 
-                d.Approver_Sig = `${user} on ${now}`; 
+                d.Approver_Sig=`${user} on ${now}`; 
             }
         }
         else if(action==='initiate_closure') { st='Closure Pending Review'; d.Closure_Requestor_Date=now; d.Closure_Receiver_Sig=`${user} on ${now}`; }
-        // FIX C: Reviewer Rejection moves back to Active
         else if(action==='reject_closure') { st='Active'; }
-        // FIX C: Reviewer Approval moves to Approver
         else if(action==='approve_closure') { 
             st = 'Closure Pending Approval'; 
             d.Closure_Reviewer_Sig=`${user} on ${now}`; 
@@ -358,6 +370,12 @@ app.post('/api/renewal', async (req, res) => {
         const { PermitID, userRole, userName, action, rejectionReason, renewalWorkers, ...data } = req.body;
         const pool = await getConnection();
         const cur = await pool.request().input('p', PermitID).query("SELECT RenewalsJSON, Status, ValidFrom, ValidTo FROM Permits WHERE PermitID=@p");
+        
+        // STRICT SECURITY: PREVENT RENEWAL IF CLOSED
+        if (cur.recordset[0].Status === 'Closed') {
+             return res.status(400).json({error: "Permit is CLOSED. Renewals are disabled."});
+        }
+        
         let r = JSON.parse(cur.recordset[0].RenewalsJSON||"[]"); 
         const now = getNowIST();
 
@@ -381,7 +399,7 @@ app.post('/api/renewal', async (req, res) => {
                  hc: data.hc, toxic: data.toxic, oxygen: data.oxygen, precautions: data.precautions, 
                  req_name: userName, 
                  req_at: now,
-                 worker_list: renewalWorkers || [] // Save specific workers for this renewal
+                 worker_list: renewalWorkers || []
              });
         } else {
             const last = r[r.length-1];
@@ -459,18 +477,17 @@ app.get('/api/download-pdf/:id', async (req, res) => {
         doc.text(`IOCL Equipment: ${d.IoclEquip||'-'} | Contractor Equipment: ${d.ContEquip||'-'}`, 30, doc.y); doc.y+=12;
         doc.text(`Work Order: ${d.WorkOrder||'-'}`, 30, doc.y); doc.y+=20;
 
-        // --- AUTHORIZED SUPERVISORS TABLES (FIXED GAP AND AUDIT TRAIL) ---
-        // FIX B: Removed gap between header and row by controlling doc.y
+        // --- AUTHORIZED SUPERVISORS TABLES (FIXED GAP) ---
         const drawSupTable = (title, headers, dataRows) => {
              if(doc.y > 650) { doc.addPage(); drawHeaderOnAll(); doc.y=135; }
              doc.font('Helvetica-Bold').text(title, 30, doc.y); 
-             doc.y+=5; // Reduced gap
+             doc.y+=5; // Fix E: Minimized gap
              
              // Headers
              let hx = 30;
              const headerY = doc.y;
              headers.forEach(h => { doc.rect(hx, headerY, h.w, 15).stroke(); doc.text(h.t, hx+2, headerY+4); hx += h.w; });
-             doc.y = headerY + 15; // FORCE START Y for rows immediately after header
+             doc.y += 15; // No gap after header row
              
              // Rows
              doc.font('Helvetica');
@@ -493,6 +510,7 @@ app.get('/api/download-pdf/:id', async (req, res) => {
 
         // 1. IOCL Supervisors (Dynamic with Audit Trail)
         const ioclSups = d.IOCLSupervisors || [];
+        // Map all items, including deleted ones (Requirement A: keep name but show audit trail)
         let ioclRows = ioclSups.map(s => {
             let auditText = `Added by ${s.added_by||'-'} on ${s.added_at||'-'}`;
             if(s.is_deleted) auditText = `DELETED by ${s.deleted_by} on ${s.deleted_at}`;
