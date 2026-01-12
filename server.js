@@ -309,6 +309,12 @@ app.post('/api/update-status', async (req, res) => {
         Object.assign(d, extras);
         if(bgColor) d.PdfBgColor = bgColor;
         
+        // SAVE REMARKS EXPLICITLY TO JSON
+        if(comment) {
+            if(role === 'Reviewer') d.Reviewer_Remarks = comment;
+            if(role === 'Approver') d.Approver_Remarks = comment;
+        }
+
         // MERGE CLOSURE REMARKS
         if(req.body.Closure_Requestor_Remarks) d.Closure_Requestor_Remarks = req.body.Closure_Requestor_Remarks;
         if(req.body.Closure_Reviewer_Remarks) d.Closure_Reviewer_Remarks = req.body.Closure_Reviewer_Remarks;
@@ -476,7 +482,10 @@ app.get('/api/download-pdf/:id', async (req, res) => {
         // MODIFIED: Removed Additional Precautions from here as requested
         doc.rect(208,sY,178,40).stroke().text(`REV: ${d.Reviewer_Sig||'-'}\nRem: ${d.Reviewer_Remarks||'-'}`, 213, sY+5, {width:168});
         
-        doc.rect(386,sY,179,40).stroke().text(`APP: ${d.Approver_Sig||'-'}`,391,sY+5); doc.y=sY+50;
+        // MODIFIED: Added Approver Remarks to Signature Box
+        doc.rect(386,sY,179,40).stroke().text(`APP: ${d.Approver_Sig||'-'}\nRem: ${d.Approver_Remarks||'-'}`, 391, sY+5, {width:169}); 
+        
+        doc.y=sY+50;
 
         // Renewals
         doc.font('Helvetica-Bold').text("CLEARANCE RENEWAL",30,doc.y); doc.y+=15;
