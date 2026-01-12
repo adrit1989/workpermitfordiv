@@ -11,52 +11,244 @@
     
     <style>
         /* GLOBAL STYLES */
-        body { background-color: #f3f4f6; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 16px; -webkit-tap-highlight-color: transparent; }
-        .glass { background: white; padding: 1rem; border-radius: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); margin-bottom: 1rem; border: 1px solid #e5e7eb; }
-        input, select, textarea { width: 100%; border: 1px solid #d1d5db; padding: 10px 12px; border-radius: 8px; font-size: 1rem; background: #fff; margin-bottom: 0.5rem; }
-        input:focus, select:focus, textarea:focus { border-color: #ea580c; outline: none; ring: 2px solid #fdba74; }
-        input:disabled, select:disabled, textarea:disabled { background-color: #f9fafb; color: #6b7280; border-color: #e5e7eb; }
-        button { touch-action: manipulation; transition: transform 0.1s; }
-        button:active { transform: scale(0.98); }
-        .section-title { font-weight: 800; color: #c2410c; margin: 1.5rem 0 1rem 0; border-bottom: 2px solid #fdba74; padding-bottom: 0.5rem; font-size: 1.1rem; }
-        .loader { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255,255,255,0.9); display: none; justify-content: center; align-items: center; z-index: 2000; font-size: 1.5rem; color: #ea580c; font-weight: bold; flex-direction: column; gap: 10px; }
-
-        /* RESPONSIVE TABLE STYLES (Mobile First) */
-        @media (max-width: 768px) {
-            .mobile-table thead { display: none; }
-            .mobile-table tr { display: block; margin-bottom: 1rem; background: white; border: 1px solid #e5e7eb; border-radius: 12px; padding: 1rem; box-shadow: 0 2px 4px rgba(0,0,0,0.05); position: relative; }
-            .mobile-table td { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #f3f4f6; padding: 0.75rem 0; text-align: right; }
-            .mobile-table td:last-child { border-bottom: none; padding-bottom: 0; }
-            .mobile-table td::before { content: attr(data-label); font-weight: 600; color: #6b7280; text-align: left; margin-right: 1rem; flex-shrink: 0; }
-            
-            /* Checklist Tweaks */
-            .checklist-row { flex-direction: column; align-items: flex-start; }
-            .checklist-options { width: 100%; display: flex; justify-content: space-between; margin-top: 0.5rem; }
-            
-            /* Sticky Bottom Actions Bar */
-            #actions { position: fixed; bottom: 0; left: 0; right: 0; background: white; border-top: 1px solid #e5e7eb; padding: 1rem; box-shadow: 0 -4px 6px rgba(0,0,0,0.05); z-index: 100; flex-direction: column; gap: 0.5rem; }
-            #actions button, #actions a { width: 100%; display: block; text-align: center; padding: 12px; font-size: 1.1rem; }
-
-            /* Map View Mobile Layout */
-            #view-map { flex-direction: column; }
-            #map-list { height: 35%; order: 2; width: 100%; border-top: 2px solid #ccc; }
-            #map-container { height: 65%; order: 1; width: 100%; }
+        body { 
+            background-color: #f3f4f6; 
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; 
+            font-size: 16px; 
+            -webkit-tap-highlight-color: transparent; 
+        }
+      
+        /* GLASS CARD EFFECT */
+        .glass { 
+            background: white; 
+            padding: 1rem; 
+            border-radius: 12px; 
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05); 
+            margin-bottom: 1rem; 
+            border: 1px solid #e5e7eb; 
+        }
+      
+        /* FORM ELEMENTS */
+        input, select, textarea { 
+            width: 100%; 
+            border: 1px solid #d1d5db; 
+            padding: 10px 12px; 
+            border-radius: 8px; 
+            font-size: 1rem; 
+            background: #fff; 
+            margin-bottom: 0.5rem; 
         }
 
-        /* DESKTOP STYLES */
+        input:focus, select:focus, textarea:focus { 
+            border-color: #ea580c; 
+            outline: none; 
+            ring: 2px solid #fdba74; 
+        }
+
+        input:disabled, select:disabled, textarea:disabled { 
+            background-color: #f9fafb; 
+            color: #6b7280; 
+            border-color: #e5e7eb; 
+        }
+
+        button { 
+            touch-action: manipulation; 
+            transition: transform 0.1s; 
+        }
+
+        button:active { 
+            transform: scale(0.98); 
+        }
+
+        /* TYPOGRAPHY */
+        .section-title { 
+            font-weight: 800; 
+            color: #c2410c; 
+            margin: 1.5rem 0 1rem 0; 
+            border-bottom: 2px solid #fdba74; 
+            padding-bottom: 0.5rem; 
+            font-size: 1.1rem; 
+        }
+
+        /* LOADER OVERLAY */
+        .loader { 
+            position: fixed; 
+            top: 0; 
+            left: 0; 
+            width: 100%; 
+            height: 100%; 
+            background: rgba(255,255,255,0.9); 
+            display: none; 
+            justify-content: center; 
+            align-items: center; 
+            z-index: 2000; 
+            font-size: 1.5rem; 
+            color: #ea580c; 
+            font-weight: bold; 
+            flex-direction: column; 
+            gap: 10px; 
+        }
+
+        /* --- RESPONSIVE TABLE STYLES (Mobile First) --- */
+        @media (max-width: 768px) {
+            .mobile-table thead { 
+                display: none; 
+            }
+            
+            .mobile-table tr { 
+                display: block; 
+                margin-bottom: 1rem; 
+                background: white; 
+                border: 1px solid #e5e7eb; 
+                border-radius: 12px; 
+                padding: 1rem; 
+                box-shadow: 0 2px 4px rgba(0,0,0,0.05); 
+                position: relative; 
+            }
+            
+            .mobile-table td { 
+                display: flex; 
+                justify-content: space-between; 
+                align-items: center; 
+                border-bottom: 1px solid #f3f4f6; 
+                padding: 0.75rem 0; 
+                text-align: right; 
+            }
+            
+            .mobile-table td:last-child { 
+                border-bottom: none; 
+                padding-bottom: 0; 
+            }
+            
+            .mobile-table td::before { 
+                content: attr(data-label); 
+                font-weight: 600; 
+                color: #6b7280; 
+                text-align: left; 
+                margin-right: 1rem; 
+                flex-shrink: 0; 
+            }
+            
+            /* Checklist Tweaks */
+            .checklist-row { 
+                flex-direction: column; 
+                align-items: flex-start; 
+            }
+            
+            .checklist-options { 
+                width: 100%; 
+                display: flex; 
+                justify-content: space-between; 
+                margin-top: 0.5rem; 
+            }
+            
+            /* Sticky Bottom Actions Bar */
+            #actions { 
+                position: fixed; 
+                bottom: 0; 
+                left: 0; 
+                right: 0; 
+                background: white; 
+                border-top: 1px solid #e5e7eb; 
+                padding: 1rem; 
+                box-shadow: 0 -4px 6px rgba(0,0,0,0.05); 
+                z-index: 100; 
+                flex-direction: column; 
+                gap: 0.5rem; 
+            }
+            
+            #actions button, #actions a { 
+                width: 100%; 
+                display: block; 
+                text-align: center; 
+                padding: 12px; 
+                font-size: 1.1rem; 
+            }
+
+            /* Map View Mobile Layout */
+            #view-map { 
+                flex-direction: column; 
+            }
+            
+            #map-list { 
+                height: 35%; 
+                order: 2; 
+                width: 100%; 
+                border-top: 2px solid #ccc; 
+            }
+            
+            #map-container { 
+                height: 65%; 
+                order: 1; 
+                width: 100%; 
+            }
+        }
+
+        /* --- DESKTOP STYLES --- */
         @media (min-width: 769px) {
-            .desktop-container { max-width: 1200px; margin: 0 auto; padding: 20px; }
-            table.mobile-table { width: 100%; border-collapse: collapse; display: table; }
-            table.mobile-table thead { display: table-header-group; background: #ea580c; color: white; }
-            table.mobile-table tr { display: table-row; border: none; box-shadow: none; background: transparent; }
-            table.mobile-table th { background: #ea580c; color: white; padding: 12px; text-align: left; border-bottom: 2px solid #c2410c; }
-            table.mobile-table td { display: table-cell; border-bottom: 1px solid #e5e7eb; padding: 12px; text-align: left; vertical-align: top; }
-            table.mobile-table td::before { content: none; }
+            .desktop-container { 
+                max-width: 1200px; 
+                margin: 0 auto; 
+                padding: 20px; 
+            }
+
+            table.mobile-table { 
+                width: 100%; 
+                border-collapse: collapse; 
+                display: table; 
+            }
+
+            table.mobile-table thead { 
+                display: table-header-group; 
+                background: #ea580c; 
+                color: white; 
+            }
+
+            table.mobile-table tr { 
+                display: table-row; 
+                border: none; 
+                box-shadow: none; 
+                background: transparent; 
+            }
+
+            table.mobile-table th { 
+                background: #ea580c; 
+                color: white; 
+                padding: 12px; 
+                text-align: left; 
+                border-bottom: 2px solid #c2410c; 
+            }
+
+            table.mobile-table td { 
+                display: table-cell; 
+                border-bottom: 1px solid #e5e7eb; 
+                padding: 12px; 
+                text-align: left; 
+                vertical-align: top; 
+            }
+
+            table.mobile-table td::before { 
+                content: none; 
+            }
             
             /* Map View Desktop Layout */
-            #view-map { flex-direction: row; }
-            #map-list { width: 350px; height: 100%; border-right: 1px solid #ddd; overflow-y: auto; position: static; }
-            #map-container { flex: 1; height: 100%; position: static; }
+            #view-map { 
+                flex-direction: row; 
+            }
+            
+            #map-list { 
+                width: 350px; 
+                height: 100%; 
+                border-right: 1px solid #ddd; 
+                overflow-y: auto; 
+                position: static; 
+            }
+            
+            #map-container { 
+                flex: 1; 
+                height: 100%; 
+                position: static; 
+            }
         }
     </style>
 </head>
@@ -322,7 +514,7 @@
                 <div id="fs-reviewer-section" class="glass hidden border-l-4 border-yellow-500">
                      <h3 class="section-title text-yellow-700">4. Reviewer</h3>
                      
-                     <div class="mb-4">
+                     <div class="mb-4" id="iocl-reviewer-wrapper">
                         <label class="font-bold text-sm text-gray-700">Authorized IOCL Supervisors</label>
                         <div id="iocl-sup-container-rev" class="space-y-2 mt-2"></div>
                         <button type="button" onclick="window.addIOCLRow('iocl-sup-container-rev')" class="mt-2 text-xs bg-gray-200 px-2 py-1 rounded hover:bg-gray-300 font-bold">+ Add Supervisor</button>
@@ -337,7 +529,7 @@
                 <div id="fs-approver-section" class="glass hidden border-l-4 border-green-500">
                      <h3 class="section-title text-green-700">5. Approval</h3>
                      
-                     <div class="mb-4">
+                     <div class="mb-4" id="iocl-approver-wrapper">
                         <label class="font-bold text-sm text-gray-700">Authorized IOCL Supervisors (Verify/Edit)</label>
                         <div id="iocl-sup-container-app" class="space-y-2 mt-2"></div>
                         <button type="button" onclick="window.addIOCLRow('iocl-sup-container-app')" class="mt-2 text-xs bg-gray-200 px-2 py-1 rounded hover:bg-gray-300 font-bold">+ Add Supervisor</button>
@@ -456,7 +648,7 @@
                 "1. Equipment / Work Area inspected.",
                 "2. Surrounding area checked, cleaned and covered. Oil/RAGS/Grass etc. removed.",
                 "3. Sewers, Manholes, CBD etc. and nearby hot surface covered.",
-                "4. Considered hazards from other routine/non-routine operations and concerned person alerted.",
+                "4. Considered hazards from other routine, non-routine operations and concerned person alerted.",
                 "5. Equipment blinded/ disconnected/ closed/ isolated/ wedge opened.",
                 "6. Equipment properly drained and depressurized.",
                 "7. Equipment properly steamed/purged.",
@@ -478,7 +670,7 @@
                 "5. Portable equipment / nozzle properly grounded.",
                 "6. Standby persons provided for entry to confined space.",
                 "7. Adequate Communication Provided to Stand by Person.",
-                "8. Attendant Trained Provided With Rescue Equipment/SCBA.",
+                "8. Attendant Trained Provided With Rescue Equipment/SCABA.",
                 "9. Adequately Cooled Space for Safe Entry Of Person.",
                 "10. Continuous Inert Gas Flow Arranged.",
                 "11. Check For Earthing/ELCB of all Temporary Electrical Connections being used for welding.",
@@ -755,8 +947,6 @@
             }
             
             // NEW REQ D: OPTIONAL & EDITABLE GPS LOGIC
-            // If user is Requester AND status allows editing (New or Pending Review), allow edit.
-            // Otherwise, disable.
             if(r === 'Requester' && (s === 'New' || s === 'Pending Review')) {
                 document.getElementById("ExactLocation").disabled = false;
                 document.getElementById("btn-get-geo").disabled = false;
@@ -779,12 +969,10 @@
             document.getElementById("action-renewal").classList.add('hidden');
             document.getElementById("signature-history").classList.add('hidden');
             
-            // --- HANDLE IOCL SUPERVISORS DATA (REQ A) ---
-            // Clear previous inputs
+            // --- IOCL SUPERVISORS LOGIC (Strict Requirements A, B, C, D) ---
+            const ioclData = p.IOCLSupervisors || [];
             document.getElementById("iocl-sup-container-rev").innerHTML = "";
             document.getElementById("iocl-sup-container-app").innerHTML = "";
-            
-            const ioclData = p.IOCLSupervisors || [];
             
             // Populate Input Fields
             ioclData.forEach(d => {
@@ -796,23 +984,49 @@
             const dispTable = document.querySelector('#table-iocl-display tbody');
             dispTable.innerHTML = ioclData.length ? ioclData.map(x => `<tr><td>${x.name}</td><td>${x.desig}</td><td>${x.contact}</td></tr>`).join('') : '<tr><td colspan="3" class="text-gray-400">No Supervisors Added</td></tr>';
             
-            // LOGIC: Default to showing the read-only section.
-            // ONLY hide it if a Reviewer or Approver is actively editing the permit.
-            document.getElementById("iocl-sup-display-section").classList.remove('hidden');
+            // 1. Hide EDITABLE containers by default
+            document.getElementById("iocl-reviewer-wrapper").classList.add('hidden'); 
+            document.getElementById("iocl-approver-wrapper").classList.add('hidden');
+            // 2. Hide READ-ONLY table by default
+            document.getElementById("iocl-sup-display-section").classList.add('hidden');
+
+            // 3. Logic Application
+            if (r === 'Requester') {
+                // Req A: Requestor NEVER sees add/edit. Only sees display if Approved/Active/Closed
+                if(s === 'Active' || s === 'Closed' || s.includes('Renewal') || s.includes('Closure')) {
+                    document.getElementById("iocl-sup-display-section").classList.remove('hidden');
+                }
+            }
+            else if (r === 'Reviewer') {
+                if (s === 'Pending Review') {
+                    // Reviewer sees Edit box in their section
+                    document.getElementById("iocl-reviewer-wrapper").classList.remove('hidden');
+                } else if (s === 'Active' || s === 'Closed' || s.includes('Closure')) {
+                    // Reviewer sees Read Only later
+                    document.getElementById("iocl-sup-display-section").classList.remove('hidden');
+                }
+            }
+            else if (r === 'Approver') {
+                if (s === 'Pending Approval' || s === 'Active' || s.includes('Renewal')) {
+                    // Req B & C: Approver sees ONE edit window in Approver Section while Active
+                    document.getElementById("iocl-approver-wrapper").classList.remove('hidden');
+                } else if (s === 'Closed' || s.includes('Closure')) {
+                    document.getElementById("iocl-sup-display-section").classList.remove('hidden');
+                }
+            }
 
             let btns = "";
 
             if(s === 'Pending Review') {
                 if(r==='Requester') { 
                    document.querySelectorAll('#pf input, #pf select, #pf textarea').forEach(e=>e.disabled=false); 
-                   document.getElementById("Vendor").value = currentUser.name; document.getElementById("Vendor").readOnly=true; // REQ E
+                   document.getElementById("Vendor").value = currentUser.name; document.getElementById("Vendor").readOnly=true; 
                    document.getElementById("RequesterName").disabled=false; 
                    btns=`<button type="button" onclick="window.savePermit()" class="w-full bg-blue-600 text-white px-3 rounded-lg font-bold shadow-lg">Update Permit</button>`; 
                 }
                 if(r==='Reviewer') { 
                    document.getElementById("fs-reviewer-section").classList.remove('hidden');
                    document.querySelectorAll('#fs-reviewer-section *, #hazards-section input').forEach(e=>e.disabled=false); 
-                   document.getElementById("iocl-sup-display-section").classList.add('hidden'); // Hide read-only, show input
                    btns=`<button type="button" onclick="window.upd('reject')" class="bg-red-600 text-white px-4 py-3 rounded-lg font-bold flex-1">Reject</button><button type="button" onclick="window.upd('review')" class="bg-green-600 text-white px-4 py-3 rounded-lg font-bold flex-1">Submit Review</button>`; 
                 }
             }
@@ -821,7 +1035,6 @@
                if(r==='Approver') { 
                    document.getElementById("fs-approver-section").classList.remove('hidden');
                    document.getElementById("Approver_Remarks").disabled=false; 
-                   document.getElementById("iocl-sup-display-section").classList.add('hidden'); // Hide read-only, show input
                    btns=`<button type="button" onclick="window.upd('reject')" class="bg-red-600 text-white px-4 py-3 rounded-lg font-bold flex-1">Reject</button><button type="button" onclick="window.upd('approve')" class="bg-green-600 text-white px-4 py-3 rounded-lg font-bold flex-1">Approve</button>`; 
                }
             }
@@ -829,34 +1042,24 @@
                document.getElementById("fs-reviewer-section").classList.remove('hidden');
                document.getElementById("fs-approver-section").classList.remove('hidden');
                document.getElementById("renewals-section").classList.remove('hidden');
-               document.getElementById("closure-section").classList.remove('hidden');
+               // Req E: Hide Closure Section initially for Approver/Reviewer - revealed below based on logic
                
                const rens = JSON.parse(p.RenewalsJSON || "[]");
-               // REQ C: Show Workers in Renewal Table
-               document.querySelector("#table-renewals tbody").innerHTML = rens.map(r => `
-                   <tr>
-                       <td data-label="Period" class="font-mono text-xs">Start: ${r.valid_from.replace('T',' ')}<br>End: &nbsp;&nbsp;${r.valid_till.replace('T',' ')}</td>
-                       <td data-label="Gas & Prec"><strong>Gas:</strong> HC:${r.hc}, O2:${r.oxygen}, Tox:${r.toxic}<br><strong>Prec:</strong> ${r.precautions || '-'}</td>
-                       <td data-label="Workers" class="text-xs text-gray-600">${r.worker_list ? r.worker_list.join(', ') : 'All'}</td>
-                       <td data-label="Req">${r.req_name}<br><span class="text-[10px] text-gray-500">${r.req_at}</span></td>
-                       <td data-label="Rev">${r.rev_name||'-'}<br><span class="text-[10px] text-gray-500">${r.rev_at||''}</span></td>
-                       <td data-label="App">${r.app_name||'-'}<br><span class="text-[10px] text-gray-500">${r.app_at||''}</span></td>
-                       <td data-label="Status"><span class="font-bold ${r.status==='rejected'?'text-red-600':'text-green-600'}">${r.status}</span></td>
-                   </tr>`).join('');
+               document.querySelector("#table-renewals tbody").innerHTML = rens.map(r => `<tr><td data-label="Period" class="font-mono text-xs">Start: ${r.valid_from.replace('T',' ')}<br>End: &nbsp;&nbsp;${r.valid_till.replace('T',' ')}</td><td data-label="Gas & Prec"><strong>Gas:</strong> HC:${r.hc}, O2:${r.oxygen}, Tox:${r.toxic}<br><strong>Prec:</strong> ${r.precautions || '-'}</td><td data-label="Workers" class="text-xs text-gray-600">${r.worker_list ? r.worker_list.join(', ') : 'All'}</td><td data-label="Req">${r.req_name}<br><span class="text-[10px] text-gray-500">${r.req_at}</span></td><td data-label="Rev">${r.rev_name||'-'}<br><span class="text-[10px] text-gray-500">${r.rev_at||''}</span></td><td data-label="App">${r.app_name||'-'}<br><span class="text-[10px] text-gray-500">${r.app_at||''}</span></td><td data-label="Status"><span class="font-bold ${r.status==='rejected'?'text-red-600':'text-green-600'}">${r.status}</span></td></tr>`).join('');
                
                const last = rens[rens.length-1];
-               // REQ C: Renewal Submission Logic
                if(r==='Requester' && (!last || (last.status!=='pending_review' && last.status!=='pending_approval'))) {
-                     document.getElementById("form-renewal").classList.remove('hidden');
-                     document.querySelectorAll('#form-renewal input').forEach(e => e.disabled = false);
-                     
-                     // Populate Renewal Worker Select (REQ C)
-                     const renSel = document.getElementById('renewal-worker-select');
-                     renSel.innerHTML = currentPermitWorkers.map(w => `<label class="flex items-center gap-1 text-xs bg-white p-1 rounded border"><input type="checkbox" value="${w.Name}" checked class="ren-worker-cb"> ${w.Name}</label>`).join('');
-
+                     // Req E: Always available in Requestor console
+                     document.getElementById("closure-section").classList.remove('hidden');
                      document.getElementById("div-closure-req").classList.remove('hidden');
                      document.getElementById("Closure_Requestor_Remarks").disabled = false;
                      document.getElementById("Site_Restored_Check").disabled = false;
+
+                     document.getElementById("form-renewal").classList.remove('hidden');
+                     document.querySelectorAll('#form-renewal input').forEach(e => e.disabled = false);
+                     const renSel = document.getElementById('renewal-worker-select');
+                     renSel.innerHTML = currentPermitWorkers.map(w => `<label class="flex items-center gap-1 text-xs bg-white p-1 rounded border"><input type="checkbox" value="${w.Name}" checked class="ren-worker-cb"> ${w.Name}</label>`).join('');
+                     
                      btns += `<button type="button" onclick="window.upd('initiate_closure')" class="bg-red-600 text-white px-6 py-3 rounded-lg font-bold shadow flex-1">Job Complete</button>`;
                }
                
@@ -876,7 +1079,12 @@
                    document.getElementById("RenewalRemark").disabled = false;
                    btns="";
                } else {
-                   if(r==='Approver') document.getElementById("pdf-color-select").classList.remove('hidden');
+                   // Active State Actions
+                   if(r==='Approver' && s==='Active') { 
+                        // Req C: Approver can Edit supervisors while active
+                        btns += `<button type="button" onclick="window.upd('approve')" class="bg-blue-600 text-white px-6 py-3 rounded-lg font-bold shadow flex-1 text-center">Update Supervisors</button>`;
+                        document.getElementById("pdf-color-select").classList.remove('hidden');
+                   }
                    btns += `<a href="${API}/download-pdf/${id}" target="_blank" class="bg-gray-700 text-white px-6 py-3 rounded-lg font-bold shadow flex-1 text-center">Download PDF</a>`;
                }
             }
@@ -884,18 +1092,18 @@
                 document.getElementById("closure-section").classList.remove('hidden');
                 document.getElementById("div-closure-req").classList.remove('hidden');
                 setText("ts-clos-req", p.Closure_Requestor_Date);
+                // Req E: Checkbox is checked and disabled for reviewers/approvers
+                document.getElementById("Site_Restored_Check").checked = true;
+                document.getElementById("Site_Restored_Check").disabled = true;
                 
                 if(s!=='Closure Pending Review') { document.getElementById("div-closure-rev").classList.remove('hidden'); setText("ts-clos-rev", p.Closure_Reviewer_Date); }
                 if(s==='Closed') { document.getElementById("div-closure-app").classList.remove('hidden'); setText("ts-clos-app", p.Closure_Approver_Date); }
-
                 if(s==='Closure Pending Review' && r==='Reviewer') { 
-                     document.getElementById("div-closure-rev").classList.remove('hidden');
-                     document.getElementById("Closure_Reviewer_Remarks").disabled=false;
+                     document.getElementById("div-closure-rev").classList.remove('hidden'); document.getElementById("Closure_Reviewer_Remarks").disabled=false;
                      btns=`<button onclick="window.upd('reject_closure')" class="bg-red-600 text-white px-4 py-3 rounded-lg font-bold flex-1">Reject</button><button onclick="window.upd('approve_closure')" class="bg-green-600 text-white px-4 py-3 rounded-lg font-bold flex-1">Verify</button>`; 
                 }
                 if(s==='Closure Pending Approval' && r==='Approver') { 
-                     document.getElementById("div-closure-app").classList.remove('hidden');
-                     document.getElementById("Closure_Approver_Remarks").disabled=false;
+                     document.getElementById("div-closure-app").classList.remove('hidden'); document.getElementById("Closure_Approver_Remarks").disabled=false;
                      btns=`<button onclick="window.upd('reject_closure')" class="bg-red-600 text-white px-4 py-3 rounded-lg font-bold flex-1">Reject</button><button onclick="window.upd('approve')" class="bg-black text-white px-4 py-3 rounded-lg font-bold flex-1">Close Permit</button>`; 
                 }
                 if(s==='Closed') btns = `<a href="${API}/download-pdf/${id}" target="_blank" class="bg-gray-700 text-white px-6 py-3 rounded-lg font-bold shadow flex-1 text-center">Download PDF</a>`;
@@ -914,34 +1122,35 @@
         }
 
         window.upd = async function(act) {
+            // Req E: Mandatory Checkbox for Requestor
+            if(act === 'initiate_closure') {
+                if(!document.getElementById("Site_Restored_Check").checked) {
+                    alert("You must certify that the Site is Restored & Cleaned.");
+                    return;
+                }
+            }
+
             const getVal = (id) => { const el = document.getElementById(id); return el ? el.value : ''; };
-            
-            // REQ A: Collect IOCL Data
             let ioclData = [];
+            // Req B & C: Only fetch data from the container valid for the specific role
             if(currentUser.Role === 'Reviewer') ioclData = window.getIOCLData('iocl-sup-container-rev');
             if(currentUser.Role === 'Approver') ioclData = window.getIOCLData('iocl-sup-container-app');
 
             const body = { 
                 PermitID: currentPermitId, action: act, role: currentUser.Role, user: currentUser.name,
                 comment: (currentUser.Role==='Reviewer' ? getVal("Reviewer_Remarks") : getVal("Approver_Remarks")),
-                Closure_Requestor_Remarks: getVal("Closure_Requestor_Remarks"),
-                Closure_Reviewer_Remarks: getVal("Closure_Reviewer_Remarks"),
-                Closure_Approver_Remarks: getVal("Closure_Approver_Remarks"),
-                bgColor: getVal("PdfBgColor"),
-                IOCLSupervisors: ioclData // Sent to backend
+                Closure_Requestor_Remarks: getVal("Closure_Requestor_Remarks"), Closure_Reviewer_Remarks: getVal("Closure_Reviewer_Remarks"), Closure_Approver_Remarks: getVal("Closure_Approver_Remarks"),
+                bgColor: getVal("PdfBgColor"), IOCLSupervisors: ioclData 
             };
             
             if(currentUser.Role === 'Reviewer' && act === 'review') {
                  const fd = new FormData(document.getElementById("pf"));
                  document.querySelectorAll('#hazards-section input[type=checkbox]').forEach(c => body[c.name] = c.checked ? 'Y' : 'N');
                  document.querySelectorAll('#ppe-container input[type=checkbox]').forEach(c => body[c.name] = c.checked ? 'Y' : 'N');
-                 body.Reviewer_Remarks = getVal("Reviewer_Remarks"); 
-                 body.AdditionalPrecautions = getVal("AdditionalPrecautions");
+                 body.Reviewer_Remarks = getVal("Reviewer_Remarks"); body.AdditionalPrecautions = getVal("AdditionalPrecautions");
                  if(document.getElementById("H_Others_Detail")) { body.H_Others_Detail = document.getElementById("H_Others_Detail").value; }
             }
-            if(currentUser.Role === 'Approver' && act === 'approve') {
-                body.Approver_Remarks = getVal("Approver_Remarks");
-            }
+            if(currentUser.Role === 'Approver' && act === 'approve') { body.Approver_Remarks = getVal("Approver_Remarks"); }
             
             const res = await apiCall('/update-status', 'POST', body);
             if(res.success) showDashboard(); else alert(res.error);
@@ -951,17 +1160,13 @@
             const getVal = (id) => { const el = document.getElementById(id); return el ? el.value : ''; };
             const vf = new Date(getVal("RenewalValidFrom")); const vt = new Date(getVal("RenewalValidTo"));
             if (vt <= vf) { alert("End time must be greater than Start time"); return; }
-
-            // REQ C: Collect Selected Renewal Workers
             const selWorkers = [];
             document.querySelectorAll('.ren-worker-cb:checked').forEach(c => selWorkers.push(c.value));
-
             const body = {
                 PermitID: currentPermitId, userRole: currentUser.Role, userName: currentUser.name, action: act,
                 RenewalValidFrom: getVal("RenewalValidFrom"), RenewalValidTo: getVal("RenewalValidTo"),
                 hc: getVal("RenewalHC"), toxic: getVal("RenewalToxic"), oxygen: getVal("RenewalOxygen"),
-                precautions: getVal("RenewalPrec"), rejectionReason: getVal("RenewalRemark"),
-                renewalWorkers: selWorkers // Send selected workers
+                precautions: getVal("RenewalPrec"), rejectionReason: getVal("RenewalRemark"), renewalWorkers: selWorkers 
             };
             const res = await apiCall('/renewal', 'POST', body);
             if(res.success) { alert("Done"); showDashboard(); } else alert(res.error);
@@ -973,7 +1178,11 @@
            document.getElementById("Status").value="New"; 
            document.getElementById("permit-header-display").innerText = "New Permit"; 
            document.getElementById("permit-worker-audit-display").classList.add("hidden");
-           document.getElementById("iocl-sup-display-section").classList.add('hidden'); // Hide on new
+           document.getElementById("iocl-sup-display-section").classList.add('hidden'); 
+           
+           // Hide Approver/Reviewer IOCL Inputs on New Permit
+           document.getElementById("iocl-reviewer-wrapper").classList.add('hidden');
+           document.getElementById("iocl-approver-wrapper").classList.add('hidden');
 
            const rS=document.getElementById("ReviewerEmail"), aS=document.getElementById("ApproverEmail"); 
            if(rS && aS) { rS.innerHTML=""; aS.innerHTML=""; if(usersData){ usersData.Reviewers.forEach(u=>rS.innerHTML+=`<option value="${u.email}">${u.name}</option>`); usersData.Approvers.forEach(u=>aS.innerHTML+=`<option value="${u.email}">${u.name}</option>`); } }
@@ -981,8 +1190,7 @@
            document.querySelectorAll('input, textarea, select').forEach(e=>e.disabled=false); 
            const safeSet = (id, val) => { const el = document.getElementById(id); if(el) { el.value = val; } };
            safeSet("RequesterName", currentUser.name);
-           safeSet("Vendor", currentUser.name); // REQ E: Auto-fill
-           document.getElementById("Vendor").readOnly=true; // REQ E: Make Read-only
+           safeSet("Vendor", currentUser.name); document.getElementById("Vendor").readOnly=true; 
            document.getElementById("RequesterName").disabled=false;
 
            await loadWorkers('permit_dropdown');
@@ -1000,19 +1208,24 @@
         }
         
         window.savePermit = async function() { 
-            const fd=new FormData(document.getElementById("pf")); 
-            document.querySelectorAll('input[type="checkbox"]').forEach(c=>fd.set(c.name, c.checked?"Y":"N")); 
-            const selectedWorkers = [];
-            document.querySelectorAll('#worker-checkboxes input:checked').forEach(c => { selectedWorkers.push(JSON.parse(c.value)); });
-            fd.append("SelectedWorkers", JSON.stringify(selectedWorkers));
-            fd.append("RequesterEmail", currentUser.Email); 
-            fd.append("Latitude", document.getElementById("Latitude").value);
-            fd.append("Longitude", document.getElementById("Longitude").value);
-
-            if(currentPermitId) fd.set("PermitID", currentPermitId); 
-            const res=await fetch(API+'/save-permit', {method:'POST', body:fd}); 
-            const json=await res.json(); 
-            if(json.success){alert("Saved: "+json.permitId); showDashboard();} else alert(json.error); 
+            // Req G: Loader logic added
+            document.getElementById('loader').style.display = 'flex';
+            try {
+                const fd=new FormData(document.getElementById("pf")); 
+                document.querySelectorAll('input[type="checkbox"]').forEach(c=>fd.set(c.name, c.checked?"Y":"N")); 
+                const selectedWorkers = [];
+                document.querySelectorAll('#worker-checkboxes input:checked').forEach(c => { selectedWorkers.push(JSON.parse(c.value)); });
+                fd.append("SelectedWorkers", JSON.stringify(selectedWorkers));
+                fd.append("RequesterEmail", currentUser.Email); 
+                fd.append("Latitude", document.getElementById("Latitude").value);
+                fd.append("Longitude", document.getElementById("Longitude").value);
+                if(currentPermitId) fd.set("PermitID", currentPermitId); 
+                const res=await fetch(API+'/save-permit', {method:'POST', body:fd}); 
+                const json=await res.json(); 
+                if(json.success){alert("Saved: "+json.permitId); showDashboard();} else alert(json.error); 
+            } finally {
+                document.getElementById('loader').style.display = 'none';
+            }
         }
         
         window.checkDate = function() { const vf=new Date(document.getElementById("ValidFrom").value); const vt=new Date(document.getElementById("ValidTo").value); if(vf && vt) { if(vt <= vf) { alert("End time must be greater than Start time"); document.getElementById("ValidTo").value=""; return; } if((vt-vf)/(1000*60*60*24) > 7) { alert("Max 7 Days"); document.getElementById("ValidTo").value=""; } } }
@@ -1047,12 +1260,10 @@
             if(!mapInstance) mapInstance=new google.maps.Map(document.getElementById("map"),{center:{lat:22.57,lng:88.36},zoom:5});
             const listEl = document.getElementById("map-list-content"); listEl.innerHTML = "";
             const infoWindow = new google.maps.InfoWindow();
-
             p.forEach(x => {
                 const marker = new google.maps.Marker({position:{lat:x.lat,lng:x.lng}, map:mapInstance, title:x.PermitID});
                 const content = `<div><b>${x.PermitID}</b><br>Loc: ${x.ExactLocation}<br>Req: ${x.RequesterName}<br>Valid: ${x.ValidTo}</div>`;
                 marker.addListener("click", () => { infoWindow.setContent(content); infoWindow.open(mapInstance, marker); });
-                
                 const item = document.createElement("div");
                 item.className = "p-3 border-b cursor-pointer hover:bg-orange-50 text-sm flex justify-between";
                 item.innerHTML = `<div><b>${x.PermitID}</b><div class="text-xs text-gray-500">${x.ExactLocation}</div></div><div class="text-xs font-bold text-orange-600">${x.WorkType}</div>`;
