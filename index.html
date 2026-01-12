@@ -344,11 +344,11 @@
                 if(s!=='Closure Pending Review') { document.getElementById("div-closure-rev").classList.remove('hidden'); setText("ts-clos-rev", p.Closure_Reviewer_Date); }
                 if(s==='Closed') { document.getElementById("div-closure-app").classList.remove('hidden'); setText("ts-clos-app", p.Closure_Approver_Date); }
                 
-     // FIXED CODE (Added type="button")
+     
 if(s==='Closure Pending Review' && r==='Reviewer') { 
       document.getElementById("div-closure-rev").classList.remove('hidden'); 
       document.getElementById("Closure_Reviewer_Remarks").disabled=false;
-      // Added type="button" below
+      
       btns=`<button type="button" onclick="window.upd('reject_closure')" class="bg-red-600 text-white px-4 py-3 rounded-lg font-bold flex-1">Reject</button><button type="button" onclick="window.upd('approve_closure')" class="bg-green-600 text-white px-4 py-3 rounded-lg font-bold flex-1">Verify</button>`; 
 }
 if(s==='Closure Pending Approval' && r==='Approver') { 
@@ -411,4 +411,5 @@ if(s==='Closure Pending Approval' && r==='Approver') {
     </script>
 </body>
 </html>
+
 
