@@ -499,54 +499,60 @@ app.get('/api/download-pdf/:id', async (req, res) => {
 
         // --- AUTHORIZED SUPERVISORS TABLES (FIXED GAP) ---
 // Replace the existing drawSupTable function with this one:
+// --- REPLACE THE drawSupTable FUNCTION IN server.js ---
+
 const drawSupTable = (title, headers, dataRows) => {
      if(doc.y > 650) { doc.addPage(); drawHeaderOnAll(); doc.y=135; }
      
      // Title
      doc.font('Helvetica-Bold').text(title, 30, doc.y);
-     doc.y += 15; // Space after title
+     doc.y += 15; 
 
-     // Define Row Height
-     const rowHeight = 20; // Increased slightly for better fit
+     // --- FIX: Increased Height to 45 to fit multiple lines ---
+     const rowHeight = 45; 
+     const headerHeight = 20; // Headers can stay smaller
      let currentY = doc.y;
 
      // 1. Draw Header Row
      let currentX = 30;
      headers.forEach(h => {
-         // Draw Header Box
-         doc.rect(currentX, currentY, h.w, rowHeight).stroke();
-         // Draw Header Text
+         doc.rect(currentX, currentY, h.w, headerHeight).stroke();
          doc.text(h.t, currentX + 2, currentY + 6, { width: h.w - 4, align: 'left' });
          currentX += h.w;
      });
      
-     // Move Y down exactly by height to eliminate gap
-     currentY += rowHeight;
+     currentY += headerHeight;
 
      // 2. Draw Data Rows
      doc.font('Helvetica');
      dataRows.forEach(row => {
+         // Check if we need a new page
          if(currentY > 750) { 
              doc.addPage(); 
              drawHeaderOnAll(); 
              currentY = 135; 
-             // Optional: Redraw header on new page if desired, but sticking to simple rows here
          }
 
          let rowX = 30;
          row.forEach((cell, idx) => {
              // Draw Cell Box
              doc.rect(rowX, currentY, headers[idx].w, rowHeight).stroke();
-             // Draw Cell Text
-             doc.text(cell, rowX + 2, currentY + 6, { width: headers[idx].w - 4, lineBreak: false, ellipsis: true });
+             
+             // --- FIX: Removed 'lineBreak: false' so text can wrap ---
+             // Using a slightly smaller font for the Audit column if needed, or just standard 8
+             doc.text(cell, rowX + 2, currentY + 6, { 
+                 width: headers[idx].w - 4, 
+                 align: 'left'
+                 // lineBreak defaults to true, which is what we want for \n to work
+             });
+             
              rowX += headers[idx].w;
          });
          
-         // Move Y down exactly
+         // Move Y down by the new larger height
          currentY += rowHeight;
      });
 
-     // Update doc.y for the next section
      doc.y = currentY + 15;
 };
 
