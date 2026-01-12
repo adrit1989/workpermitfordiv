@@ -307,18 +307,15 @@ app.post('/api/update-status', async (req, res) => {
         Object.assign(d, extras);
         if(bgColor) d.PdfBgColor = bgColor;
         
-        // SAVE IOCL SUPERVISORS
+        // SAVE IOCL SUPERVISORS (MERGE LOGIC HANDLED BY FRONTEND SENDING COMPLETE LIST)
         if (IOCLSupervisors) {
             d.IOCLSupervisors = IOCLSupervisors;
         }
 
-        // SAVE REMARKS EXPLICITLY TO JSON
         if(comment) {
             if(role === 'Reviewer') d.Reviewer_Remarks = comment;
             if(role === 'Approver') d.Approver_Remarks = comment;
         }
-
-        // MERGE CLOSURE REMARKS
         if(req.body.Closure_Requestor_Remarks) d.Closure_Requestor_Remarks = req.body.Closure_Requestor_Remarks;
         if(req.body.Closure_Reviewer_Remarks) d.Closure_Reviewer_Remarks = req.body.Closure_Reviewer_Remarks;
         if(req.body.Closure_Approver_Remarks) d.Closure_Approver_Remarks = req.body.Closure_Approver_Remarks;
@@ -415,17 +412,9 @@ app.get('/api/download-pdf/:id', async (req, res) => {
         res.setHeader('Content-Type', 'application/pdf'); res.setHeader('Content-Disposition', `attachment; filename=${p.PermitID}.pdf`); doc.pipe(res);
 
         const bgColor = d.PdfBgColor || 'White';
-        
-        // Helper to redraw header on new pages
-        const drawHeaderOnAll = () => {
-            drawHeader(doc, bgColor);
-            doc.y = 135; 
-            doc.fontSize(9).font('Helvetica');
-        };
-
+        const drawHeaderOnAll = () => { drawHeader(doc, bgColor); doc.y = 135; doc.fontSize(9).font('Helvetica'); };
         drawHeaderOnAll();
         
-        // MAIN INFO
         const infoY = doc.y; const c1 = 40, c2 = 300;
         doc.text(`Permit No: ${p.PermitID}`, c1, infoY).text(`Validity: ${formatDate(p.ValidFrom)} - ${formatDate(p.ValidTo)}`, c2, infoY);
         doc.text(`Issued To: ${d.IssuedToDept} (${d.Vendor})`, c1, infoY+15).text(`Location: ${d.ExactLocation} (${d.WorkLocationDetail||''})`, c2, infoY+15);
@@ -449,24 +438,24 @@ app.get('/api/download-pdf/:id', async (req, res) => {
         };
         drawChecklist("SECTION A: GENERAL", CHECKLIST_DATA.A,'A'); drawChecklist("SECTION B: HOT WORK", CHECKLIST_DATA.B,'B'); drawChecklist("SECTION C: VEHICLE", CHECKLIST_DATA.C,'C'); drawChecklist("SECTION D: EXCAVATION", CHECKLIST_DATA.D,'D');
 
-        // HEADER E & ANNEXURE III
         if(doc.y>600){doc.addPage(); drawHeaderOnAll(); doc.y=135;}
         doc.font('Helvetica-Bold').text("Annexure III: ATTACHMENT TO MAINLINE WORK PERMIT", 30, doc.y); doc.y+=15;
         doc.fontSize(8).font('Helvetica');
         doc.text(`Approved SOP/SWP/SMP no ${d.SopNo||'-'} | Approved site specific JSA no: ${d.JsaNo||'-'}`, 30, doc.y); doc.y+=12;
-        doc.text(`IOCL Equipment / Machinery deployed at Site ${d.IoclEquip||'-'} | Contractor Equipment / Machinery deployed at Site ${d.ContEquip||'-'}`, 30, doc.y); doc.y+=12;
+        doc.text(`IOCL Equipment: ${d.IoclEquip||'-'} | Contractor Equipment: ${d.ContEquip||'-'}`, 30, doc.y); doc.y+=12;
         doc.text(`Work Order: ${d.WorkOrder||'-'}`, 30, doc.y); doc.y+=20;
 
-        // --- AUTHORIZED SUPERVISORS TABLES (FIXED STRUCTURE) ---
+        // --- AUTHORIZED SUPERVISORS TABLES (FIXED GAP AND AUDIT TRAIL) ---
         const drawSupTable = (title, headers, dataRows) => {
              if(doc.y > 650) { doc.addPage(); drawHeaderOnAll(); doc.y=135; }
-             doc.font('Helvetica-Bold').text(title, 30, doc.y); doc.y+=12;
+             doc.font('Helvetica-Bold').text(title, 30, doc.y); 
+             doc.y+=5; // Fix E: Minimized gap between Title and Header
              
              // Headers
              let hx = 30;
              const headerY = doc.y;
              headers.forEach(h => { doc.rect(hx, headerY, h.w, 15).stroke(); doc.text(h.t, hx+2, headerY+4); hx += h.w; });
-             doc.y += 15;
+             doc.y += 15; // No gap after header row
              
              // Rows
              doc.font('Helvetica');
@@ -478,7 +467,8 @@ app.get('/api/download-pdf/:id', async (req, res) => {
                  
                  row.forEach((cell, idx) => {
                      doc.rect(rx, rowY, headers[idx].w, rowH).stroke(); // Draw box
-                     doc.text(cell, rx+2, rowY+4, {width: headers[idx].w - 4, lineBreak: false, ellipsis: true}); // Draw text
+                     // Truncate text to fit
+                     doc.text(cell, rx+2, rowY+4, {width: headers[idx].w - 4, lineBreak: false, ellipsis: true}); 
                      rx += headers[idx].w;
                  });
                  doc.y += rowH; // Explicitly increment Y after row is done
@@ -486,11 +476,21 @@ app.get('/api/download-pdf/:id', async (req, res) => {
              doc.y += 10;
         };
 
-        // 1. IOCL Supervisors (Dynamic)
+        // 1. IOCL Supervisors (Dynamic with Audit Trail)
         const ioclSups = d.IOCLSupervisors || [];
-        const ioclRows = ioclSups.map(s => [s.name, s.desig, s.contact]);
-        if(ioclRows.length === 0) ioclRows.push(["-", "-", "-"]);
-        drawSupTable("Authorized Work Supervisor (IOCL)", [{t:"Name", w:180}, {t:"Designation", w:180}, {t:"Contact", w:175}], ioclRows);
+        // Map all items, including deleted ones (Requirement A: keep name but show audit trail)
+        let ioclRows = ioclSups.map(s => {
+            let auditText = `Added by ${s.added_by||'-'} on ${s.added_at||'-'}`;
+            if(s.is_deleted) auditText = `DELETED by ${s.deleted_by} on ${s.deleted_at}`;
+            return [s.name, s.desig, s.contact, auditText];
+        });
+        
+        if(ioclRows.length === 0) ioclRows.push(["-", "-", "-", "-"]);
+        
+        drawSupTable("Authorized Work Supervisor (IOCL)", 
+            [{t:"Name", w:130}, {t:"Designation", w:130}, {t:"Contact", w:100}, {t:"Audit Trail", w:175}], 
+            ioclRows
+        );
 
         // 2. Contractor Supervisors (Auto-fetched)
         const contRows = [[d.RequesterName || '-', "Site In-Charge / Requester", d.EmergencyContact || '-']];
@@ -568,8 +568,7 @@ app.get('/api/download-pdf/:id', async (req, res) => {
              const wList = r.worker_list ? r.worker_list.join(', ') : 'All';
              doc.rect(260,ry,70,55).stroke().text(wList, 262, ry+5, {width:68});
 
-             doc.rect(330,ry,75,55).stroke();
-             doc.text(`${r.req_name}\n${r.req_at}`, 332, ry+5, {width:73});
+             doc.rect(330,ry,75,55).stroke().text(`${r.req_name}\n${r.req_at}`, 332, ry+5, {width:73});
              
              let revText = `${r.rev_name||'-'}\n${r.rev_at||'-'}\nRem: ${r.rev_rem||'-'}`;
              let appText = `${r.app_name||'-'}\n${r.app_at||'-'}\nRem: ${r.app_rem||'-'}`;
