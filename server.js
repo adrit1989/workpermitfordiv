@@ -107,6 +107,8 @@ function drawHeader(doc, bgColor) {
     
     // Logo Box (Left)
     doc.rect(startX,startY,80,95).stroke();
+    
+    // --- LOGO INSERTION LOGIC ---
     if (fs.existsSync('logo.png')) {
         try {
             doc.image('logo.png', startX, startY, { fit: [80, 95], align: 'center', valign: 'center' });
@@ -326,19 +328,23 @@ app.post('/api/update-status', async (req, res) => {
         if(action==='reject') { st='Rejected'; }
         else if(role==='Reviewer' && action==='review') { st='Pending Approval'; d.Reviewer_Sig=`${user} on ${now}`; }
         else if(role==='Approver' && action==='approve') { 
-            // Fix F: Ensure Status Transition Logic for Closure
-            if (st.includes('Closure Pending Approval')) {
-                st = 'Closed';
-                d.Closure_Issuer_Sig = `${user} on ${now}`; 
-                d.Closure_Approver_Date = now;
+            // Fix F: Closure Logic
+            if(st.includes('Closure Pending Approval')) {
+                st = 'Closed'; 
+                d.Closure_Issuer_Sig=`${user} on ${now}`; 
+                d.Closure_Approver_Date=now; 
             } else {
-                st = 'Active';
-                d.Approver_Sig = `${user} on ${now}`;
+                st = 'Active'; 
+                d.Approver_Sig=`${user} on ${now}`; 
             }
         }
         else if(action==='initiate_closure') { st='Closure Pending Review'; d.Closure_Requestor_Date=now; d.Closure_Receiver_Sig=`${user} on ${now}`; }
         else if(action==='reject_closure') { st='Active'; }
-        else if(action==='approve_closure') { st = 'Closure Pending Approval'; d.Closure_Reviewer_Sig=`${user} on ${now}`; d.Closure_Reviewer_Date=now; }
+        else if(action==='approve_closure') { 
+            st = 'Closure Pending Approval'; 
+            d.Closure_Reviewer_Sig=`${user} on ${now}`; 
+            d.Closure_Reviewer_Date=now; 
+        }
         
         await pool.request().input('p', PermitID).input('s', st).input('j', JSON.stringify(d)).query("UPDATE Permits SET Status=@s, FullDataJSON=@j WHERE PermitID=@p");
         res.json({success:true});
@@ -412,9 +418,17 @@ app.get('/api/download-pdf/:id', async (req, res) => {
         res.setHeader('Content-Type', 'application/pdf'); res.setHeader('Content-Disposition', `attachment; filename=${p.PermitID}.pdf`); doc.pipe(res);
 
         const bgColor = d.PdfBgColor || 'White';
-        const drawHeaderOnAll = () => { drawHeader(doc, bgColor); doc.y = 135; doc.fontSize(9).font('Helvetica'); };
+        
+        // Helper to redraw header on new pages
+        const drawHeaderOnAll = () => {
+            drawHeader(doc, bgColor);
+            doc.y = 135; 
+            doc.fontSize(9).font('Helvetica');
+        };
+
         drawHeaderOnAll();
         
+        // MAIN INFO
         const infoY = doc.y; const c1 = 40, c2 = 300;
         doc.text(`Permit No: ${p.PermitID}`, c1, infoY).text(`Validity: ${formatDate(p.ValidFrom)} - ${formatDate(p.ValidTo)}`, c2, infoY);
         doc.text(`Issued To: ${d.IssuedToDept} (${d.Vendor})`, c1, infoY+15).text(`Location: ${d.ExactLocation} (${d.WorkLocationDetail||''})`, c2, infoY+15);
