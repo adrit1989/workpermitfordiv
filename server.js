@@ -278,11 +278,12 @@ app.post('/api/save-permit', upload.single('file'), async (req, res) => {
         const data = { ...req.body, SelectedWorkers: workers, PermitID: pid, CreatedDate: getNowIST() }; 
         const q = pool.request().input('p', pid).input('s', 'Pending Review').input('w', req.body.WorkType).input('re', req.body.RequesterEmail).input('rv', req.body.ReviewerEmail).input('ap', req.body.ApproverEmail).input('vf', vf).input('vt', vt).input('j', JSON.stringify(data));
         
+        // --- ROBUST LAT/LONG SANITIZATION (EDITABLE/OPTIONAL) ---
         let lat = req.body.Latitude;
         let lng = req.body.Longitude;
         
         const cleanGeo = (val) => {
-            if (!val || val === 'undefined' || val === 'null' || String(val).trim() === '') return ''; 
+            if (!val || val === 'undefined' || val === 'null' || String(val).trim() === '') return ''; // Allow empty string
             return String(val); 
         };
 
@@ -308,7 +309,7 @@ app.post('/api/update-status', async (req, res) => {
         Object.assign(d, extras);
         if(bgColor) d.PdfBgColor = bgColor;
         
-        // SAVE IOCL SUPERVISORS 
+        // SAVE IOCL SUPERVISORS (MERGE LOGIC HANDLED BY FRONTEND SENDING COMPLETE LIST)
         if (IOCLSupervisors) {
             d.IOCLSupervisors = IOCLSupervisors;
         }
@@ -327,6 +328,7 @@ app.post('/api/update-status', async (req, res) => {
         if(action==='reject') { st='Rejected'; }
         else if(role==='Reviewer' && action==='review') { st='Pending Approval'; d.Reviewer_Sig=`${user} on ${now}`; }
         else if(role==='Approver' && action==='approve') { 
+            // Fix F: Closure Logic
             if(st.includes('Closure Pending Approval')) {
                 st = 'Closed'; 
                 d.Closure_Issuer_Sig=`${user} on ${now}`; 
@@ -337,14 +339,8 @@ app.post('/api/update-status', async (req, res) => {
             }
         }
         else if(action==='initiate_closure') { st='Closure Pending Review'; d.Closure_Requestor_Date=now; d.Closure_Receiver_Sig=`${user} on ${now}`; }
-        // FIX C: Reviewer Rejecting Closure
         else if(action==='reject_closure') { st='Active'; }
-        // FIX C: Reviewer Approving Closure
-        else if(action==='approve_closure') { 
-            st = 'Closure Pending Approval'; 
-            d.Closure_Reviewer_Sig=`${user} on ${now}`; 
-            d.Closure_Reviewer_Date=now; 
-        }
+        else if(action==='approve_closure') { st = 'Closure Pending Approval'; d.Closure_Reviewer_Sig=`${user} on ${now}`; d.Closure_Reviewer_Date=now; }
         
         await pool.request().input('p', PermitID).input('s', st).input('j', JSON.stringify(d)).query("UPDATE Permits SET Status=@s, FullDataJSON=@j WHERE PermitID=@p");
         res.json({success:true});
@@ -372,24 +368,10 @@ app.post('/api/renewal', async (req, res) => {
                  if(last.status !== 'rejected' && last.status !== 'approved') return res.status(400).json({error: "Previous renewal pending"});
                  if(last.status !== 'rejected' && rs < new Date(last.valid_till)) return res.status(400).json({error: "Overlap detected"});
              }
-             r.push({ 
-                 status: 'pending_review', 
-                 valid_from: data.RenewalValidFrom, 
-                 valid_till: data.RenewalValidTo, 
-                 hc: data.hc, toxic: data.toxic, oxygen: data.oxygen, precautions: data.precautions, 
-                 req_name: userName, 
-                 req_at: now,
-                 worker_list: renewalWorkers || []
-             });
+             r.push({ status: 'pending_review', valid_from: data.RenewalValidFrom, valid_till: data.RenewalValidTo, hc: data.hc, toxic: data.toxic, oxygen: data.oxygen, precautions: data.precautions, req_name: userName, req_at: now, worker_list: renewalWorkers || [] });
         } else {
             const last = r[r.length-1];
-            if (action === 'reject') { 
-                last.status = 'rejected'; 
-                last.rej_by = userName; 
-                last.rej_at = now; 
-                last.rej_reason = rejectionReason; 
-                last.rej_role = userRole; 
-            }
+            if (action === 'reject') { last.status = 'rejected'; last.rej_by = userName; last.rej_at = now; last.rej_reason = rejectionReason; last.rej_role = userRole; }
             else { 
                 last.status = userRole==='Reviewer'?'pending_approval':'approved'; 
                 if(userRole==='Reviewer') { last.rev_name = userName; last.rev_at = now; last.rev_rem = rejectionReason; }
@@ -457,11 +439,11 @@ app.get('/api/download-pdf/:id', async (req, res) => {
         doc.text(`IOCL Equipment: ${d.IoclEquip||'-'} | Contractor Equipment: ${d.ContEquip||'-'}`, 30, doc.y); doc.y+=12;
         doc.text(`Work Order: ${d.WorkOrder||'-'}`, 30, doc.y); doc.y+=20;
 
-        // --- AUTHORIZED SUPERVISORS TABLES (FIXED GAP) ---
+        // --- AUTHORIZED SUPERVISORS TABLES (FIXED GAP AND AUDIT TRAIL) ---
         const drawSupTable = (title, headers, dataRows) => {
              if(doc.y > 650) { doc.addPage(); drawHeaderOnAll(); doc.y=135; }
              doc.font('Helvetica-Bold').text(title, 30, doc.y); 
-             doc.y+=5; // Fix: Reduced gap
+             doc.y+=5; // Fix E: Minimized gap between Title and Header
              
              // Headers
              let hx = 30;
@@ -474,20 +456,23 @@ app.get('/api/download-pdf/:id', async (req, res) => {
              dataRows.forEach(row => {
                  if(doc.y > 700) { doc.addPage(); drawHeaderOnAll(); doc.y=135; }
                  let rx = 30;
-                 const rowY = doc.y;
-                 const rowH = 15;
+                 const rowY = doc.y; // Fix Y for the whole row
+                 const rowH = 15; // Fixed height per row
                  
                  row.forEach((cell, idx) => {
-                     doc.rect(rx, rowY, headers[idx].w, rowH).stroke(); 
+                     doc.rect(rx, rowY, headers[idx].w, rowH).stroke(); // Draw box
+                     // Truncate text to fit
                      doc.text(cell, rx+2, rowY+4, {width: headers[idx].w - 4, lineBreak: false, ellipsis: true}); 
                      rx += headers[idx].w;
                  });
-                 doc.y += rowH;
+                 doc.y += rowH; // Explicitly increment Y after row is done
              });
              doc.y += 10;
         };
 
+        // 1. IOCL Supervisors (Dynamic with Audit Trail)
         const ioclSups = d.IOCLSupervisors || [];
+        // Map all items, including deleted ones (Requirement A: keep name but show audit trail)
         let ioclRows = ioclSups.map(s => {
             let auditText = `Added by ${s.added_by||'-'} on ${s.added_at||'-'}`;
             if(s.is_deleted) auditText = `DELETED by ${s.deleted_by} on ${s.deleted_at}`;
@@ -501,6 +486,7 @@ app.get('/api/download-pdf/:id', async (req, res) => {
             ioclRows
         );
 
+        // 2. Contractor Supervisors (Auto-fetched)
         const contRows = [[d.RequesterName || '-', "Site In-Charge / Requester", d.EmergencyContact || '-']];
         drawSupTable("Authorized Work Supervisor (Contractor)", [{t:"Name", w:180}, {t:"Designation", w:180}, {t:"Contact", w:175}], contRows);
 
