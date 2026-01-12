@@ -388,36 +388,51 @@ window.openPermit = async function(id) {
     document.getElementById("view-dashboard").classList.add('hidden'); document.getElementById("view-form").classList.remove('hidden');
 }
 
-        window.upd = async function(act) {
-            if(act === 'initiate_closure') {
-                if(!document.getElementById("Site_Restored_Check").checked) { alert("You must certify that the Site is Restored & Cleaned."); return; }
-            }
+ window.upd = async function(act) {
+    if(act === 'initiate_closure') {
+        if(!document.getElementById("Site_Restored_Check").checked) { alert("You must certify that the Site is Restored & Cleaned."); return; }
+    }
 
-            const getVal = (id) => { const el = document.getElementById(id); return el ? el.value : ''; };
-            let ioclData = [];
-            if(currentUser.Role === 'Reviewer') ioclData = window.getIOCLData('iocl-sup-container-rev');
-            if(currentUser.Role === 'Approver') ioclData = window.getIOCLData('iocl-sup-container-app');
+    const getVal = (id) => { const el = document.getElementById(id); return el ? el.value : ''; };
+    
+    // --- CRITICAL FIX START: PRESERVE DATA ---
+    let ioclData = [];
+    
+    // Only grab from the DOM if the user is actually allowed to edit this section right now
+    const isReviewerEditing = (currentUser.Role === 'Reviewer' && !document.getElementById('iocl-sup-container-rev').parentElement.classList.contains('hidden'));
+    const isApproverEditing = (currentUser.Role === 'Approver' && !document.getElementById('iocl-sup-container-app').parentElement.classList.contains('hidden'));
 
-            const body = { 
-                PermitID: currentPermitId, action: act, role: currentUser.Role, user: currentUser.name,
-                comment: (currentUser.Role==='Reviewer' ? getVal("Reviewer_Remarks") : getVal("Approver_Remarks")),
-                Closure_Requestor_Remarks: getVal("Closure_Requestor_Remarks"), Closure_Reviewer_Remarks: getVal("Closure_Reviewer_Remarks"), Closure_Approver_Remarks: getVal("Closure_Approver_Remarks"),
-                bgColor: getVal("PdfBgColor"), IOCLSupervisors: ioclData,
-                Site_Restored_Check: document.getElementById("Site_Restored_Check").checked ? 'Y' : 'N'
-            };
-            
-            if(currentUser.Role === 'Reviewer' && act === 'review') {
-                 const fd = new FormData(document.getElementById("pf"));
-                 document.querySelectorAll('#hazards-section input[type=checkbox]').forEach(c => body[c.name] = c.checked ? 'Y' : 'N');
-                 document.querySelectorAll('#ppe-container input[type=checkbox]').forEach(c => body[c.name] = c.checked ? 'Y' : 'N');
-                 body.Reviewer_Remarks = getVal("Reviewer_Remarks"); body.AdditionalPrecautions = getVal("AdditionalPrecautions");
-                 if(document.getElementById("H_Others_Detail")) { body.H_Others_Detail = document.getElementById("H_Others_Detail").value; }
-            }
-            if(currentUser.Role === 'Approver' && act === 'approve') { body.Approver_Remarks = getVal("Approver_Remarks"); }
-            
-            const res = await apiCall('/update-status', 'POST', body);
-            if(res.success) showDashboard(); else alert(res.error);
-        }
+    if (isReviewerEditing) {
+        ioclData = window.getIOCLData('iocl-sup-container-rev');
+    } else if (isApproverEditing) {
+        ioclData = window.getIOCLData('iocl-sup-container-app');
+    } else {
+        // If the current user isn't editing the supervisors (e.g., Requester closing the job),
+        // we MUST send the existing saved data back, otherwise it gets overwritten with [].
+        ioclData = window.currentPermitIOCLData || [];
+    }
+    // --- CRITICAL FIX END ---
+
+    const body = { 
+        PermitID: currentPermitId, action: act, role: currentUser.Role, user: currentUser.name,
+        comment: (currentUser.Role==='Reviewer' ? getVal("Reviewer_Remarks") : getVal("Approver_Remarks")),
+        Closure_Requestor_Remarks: getVal("Closure_Requestor_Remarks"), Closure_Reviewer_Remarks: getVal("Closure_Reviewer_Remarks"), Closure_Approver_Remarks: getVal("Closure_Approver_Remarks"),
+        bgColor: getVal("PdfBgColor"), IOCLSupervisors: ioclData,
+        Site_Restored_Check: document.getElementById("Site_Restored_Check").checked ? 'Y' : 'N'
+    };
+    
+    if(currentUser.Role === 'Reviewer' && act === 'review') {
+            const fd = new FormData(document.getElementById("pf"));
+            document.querySelectorAll('#hazards-section input[type=checkbox]').forEach(c => body[c.name] = c.checked ? 'Y' : 'N');
+            document.querySelectorAll('#ppe-container input[type=checkbox]').forEach(c => body[c.name] = c.checked ? 'Y' : 'N');
+            body.Reviewer_Remarks = getVal("Reviewer_Remarks"); body.AdditionalPrecautions = getVal("AdditionalPrecautions");
+            if(document.getElementById("H_Others_Detail")) { body.H_Others_Detail = document.getElementById("H_Others_Detail").value; }
+    }
+    if(currentUser.Role === 'Approver' && act === 'approve') { body.Approver_Remarks = getVal("Approver_Remarks"); }
+    
+    const res = await apiCall('/update-status', 'POST', body);
+    if(res.success) showDashboard(); else alert(res.error);
+}
 
         window.submitRenewal = async function(act) { const getVal = (id) => { const el = document.getElementById(id); return el ? el.value : ''; }; const vf = new Date(getVal("RenewalValidFrom")); const vt = new Date(getVal("RenewalValidTo")); if (vt <= vf) { alert("End time must be greater than Start time"); return; } const selWorkers = []; document.querySelectorAll('.ren-worker-cb:checked').forEach(c => selWorkers.push(c.value)); const body = { PermitID: currentPermitId, userRole: currentUser.Role, userName: currentUser.name, action: act, RenewalValidFrom: getVal("RenewalValidFrom"), RenewalValidTo: getVal("RenewalValidTo"), hc: getVal("RenewalHC"), toxic: getVal("RenewalToxic"), oxygen: getVal("RenewalOxygen"), precautions: getVal("RenewalPrec"), rejectionReason: getVal("RenewalRemark"), renewalWorkers: selWorkers }; const res = await apiCall('/renewal', 'POST', body); if(res.success) { alert("Done"); showDashboard(); } else alert(res.error); }
         window.showNewPermit = async function() { document.getElementById("pf").reset(); currentPermitId=null; document.getElementById("Status").value="New"; document.getElementById("permit-header-display").innerText = "New Permit"; document.getElementById("permit-worker-audit-display").classList.add("hidden"); document.getElementById("iocl-sup-display-section").classList.add('hidden'); document.getElementById("iocl-reviewer-wrapper").classList.add('hidden'); document.getElementById("iocl-approver-wrapper").classList.add('hidden'); const rS=document.getElementById("ReviewerEmail"), aS=document.getElementById("ApproverEmail"); if(rS && aS) { rS.innerHTML=""; aS.innerHTML=""; if(usersData){ usersData.Reviewers.forEach(u=>rS.innerHTML+=`<option value="${u.email}">${u.name}</option>`); usersData.Approvers.forEach(u=>aS.innerHTML+=`<option value="${u.email}">${u.name}</option>`); } } document.querySelectorAll('input, textarea, select').forEach(e=>e.disabled=false); const safeSet = (id, val) => { const el = document.getElementById(id); if(el) { el.value = val; } }; safeSet("RequesterName", currentUser.name); safeSet("Vendor", currentUser.name); document.getElementById("Vendor").readOnly=true; document.getElementById("RequesterName").disabled=false; await loadWorkers('permit_dropdown'); document.querySelectorAll('#worker-checkboxes input').forEach(c => c.disabled = false); document.getElementById('worker-checkboxes').classList.remove('hidden'); document.getElementById('worker-readonly-table').classList.add('hidden'); document.getElementById("fs-reviewer-section").classList.add('hidden'); document.getElementById("fs-approver-section").classList.add('hidden'); document.getElementById("renewals-section").classList.add('hidden'); document.getElementById("closure-section").classList.add('hidden'); document.getElementById("actions").innerHTML = `<button type="button" onclick="window.savePermit()" class="w-full bg-blue-600 text-white px-6 py-3 rounded-lg font-bold shadow-lg">Submit Permit</button>`; document.getElementById("view-dashboard").classList.add('hidden'); document.getElementById("view-form").classList.remove('hidden'); }
@@ -432,6 +447,7 @@ window.openPermit = async function(id) {
     </script>
 </body>
 </html>
+
 
 
 
