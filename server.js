@@ -428,10 +428,10 @@ app.get('/api/download-pdf/:id', async (req, res) => {
 
         // HEADER E
         if(doc.y>650){doc.addPage(); drawHeaderOnAll(); doc.y=135;}
-        doc.font('Helvetica-Bold').text("E. DETAILS FOR ATTACHMENT", 30, doc.y); doc.y+=15;
+        doc.font('Helvetica-Bold').text("Annexure III: ATTACHMENT TO MAINLINE WORK PERMIT", 30, doc.y); doc.y+=15;
         doc.fontSize(8).font('Helvetica');
-        doc.text(`SOP No: ${d.SopNo||'-'} | JSA No: ${d.JsaNo||'-'}`, 30, doc.y); doc.y+=12;
-        doc.text(`IOCL Equip: ${d.IoclEquip||'-'} | Contractor Equip: ${d.ContEquip||'-'}`, 30, doc.y); doc.y+=12;
+        doc.text(`Approved SOP/SWP/SMP no ${d.SopNo||'-'} | Approved site specific JSA no: ${d.JsaNo||'-'}`, 30, doc.y); doc.y+=12;
+        doc.text(`IOCL Equipment / Machinery deployed at Site ${d.IoclEquip||'-'} | Contractor Equipment / Machinery deployed at Site ${d.ContEquip||'-'}`, 30, doc.y); doc.y+=12;
         doc.text(`Work Order: ${d.WorkOrder||'-'}`, 30, doc.y); doc.y+=20;
 
         // Hazards & PPE
