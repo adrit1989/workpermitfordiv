@@ -15,7 +15,7 @@ app.use(cors());
 app.use(bodyParser.json({ limit: '50mb' }));
 app.use(express.static(path.join(__dirname, '.')));
 
-// --- AZURE STORAGE ---
+// --- 1. AZURE STORAGE ---
 const AZURE_CONN_STR = process.env.AZURE_STORAGE_CONNECTION_STRING;
 let containerClient;
 if (AZURE_CONN_STR) {
@@ -27,11 +27,10 @@ if (AZURE_CONN_STR) {
 }
 const upload = multer({ storage: multer.memoryStorage() });
 
-// --- HELPERS ---
+// --- 2. CRITICAL HELPER FUNCTIONS (MUST BE HERE) ---
 function getNowIST() { 
     return new Date().toLocaleString("en-GB", { 
-        timeZone: "Asia/Kolkata", 
-        day: '2-digit', month: '2-digit', year: 'numeric', 
+        timeZone: "Asia/Kolkata", day: '2-digit', month: '2-digit', year: 'numeric', 
         hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false 
     }).replace(',', ''); 
 }
@@ -46,28 +45,26 @@ function formatDate(dateStr) {
     }).replace(',', '');
 }
 
-// --- FIX: CUSTOM DATE PARSER FOR DD-MM-YYYY ---
+// ** FIX: Custom Date Parser for DD-MM-YYYY **
 function parseInputDate(dateStr) {
-    if (!dateStr) return null;
-    
-    // Check if format is "DD-MM-YYYY HH:mm" (e.g., 13-01-2026 00:10)
-    // We detect this by checking if the 3rd character is a hyphen
-    if (typeof dateStr === 'string' && dateStr.indexOf('-') === 2) {
-        // Split date and time
-        const parts = dateStr.split(' '); 
-        const dateParts = parts[0].split('-'); // [13, 01, 2026]
-        const timePart = parts[1] || '00:00';
-        
-        // Convert to ISO format: YYYY-MM-DDTHH:mm:00 (2026-01-13T00:10:00)
-        const isoStr = `${dateParts[2]}-${dateParts[1]}-${dateParts[0]}T${timePart}:00`;
-        return new Date(isoStr);
+    if (!dateStr) return new Date(); // Default to now if empty to prevent crash
+    try {
+        // Handle "13-01-2026 00:10" format
+        if (typeof dateStr === 'string' && dateStr.indexOf('-') === 2) {
+            const parts = dateStr.split(' '); 
+            const dateParts = parts[0].split('-'); // [13, 01, 2026]
+            const timePart = parts[1] || '00:00';
+            // Convert to ISO: 2026-01-13T00:10:00
+            return new Date(`${dateParts[2]}-${dateParts[1]}-${dateParts[0]}T${timePart}:00`);
+        }
+        return new Date(dateStr);
+    } catch (e) {
+        console.error("Date Parse Error:", e);
+        return new Date(); // Fallback
     }
-    
-    // Fallback for standard ISO strings (YYYY-MM-DD)
-    return new Date(dateStr);
 }
 
-// --- CHECKLIST DATA ---
+// --- 3. CHECKLIST DATA ---
 const CHECKLIST_DATA = {
     A: [ "1. Equipment / Work Area inspected.", "2. Surrounding area checked, cleaned and covered. Oil/RAGS/Grass Etc removed.", "3. Manholes, Sewers, CBD etc. and hot nearby surface covered.", "4. Considered hazards from other routine, non-routine operations and concerned person alerted.", "5. Equipment blinded/ disconnected/ closed/ isolated/ wedge opened.", "6. Equipment properly drained and depressurized.", "7. Equipment properly steamed/purged.", "8. Equipment water flushed.", "9. Access for Free approach of Fire Tender.", "10. Iron Sulfide removed/ Kept wet.", "11. Equipment electrically isolated and tagged vide Permit no.", "12. Gas Test: HC / Toxic / O2 checked.", "13. Running water hose / Fire extinguisher provided. Fire water system available.", "14. Area cordoned off and Precautionary tag/Board provided.", "15. CCTV monitoring facility available at site.", "16. Proper ventilation and Lighting provided." ],
     B: [ "1. Proper means of exit / escape provided.", "2. Standby personnel provided from Mainline/ Maint. / Contractor/HSE.", "3. Checked for oil and Gas trapped behind the lining in equipment.", "4. Shield provided against spark.", "5. Portable equipment / nozzle properly grounded.", "6. Standby persons provided for entry to confined space.", "7. Adequate Communication Provided to Stand by Person.", "8. Attendant Trained Provided With Rescue Equipment/SCABA.", "9. Space Adequately Cooled for Safe Entry Of Person.", "10. Continuous Inert Gas Flow Arranged.", "11. Check For Earthing/ELCB of all Temporary Electrical Connections being used for welding.", "12. Gas Cylinders are kept outside the confined Space.", "13. Spark arrestor Checked on mobile Equipments.", "14. Welding Machine Checked for Safe Location.", "15. Permit taken for working at height Vide Permit No." ],
@@ -75,7 +72,7 @@ const CHECKLIST_DATA = {
     D: [ "1. For excavated trench/ pit proper slop/ shoring/ shuttering provided to prevent soil collapse.", "2. Excavated soil kept at safe distance from trench/pit edge (min. pit depth).", "3. Safe means of access provided inside trench/pit.", "4. Movement of heavy vehicle prohibited." ]
 };
 
-// --- PDF DRAWING ---
+// --- 4. PDF HEADER ---
 function drawHeader(doc, bgColor) {
     if(bgColor && bgColor !== 'Auto' && bgColor !== 'White') {
         const colorMap = { 'Red': '#fee2e2', 'Green': '#dcfce7', 'Yellow': '#fef9c3' };
@@ -94,7 +91,7 @@ function drawHeader(doc, bgColor) {
     doc.text('Doc No: ERPL/HS&E/25-26', startX+405, startY+60); doc.text('Issue No: 01', startX+405, startY+70); doc.text('Date: 01.09.2025', startX+405, startY+80);
 }
 
-// --- API ROUTES ---
+// --- 5. API ROUTES ---
 
 app.post('/api/login', async (req, res) => { try { const pool = await getConnection(); const r = await pool.request().input('r', sql.NVarChar, req.body.role).input('e', sql.NVarChar, req.body.name).input('p', sql.NVarChar, req.body.password).query('SELECT * FROM Users WHERE Role=@r AND Email=@e AND Password=@p'); if(r.recordset.length) res.json({success:true, user:{Name: r.recordset[0].Name, Email: r.recordset[0].Email, Role: r.recordset[0].Role}}); else res.json({success:false}); } catch(e){res.status(500).json({error:e.message})} });
 app.get('/api/users', async (req, res) => { try { const pool = await getConnection(); const r = await pool.request().query('SELECT Name, Email, Role FROM Users'); const mapU = u => ({name: u.Name, email: u.Email, role: u.Role}); res.json({ Requesters: r.recordset.filter(u=>u.Role==='Requester').map(mapU), Reviewers: r.recordset.filter(u=>u.Role==='Reviewer').map(mapU), Approvers: r.recordset.filter(u=>u.Role==='Approver').map(mapU) }); } catch(e){res.status(500).json({error:e.message})} });
@@ -103,66 +100,79 @@ app.post('/api/save-worker', async (req, res) => { try { const { WorkerID, Actio
 app.post('/api/get-workers', async (req, res) => { try { const pool = await getConnection(); const r = await pool.request().query("SELECT * FROM Workers"); const list = r.recordset.map(w => { const d = JSON.parse(w.DataJSON); const details = d.Pending || d.Current || {}; details.IDType = w.IDType || details.IDType; details.ApprovedBy = w.ApprovedBy || details.ApprovedBy; details.ApprovedAt = w.ApprovedOn || details.ApprovedAt; return { ...details, WorkerID: w.WorkerID, Status: w.Status, RequestorEmail: w.RequestorEmail, IsEdit: w.Status.includes('Edit') }; }); if(req.body.context === 'permit_dropdown') res.json(list.filter(w => w.Status === 'Approved')); else { if(req.body.role === 'Requester') res.json(list.filter(w => w.RequestorEmail === req.body.email || w.Status === 'Approved')); else res.json(list); } } catch(e) { res.status(500).json({error: e.message}); } });
 app.post('/api/dashboard', async (req, res) => { try { const { role, email } = req.body; const pool = await getConnection(); const r = await pool.request().query("SELECT PermitID, Status, ValidFrom, ValidTo, RequesterEmail, ReviewerEmail, ApproverEmail, FullDataJSON FROM Permits"); const p = r.recordset.map(x=>({...JSON.parse(x.FullDataJSON), PermitID:x.PermitID, Status:x.Status, ValidFrom:x.ValidFrom})); const f = p.filter(x => (role==='Requester'?x.RequesterEmail===email : true)); res.json(f.sort((a,b)=>b.PermitID.localeCompare(a.PermitID))); } catch(e){res.status(500).json({error:e.message})} });
 
-// --- FIXED SAVE PERMIT (With Date Parser) ---
+// --- 7. SAVE PERMIT (DEBUGGED & ROBUST) ---
 app.post('/api/save-permit', upload.single('file'), async (req, res) => {
     try {
-        if (!req.body.ValidFrom || !req.body.ValidTo) return res.status(400).json({ error: "Start and End dates are required." });
-        
-        // USE THE CUSTOM PARSER HERE
+        console.log("Saving Permit Body:", req.body); // DEBUG LOG
+
+        // 1. Validate & Parse Dates
         const vf = parseInputDate(req.body.ValidFrom); 
         const vt = parseInputDate(req.body.ValidTo);
         
-        if (isNaN(vf.getTime()) || isNaN(vt.getTime())) return res.status(400).json({ error: "Invalid Date Format. Please re-select dates." });
+        if (!vf || !vt || isNaN(vf.getTime()) || isNaN(vt.getTime())) {
+            return res.status(400).json({ error: "Invalid Start/End Dates." });
+        }
         if (vt <= vf) return res.status(400).json({ error: "End date must be after Start date" });
-        if ((vt-vf)/(1000*60*60*24) > 7) return res.status(400).json({ error: "Max 7 days allowed" });
-
+        
+        // 2. Generate/Validate ID
         const pool = await getConnection();
         let pid = req.body.PermitID;
         if (!pid || pid === 'undefined' || pid === 'null' || pid === '') {
             try {
                 const idRes = await pool.request().query("SELECT TOP 1 PermitID FROM Permits ORDER BY Id DESC");
                 if (idRes.recordset.length > 0) {
-                    const lastId = idRes.recordset[0].PermitID; 
-                    const parts = lastId.split('-');
-                    if(parts.length > 1 && !isNaN(parseInt(parts[1]))) {
-                        pid = `WP-${parseInt(parts[1]) + 1}`;
-                    } else {
-                        pid = `WP-${Date.now().toString().slice(-4)}`;
-                    }
-                } else {
-                    pid = 'WP-1001';
-                }
+                    const parts = idRes.recordset[0].PermitID.split('-');
+                    pid = `WP-${parseInt(parts[1] || 1000) + 1}`;
+                } else { pid = 'WP-1001'; }
             } catch(e) { pid = `WP-${Date.now()}`; }
         }
 
+        // 3. Status Check (Editing Allowed?)
         const chk = await pool.request().input('p', pid).query("SELECT Status FROM Permits WHERE PermitID=@p");
         if(chk.recordset.length > 0) {
              const status = chk.recordset[0].Status;
-             if (status === 'Closed' || status.includes('Closed')) return res.status(400).json({error: "Permit is CLOSED. Editing denied."});
+             if (status === 'Closed' || status.includes('Closed')) return res.status(400).json({error: "Permit is CLOSED."});
              if (status !== 'Pending Review' && status !== 'New') return res.status(400).json({error: "Cannot edit active permit"}); 
         }
         
-        let workers = req.body.SelectedWorkers;
-        if (typeof workers === 'string') { try { workers = JSON.parse(workers); } catch (e) { workers = []; } }
+        // 4. Prepare Data
+        let workers = [];
+        try { workers = JSON.parse(req.body.SelectedWorkers || '[]'); } catch (e) {}
         
         const data = { ...req.body, SelectedWorkers: workers, PermitID: pid, CreatedDate: getNowIST() }; 
-        const q = pool.request().input('p', pid).input('s', 'Pending Review').input('w', req.body.WorkType).input('re', req.body.RequesterEmail).input('rv', req.body.ReviewerEmail).input('ap', req.body.ApproverEmail).input('vf', vf).input('vt', vt).input('j', JSON.stringify(data));
         
+        // 5. Construct Query
+        const q = pool.request()
+            .input('p', pid)
+            .input('s', 'Pending Review')
+            .input('w', req.body.WorkType)
+            .input('re', req.body.RequesterEmail)
+            .input('rv', req.body.ReviewerEmail)
+            .input('ap', req.body.ApproverEmail)
+            .input('vf', vf)
+            .input('vt', vt)
+            .input('j', JSON.stringify(data));
+        
+        // Handle Geo - Safe Defaults
         let lat = req.body.Latitude || '';
         let lng = req.body.Longitude || '';
         q.input('lat', sql.NVarChar(50), String(lat)).input('lng', sql.NVarChar(50), String(lng));
 
-        if (chk.recordset.length > 0) await q.query("UPDATE Permits SET FullDataJSON=@j, WorkType=@w, ValidFrom=@vf, ValidTo=@vt, Latitude=@lat, Longitude=@lng WHERE PermitID=@p");
-        else await q.query("INSERT INTO Permits (PermitID, Status, WorkType, RequesterEmail, ReviewerEmail, ApproverEmail, ValidFrom, ValidTo, Latitude, Longitude, FullDataJSON, RenewalsJSON) VALUES (@p, @s, @w, @re, @rv, @ap, @vf, @vt, @lat, @lng, @j, '[]')");
+        // 6. Execute (Update or Insert)
+        if (chk.recordset.length > 0) {
+            await q.query("UPDATE Permits SET FullDataJSON=@j, WorkType=@w, ValidFrom=@vf, ValidTo=@vt, Latitude=@lat, Longitude=@lng WHERE PermitID=@p");
+        } else {
+            await q.query("INSERT INTO Permits (PermitID, Status, WorkType, RequesterEmail, ReviewerEmail, ApproverEmail, ValidFrom, ValidTo, Latitude, Longitude, FullDataJSON, RenewalsJSON) VALUES (@p, @s, @w, @re, @rv, @ap, @vf, @vt, @lat, @lng, @j, '[]')");
+        }
         
         res.json({ success: true, permitId: pid });
     } catch (e) { 
-        console.error("SAVE ERROR:", e); 
+        console.error("FULL SAVE ERROR:", e); // THIS will show in your Azure logs
         res.status(500).json({ error: "Server Error: " + e.message }); 
     }
 });
 
-// 8. UPDATE STATUS
+// --- 8. UPDATE STATUS ---
 app.post('/api/update-status', async (req, res) => {
     try {
         const { PermitID, action, role, user, comment, bgColor, IOCLSupervisors, ...extras } = req.body;
@@ -172,7 +182,7 @@ app.post('/api/update-status', async (req, res) => {
         if(cur.recordset.length === 0) return res.json({error: "Not found"});
         
         let st = cur.recordset[0].Status;
-        if (st === 'Closed') return res.status(400).json({error: "Permit is strictly CLOSED. No further actions allowed."});
+        if (st === 'Closed') return res.status(400).json({error: "Permit is strictly CLOSED."});
         
         let d = JSON.parse(cur.recordset[0].FullDataJSON);
         Object.assign(d, extras);
@@ -197,9 +207,7 @@ app.post('/api/update-status', async (req, res) => {
         else if(action === 'approve' && role === 'Approver') {
             if(st.includes('Closure Pending Approval')) {
                 st = 'Closed'; d.Closure_Issuer_Sig = `${user} on ${now}`; d.Closure_Approver_Date = now;
-            } else {
-                st = 'Active'; d.Approver_Sig = `${user} on ${now}`;
-            }
+            } else { st = 'Active'; d.Approver_Sig = `${user} on ${now}`; }
         }
         else if(action === 'initiate_closure') {
              st = 'Closure Pending Review'; d.Closure_Requestor_Date = now; d.Closure_Receiver_Sig = `${user} on ${now}`;
@@ -214,14 +222,14 @@ app.post('/api/update-status', async (req, res) => {
     } catch(e){ res.status(500).json({error:e.message}); } 
 });
 
-// 9. RENEWAL (Uses Custom Date Parser)
-app.post('/api/renewal', async (req, res) => { try { const { PermitID, userRole, userName, action, rejectionReason, renewalWorkers, ...data } = req.body; const pool = await getConnection(); const cur = await pool.request().input('p', PermitID).query("SELECT RenewalsJSON, Status, ValidFrom, ValidTo FROM Permits WHERE PermitID=@p"); if (cur.recordset[0].Status === 'Closed') { return res.status(400).json({error: "Permit is CLOSED. Renewals are disabled."}); } let r = JSON.parse(cur.recordset[0].RenewalsJSON||"[]"); const now = getNowIST(); if (userRole === 'Requester') { const rs = parseInputDate(data.RenewalValidFrom); const re = parseInputDate(data.RenewalValidTo); const pS = new Date(cur.recordset[0].ValidFrom); const pE = new Date(cur.recordset[0].ValidTo); if (re <= rs) return res.status(400).json({error: "End time > Start time"}); if (rs < pS || re > pE) return res.status(400).json({error: "Must be within permit validity"}); if ((re - rs) / 36e5 > 8) return res.status(400).json({error: "Max 8 hours"}); if(r.length > 0) { const last = r[r.length-1]; if(last.status !== 'rejected' && last.status !== 'approved') return res.status(400).json({error: "Pending renewal exists"}); if(last.status !== 'rejected' && rs < new Date(last.valid_till)) return res.status(400).json({error: "Overlap"}); } r.push({ status: 'pending_review', valid_from: data.RenewalValidFrom, valid_till: data.RenewalValidTo, hc: data.hc, toxic: data.toxic, oxygen: data.oxygen, precautions: data.precautions, req_name: userName, req_at: now, worker_list: renewalWorkers || [] }); } else { const last = r[r.length-1]; if (action === 'reject') { last.status = 'rejected'; last.rej_by = userName; last.rej_at = now; last.rej_reason = rejectionReason; last.rej_role = userRole; } else { last.status = userRole==='Reviewer'?'pending_approval':'approved'; if(userRole==='Reviewer') { last.rev_name = userName; last.rev_at = now; last.rev_rem = rejectionReason; } if(userRole==='Approver') { last.app_name = userName; last.app_at = now; last.app_rem = rejectionReason; } } } let newStatus = r[r.length-1].status==='approved'?'Active':(r[r.length-1].status==='rejected'?'Active':'Renewal Pending ' + (userRole==='Requester'?'Review':'Approval')); await pool.request().input('p', PermitID).input('r', JSON.stringify(r)).input('s', newStatus).query("UPDATE Permits SET RenewalsJSON=@r, Status=@s WHERE PermitID=@p"); res.json({ success: true }); } catch (e) { res.status(500).json({ error: e.message }); } });
+// --- 9. RENEWAL ---
+app.post('/api/renewal', async (req, res) => { try { const { PermitID, userRole, userName, action, rejectionReason, renewalWorkers, ...data } = req.body; const pool = await getConnection(); const cur = await pool.request().input('p', PermitID).query("SELECT RenewalsJSON, Status, ValidFrom, ValidTo FROM Permits WHERE PermitID=@p"); if (cur.recordset[0].Status === 'Closed') { return res.status(400).json({error: "Permit is CLOSED."}); } let r = JSON.parse(cur.recordset[0].RenewalsJSON||"[]"); const now = getNowIST(); if (userRole === 'Requester') { const rs = parseInputDate(data.RenewalValidFrom); const re = parseInputDate(data.RenewalValidTo); const pS = new Date(cur.recordset[0].ValidFrom); const pE = new Date(cur.recordset[0].ValidTo); if (re <= rs) return res.status(400).json({error: "End time > Start time"}); if (rs < pS || re > pE) return res.status(400).json({error: "Must be within permit validity"}); if ((re - rs) / 36e5 > 8) return res.status(400).json({error: "Max 8 hours"}); if(r.length > 0) { const last = r[r.length-1]; if(last.status !== 'rejected' && last.status !== 'approved') return res.status(400).json({error: "Pending renewal exists"}); if(last.status !== 'rejected' && rs < new Date(last.valid_till)) return res.status(400).json({error: "Overlap"}); } r.push({ status: 'pending_review', valid_from: data.RenewalValidFrom, valid_till: data.RenewalValidTo, hc: data.hc, toxic: data.toxic, oxygen: data.oxygen, precautions: data.precautions, req_name: userName, req_at: now, worker_list: renewalWorkers || [] }); } else { const last = r[r.length-1]; if (action === 'reject') { last.status = 'rejected'; last.rej_by = userName; last.rej_at = now; last.rej_reason = rejectionReason; last.rej_role = userRole; } else { last.status = userRole==='Reviewer'?'pending_approval':'approved'; if(userRole==='Reviewer') { last.rev_name = userName; last.rev_at = now; last.rev_rem = rejectionReason; } if(userRole==='Approver') { last.app_name = userName; last.app_at = now; last.app_rem = rejectionReason; } } } let newStatus = r[r.length-1].status==='approved'?'Active':(r[r.length-1].status==='rejected'?'Active':'Renewal Pending ' + (userRole==='Requester'?'Review':'Approval')); await pool.request().input('p', PermitID).input('r', JSON.stringify(r)).input('s', newStatus).query("UPDATE Permits SET RenewalsJSON=@r, Status=@s WHERE PermitID=@p"); res.json({ success: true }); } catch (e) { res.status(500).json({ error: e.message }); } });
 app.post('/api/permit-data', async (req, res) => { try { const pool = await getConnection(); const r = await pool.request().input('p', sql.NVarChar, req.body.permitId).query("SELECT * FROM Permits WHERE PermitID=@p"); if(r.recordset.length) res.json({...JSON.parse(r.recordset[0].FullDataJSON), Status:r.recordset[0].Status, RenewalsJSON:r.recordset[0].RenewalsJSON, FullDataJSON:null}); else res.json({error:"404"}); } catch(e){res.status(500).json({error:e.message})} });
 app.post('/api/map-data', async (req, res) => { try { const pool = await getConnection(); const r = await pool.request().query("SELECT PermitID, FullDataJSON, Latitude, Longitude FROM Permits WHERE Status='Active'"); res.json(r.recordset.map(x=>({PermitID:x.PermitID, lat:parseFloat(x.Latitude), lng:parseFloat(x.Longitude), ...JSON.parse(x.FullDataJSON)}))); } catch(e){res.status(500).json({error:e.message})} });
 app.post('/api/stats', async (req, res) => { try { const pool = await getConnection(); const r = await pool.request().query("SELECT Status, WorkType FROM Permits"); const s={}, t={}; r.recordset.forEach(x=>{s[x.Status]=(s[x.Status]||0)+1; t[x.WorkType]=(t[x.WorkType]||0)+1;}); res.json({success:true, statusCounts:s, typeCounts:t}); } catch(e){res.status(500).json({error:e.message})} });
 app.get('/api/download-excel', async (req, res) => { try { const pool = await getConnection(); const result = await pool.request().query("SELECT * FROM Permits ORDER BY Id DESC"); const workbook = new ExcelJS.Workbook(); const sheet = workbook.addWorksheet('Permits'); sheet.columns = [{header:'Permit ID',key:'id',width:15},{header:'Status',key:'status',width:20},{header:'Work',key:'wt',width:25},{header:'Requester',key:'req',width:25},{header:'Location',key:'loc',width:30},{header:'Vendor',key:'ven',width:20},{header:'Valid From',key:'vf',width:20},{header:'Valid To',key:'vt',width:20}]; sheet.getRow(1).font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 12 }; sheet.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFED7D31' } }; result.recordset.forEach(r => { const d = JSON.parse(r.FullDataJSON || "{}"); sheet.addRow({ id: r.PermitID, status: r.Status, wt: d.WorkType, req: d.RequesterName, loc: d.ExactLocation, ven: d.Vendor, vf: formatDate(r.ValidFrom), vt: formatDate(r.ValidTo) }); }); res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'); res.setHeader('Content-Disposition', 'attachment; filename=IndianOil_Permits.xlsx'); await workbook.xlsx.write(res); res.end(); } catch (e) { res.status(500).send(e.message); } });
 
-// --- PDF GENERATION ROUTE ---
+// --- 10. PDF GENERATION ROUTE ---
 app.get('/api/download-pdf/:id', async (req, res) => {
     try {
         const pool = await getConnection();
