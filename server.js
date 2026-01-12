@@ -428,7 +428,7 @@ app.get('/api/download-pdf/:id', async (req, res) => {
         doc.text(`IOCL Equip: ${d.IoclEquip||'-'} | Contractor Equip: ${d.ContEquip||'-'}`, 30, doc.y); doc.y+=12;
         doc.text(`Work Order: ${d.WorkOrder||'-'}`, 30, doc.y); doc.y+=20;
 
-        // Hazards
+        // Hazards & PPE
         if(doc.y>650){doc.addPage(); drawHeaderOnAll(); doc.y=135;}
         doc.font('Helvetica-Bold').text("HAZARDS & PRECAUTIONS",30,doc.y); doc.y+=15; doc.rect(30,doc.y,535,60).stroke();
         const hazKeys = ["Lack of Oxygen", "H2S", "Toxic Gases", "Combustible gases", "Pyrophoric Iron", "Corrosive Chemicals", "cave in formation"];
@@ -436,6 +436,12 @@ app.get('/api/download-pdf/:id', async (req, res) => {
         doc.text(`Hazards: ${foundHaz.join(', ')}`,35,doc.y+5); 
         const ppeKeys = ["Helmet","Safety Shoes","Hand gloves","Boiler suit","Face Shield","Apron","Goggles","Dust Respirator","Fresh Air Mask","Lifeline","Safety Harness","Airline","Earmuff"];
         const foundPPE = ppeKeys.filter(k => d[`P_${k.replace(/ /g,'')}`] === 'Y');
+        
+        // MODIFIED: Append Additional Precautions (Other PPE) here instead of signature table
+        if(d.AdditionalPrecautions && d.AdditionalPrecautions.trim() !== '') {
+            foundPPE.push(`(Other: ${d.AdditionalPrecautions})`);
+        }
+        
         doc.text(`PPE: ${foundPPE.join(', ')}`,35,doc.y+25); doc.y+=70;
 
         // Workers Table
@@ -467,8 +473,8 @@ app.get('/api/download-pdf/:id', async (req, res) => {
         doc.font('Helvetica-Bold').text("SIGNATURES",30,doc.y); doc.y+=15; const sY=doc.y;
         doc.rect(30,sY,178,40).stroke().text(`REQ: ${d.RequesterName} on ${d.CreatedDate||'-'}`,35,sY+5);
         
-        // MODIFIED: Added Additional Precautions to PDF logic
-        doc.rect(208,sY,178,40).stroke().text(`REV: ${d.Reviewer_Sig||'-'}\nRem: ${d.Reviewer_Remarks||'-'}\nAddn Prec: ${d.AdditionalPrecautions||'-'}`, 213, sY+5, {width:168});
+        // MODIFIED: Removed Additional Precautions from here as requested
+        doc.rect(208,sY,178,40).stroke().text(`REV: ${d.Reviewer_Sig||'-'}\nRem: ${d.Reviewer_Remarks||'-'}`, 213, sY+5, {width:168});
         
         doc.rect(386,sY,179,40).stroke().text(`APP: ${d.Approver_Sig||'-'}`,391,sY+5); doc.y=sY+50;
 
