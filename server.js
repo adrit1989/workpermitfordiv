@@ -273,7 +273,6 @@ app.post('/api/save-permit', upload.single('file'), async (req, res) => {
         // CHECK: Ensure permit is editable
         if(chk.recordset.length > 0) {
              const status = chk.recordset[0].Status;
-             // STRICTLY BLOCK IF CLOSED
              if (status === 'Closed' || status.includes('Closed')) {
                  return res.status(400).json({error: "Permit is CLOSED. Editing denied."});
              }
@@ -316,8 +315,6 @@ app.post('/api/update-status', async (req, res) => {
         if(cur.recordset.length===0) return res.json({error:"Not found"});
         
         let st = cur.recordset[0].Status;
-        
-        // STRICT SECURITY: PREVENT ACTION IF CLOSED
         if (st === 'Closed') {
              return res.status(400).json({error: "Permit is strictly CLOSED. No further actions allowed."});
         }
@@ -340,24 +337,40 @@ app.post('/api/update-status', async (req, res) => {
 
         const now = getNowIST();
 
-        if(action==='reject') { st='Rejected'; }
-        else if(role==='Reviewer' && action==='review') { st='Pending Approval'; d.Reviewer_Sig=`${user} on ${now}`; }
-        else if(role==='Approver' && action==='approve') { 
-            if(st.includes('Closure Pending Approval')) {
-                st = 'Closed'; 
-                d.Closure_Issuer_Sig=`${user} on ${now}`; 
-                d.Closure_Approver_Date=now; 
-            } else {
-                st = 'Active'; 
-                d.Approver_Sig=`${user} on ${now}`; 
-            }
+        // LOGIC FIX: Check specific actions first to avoid status overwrite issues
+        
+        if(action === 'reject_closure') {
+            // FIX C & A: Rejecting closure reverts to Active
+            st = 'Active';
         }
-        else if(action==='initiate_closure') { st='Closure Pending Review'; d.Closure_Requestor_Date=now; d.Closure_Receiver_Sig=`${user} on ${now}`; }
-        else if(action==='reject_closure') { st='Active'; }
-        else if(action==='approve_closure') { 
-            st = 'Closure Pending Approval'; 
-            d.Closure_Reviewer_Sig=`${user} on ${now}`; 
-            d.Closure_Reviewer_Date=now; 
+        else if(action === 'approve_closure') {
+            // FIX C: Reviewer approval moves to pending approval
+            st = 'Closure Pending Approval';
+            d.Closure_Reviewer_Sig = `${user} on ${now}`;
+            d.Closure_Reviewer_Date = now;
+        }
+        else if(action === 'reject') {
+            st = 'Rejected';
+        }
+        else if(action === 'initiate_closure') {
+            st = 'Closure Pending Review';
+            d.Closure_Requestor_Date = now;
+            d.Closure_Receiver_Sig = `${user} on ${now}`;
+        }
+        else if(role === 'Reviewer' && action === 'review') {
+            st = 'Pending Approval';
+            d.Reviewer_Sig = `${user} on ${now}`;
+        }
+        else if(role === 'Approver' && action === 'approve') {
+            // FIX A: Approver Approval logic for Closure vs Normal
+            if(st.includes('Closure Pending Approval')) {
+                st = 'Closed';
+                d.Closure_Issuer_Sig = `${user} on ${now}`;
+                d.Closure_Approver_Date = now;
+            } else {
+                st = 'Active';
+                d.Approver_Sig = `${user} on ${now}`;
+            }
         }
         
         await pool.request().input('p', PermitID).input('s', st).input('j', JSON.stringify(d)).query("UPDATE Permits SET Status=@s, FullDataJSON=@j WHERE PermitID=@p");
@@ -371,7 +384,6 @@ app.post('/api/renewal', async (req, res) => {
         const pool = await getConnection();
         const cur = await pool.request().input('p', PermitID).query("SELECT RenewalsJSON, Status, ValidFrom, ValidTo FROM Permits WHERE PermitID=@p");
         
-        // STRICT SECURITY: PREVENT RENEWAL IF CLOSED
         if (cur.recordset[0].Status === 'Closed') {
              return res.status(400).json({error: "Permit is CLOSED. Renewals are disabled."});
         }
@@ -477,7 +489,7 @@ app.get('/api/download-pdf/:id', async (req, res) => {
         doc.text(`IOCL Equipment: ${d.IoclEquip||'-'} | Contractor Equipment: ${d.ContEquip||'-'}`, 30, doc.y); doc.y+=12;
         doc.text(`Work Order: ${d.WorkOrder||'-'}`, 30, doc.y); doc.y+=20;
 
-        // --- AUTHORIZED SUPERVISORS TABLES (FIXED GAP) ---
+        // --- AUTHORIZED SUPERVISORS TABLES (FIXED GAP AND AUDIT TRAIL) ---
         const drawSupTable = (title, headers, dataRows) => {
              if(doc.y > 650) { doc.addPage(); drawHeaderOnAll(); doc.y=135; }
              doc.font('Helvetica-Bold').text(title, 30, doc.y); 
@@ -487,7 +499,8 @@ app.get('/api/download-pdf/:id', async (req, res) => {
              let hx = 30;
              const headerY = doc.y;
              headers.forEach(h => { doc.rect(hx, headerY, h.w, 15).stroke(); doc.text(h.t, hx+2, headerY+4); hx += h.w; });
-             doc.y += 15; // No gap after header row
+             // Fix B: Explicitly advance Y to remove gap
+             doc.y = headerY + 15; 
              
              // Rows
              doc.font('Helvetica');
@@ -499,18 +512,15 @@ app.get('/api/download-pdf/:id', async (req, res) => {
                  
                  row.forEach((cell, idx) => {
                      doc.rect(rx, rowY, headers[idx].w, rowH).stroke(); 
-                     // Truncate text to fit
                      doc.text(cell, rx+2, rowY+4, {width: headers[idx].w - 4, lineBreak: false, ellipsis: true}); 
                      rx += headers[idx].w;
                  });
-                 doc.y += rowH; // Explicitly increment Y after row is done
+                 doc.y += rowH; 
              });
              doc.y += 10;
         };
 
-        // 1. IOCL Supervisors (Dynamic with Audit Trail)
         const ioclSups = d.IOCLSupervisors || [];
-        // Map all items, including deleted ones (Requirement A: keep name but show audit trail)
         let ioclRows = ioclSups.map(s => {
             let auditText = `Added by ${s.added_by||'-'} on ${s.added_at||'-'}`;
             if(s.is_deleted) auditText = `DELETED by ${s.deleted_by} on ${s.deleted_at}`;
@@ -524,7 +534,6 @@ app.get('/api/download-pdf/:id', async (req, res) => {
             ioclRows
         );
 
-        // 2. Contractor Supervisors (Auto-fetched)
         const contRows = [[d.RequesterName || '-', "Site In-Charge / Requester", d.EmergencyContact || '-']];
         drawSupTable("Authorized Work Supervisor (Contractor)", [{t:"Name", w:180}, {t:"Designation", w:180}, {t:"Contact", w:175}], contRows);
 
