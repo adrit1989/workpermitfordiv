@@ -180,7 +180,7 @@
                 
                 <div id="gsr-container" class="glass border-l-4 border-orange-600 bg-orange-50 hidden">
                     <label class="flex items-start gap-3 p-2 cursor-pointer">
-                        <input type="checkbox" id="gsr-check" class="mt-1 w-6 h-6 text-orange-600 rounded focus:ring-orange-500">
+                        <input type="checkbox" id="gsr-check" name="GSR_Check_Box" class="mt-1 w-6 h-6 text-orange-600 rounded focus:ring-orange-500">
                         <span class="text-sm font-bold text-gray-800 text-justify">
                             I have read, understood and accepted all terms, conditions and non-compliance penalty of IOCL Golden Safety Rules. I shall ensure all workers are complied to all these rules and in case of any violation, penalty will be imposed by IOCL and I shall accept such penalties without any further challenge.
                         </span>
@@ -603,62 +603,58 @@
         }
 
         // --- FIXED SUBMIT LOGIC ---
-      window.savePermit = async function() { 
-    if(!document.getElementById('gsr-check').checked) {
-        alert("You must accept the Golden Safety Rules terms to proceed.");
-        document.getElementById('gsr-container').classList.add('ring-2', 'ring-red-500');
-        setTimeout(()=>document.getElementById('gsr-container').classList.remove('ring-2', 'ring-red-500'), 2000);
-        return;
-    }
-
-    document.getElementById('loader').style.display = 'flex'; 
-    try { 
-        const fd = new FormData(document.getElementById("pf")); 
-        
-        // --- FIX: Only append checkboxes that actually have a 'name' ---
-        document.querySelectorAll('input[type="checkbox"]').forEach(c => {
-            if (c.name) {
-                fd.set(c.name, c.checked ? "Y" : "N");
+        window.savePermit = async function() { 
+            if(!document.getElementById('gsr-check').checked) {
+                alert("You must accept the Golden Safety Rules terms to proceed.");
+                document.getElementById('gsr-container').classList.add('ring-2', 'ring-red-500');
+                setTimeout(()=>document.getElementById('gsr-container').classList.remove('ring-2', 'ring-red-500'), 2000);
+                return;
             }
-        }); 
-        
-        fd.set("GSR_Accepted", "Y"); 
 
-        const selectedWorkers = []; 
-        document.querySelectorAll('#worker-checkboxes input:checked').forEach(c => { selectedWorkers.push(JSON.parse(c.value)); }); 
-        fd.append("SelectedWorkers", JSON.stringify(selectedWorkers)); 
-        
-        if(currentUser && currentUser.Email) {
-            fd.append("RequesterEmail", currentUser.Email); 
-        }
+            document.getElementById('loader').style.display = 'flex'; 
+            try { 
+                const fd = new FormData(document.getElementById("pf")); 
+                document.querySelectorAll('input[type="checkbox"]').forEach(c=>fd.set(c.name, c.checked?"Y":"N")); 
+                
+                fd.set("GSR_Accepted", "Y"); 
 
-        fd.append("Latitude", document.getElementById("Latitude").value || ""); 
-        fd.append("Longitude", document.getElementById("Longitude").value || ""); 
-        
-        if(currentPermitId) fd.set("PermitID", currentPermitId); 
-        
-        const res = await fetch(API+'/save-permit', {method:'POST', body:fd}); 
-        
-        if (!res.ok) {
-            const text = await res.text();
-            console.error("Server Error HTML:", text); 
-            throw new Error(`Server Error (${res.status}). Check console.`);
-        }
+                const selectedWorkers = []; 
+                document.querySelectorAll('#worker-checkboxes input:checked').forEach(c => { selectedWorkers.push(JSON.parse(c.value)); }); 
+                fd.append("SelectedWorkers", JSON.stringify(selectedWorkers)); 
+                
+                if(currentUser && currentUser.Email) {
+                    fd.append("RequesterEmail", currentUser.Email); 
+                }
 
-        const json = await res.json(); 
-        if(json.success){
-            alert("Saved successfully: " + json.permitId); 
-            showDashboard();
-        } else {
-            alert("Error: " + json.error); 
-        }
-    } catch (e) {
-        console.error(e);
-        alert("Submission Failed: " + e.message);
-    } finally { 
-        document.getElementById('loader').style.display = 'none'; 
-    } 
-}}
+                // Handle potentially empty lat/long to prevent null errors
+                fd.append("Latitude", document.getElementById("Latitude").value || ""); 
+                fd.append("Longitude", document.getElementById("Longitude").value || ""); 
+                
+                if(currentPermitId) fd.set("PermitID", currentPermitId); 
+                
+                const res = await fetch(API+'/save-permit', {method:'POST', body:fd}); 
+                
+                // CRITICAL FIX: Handle Server Errors (Status 500) gracefully
+                if (!res.ok) {
+                    const text = await res.text();
+                    console.error("Server Error HTML:", text); 
+                    throw new Error(`Server Error (${res.status}). Check console.`);
+                }
+
+                const json = await res.json(); 
+                if(json.success){
+                    alert("Saved successfully: " + json.permitId); 
+                    showDashboard();
+                } else {
+                    alert("Error: " + json.error); 
+                }
+            } catch (e) {
+                console.error(e);
+                alert("Submission Failed: " + e.message);
+            } finally { 
+                document.getElementById('loader').style.display = 'none'; 
+            } 
+        };
         
         window.checkDate = function() { const vf=new Date(document.getElementById("ValidFrom").value); const vt=new Date(document.getElementById("ValidTo").value); if(vf && vt) { if(vt <= vf) { alert("End time must be greater than Start time"); document.getElementById("ValidTo").value=""; return; } if((vt-vf)/(1000*60*60*24) > 7) { alert("Max 7 Days"); document.getElementById("ValidTo").value=""; } } }
         window.showDashboard = function() { document.getElementById("view-dashboard").classList.remove('hidden'); document.getElementById("view-form").classList.add('hidden'); document.getElementById("view-add-user").classList.add('hidden'); document.getElementById("view-worker-management").classList.add('hidden'); document.getElementById("view-map").classList.add('hidden'); loadDashboard(); }
@@ -709,4 +705,3 @@
     </script>
 </body>
 </html>
-
