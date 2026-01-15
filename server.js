@@ -797,6 +797,19 @@ app.get('/api/download-pdf/:id', async (req, res) => {
         doc.font('Helvetica').fontSize(8);
         renewals.forEach(r => {
              if(ry>700){doc.addPage(); drawHeaderOnAll(); doc.y=135; ry=135;}
+             const reqText = `${r.req_name}\n${r.req_at}`;
+     
+     let revText = r.rev_name ? `${r.rev_name}\n${r.rev_at}` : '-';
+     if(r.rev_rem) revText += `\nRem: ${r.rev_rem}`; // Add Remark
+     
+     let appText = r.app_name ? `${r.app_name}\n${r.app_at}` : '-';
+     if(r.app_rem) appText += `\nRem: ${r.app_rem}`; // Add Remark
+
+     // Handle Rejection logic
+     if (r.status === 'rejected') {
+         const rejText = `REJECTED BY:\n${r.rej_by}\n${r.rej_at}\nReason: ${r.rej_reason}`;
+         if (r.rej_role === 'Reviewer') revText = rejText; else appText = rejText;
+     }
              doc.rect(30,ry,50,55).stroke().text(r.valid_from.replace('T','\n'), 32, ry+5, {width:48});
              doc.rect(80,ry,50,55).stroke().text(r.valid_till.replace('T','\n'), 82, ry+5, {width:48});
              doc.rect(130,ry,60,55).stroke().text(`HC: ${r.hc}\nTox: ${r.toxic}\nO2: ${r.oxygen}`, 132, ry+5, {width:58});
