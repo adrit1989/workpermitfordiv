@@ -59,7 +59,10 @@
 
     <div id="view-login" class="flex items-center justify-center min-h-screen p-4 bg-orange-50">
         <div class="glass w-full max-w-md text-center shadow-xl border-t-4 border-orange-600">
-            <img src="logo.png" alt="IOCL Logo" class="mx-auto h-24 mb-4 object-contain">
+           <div class="flex justify-center items-center gap-4 mb-4">
+    <img src="logo.png" alt="IOCL Logo" class="h-24 object-contain">
+    <img src="rhino.png" alt="Rhino Logo" class="h-24 object-contain">
+</div>
             <h1 class="text-3xl font-extrabold text-orange-600 mb-2">IndianOil</h1>
             <p class="text-gray-500 mb-6 font-semibold"> Mainline Work Permit System (By ERPL)</p>
             <form onsubmit="event.preventDefault(); window.handleLogin();" class="space-y-4 text-left">
@@ -77,7 +80,11 @@
             <img src="safety_banner.png" alt="Golden Safety Rules" class="w-full h-auto rounded-xl shadow-lg border-2 border-orange-600 object-cover">
         </div>
         <div class="flex justify-between items-center mb-4 bg-orange-600 p-4 rounded-xl shadow-lg text-white sticky top-2 z-40">
-            <div class="flex items-center gap-3"><img src="logo.png" alt="Logo" class="h-10 w-10 bg-white rounded-full p-1 object-contain"><div class="flex flex-col"><h1 class="text-lg font-bold leading-tight">e-Permit</h1><span id="user-info" class="text-xs text-orange-100 font-medium"></span></div></div>
+           <div class="flex items-center gap-3">
+    <img src="logo.png" alt="Logo" class="h-10 w-10 bg-white rounded-full p-1 object-contain">
+    <img src="rhino.png" alt="Rhino" class="h-10 w-10 bg-white rounded-full p-1 object-contain">
+    <div class="flex flex-col"><h1 class="text-lg font-bold leading-tight">e-Permit</h1><span id="user-info" class="text-xs text-orange-100 font-medium"></span></div>
+</div>
             <div class="flex gap-2"><button onclick="window.toggleWorkerMode()" class="bg-white/20 p-2 rounded-lg hover:bg-white/30" title="Workers">👷</button><button onclick="window.showMap()" id="btn-header-map" class="bg-white/20 p-2 rounded-lg hover:bg-white/30 hidden" title="Map">🗺️</button><button onclick="location.reload()" class="bg-white/20 p-2 rounded-lg hover:bg-white/30" title="Logout">🚪</button></div>
         </div>
 
@@ -782,3 +789,4 @@
     </script>
 </body>
 </html>
+
