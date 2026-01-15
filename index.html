@@ -166,7 +166,23 @@
 
                 <div id="iocl-sup-display-section" class="glass hidden"><h3 class="section-title">Authorized Supervisors (IOCL)</h3><table class="mobile-table w-full text-xs text-left" id="table-iocl-display"><thead><tr><th>Name</th><th>Designation</th><th>Contact</th><th>Audit</th></tr></thead><tbody></tbody></table></div>
 
-                <div id="renewals-section" class="glass hidden"><h3 class="section-title">Renewals</h3><div id="pending-renewal-display" class="hidden bg-yellow-50 p-4 rounded-lg mb-4 border border-yellow-200"><h4 class="font-bold text-yellow-800 text-sm uppercase">⚠️ Pending Renewal</h4><div class="text-sm grid grid-cols-1 gap-2 mt-2"><div class="flex justify-between border-b pb-1"><span>From:</span> <span id="disp-ren-from" class="font-mono"></span></div><div class="flex justify-between border-b pb-1"><span>To:</span> <span id="disp-ren-to" class="font-mono"></span></div><div class="flex justify-between border-b pb-1"><span>Gas:</span> <span id="disp-ren-gas" class="font-mono"></span></div><div><span>Prec:</span> <span id="disp-ren-prec"></span></div></div></div><div class="overflow-x-auto mb-4"><table class="mobile-table w-full text-xs text-left" id="table-renewals"><thead class="hidden md:table-header-group"><tr><th>Period</th><th>Gas & Precautions</th><th>Workers</th><th>Requester</th><th>Reviewer</th><th>Approver</th><th>Status</th></tr></thead><tbody id="renewals-list" class="divide-y"></tbody></table></div><div id="form-renewal" class="hidden p-4 bg-blue-50 mt-2 rounded-lg border border-blue-100"><div class="grid grid-cols-1 md:grid-cols-5 gap-2 mb-2"><input type="datetime-local" id="RenewalValidFrom"> <input type="datetime-local" id="RenewalValidTo"><div class="flex gap-2"><input id="RenewalHC" placeholder="HC %"> <input id="RenewalToxic" placeholder="Toxic"> <input id="RenewalOxygen" placeholder="O2 %"></div></div><div class="mt-3 border-t border-blue-200 pt-2 bg-white p-2 rounded"><label class="text-xs font-bold text-gray-500 block mb-1">Workers for this Renewal (Optional - Select from Approved)</label><div id="renewal-worker-select" class="grid grid-cols-2 gap-2 max-h-40 overflow-y-auto"></div></div><input id="RenewalPrec" placeholder="Precautions" class="w-full mb-2 mt-3"><button type="button" onclick="window.submitRenewal('approve')" class="w-full bg-blue-600 text-white py-3 rounded-lg font-bold shadow">Submit Renewal</button></div><div id="action-renewal" class="hidden p-4 bg-yellow-50 mt-2 rounded-lg border border-yellow-100"><textarea id="RenewalRemark" placeholder="Rejection Reason / Remarks" class="w-full mb-2"></textarea><div class="grid grid-cols-2 gap-2"><button type="button" onclick="window.submitRenewal('approve')" class="bg-green-600 text-white py-3 rounded-lg font-bold shadow">Approve</button><button type="button" onclick="window.submitRenewal('reject')" class="bg-red-600 text-white py-3 rounded-lg font-bold shadow">Reject</button></div></div></div>
+                <div id="renewals-section" class="glass hidden">
+                    <h3 class="section-title">Renewals</h3>
+                    
+                    <div id="first-renewal-decision" class="hidden mb-4 p-4 border-2 border-purple-500 bg-purple-50 rounded-lg animate-pulse">
+                        <h4 class="font-bold text-purple-900 mb-2">⚡ 1st Renewal Request Action</h4>
+                        <p class="text-sm text-gray-600 mb-2">This permit includes a request for the 1st renewal. Please decide on this renewal now.</p>
+                        <div class="flex gap-4">
+                            <label class="flex items-center gap-2 cursor-pointer font-bold text-green-700">
+                                <input type="radio" name="FirstRenewalAction" value="accept" class="w-5 h-5 accent-green-600"> Recommend / Approve Renewal
+                            </label>
+                            <label class="flex items-center gap-2 cursor-pointer font-bold text-red-700">
+                                <input type="radio" name="FirstRenewalAction" value="reject" class="w-5 h-5 accent-red-600"> Reject Renewal Only
+                            </label>
+                        </div>
+                    </div>
+
+                    <div id="pending-renewal-display" class="hidden bg-yellow-50 p-4 rounded-lg mb-4 border border-yellow-200"><h4 class="font-bold text-yellow-800 text-sm uppercase">⚠️ Pending Renewal</h4><div class="text-sm grid grid-cols-1 gap-2 mt-2"><div class="flex justify-between border-b pb-1"><span>From:</span> <span id="disp-ren-from" class="font-mono"></span></div><div class="flex justify-between border-b pb-1"><span>To:</span> <span id="disp-ren-to" class="font-mono"></span></div><div class="flex justify-between border-b pb-1"><span>Gas:</span> <span id="disp-ren-gas" class="font-mono"></span></div><div><span>Prec:</span> <span id="disp-ren-prec"></span></div></div></div><div class="overflow-x-auto mb-4"><table class="mobile-table w-full text-xs text-left" id="table-renewals"><thead class="hidden md:table-header-group"><tr><th>Period</th><th>Gas & Precautions</th><th>Workers</th><th>Requester</th><th>Reviewer</th><th>Approver</th><th>Status</th></tr></thead><tbody id="renewals-list" class="divide-y"></tbody></table></div><div id="form-renewal" class="hidden p-4 bg-blue-50 mt-2 rounded-lg border border-blue-100"><div class="grid grid-cols-1 md:grid-cols-5 gap-2 mb-2"><input type="datetime-local" id="RenewalValidFrom"> <input type="datetime-local" id="RenewalValidTo"><div class="flex gap-2"><input id="RenewalHC" placeholder="HC %"> <input id="RenewalToxic" placeholder="Toxic"> <input id="RenewalOxygen" placeholder="O2 %"></div></div><div class="mt-3 border-t border-blue-200 pt-2 bg-white p-2 rounded"><label class="text-xs font-bold text-gray-500 block mb-1">Workers for this Renewal (Optional - Select from Approved)</label><div id="renewal-worker-select" class="grid grid-cols-2 gap-2 max-h-40 overflow-y-auto"></div></div><input id="RenewalPrec" placeholder="Precautions" class="w-full mb-2 mt-3"><button type="button" onclick="window.submitRenewal('approve')" class="w-full bg-blue-600 text-white py-3 rounded-lg font-bold shadow">Submit Renewal</button></div><div id="action-renewal" class="hidden p-4 bg-yellow-50 mt-2 rounded-lg border border-yellow-100"><textarea id="RenewalRemark" placeholder="Rejection Reason / Remarks" class="w-full mb-2"></textarea><div class="grid grid-cols-2 gap-2"><button type="button" onclick="window.submitRenewal('approve')" class="bg-green-600 text-white py-3 rounded-lg font-bold shadow">Approve</button><button type="button" onclick="window.submitRenewal('reject')" class="bg-red-600 text-white py-3 rounded-lg font-bold shadow">Reject</button></div></div></div>
                 
                 <div id="closure-section" class="glass hidden">
                     <h3 class="section-title">Closure</h3>
@@ -368,6 +384,28 @@
 
             const r=currentUser.Role, s=p.Status;
             
+            // --- NEW: Update Renewals Table ---
+            const rens = JSON.parse(p.RenewalsJSON || "[]");
+            document.querySelector("#table-renewals tbody").innerHTML = rens.map(r => `<tr><td data-label="Period" class="font-mono text-xs">Start: ${r.valid_from.replace('T',' ')}<br>End: &nbsp;&nbsp;${r.valid_till.replace('T',' ')}</td><td data-label="Gas & Prec"><strong>Gas:</strong> HC:${r.hc}, O2:${r.oxygen}, Tox:${r.toxic}<br><strong>Prec:</strong> ${r.precautions || '-'}</td><td data-label="Workers" class="text-xs text-gray-600">${r.worker_list ? r.worker_list.join(', ') : 'All'}</td><td data-label="Req">${r.req_name}<br><span class="text-[10px] text-gray-500">${r.req_at}</span></td><td data-label="Rev">${r.rev_name||'-'}<br><span class="text-[10px] text-gray-500">${r.rev_at||''}</span></td><td data-label="App">${r.app_name||'-'}<br><span class="text-[10px] text-gray-500">${r.app_at||''}</span></td><td data-label="Status"><span class="font-bold ${r.status==='rejected'?'text-red-600':'text-green-600'}">${r.status}</span></td></tr>`).join('');
+            
+            // Show renewals section if data exists, even if Permit status is New/Pending
+            if (rens.length > 0) {
+                document.getElementById("renewals-section").classList.remove('hidden');
+            }
+
+            // --- NEW: Show Decision Box for 1st Renewal ---
+            document.getElementById("first-renewal-decision").classList.add('hidden');
+            if (rens.length === 1) {
+                // If Reviewer reviewing
+                if (r === 'Reviewer' && s === 'Pending Review' && rens[0].status === 'pending_review') {
+                    document.getElementById("first-renewal-decision").classList.remove('hidden');
+                }
+                // If Approver approving
+                if (r === 'Approver' && s === 'Pending Approval' && rens[0].status === 'pending_approval') {
+                    document.getElementById("first-renewal-decision").classList.remove('hidden');
+                }
+            }
+
             if(s==='Pending Review' && r==='Requester') {
                document.getElementById('worker-checkboxes').classList.remove('hidden');
                document.getElementById('worker-readonly-table').classList.add('hidden');
@@ -391,7 +429,7 @@
 
             if(p.H_Others==='Y') document.getElementById('other-hazard-div').classList.remove('hidden');
 
-            ['fs-reviewer-section', 'fs-approver-section', 'renewals-section', 'closure-section', 'pending-renewal-display', 'action-renewal', 'signature-history', 'iocl-sup-display-section', 'iocl-reviewer-wrapper', 'iocl-approver-wrapper'].forEach(id => document.getElementById(id).classList.add('hidden'));
+            ['fs-reviewer-section', 'fs-approver-section', 'closure-section', 'pending-renewal-display', 'action-renewal', 'signature-history', 'iocl-sup-display-section', 'iocl-reviewer-wrapper', 'iocl-approver-wrapper'].forEach(id => document.getElementById(id).classList.add('hidden'));
             
             document.getElementById("init-renewal-wrapper").classList.add('hidden');
 
@@ -446,9 +484,6 @@
             }
             if(s==='Active' || s.includes('Renewal') || s.includes('Closure') || s==='Closed') {
                 document.getElementById("fs-reviewer-section").classList.remove('hidden'); document.getElementById("fs-approver-section").classList.remove('hidden'); document.getElementById("renewals-section").classList.remove('hidden');
-                
-                const rens = JSON.parse(p.RenewalsJSON || "[]");
-                document.querySelector("#table-renewals tbody").innerHTML = rens.map(r => `<tr><td data-label="Period" class="font-mono text-xs">Start: ${r.valid_from.replace('T',' ')}<br>End: &nbsp;&nbsp;${r.valid_till.replace('T',' ')}</td><td data-label="Gas & Prec"><strong>Gas:</strong> HC:${r.hc}, O2:${r.oxygen}, Tox:${r.toxic}<br><strong>Prec:</strong> ${r.precautions || '-'}</td><td data-label="Workers" class="text-xs text-gray-600">${r.worker_list ? r.worker_list.join(', ') : 'All'}</td><td data-label="Req">${r.req_name}<br><span class="text-[10px] text-gray-500">${r.req_at}</span></td><td data-label="Rev">${r.rev_name||'-'}<br><span class="text-[10px] text-gray-500">${r.rev_at||''}</span></td><td data-label="App">${r.app_name||'-'}<br><span class="text-[10px] text-gray-500">${r.app_at||''}</span></td><td data-label="Status"><span class="font-bold ${r.status==='rejected'?'text-red-600':'text-green-600'}">${r.status}</span></td></tr>`).join('');
                 
                 const last = rens[rens.length-1];
                 
@@ -533,6 +568,17 @@
                 ioclData = window.currentPermitIOCLData || [];
             }
 
+            // --- CHECK FOR 1ST RENEWAL ACTION ---
+            let firstRenewalAction = null;
+            if(!document.getElementById('first-renewal-decision').classList.contains('hidden')) {
+                const radios = document.getElementsByName('FirstRenewalAction');
+                for (const r of radios) { if (r.checked) firstRenewalAction = r.value; }
+                if (!firstRenewalAction && (act === 'review' || act === 'approve')) {
+                    alert("⚠️ Action Required: Please Approve or Reject the attached 1st Renewal Request.");
+                    return;
+                }
+            }
+
             const body = { 
                 PermitID: currentPermitId, action: act, role: currentUser.Role, user: currentUser.name,
                 comment: (currentUser.Role==='Reviewer' ? getVal("Reviewer_Remarks") : getVal("Approver_Remarks")),
@@ -540,7 +586,8 @@
                 Closure_Reviewer_Remarks: getVal("Closure_Reviewer_Remarks"), 
                 Closure_Approver_Remarks: getVal("Closure_Approver_Remarks"),
                 bgColor: getVal("PdfBgColor"), IOCLSupervisors: ioclData,
-                Site_Restored_Check: document.getElementById("Site_Restored_Check").checked ? 'Y' : 'N'
+                Site_Restored_Check: document.getElementById("Site_Restored_Check").checked ? 'Y' : 'N',
+                FirstRenewalAction: firstRenewalAction
             };
             
             if(currentUser.Role === 'Reviewer' && act === 'review') {
@@ -580,6 +627,7 @@
             document.getElementById("iocl-sup-display-section").classList.add('hidden'); 
             document.getElementById("iocl-reviewer-wrapper").classList.add('hidden'); 
             document.getElementById("iocl-approver-wrapper").classList.add('hidden'); 
+            document.getElementById("first-renewal-decision").classList.add('hidden'); // Reset decision box
             
             const rS=document.getElementById("ReviewerEmail"), aS=document.getElementById("ApproverEmail"); 
             if(rS && aS) { rS.innerHTML=""; aS.innerHTML=""; if(usersData){ usersData.Reviewers.forEach(u=>rS.innerHTML+=`<option value="${u.email}">${u.name}</option>`); usersData.Approvers.forEach(u=>aS.innerHTML+=`<option value="${u.email}">${u.name}</option>`); } } 
@@ -602,7 +650,6 @@
             document.getElementById("view-dashboard").classList.add('hidden'); document.getElementById("view-form").classList.remove('hidden'); 
         }
 
-        // --- FIXED SUBMIT LOGIC ---
         window.savePermit = async function() { 
             if(!document.getElementById('gsr-check').checked) {
                 alert("You must accept the Golden Safety Rules terms to proceed.");
@@ -614,7 +661,11 @@
             document.getElementById('loader').style.display = 'flex'; 
             try { 
                 const fd = new FormData(document.getElementById("pf")); 
-                document.querySelectorAll('input[type="checkbox"]').forEach(c=>fd.set(c.name, c.checked?"Y":"N")); 
+                document.querySelectorAll('input[type="checkbox"]').forEach(c => {
+                    if (c.name) {
+                        fd.set(c.name, c.checked ? "Y" : "N");
+                    }
+                }); 
                 
                 fd.set("GSR_Accepted", "Y"); 
 
@@ -626,7 +677,6 @@
                     fd.append("RequesterEmail", currentUser.Email); 
                 }
 
-                // Handle potentially empty lat/long to prevent null errors
                 fd.append("Latitude", document.getElementById("Latitude").value || ""); 
                 fd.append("Longitude", document.getElementById("Longitude").value || ""); 
                 
@@ -634,7 +684,6 @@
                 
                 const res = await fetch(API+'/save-permit', {method:'POST', body:fd}); 
                 
-                // CRITICAL FIX: Handle Server Errors (Status 500) gracefully
                 if (!res.ok) {
                     const text = await res.text();
                     console.error("Server Error HTML:", text); 
@@ -659,7 +708,6 @@
         window.checkDate = function() { const vf=new Date(document.getElementById("ValidFrom").value); const vt=new Date(document.getElementById("ValidTo").value); if(vf && vt) { if(vt <= vf) { alert("End time must be greater than Start time"); document.getElementById("ValidTo").value=""; return; } if((vt-vf)/(1000*60*60*24) > 7) { alert("Max 7 Days"); document.getElementById("ValidTo").value=""; } } }
         window.showDashboard = function() { document.getElementById("view-dashboard").classList.remove('hidden'); document.getElementById("view-form").classList.add('hidden'); document.getElementById("view-add-user").classList.add('hidden'); document.getElementById("view-worker-management").classList.add('hidden'); document.getElementById("view-map").classList.add('hidden'); loadDashboard(); }
         
-        // --- FIXED GPS LOGIC ---
         window.getGeo = function() {
             if (!navigator.geolocation) {
                 alert("Geolocation is not supported by your browser.");
@@ -683,12 +731,10 @@
                 (err) => {
                     btn.innerText = "📍 Retry GPS";
                     btn.disabled = false;
-                    
                     let msg = "Error fetching location.";
                     if (err.code === 1) msg = "Permission denied.";
                     else if (err.code === 2) msg = "Position unavailable.";
                     else if (err.code === 3) msg = "Timeout.";
-                    
                     if (window.location.protocol !== 'https:' && window.location.hostname !== 'localhost') {
                         msg += " \nNOTE: GPS requires HTTPS.";
                     }
