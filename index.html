@@ -61,7 +61,7 @@
         <div class="glass w-full max-w-md text-center shadow-xl border-t-4 border-orange-600">
             <img src="logo.png" alt="IOCL Logo" class="mx-auto h-24 mb-4 object-contain">
             <h1 class="text-3xl font-extrabold text-orange-600 mb-2">IndianOil</h1>
-            <p class="text-gray-500 mb-6 font-semibold">Mainlie Work Permit System (By ERPL)</p>
+            <p class="text-gray-500 mb-6 font-semibold">e-Permit System (ERPL)</p>
             <form onsubmit="event.preventDefault(); window.handleLogin();" class="space-y-4 text-left">
                 <div><label class="text-xs font-bold text-gray-500 uppercase ml-1">Role</label><select id="login-role" class="w-full bg-gray-50 h-12" onchange="window.loadUserNames()"><option value="Requester">Requester</option><option value="Reviewer">Reviewer</option><option value="Approver">Approver</option></select></div>
                 <div><label class="text-xs font-bold text-gray-500 uppercase ml-1">User</label><select id="login-name" class="w-full bg-gray-50 h-12" disabled><option>Loading Users...</option></select></div>
@@ -127,6 +127,7 @@
                             <input name="InitRenTox" placeholder="Tox">
                             <input name="InitRenO2" placeholder="O2 %">
                         </div>
+                        <input name="InitRenPrec" placeholder="Precautions" class="w-full mt-2">
                         <p class="text-[10px] text-gray-400 mt-1">* Applied to all selected workers</p>
                     </div>
                 </div>
@@ -530,133 +531,45 @@ window.openPermit = async function(id) {
     gsrEl.disabled = true;
     document.getElementById("gsr-container").classList.remove('hidden');
 
-    document.getElementById("actions").innerHTML = btns;
-    document.getElementById("view-dashboard").classList.add('hidden'); document.getElementById("view-form").classList.remove('hidden');
+    // (D) RESET INITIAL RENEWAL
+    document.getElementById("chk-init-renewal").checked = false;
+    document.getElementById("div-init-renewal").classList.add('hidden');
+    document.getElementById("init-renewal-wrapper").classList.remove('hidden'); 
+    
+    document.getElementById("actions").innerHTML = `<button type="button" onclick="window.savePermit()" class="w-full bg-blue-600 text-white px-6 py-3 rounded-lg font-bold shadow-lg">Submit Permit</button>`; 
+    document.getElementById("view-dashboard").classList.add('hidden'); document.getElementById("view-form").classList.remove('hidden'); 
 }
 
- window.upd = async function(act) {
-    if(act === 'initiate_closure') {
-        if(!document.getElementById("Site_Restored_Check").checked) { alert("You must certify that the Site is Restored & Cleaned."); return; }
+window.savePermit = async function() { 
+    // GSR VALIDATION
+    if(!document.getElementById('gsr-check').checked) {
+        alert("You must accept the Golden Safety Rules terms to proceed.");
+        document.getElementById('gsr-container').classList.add('ring-2', 'ring-red-500');
+        setTimeout(()=>document.getElementById('gsr-container').classList.remove('ring-2', 'ring-red-500'), 2000);
+        return;
     }
 
-    const getVal = (id) => { const el = document.getElementById(id); return el ? el.value : ''; };
-    
-    // Preserve IOCL Data when non-authorized users update status
-    let ioclData = [];
-    const isReviewerEditing = (currentUser.Role === 'Reviewer' && !document.getElementById('iocl-sup-container-rev').parentElement.classList.contains('hidden'));
-    const isApproverEditing = (currentUser.Role === 'Approver' && !document.getElementById('iocl-sup-container-app').parentElement.classList.contains('hidden'));
+    document.getElementById('loader').style.display = 'flex'; 
+    try { 
+        const fd=new FormData(document.getElementById("pf")); 
+        document.querySelectorAll('input[type="checkbox"]').forEach(c=>fd.set(c.name, c.checked?"Y":"N")); 
+        
+        fd.set("GSR_Accepted", "Y"); // Explicit set
 
-    if (isReviewerEditing) {
-        ioclData = window.getIOCLData('iocl-sup-container-rev');
-    } else if (isApproverEditing) {
-        ioclData = window.getIOCLData('iocl-sup-container-app');
-    } else {
-        // Use existing data so it doesn't get wiped
-        ioclData = window.currentPermitIOCLData || [];
-    }
-
-    const body = { 
-        PermitID: currentPermitId, action: act, role: currentUser.Role, user: currentUser.name,
-        comment: (currentUser.Role==='Reviewer' ? getVal("Reviewer_Remarks") : getVal("Approver_Remarks")),
-        Closure_Requestor_Remarks: getVal("Closure_Requestor_Remarks"), 
-        Closure_Reviewer_Remarks: getVal("Closure_Reviewer_Remarks"), 
-        Closure_Approver_Remarks: getVal("Closure_Approver_Remarks"),
-        bgColor: getVal("PdfBgColor"), IOCLSupervisors: ioclData,
-        Site_Restored_Check: document.getElementById("Site_Restored_Check").checked ? 'Y' : 'N'
-    };
-    
-    if(currentUser.Role === 'Reviewer' && act === 'review') {
-            const fd = new FormData(document.getElementById("pf"));
-            document.querySelectorAll('#hazards-section input[type=checkbox]').forEach(c => body[c.name] = c.checked ? 'Y' : 'N');
-            document.querySelectorAll('#ppe-container input[type=checkbox]').forEach(c => body[c.name] = c.checked ? 'Y' : 'N');
-            body.Reviewer_Remarks = getVal("Reviewer_Remarks"); body.AdditionalPrecautions = getVal("AdditionalPrecautions");
-            if(document.getElementById("H_Others_Detail")) { body.H_Others_Detail = document.getElementById("H_Others_Detail").value; }
-    }
-    if(currentUser.Role === 'Approver' && act === 'approve') { body.Approver_Remarks = getVal("Approver_Remarks"); }
-    
-    const res = await apiCall('/update-status', 'POST', body);
-    if(res.success) showDashboard(); else alert(res.error);
+        const selectedWorkers = []; 
+        document.querySelectorAll('#worker-checkboxes input:checked').forEach(c => { selectedWorkers.push(JSON.parse(c.value)); }); 
+        fd.append("SelectedWorkers", JSON.stringify(selectedWorkers)); 
+        fd.append("RequesterEmail", currentUser.Email); 
+        fd.append("Latitude", document.getElementById("Latitude").value); 
+        fd.append("Longitude", document.getElementById("Longitude").value); 
+        if(currentPermitId) fd.set("PermitID", currentPermitId); 
+        
+        const res=await fetch(API+'/save-permit', {method:'POST', body:fd}); 
+        const json=await res.json(); 
+        if(json.success){alert("Saved: "+json.permitId); showDashboard();} else alert(json.error); 
+    } finally { document.getElementById('loader').style.display = 'none'; } 
 }
 
-    // Renewal Logic to include Worker List
-    window.submitRenewal = async function(act) { 
-        const getVal = (id) => { const el = document.getElementById(id); return el ? el.value : ''; }; 
-        const vf = new Date(getVal("RenewalValidFrom")); const vt = new Date(getVal("RenewalValidTo")); 
-        if (vt <= vf) { alert("End time must be greater than Start time"); return; } 
-        const selWorkers = []; 
-        document.querySelectorAll('.ren-worker-cb:checked').forEach(c => selWorkers.push(c.value)); 
-        const body = { 
-            PermitID: currentPermitId, userRole: currentUser.Role, userName: currentUser.name, action: act, 
-            RenewalValidFrom: getVal("RenewalValidFrom"), RenewalValidTo: getVal("RenewalValidTo"), 
-            hc: getVal("RenewalHC"), toxic: getVal("RenewalToxic"), oxygen: getVal("RenewalOxygen"), 
-            precautions: getVal("RenewalPrec"), rejectionReason: getVal("RenewalRemark"), 
-            renewalWorkers: selWorkers 
-        }; 
-        const res = await apiCall('/renewal', 'POST', body); 
-        if(res.success) { alert("Done"); showDashboard(); } else alert(res.error); 
-    }
-    
-    window.showNewPermit = async function() { 
-        document.getElementById("pf").reset(); currentPermitId=null; 
-        document.getElementById("Status").value="New"; document.getElementById("permit-header-display").innerText = "New Permit"; 
-        document.getElementById("permit-worker-audit-display").classList.add("hidden"); 
-        document.getElementById("iocl-sup-display-section").classList.add('hidden'); 
-        document.getElementById("iocl-reviewer-wrapper").classList.add('hidden'); 
-        document.getElementById("iocl-approver-wrapper").classList.add('hidden'); 
-        
-        const rS=document.getElementById("ReviewerEmail"), aS=document.getElementById("ApproverEmail"); 
-        if(rS && aS) { rS.innerHTML=""; aS.innerHTML=""; if(usersData){ usersData.Reviewers.forEach(u=>rS.innerHTML+=`<option value="${u.email}">${u.name}</option>`); usersData.Approvers.forEach(u=>aS.innerHTML+=`<option value="${u.email}">${u.name}</option>`); } } 
-        document.querySelectorAll('input, textarea, select').forEach(e=>e.disabled=false); 
-        
-        const safeSet = (id, val) => { const el = document.getElementById(id); if(el) { el.value = val; } }; 
-        safeSet("RequesterName", currentUser.name); safeSet("Vendor", currentUser.name); document.getElementById("Vendor").readOnly=true; document.getElementById("RequesterName").disabled=false; 
-        await loadWorkers('permit_dropdown'); document.querySelectorAll('#worker-checkboxes input').forEach(c => c.disabled = false); document.getElementById('worker-checkboxes').classList.remove('hidden'); document.getElementById('worker-readonly-table').classList.add('hidden'); document.getElementById("fs-reviewer-section").classList.add('hidden'); document.getElementById("fs-approver-section").classList.add('hidden'); document.getElementById("renewals-section").classList.add('hidden'); document.getElementById("closure-section").classList.add('hidden'); 
-        
-        // NEW GSR LOGIC: ENABLE FOR NEW
-        const gsrEl = document.getElementById("gsr-check");
-        gsrEl.checked = false;
-        gsrEl.disabled = false;
-        document.getElementById("gsr-container").classList.remove('hidden');
-
-        // (D) RESET INITIAL RENEWAL
-        document.getElementById("chk-init-renewal").checked = false;
-        document.getElementById("div-init-renewal").classList.add('hidden');
-        document.getElementById("init-renewal-wrapper").classList.remove('hidden'); 
-        
-        document.getElementById("actions").innerHTML = `<button type="button" onclick="window.savePermit()" class="w-full bg-blue-600 text-white px-6 py-3 rounded-lg font-bold shadow-lg">Submit Permit</button>`; 
-        document.getElementById("view-dashboard").classList.add('hidden'); document.getElementById("view-form").classList.remove('hidden'); 
-    }
-
-    window.savePermit = async function() { 
-        // GSR VALIDATION
-        if(!document.getElementById('gsr-check').checked) {
-            alert("You must accept the Golden Safety Rules terms to proceed.");
-            document.getElementById('gsr-container').classList.add('ring-2', 'ring-red-500');
-            setTimeout(()=>document.getElementById('gsr-container').classList.remove('ring-2', 'ring-red-500'), 2000);
-            return;
-        }
-
-        document.getElementById('loader').style.display = 'flex'; 
-        try { 
-            const fd=new FormData(document.getElementById("pf")); 
-            document.querySelectorAll('input[type="checkbox"]').forEach(c=>fd.set(c.name, c.checked?"Y":"N")); 
-            
-            fd.set("GSR_Accepted", "Y"); // Explicit set
-
-            const selectedWorkers = []; 
-            document.querySelectorAll('#worker-checkboxes input:checked').forEach(c => { selectedWorkers.push(JSON.parse(c.value)); }); 
-            fd.append("SelectedWorkers", JSON.stringify(selectedWorkers)); 
-            fd.append("RequesterEmail", currentUser.Email); 
-            fd.append("Latitude", document.getElementById("Latitude").value); 
-            fd.append("Longitude", document.getElementById("Longitude").value); 
-            if(currentPermitId) fd.set("PermitID", currentPermitId); 
-            
-            const res=await fetch(API+'/save-permit', {method:'POST', body:fd}); 
-            const json=await res.json(); 
-            if(json.success){alert("Saved: "+json.permitId); showDashboard();} else alert(json.error); 
-        } finally { document.getElementById('loader').style.display = 'none'; } 
-    }
-    
     window.checkDate = function() { const vf=new Date(document.getElementById("ValidFrom").value); const vt=new Date(document.getElementById("ValidTo").value); if(vf && vt) { if(vt <= vf) { alert("End time must be greater than Start time"); document.getElementById("ValidTo").value=""; return; } if((vt-vf)/(1000*60*60*24) > 7) { alert("Max 7 Days"); document.getElementById("ValidTo").value=""; } } }
     window.showDashboard = function() { document.getElementById("view-dashboard").classList.remove('hidden'); document.getElementById("view-form").classList.add('hidden'); document.getElementById("view-add-user").classList.add('hidden'); document.getElementById("view-worker-management").classList.add('hidden'); document.getElementById("view-map").classList.add('hidden'); loadDashboard(); }
     window.getGeo = function() { navigator.geolocation.getCurrentPosition(p=>{ document.getElementById("ExactLocation").value=`${p.coords.latitude}, ${p.coords.longitude}`; document.getElementById("Latitude").value = p.coords.latitude; document.getElementById("Longitude").value = p.coords.longitude; }); }
