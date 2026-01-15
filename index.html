@@ -109,7 +109,6 @@
 
             <form id="pf" class="space-y-4">
                 <input type="hidden" id="PermitID" name="PermitID"><input type="hidden" id="Status" name="Status">
-                
                 <div class="glass"><h3 class="section-title">1. Permit Details</h3><div class="grid grid-cols-1 md:grid-cols-4 gap-4"><div><label class="text-xs font-bold text-gray-500">Work Type</label><select name="WorkType" id="WorkType"><option>Hot</option><option>Cold</option><option>Confined Space</option><option>Excavation</option></select></div><div><label class="text-xs font-bold text-gray-500">Specific Work</label><input name="WorkTypeOther" id="WorkTypeOther"></div><div><label class="text-xs font-bold text-gray-500">Location (GPS) - Optional</label><div class="flex gap-2"><input name="ExactLocation" id="ExactLocation" class="flex-1" placeholder="Coords (Optional)"><button type="button" onclick="window.getGeo()" class="bg-orange-100 text-orange-600 px-4 rounded-lg font-bold border border-orange-200" id="btn-get-geo">📍 GPS</button></div></div><input type="hidden" id="Latitude" name="Latitude"><input type="hidden" id="Longitude" name="Longitude"><div><label class="text-xs font-bold text-gray-500">Location Details</label><input name="WorkLocationDetail" id="WorkLocationDetail"></div><div><label class="text-xs font-bold text-gray-500">Section/Unit</label><input name="LocationUnit" id="LocationUnit" value="Pipeline"></div><div><label class="text-xs font-bold text-gray-500">Valid From</label><input type="datetime-local" name="ValidFrom" id="ValidFrom" onchange="window.checkDate()"></div><div><label class="text-xs font-bold text-gray-500">Valid To</label><input type="datetime-local" name="ValidTo" id="ValidTo" onchange="window.checkDate()"></div><div class="md:col-span-2"><label class="text-xs font-bold text-gray-500">Requester</label><input name="RequesterName" id="RequesterName"></div><div class="md:col-span-2"><label class="text-xs font-bold text-gray-500">Reviewer</label><select name="ReviewerEmail" id="ReviewerEmail"></select></div><div class="md:col-span-2"><label class="text-xs font-bold text-gray-500">Approver</label><select name="ApproverEmail" id="ApproverEmail"></select></div><div><label class="text-xs font-bold text-gray-500">Issued To Dept</label><input name="IssuedToDept" id="IssuedToDept"></div><div><label class="text-xs font-bold text-gray-500">Vendor</label><input name="Vendor" id="Vendor" readonly></div><div><label class="text-xs font-bold text-gray-500">Security Guard</label><input name="SecurityGuard" id="SecurityGuard"></div><div><label class="text-xs font-bold text-gray-500">Emergency Contact</label><input name="EmergencyContact" id="EmergencyContact"></div><div><label class="text-xs font-bold text-gray-500">Fire Stn/Hosp</label><input name="FireStation" id="FireStation"></div><div class="md:col-span-4"><label class="text-xs font-bold text-gray-500">Description</label><textarea name="Desc" id="Desc" rows="2"></textarea></div></div></div>
                 
                 <div id="init-renewal-wrapper" class="glass border-l-4 border-purple-500 bg-purple-50 hidden">
@@ -217,7 +216,7 @@
                 "9. Access for Free approach of Fire Tender.", 
                 "10. Iron Sulfide removed/ Kept wet.", 
                 "11. Equipment electrically isolated and tagged vide Permit no.", 
-                "12. Gas Test: HC / Toxic / O2 checked.", 
+                "12. Gas Test: HC / Toxic / O2 checked.", // Special handling in renderUI
                 "13. Running water hose / Fire extinguisher provided. Fire water system available.", 
                 "14. Area cordoned off and Precautionary tag/Board provided.", 
                 "15. CCTV monitoring facility available at site.", 
@@ -249,6 +248,7 @@
             ] 
         };
         const HAZARDS = ["Lack of Oxygen", "H2S", "Toxic Gases", "Combustible gases", "Pyrophoric Iron", "Corrosive Chemicals", "cave in formation", "Others"];
+        // (C) Added IFR to PPE
         const PPE = ["Helmet", "Safety Shoes", "Hand gloves", "Boiler suit", "Face Shield", "Apron", "Goggles", "Dust Respirator", "Fresh Air Mask", "Lifeline", "Safety Harness", "Airline", "Earmuff", "IFR"];
 
         document.addEventListener("DOMContentLoaded", () => { window.loadUsers(); renderUI(); });
@@ -262,7 +262,9 @@
             } finally { loader.style.display = 'none'; }
         }
 
+        // (B) Master Toggle Logic
         window.toggleSection = function(sec, val) {
+            // Select all radio buttons in this section that match the value (Yes/NA/No)
             const radios = document.querySelectorAll(`input[name^="${sec}_Q"][value="${val}"]`);
             radios.forEach(r => r.checked = true);
         }
@@ -270,6 +272,7 @@
         function renderUI() {
             let h = '';
             ['A','B','C','D'].forEach(sec => {
+                // (B) Added Master Switches Header
                 h += `<div class="glass p-3">
                         <div class="flex justify-between items-center border-b pb-1 mb-2">
                             <div class="font-bold text-orange-700">SECTION ${sec}</div>
@@ -630,6 +633,14 @@
                 if(json.success){alert("Saved: "+json.permitId); showDashboard();} else alert(json.error); 
             } finally { document.getElementById('loader').style.display = 'none'; } 
         }
+        
+        window.checkDate = function() { const vf=new Date(document.getElementById("ValidFrom").value); const vt=new Date(document.getElementById("ValidTo").value); if(vf && vt) { if(vt <= vf) { alert("End time must be greater than Start time"); document.getElementById("ValidTo").value=""; return; } if((vt-vf)/(1000*60*60*24) > 7) { alert("Max 7 Days"); document.getElementById("ValidTo").value=""; } } }
+        window.showDashboard = function() { document.getElementById("view-dashboard").classList.remove('hidden'); document.getElementById("view-form").classList.add('hidden'); document.getElementById("view-add-user").classList.add('hidden'); document.getElementById("view-worker-management").classList.add('hidden'); document.getElementById("view-map").classList.add('hidden'); loadDashboard(); }
+        window.getGeo = function() { navigator.geolocation.getCurrentPosition(p=>{ document.getElementById("ExactLocation").value=`${p.coords.latitude}, ${p.coords.longitude}`; document.getElementById("Latitude").value = p.coords.latitude; document.getElementById("Longitude").value = p.coords.longitude; }); }
+        window.showAddUser = function() { document.getElementById("view-add-user").classList.remove('hidden'); }
+        window.submitNewUser = async function() { const n=document.getElementById("new-user-name").value; const e=document.getElementById("new-user-email").value; const r=document.getElementById("new-user-role").value; const p=document.getElementById("new-user-pass").value; const res=await apiCall('/add-user','POST',{name:n,email:e,role:r,password:p}); if(res.success){alert("User Added"); document.getElementById("view-add-user").classList.add('hidden');} else alert(res.error); }
+        window.showMap = function() { document.getElementById("view-dashboard").classList.add('hidden'); document.getElementById("view-map").classList.remove('hidden'); loadMapData(); }
+        async function loadMapData() { const p = await apiCall('/map-data', 'POST'); if(!mapInstance) mapInstance=new google.maps.Map(document.getElementById("map"),{center:{lat:22.57,lng:88.36},zoom:5}); const listEl = document.getElementById("map-list-content"); listEl.innerHTML = ""; const infoWindow = new google.maps.InfoWindow(); p.forEach(x => { const marker = new google.maps.Marker({position:{lat:x.lat,lng:x.lng}, map:mapInstance, title:x.PermitID}); const content = `<div><b>${x.PermitID}</b><br>Loc: ${x.ExactLocation}<br>Req: ${x.RequesterName}<br>Valid: ${x.ValidTo}</div>`; marker.addListener("click", () => { infoWindow.setContent(content); infoWindow.open(mapInstance, marker); }); const item = document.createElement("div"); item.className = "p-3 border-b cursor-pointer hover:bg-orange-50 text-sm flex justify-between"; item.innerHTML = `<div><b>${x.PermitID}</b><div class="text-xs text-gray-500">${x.ExactLocation}</div></div><div class="text-xs font-bold text-orange-600">${x.WorkType}</div>`; item.onclick = () => { mapInstance.setCenter({lat:x.lat,lng:x.lng}); mapInstance.setZoom(12); infoWindow.setContent(`<b>${x.PermitID}</b><br>${x.WorkType}`); infoWindow.open(mapInstance, marker); }; listEl.appendChild(item); }); }
     </script>
 </body>
 </html>
