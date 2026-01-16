@@ -114,7 +114,7 @@
             <div class="flex items-center gap-2 mb-2"><button onclick="window.showDashboard()" class="bg-white border text-gray-600 px-3 py-2 rounded-lg font-bold shadow-sm">← Back</button><div id="permit-header-display" class="flex-1 p-2 bg-blue-100 text-blue-800 rounded-lg font-bold text-center text-sm truncate"></div></div>
             <div id="permit-worker-audit-display" class="glass border-l-4 border-orange-500 mb-4 hidden"><h3 class="font-bold border-b pb-2 mb-2 text-orange-800">Deployed Workers & Approval Status</h3><div id="assigned-worker-audit" class="overflow-x-auto"></div></div>
 
-            <form id="pf" class="space-y-4">
+            <form id="pf" class="space-y-4" enctype="multipart/form-data">
                 <input type="hidden" id="PermitID" name="PermitID"><input type="hidden" id="Status" name="Status">
                 <div class="glass"><h3 class="section-title">1. Permit Details</h3><div class="grid grid-cols-1 md:grid-cols-4 gap-4"><div><label class="text-xs font-bold text-gray-500">Work Type</label><select name="WorkType" id="WorkType"><option>Hot</option><option>Cold</option><option>Confined Space</option><option>Excavation</option></select></div><div><label class="text-xs font-bold text-gray-500">Specific Work</label><input name="WorkTypeOther" id="WorkTypeOther"></div><div><label class="text-xs font-bold text-gray-500">Location (GPS) - Optional</label><div class="flex gap-2"><input name="ExactLocation" id="ExactLocation" class="flex-1" placeholder="Coords (Optional)"><button type="button" onclick="window.getGeo()" class="bg-orange-100 text-orange-600 px-4 rounded-lg font-bold border border-orange-200" id="btn-get-geo">📍 GPS</button></div></div><input type="hidden" id="Latitude" name="Latitude"><input type="hidden" id="Longitude" name="Longitude"><div><label class="text-xs font-bold text-gray-500">Location Details</label><input name="WorkLocationDetail" id="WorkLocationDetail"></div><div><label class="text-xs font-bold text-gray-500">Section/Unit</label><input name="LocationUnit" id="LocationUnit" value="Pipeline"></div><div><label class="text-xs font-bold text-gray-500">Valid From</label><input type="datetime-local" name="ValidFrom" id="ValidFrom" onchange="window.checkDate()"></div><div><label class="text-xs font-bold text-gray-500">Valid To</label><input type="datetime-local" name="ValidTo" id="ValidTo" onchange="window.checkDate()"></div><div class="md:col-span-2"><label class="text-xs font-bold text-gray-500">Requester</label><input name="RequesterName" id="RequesterName"></div><div class="md:col-span-2"><label class="text-xs font-bold text-gray-500">Reviewer</label><select name="ReviewerEmail" id="ReviewerEmail"></select></div><div class="md:col-span-2"><label class="text-xs font-bold text-gray-500">Approver</label><select name="ApproverEmail" id="ApproverEmail"></select></div><div><label class="text-xs font-bold text-gray-500">Issued To Dept</label><input name="IssuedToDept" id="IssuedToDept"></div><div><label class="text-xs font-bold text-gray-500">Vendor</label><input name="Vendor" id="Vendor" readonly></div><div><label class="text-xs font-bold text-gray-500">Security Guard</label><input name="SecurityGuard" id="SecurityGuard"></div><div><label class="text-xs font-bold text-gray-500">Emergency Contact</label><input name="EmergencyContact" id="EmergencyContact"></div><div><label class="text-xs font-bold text-gray-500">Fire Stn/Hosp</label><input name="FireStation" id="FireStation"></div><div class="md:col-span-4"><label class="text-xs font-bold text-gray-500">Description</label><textarea name="Desc" id="Desc" rows="2"></textarea></div></div></div>
                 
@@ -135,6 +135,10 @@
                             <input name="InitRenO2" placeholder="O2 %">
                         </div>
                         <input name="InitRenPrec" placeholder="Special Precautions for Renewal" class="w-full mt-2">
+                         <div class="mt-2 border-t pt-2">
+                            <label class="text-xs font-bold text-red-600 uppercase block mb-1">Mandatory Photo (1st Renewal)</label>
+                            <input type="file" id="ren-cam-1" name="InitRenImage" accept="image/*" capture="environment" class="text-sm">
+                        </div>
                         <p class="text-[10px] text-gray-400 mt-1">* Applied to all selected workers</p>
                     </div>
                 </div>
@@ -189,7 +193,12 @@
                         </div>
                     </div>
 
-                    <div id="pending-renewal-display" class="hidden bg-yellow-50 p-4 rounded-lg mb-4 border border-yellow-200"><h4 class="font-bold text-yellow-800 text-sm uppercase">⚠️ Pending Renewal</h4><div class="text-sm grid grid-cols-1 gap-2 mt-2"><div class="flex justify-between border-b pb-1"><span>From:</span> <span id="disp-ren-from" class="font-mono"></span></div><div class="flex justify-between border-b pb-1"><span>To:</span> <span id="disp-ren-to" class="font-mono"></span></div><div class="flex justify-between border-b pb-1"><span>Gas:</span> <span id="disp-ren-gas" class="font-mono"></span></div><div><span>Prec:</span> <span id="disp-ren-prec"></span></div></div></div><div class="overflow-x-auto mb-4"><table class="mobile-table w-full text-xs text-left" id="table-renewals"><thead class="hidden md:table-header-group"><tr><th>Period</th><th>Gas & Precautions</th><th>Workers</th><th>Requester</th><th>Reviewer</th><th>Approver</th><th>Status</th></tr></thead><tbody id="renewals-list" class="divide-y"></tbody></table></div><div id="form-renewal" class="hidden p-4 bg-blue-50 mt-2 rounded-lg border border-blue-100"><div class="grid grid-cols-1 md:grid-cols-5 gap-2 mb-2"><input type="datetime-local" id="RenewalValidFrom"> <input type="datetime-local" id="RenewalValidTo"><div class="flex gap-2"><input id="RenewalHC" placeholder="HC %"> <input id="RenewalToxic" placeholder="Toxic"> <input id="RenewalOxygen" placeholder="O2 %"></div></div><div class="mt-3 border-t border-blue-200 pt-2 bg-white p-2 rounded"><label class="text-xs font-bold text-gray-500 block mb-1">Workers for this Renewal (Optional - Select from Approved)</label><div id="renewal-worker-select" class="grid grid-cols-2 gap-2 max-h-40 overflow-y-auto"></div></div><input id="RenewalPrec" placeholder="Precautions" class="w-full mb-2 mt-3"><button type="button" onclick="window.submitRenewal('approve')" class="w-full bg-blue-600 text-white py-3 rounded-lg font-bold shadow">Submit Renewal</button></div><div id="action-renewal" class="hidden p-4 bg-yellow-50 mt-2 rounded-lg border border-yellow-100"><textarea id="RenewalRemark" placeholder="Rejection Reason / Remarks" class="w-full mb-2"></textarea><div class="grid grid-cols-2 gap-2"><button type="button" onclick="window.submitRenewal('approve')" class="bg-green-600 text-white py-3 rounded-lg font-bold shadow">Approve</button><button type="button" onclick="window.submitRenewal('reject')" class="bg-red-600 text-white py-3 rounded-lg font-bold shadow">Reject</button></div></div></div>
+                    <div id="pending-renewal-display" class="hidden bg-yellow-50 p-4 rounded-lg mb-4 border border-yellow-200"><h4 class="font-bold text-yellow-800 text-sm uppercase">⚠️ Pending Renewal</h4><div class="text-sm grid grid-cols-1 gap-2 mt-2"><div class="flex justify-between border-b pb-1"><span>From:</span> <span id="disp-ren-from" class="font-mono"></span></div><div class="flex justify-between border-b pb-1"><span>To:</span> <span id="disp-ren-to" class="font-mono"></span></div><div class="flex justify-between border-b pb-1"><span>Gas:</span> <span id="disp-ren-gas" class="font-mono"></span></div><div><span>Prec:</span> <span id="disp-ren-prec"></span></div></div></div><div class="overflow-x-auto mb-4"><table class="mobile-table w-full text-xs text-left" id="table-renewals"><thead class="hidden md:table-header-group"><tr><th>Period</th><th>Gas & Precautions</th><th>Workers</th><th>Photo</th><th>Requester</th><th>Reviewer</th><th>Approver</th><th>Status</th></tr></thead><tbody id="renewals-list" class="divide-y"></tbody></table></div><div id="form-renewal" class="hidden p-4 bg-blue-50 mt-2 rounded-lg border border-blue-100"><div class="grid grid-cols-1 md:grid-cols-5 gap-2 mb-2"><input type="datetime-local" id="RenewalValidFrom"> <input type="datetime-local" id="RenewalValidTo"><div class="flex gap-2"><input id="RenewalHC" placeholder="HC %"> <input id="RenewalToxic" placeholder="Toxic"> <input id="RenewalOxygen" placeholder="O2 %"></div></div><div class="mt-3 border-t border-blue-200 pt-2 bg-white p-2 rounded"><label class="text-xs font-bold text-gray-500 block mb-1">Workers for this Renewal (Optional - Select from Approved)</label><div id="renewal-worker-select" class="grid grid-cols-2 gap-2 max-h-40 overflow-y-auto"></div></div><input id="RenewalPrec" placeholder="Precautions" class="w-full mb-2 mt-3">
+                    <div class="mt-2 bg-white p-2 rounded border border-red-200">
+                        <label class="text-xs font-bold text-red-600 uppercase block mb-1">Mandatory Photo (Current Renewal)</label>
+                        <input type="file" id="ren-cam-sub" accept="image/*" capture="environment" class="text-sm w-full">
+                    </div>
+                    <button type="button" onclick="window.submitRenewal('approve')" class="w-full bg-blue-600 text-white py-3 rounded-lg font-bold shadow mt-2">Submit Renewal</button></div><div id="action-renewal" class="hidden p-4 bg-yellow-50 mt-2 rounded-lg border border-yellow-100"><textarea id="RenewalRemark" placeholder="Rejection Reason / Remarks" class="w-full mb-2"></textarea><div class="grid grid-cols-2 gap-2"><button type="button" onclick="window.submitRenewal('approve')" class="bg-green-600 text-white py-3 rounded-lg font-bold shadow">Approve</button><button type="button" onclick="window.submitRenewal('reject')" class="bg-red-600 text-white py-3 rounded-lg font-bold shadow">Reject</button></div></div></div>
                 
                 <div id="closure-section" class="glass hidden">
                     <h3 class="section-title">Closure</h3>
@@ -308,7 +317,7 @@
                     const id = `${sec}_Q${i+1}`;
                     let remInput = `<input name="${id}_Detail" placeholder="Rem" class="text-sm mt-2 w-full border-gray-200">`;
                     if(sec==='A' && i===11) {
-                         remInput = `<div class="flex gap-1 mt-2"><input name="GP_Q12_HC" placeholder="HC % LEL" class="w-1/3"><input name="GP_Q12_ToxicGas" placeholder="Tox PPM" class="w-1/3"><input name="GP_Q12_Oxygen" placeholder="O2 %" class="w-1/3"></div>`;
+                          remInput = `<div class="flex gap-1 mt-2"><input name="GP_Q12_HC" placeholder="HC % LEL" class="w-1/3"><input name="GP_Q12_ToxicGas" placeholder="Tox PPM" class="w-1/3"><input name="GP_Q12_Oxygen" placeholder="O2 %" class="w-1/3"></div>`;
                     }
                     return `<div class="mb-4 pb-2 border-b border-gray-100 last:border-0"><div class="text-sm font-medium text-gray-800 mb-2">${t}</div><div class="flex justify-between items-center bg-gray-50 p-2 rounded"><div class="flex gap-4"><label class="flex items-center gap-1"><input type="radio" name="${id}" value="Yes" checked class="w-5 h-5"> <span class="text-sm">Yes</span></label><label class="flex items-center gap-1"><input type="radio" name="${id}" value="NA" class="w-5 h-5"> <span class="text-sm">NA</span></label><label class="flex items-center gap-1"><input type="radio" name="${id}" value="No" class="w-5 h-5"> <span class="text-sm">No</span></label></div></div>${remInput}</div>`;
                 }).join('');
@@ -394,7 +403,7 @@
             
             // Update Renewals Table
             const rens = JSON.parse(p.RenewalsJSON || "[]");
-            document.querySelector("#table-renewals tbody").innerHTML = rens.map(r => `<tr><td data-label="Period" class="font-mono text-xs">Start: ${r.valid_from.replace('T',' ')}<br>End: &nbsp;&nbsp;${r.valid_till.replace('T',' ')}</td><td data-label="Gas & Prec"><strong>Gas:</strong> HC:${r.hc}, O2:${r.oxygen}, Tox:${r.toxic}<br><strong>Prec:</strong> ${r.precautions || '-'}</td><td data-label="Workers" class="text-xs text-gray-600">${r.worker_list ? r.worker_list.join(', ') : 'All'}</td><td data-label="Req">${r.req_name}<br><span class="text-[10px] text-gray-500">${r.req_at}</span></td><td data-label="Rev">${r.rev_name||'-'}<br><span class="text-[10px] text-gray-500">${r.rev_at||''}</span></td><td data-label="App">${r.app_name||'-'}<br><span class="text-[10px] text-gray-500">${r.app_at||''}</span></td><td data-label="Status"><span class="font-bold ${r.status==='rejected'?'text-red-600':'text-green-600'}">${r.status}</span></td></tr>`).join('');
+            document.querySelector("#table-renewals tbody").innerHTML = rens.map(r => `<tr><td data-label="Period" class="font-mono text-xs">Start: ${r.valid_from.replace('T',' ')}<br>End: &nbsp;&nbsp;${r.valid_till.replace('T',' ')}</td><td data-label="Gas & Prec"><strong>Gas:</strong> HC:${r.hc}, O2:${r.oxygen}, Tox:${r.toxic}<br><strong>Prec:</strong> ${r.precautions || '-'}</td><td data-label="Workers" class="text-xs text-gray-600">${r.worker_list ? r.worker_list.join(', ') : 'All'}</td><td data-label="Photo">${r.photoUrl ? `<a href="${r.photoUrl}" target="_blank" class="text-blue-600 font-bold underline text-xs">View Photo</a>` : 'N/A'}</td><td data-label="Req">${r.req_name}<br><span class="text-[10px] text-gray-500">${r.req_at}</span></td><td data-label="Rev">${r.rev_name||'-'}<br><span class="text-[10px] text-gray-500">${r.rev_at||''}</span></td><td data-label="App">${r.app_name||'-'}<br><span class="text-[10px] text-gray-500">${r.app_at||''}</span></td><td data-label="Status"><span class="font-bold ${r.status==='rejected'?'text-red-600':'text-green-600'}">${r.status}</span></td></tr>`).join('');
             
             if (rens.length > 0) {
                 document.getElementById("renewals-section").classList.remove('hidden');
@@ -618,20 +627,45 @@
         }
 
         window.submitRenewal = async function(act) { 
+            if(currentUser.Role === 'Requester') {
+                const fileInput = document.getElementById("ren-cam-sub");
+                if(!fileInput.files || fileInput.files.length === 0) {
+                     alert("MANDATORY: You must capture a photo for this renewal.");
+                     return;
+                }
+            }
             const getVal = (id) => { const el = document.getElementById(id); return el ? el.value : ''; }; 
             const vf = new Date(getVal("RenewalValidFrom")); const vt = new Date(getVal("RenewalValidTo")); 
             if (vt <= vf) { alert("End time must be greater than Start time"); return; } 
+            
             const selWorkers = []; 
             document.querySelectorAll('.ren-worker-cb:checked').forEach(c => selWorkers.push(c.value)); 
-            const body = { 
-                PermitID: currentPermitId, userRole: currentUser.Role, userName: currentUser.name, action: act, 
-                RenewalValidFrom: getVal("RenewalValidFrom"), RenewalValidTo: getVal("RenewalValidTo"), 
-                hc: getVal("RenewalHC"), toxic: getVal("RenewalToxic"), oxygen: getVal("RenewalOxygen"), 
-                precautions: getVal("RenewalPrec"), rejectionReason: getVal("RenewalRemark"), 
-                renewalWorkers: selWorkers 
-            }; 
-            const res = await apiCall('/renewal', 'POST', body); 
-            if(res.success) { alert("Done"); showDashboard(); } else alert(res.error); 
+            
+            const fd = new FormData();
+            fd.append('PermitID', currentPermitId);
+            fd.append('userRole', currentUser.Role);
+            fd.append('userName', currentUser.name);
+            fd.append('action', act);
+            fd.append('RenewalValidFrom', getVal("RenewalValidFrom"));
+            fd.append('RenewalValidTo', getVal("RenewalValidTo"));
+            fd.append('hc', getVal("RenewalHC"));
+            fd.append('toxic', getVal("RenewalToxic"));
+            fd.append('oxygen', getVal("RenewalOxygen"));
+            fd.append('precautions', getVal("RenewalPrec"));
+            fd.append('rejectionReason', getVal("RenewalRemark"));
+            fd.append('renewalWorkers', JSON.stringify(selWorkers));
+            
+            if(currentUser.Role === 'Requester') {
+                fd.append('RenewalImage', document.getElementById("ren-cam-sub").files[0]);
+            }
+
+            loader.style.display = 'flex';
+            try {
+                 const res = await fetch(API+'/renewal', {method:'POST', body:fd});
+                 const json = await res.json();
+                 if(json.success) { alert("Done"); showDashboard(); } else alert(json.error); 
+            } catch(e) { console.error(e); alert("Failed: " + e.message); }
+            finally { loader.style.display = 'none'; }
         }
         
         window.showNewPermit = async function() { 
@@ -689,6 +723,13 @@
                 // Use getTime() for safer comparisons
                 if (rStart.getTime() < pStart.getTime() || rEnd.getTime() > pEnd.getTime()) { alert("1st Renewal must be within the Permit Validity period."); return; }
                 if ((rEnd - rStart) > (8 * 60 * 60 * 1000)) { alert("1st Renewal duration cannot exceed 8 hours."); return; }
+
+                // Check for Photo
+                const photoInput = document.getElementById('ren-cam-1');
+                if (!photoInput.files || photoInput.files.length === 0) {
+                     alert("MANDATORY: You must capture a photo for the 1st Renewal.");
+                     return;
+                }
             }
 
             document.getElementById('loader').style.display = 'flex'; 
@@ -789,4 +830,3 @@
     </script>
 </body>
 </html>
-
