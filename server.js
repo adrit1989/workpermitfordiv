@@ -1006,25 +1006,69 @@ app.get('/api/download-excel', authenticateToken, async (req, res) => {
 });
 
 app.get('/api/download-pdf/:id', authenticateToken, async (req, res) => {
-    try {
-        const pool = await getConnection();
-        const result = await pool.request().input('p', req.params.id).query("SELECT * FROM Permits WHERE PermitID = @p");
-        if (!result.recordset.length) return res.status(404).send('Not Found');
-        const p = result.recordset[0];
-        const d = p.FullDataJSON ? JSON.parse(p.FullDataJSON) : {};
-        const renewals = p.RenewalsJSON ? JSON.parse(p.RenewalsJSON) : [];
-        const doc = new PDFDocument({ margin: 30, size: 'A4', bufferPages: true });
-        res.setHeader('Content-Type', 'application/pdf');
-        res.setHeader('Content-Disposition', `attachment; filename=${p.PermitID}.pdf`);
-        doc.pipe(res);
-        await drawPermitPDF(doc, p, d, renewals);
-        doc.end();
-    } catch (e) {
-        console.error(e);
-        res.status(500).send(e.message);
-    }
-});
+    try {
+        const pool = await getConnection();
+        const result = await pool.request().input('p', req.params.id).query("SELECT * FROM Permits WHERE PermitID = @p");
+        if (!result.recordset.length) return res.status(404).send('Not Found');
+        
+        const p = result.recordset[0];
 
+        // --- FIX STARTS HERE ---
+        // 1. Check if the permit is Closed and has a stored URL
+        if ((p.Status === 'Closed' || p.Status.includes('Closure')) && p.FinalPdfUrl) {
+            
+            if (!containerClient) {
+                console.error("Azure Container Client not initialized");
+                return res.status(500).send("Storage Error");
+            }
+
+            try {
+                // Reconstruct the blob name based on how you saved it in /api/update-status
+                // Format used in saving: `closed-permits/${PermitID}_FINAL.pdf`
+                const blobName = `closed-permits/${p.PermitID}_FINAL.pdf`;
+                const blockBlobClient = containerClient.getBlockBlobClient(blobName);
+
+                // Check if blob exists
+                const exists = await blockBlobClient.exists();
+                if (!exists) {
+                    console.error("Blob not found in Azure:", blobName);
+                    return res.status(404).send("Archived PDF not found.");
+                }
+
+                // Download and stream to response
+                const downloadBlockBlobResponse = await blockBlobClient.download(0);
+                
+                res.setHeader('Content-Type', 'application/pdf');
+                res.setHeader('Content-Disposition', `attachment; filename=${p.PermitID}.pdf`);
+                
+                // Pipe the Azure stream directly to the Express response
+                downloadBlockBlobResponse.readableStreamBody.pipe(res);
+                return; // Stop here, do not generate fresh PDF
+
+            } catch (azureError) {
+                console.error("Azure Download Error:", azureError.message);
+                return res.status(500).send("Error retrieving file from storage.");
+            }
+        }
+        // --- FIX ENDS HERE ---
+
+        // 2. Fallback logic for ACTIVE permits (Generating on the fly)
+        const d = p.FullDataJSON ? JSON.parse(p.FullDataJSON) : {};
+        const renewals = p.RenewalsJSON ? JSON.parse(p.RenewalsJSON) : [];
+        
+        const doc = new PDFDocument({ margin: 30, size: 'A4', bufferPages: true });
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `attachment; filename=${p.PermitID}.pdf`);
+        
+        doc.pipe(res);
+        await drawPermitPDF(doc, p, d, renewals);
+        doc.end();
+
+    } catch (e) {
+        console.error(e);
+        if (!res.headersSent) res.status(500).send(e.message);
+    }
+});
 // START SERVER
 const PORT = process.env.PORT || 8080;
 app.listen(PORT, () => console.log('Server running on port ' + PORT));
