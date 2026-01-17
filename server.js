@@ -946,7 +946,8 @@ app.post('/api/permit-data', async (req, res) => {
             res.json({ 
                 ...data, 
                 Status: r.recordset[0].Status, 
-                RenewalsJSON: r.recordset[0].RenewalsJSON, 
+                RenewalsJSON: r.recordset[0].RenewalsJSON,
+                RequireRenewalPhotos: data.RequireRenewalPhotos || 'N',
                 FullDataJSON: null // Don't send raw large string
             }); 
         } else res.json({ error: "404" }); 
