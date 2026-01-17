@@ -66,70 +66,32 @@ async function uploadToAzure(buffer, blobName, mimeType = "image/jpeg") {
     }
 }
 
-// --- CHECKLIST DATA ---
-const CHECKLIST_DATA = {
-    A: [
-        "1. Equipment / Work Area inspected.",
-        "2. Surrounding area checked, cleaned and covered. Oil/RAGS/Grass Etc removed.",
-        "3. Manholes, Sewers, CBD etc. and hot nearby surface covered.",
-        "4. Considered hazards from other routine, non-routine operations and concerned person alerted.",
-        "5. Equipment blinded/ disconnected/ closed/ isolated/ wedge opened.",
-        "6. Equipment properly drained and depressurized.",
-        "7. Equipment properly steamed/purged.",
-        "8. Equipment water flushed.",
-        "9. Access for Free approach of Fire Tender.",
-        "10. Iron Sulfide removed/ Kept wet.",
-        "11. Equipment electrically isolated and tagged vide Permit no.",
-        "12. Gas Test: HC / Toxic / O2 checked.",
-        "13. Running water hose / Fire extinguisher provided. Fire water system available.",
-        "14. Area cordoned off and Precautionary tag/Board provided.",
-        "15. CCTV monitoring facility available at site.",
-        "16. Proper ventilation and Lighting provided."
-    ],
-    B: [
-        "1. Proper means of exit / escape provided.",
-        "2. Standby personnel provided from Mainline/ Maint. / Contractor/HSE.",
-        "3. Checked for oil and Gas trapped behind the lining in equipment.",
-        "4. Shield provided against spark.",
-        "5. Portable equipment / nozzle properly grounded.",
-        "6. Standby persons provided for entry to confined space.",
-        "7. Adequate Communication Provided to Stand by Person.",
-        "8. Attendant Trained Provided With Rescue Equipment/SCABA.",
-        "9. Space Adequately Cooled for Safe Entry Of Person.",
-        "10. Continuous Inert Gas Flow Arranged.",
-        "11. Check For Earthing/ELCB of all Temporary Electrical Connections being used for welding.",
-        "12. Gas Cylinders are kept outside the confined Space.",
-        "13. Spark arrestor Checked on mobile Equipments.",
-        "14. Welding Machine Checked for Safe Location.",
-        "15. Permit taken for working at height Vide Permit No."
-    ],
-    C: ["1. PESO approved spark elimination system provided on the mobile equipment/ vehicle provided."],
-    D: [
-        "1. For excavated trench/ pit proper slop/ shoring/ shuttering provided to prevent soil collapse.",
-        "2. Excavated soil kept at safe distance from trench/pit edge (min. pit depth).",
-        "3. Safe means of access provided inside trench/pit.",
-        "4. Movement of heavy vehicle prohibited."
-    ]
-};
-
 // --- CORE PDF GENERATOR ---
 async function drawPermitPDF(doc, p, d, renewalsList) {
+    // 1. Determine Watermark Text
+    const workType = d.WorkType || "PERMIT";
+    const status = p.Status || "Active";
+    let watermarkText = "";
+
+    if (status === 'Closed' || status.includes('Closure')) {
+        watermarkText = `CLOSED - ${workType.toUpperCase()}`;
+    } else {
+        watermarkText = `ACTIVE - ${workType.toUpperCase()}`;
+    }
+
+    // 2. Watermark Function
+    const drawWatermark = () => {
+        doc.save();
+        doc.translate(doc.page.width / 2, doc.page.height / 2);
+        doc.rotate(-45);
+        doc.font('Helvetica-Bold').fontSize(60).fillColor('#ff0000').opacity(0.15); // Adjust size/opacity
+        doc.text(watermarkText, -300, -30, { align: 'center', width: 600 });
+        doc.restore();
+        doc.opacity(1);
+    };
+
     const bgColor = d.PdfBgColor || 'White';
     const compositePermitNo = `${d.IssuedToDept || 'DEPT'}/${p.PermitID}`;
-
-    // WATERMARK LOGIC
-    const drawWatermark = () => {
-        if (p.Status === 'Closed') {
-            doc.save();
-            // Center of A4 is approx x=297, y=421
-            doc.translate(297, 421);
-            doc.rotate(-45);
-            doc.font('Helvetica-Bold').fontSize(80).fillColor('#ff0000').opacity(0.30); // Increased opacity
-            doc.text('CLOSED PERMIT', -250, -40, { align: 'center', width: 500 }); // Centered text
-            doc.restore();
-            doc.opacity(1);
-        }
-    };
 
     const drawHeader = (doc, bgColor, permitNoStr) => {
         if (bgColor && bgColor !== 'Auto' && bgColor !== 'White') {
@@ -140,7 +102,7 @@ async function drawPermitPDF(doc, p, d, renewalsList) {
             doc.restore();
         }
 
-        drawWatermark(); // Draw watermark on every page
+        drawWatermark(); // Apply Watermark
 
         const startX = 30, startY = 30;
         doc.lineWidth(1);
@@ -239,7 +201,14 @@ async function drawPermitPDF(doc, p, d, renewalsList) {
     doc.rect(25, startY - 5, 545, doc.y - startY + 5).stroke();
     doc.y += 10;
 
-    // Checklists
+    // Checklists (Collapsed for brevity - ensure data matches your index.html)
+    const CHECKLIST_DATA = {
+        A: [ "1. Equipment / Work Area inspected.", "2. Surrounding area checked, cleaned and covered. Oil/RAGS/Grass Etc removed.", "3. Manholes, Sewers, CBD etc. and hot nearby surface covered.", "4. Considered hazards from other routine, non-routine operations and concerned person alerted.", "5. Equipment blinded/ disconnected/ closed/ isolated/ wedge opened.", "6. Equipment properly drained and depressurized.", "7. Equipment properly steamed/purged.", "8. Equipment water flushed.", "9. Access for Free approach of Fire Tender.", "10. Iron Sulfide removed/ Kept wet.", "11. Equipment electrically isolated and tagged vide Permit no.", "12. Gas Test: HC / Toxic / O2 checked.", "13. Running water hose / Fire extinguisher provided. Fire water system available.", "14. Area cordoned off and Precautionary tag/Board provided.", "15. CCTV monitoring facility available at site.", "16. Proper ventilation and Lighting provided." ],
+        B: [ "1. Proper means of exit / escape provided.", "2. Standby personnel provided from Mainline/ Maint. / Contractor/HSE.", "3. Checked for oil and Gas trapped behind the lining in equipment.", "4. Shield provided against spark.", "5. Portable equipment / nozzle properly grounded.", "6. Standby persons provided for entry to confined space.", "7. Adequate Communication Provided to Stand by Person.", "8. Attendant Trained Provided With Rescue Equipment/SCABA.", "9. Space Adequately Cooled for Safe Entry Of Person.", "10. Continuous Inert Gas Flow Arranged.", "11. Check For Earthing/ELCB of all Temporary Electrical Connections being used for welding.", "12. Gas Cylinders are kept outside the confined Space.", "13. Spark arrestor Checked on mobile Equipments.", "14. Welding Machine Checked for Safe Location.", "15. Permit taken for working at height Vide Permit No." ],
+        C: ["1. PESO approved spark elimination system provided on the mobile equipment/ vehicle provided."],
+        D: [ "1. For excavated trench/ pit proper slop/ shoring/ shuttering provided to prevent soil collapse.", "2. Excavated soil kept at safe distance from trench/pit edge (min. pit depth).", "3. Safe means of access provided inside trench/pit.", "4. Movement of heavy vehicle prohibited." ]
+    };
+
     const drawChecklist = (t, i, pr) => {
         if (doc.y > 650) { doc.addPage(); drawHeaderOnAll(); doc.y = 135; }
         doc.font('Helvetica-Bold').fillColor('black').fontSize(9).text(t, 30, doc.y + 10); doc.y += 25;
@@ -255,7 +224,7 @@ async function drawPermitPDF(doc, p, d, renewalsList) {
             if (d[`${pr}_Q${k + 1}`]) {
                 doc.rect(30, y, 350, rowH).stroke().text(x, 35, y + 5, { width: 340 });
                 doc.rect(380, y, 60, rowH).stroke().text(st, 385, y + 5);
-                
+
                 let detailTxt = d[`${pr}_Q${k + 1}_Detail`] || '';
                 if (pr === 'A' && k === 11) {
                     const hc = d.GP_Q12_HC || '_';
@@ -295,6 +264,7 @@ async function drawPermitPDF(doc, p, d, renewalsList) {
     doc.font('Helvetica-Bold').text("Parameter", 35, axY + 5);
     doc.text("Details", 235, axY + 5);
     axY += 20;
+
     doc.font('Helvetica');
     annexData.forEach(row => {
         doc.rect(30, axY, 200, 20).stroke();
@@ -305,7 +275,6 @@ async function drawPermitPDF(doc, p, d, renewalsList) {
     });
     doc.y = axY + 20;
 
-    // Helper for Supervisor tables
     const drawSupTable = (title, headers, dataRows) => {
         if (doc.y > 650) { doc.addPage(); drawHeaderOnAll(); doc.y = 135; }
         doc.font('Helvetica-Bold').text(title, 30, doc.y);
@@ -413,16 +382,19 @@ async function drawPermitPDF(doc, p, d, renewalsList) {
     doc.rect(495, ry, 70, 25).stroke().text("Reason", 497, ry + 5);
 
     ry += 25;
-    // Use passed renewalsList for completeness
+    
+    // Ensure we iterate the PASSED renewals list, not just what's in 'p'
     const finalRenewals = renewalsList || JSON.parse(p.RenewalsJSON || "[]");
     doc.font('Helvetica').fontSize(8);
 
     for (const r of finalRenewals) {
-        const rowHeight = 60;
+        const rowHeight = 60; 
         if (ry > 680) { doc.addPage(); drawHeaderOnAll(); doc.y = 135; ry = 135; }
 
         let startTxt = r.valid_from.replace('T', '\n');
         let endTxt = r.valid_till.replace('T', '\n');
+        
+        // FEATURE B: Mark Odd Hours
         if (r.odd_hour_req === true) {
             endTxt += "\n(Night Shift)";
             doc.font('Helvetica-Bold').fillColor('purple');
@@ -430,9 +402,10 @@ async function drawPermitPDF(doc, p, d, renewalsList) {
 
         doc.rect(30, ry, 45, rowHeight).stroke().text(startTxt, 32, ry + 5, { width: 43 });
         doc.rect(75, ry, 45, rowHeight).stroke().text(endTxt, 77, ry + 5, { width: 43 });
-        doc.fillColor('black').font('Helvetica');
+        doc.fillColor('black').font('Helvetica'); // Reset
 
         doc.rect(120, ry, 55, rowHeight).stroke().text(`HC: ${r.hc}\nTox: ${r.toxic}\nO2: ${r.oxygen}\nPrec: ${r.precautions || '-'}`, 122, ry + 5, { width: 53 });
+
         const wList = r.worker_list ? r.worker_list.join(', ') : 'All';
         doc.rect(175, ry, 60, rowHeight).stroke().text(wList, 177, ry + 5, { width: 58 });
 
@@ -443,7 +416,7 @@ async function drawPermitPDF(doc, p, d, renewalsList) {
                 const blobName = r.photoUrl.split('/').pop();
                 const blockBlobClient = containerClient.getBlockBlobClient(blobName);
                 
-                // Add Timeout to prevent hanging
+                // Add Timeout to prevent hanging (3 seconds max per image)
                 const downloadPromise = blockBlobClient.download(0);
                 const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 3000));
                 
@@ -457,7 +430,7 @@ async function drawPermitPDF(doc, p, d, renewalsList) {
                 try {
                     doc.image(imageBuffer, 237, ry + 2, { fit: [46, rowHeight - 4], align: 'center', valign: 'center' });
                 } catch (imgErr) { console.log("Img draw err", imgErr); }
-            } catch (err) { console.log("Blob err/Timeout", err); }
+            } catch (err) { console.log("Blob err/Timeout", err.message); }
         } else {
             doc.text("No Photo", 237, ry + 25, { width: 46, align: 'center' });
         }
@@ -472,6 +445,7 @@ async function drawPermitPDF(doc, p, d, renewalsList) {
     doc.y = ry + 20;
 
     // --- CLOSURE SECTION ---
+    // Ensure we check for 'Closure' text or 'Closed' status to verify closure logic
     if (p.Status === 'Closed' || p.Status.includes('Closure')) {
         if (doc.y > 650) { doc.addPage(); drawHeaderOnAll(); doc.y = 135; }
         doc.font('Helvetica-Bold').fontSize(10).text("WORK COMPLETION & CLOSURE", 30, doc.y);
@@ -618,10 +592,12 @@ app.post('/api/dashboard', async (req, res) => {
     try {
         const { role, email } = req.body;
         const pool = await getConnection();
+        // UPDATED: Include FinalPdfUrl
         const r = await pool.request().query("SELECT PermitID, Status, ValidFrom, ValidTo, RequesterEmail, ReviewerEmail, ApproverEmail, FullDataJSON, FinalPdfUrl FROM Permits");
         
         const p = r.recordset.map(x => {
             let baseData = {};
+            // Handle Closed Permits where JSON is null
             if (x.FullDataJSON) { try { baseData = JSON.parse(x.FullDataJSON); } catch(e) {} }
             return { ...baseData, PermitID: x.PermitID, Status: x.Status, ValidFrom: x.ValidFrom, RequesterEmail: x.RequesterEmail, ReviewerEmail: x.ReviewerEmail, ApproverEmail: x.ApproverEmail, FinalPdfUrl: x.FinalPdfUrl };
         });
@@ -635,17 +611,23 @@ app.post('/api/dashboard', async (req, res) => {
 app.post('/api/save-permit', upload.any(), async (req, res) => {
     try {
         console.log("Received Permit Submit Request:", req.body.PermitID);
+
+        // 1. Validate Dates
         let vf, vt;
         try {
             vf = req.body.ValidFrom ? new Date(req.body.ValidFrom) : null;
             vt = req.body.ValidTo ? new Date(req.body.ValidTo) : null;
-        } catch (err) { return res.status(400).json({ error: "Invalid Date Format" }); }
+        } catch (err) {
+            return res.status(400).json({ error: "Invalid Date Format" });
+        }
 
         if (!vf || !vt) return res.status(400).json({ error: "Start and End dates are required" });
         if (vt <= vf) return res.status(400).json({ error: "End date must be after Start date" });
         if ((vt - vf) / (1000 * 60 * 60 * 24) > 7) return res.status(400).json({ error: "Max 7 days allowed" });
 
         const pool = await getConnection();
+
+        // 2. ID Generation
         let pid = req.body.PermitID;
         if (!pid || pid === 'undefined' || pid === 'null' || pid === '') {
             const idRes = await pool.request().query("SELECT TOP 1 PermitID FROM Permits ORDER BY Id DESC");
@@ -654,24 +636,29 @@ app.post('/api/save-permit', upload.any(), async (req, res) => {
             pid = `WP-${numPart + 1}`;
         }
 
+        // 3. Status Check
         const chk = await pool.request().input('p', sql.NVarChar, pid).query("SELECT Status FROM Permits WHERE PermitID=@p");
         if (chk.recordset.length > 0) {
             const status = chk.recordset[0].Status;
             if (status === 'Closed' || status.includes('Closed')) return res.status(400).json({ error: "Permit is CLOSED. Editing denied." });
         }
 
+        // 4. Parse Workers
         let workers = req.body.SelectedWorkers;
         if (typeof workers === 'string') { try { workers = JSON.parse(workers); } catch (e) { workers = []; } }
         if (!Array.isArray(workers)) workers = [];
 
+        // 5. Build Renewals Array (If requested)
         let renewalsArr = [];
         if (req.body.InitRen === 'Y') {
+            // Upload 1st Renewal Image
             let photoUrl = null;
             const renImageFile = req.files ? req.files.find(f => f.fieldname === 'InitRenImage') : null;
             if (renImageFile) {
                 const blobName = `${pid}-1stRenewal.jpg`;
                 photoUrl = await uploadToAzure(renImageFile.buffer, blobName);
             }
+
             renewalsArr.push({
                 status: 'pending_review',
                 valid_from: req.body.InitRenFrom || '',
@@ -687,8 +674,11 @@ app.post('/api/save-permit', upload.any(), async (req, res) => {
             });
         }
         const renewalsJsonStr = JSON.stringify(renewalsArr);
+
+        // 6. Data Assembly
         const data = { ...req.body, SelectedWorkers: workers, PermitID: pid, CreatedDate: getNowIST(), GSR_Accepted: req.body.GSR_Accepted || 'Y' };
-        
+
+        // 7. Clean Geo Data
         let lat = req.body.Latitude; let lng = req.body.Longitude;
         const cleanGeo = (val) => (!val || val === 'undefined' || val === 'null' || String(val).trim() === '') ? null : String(val);
 
@@ -711,14 +701,17 @@ app.post('/api/save-permit', upload.any(), async (req, res) => {
         } else {
             await q.query("INSERT INTO Permits (PermitID, Status, WorkType, RequesterEmail, ReviewerEmail, ApproverEmail, ValidFrom, ValidTo, Latitude, Longitude, FullDataJSON, RenewalsJSON) VALUES (@p, @s, @w, @re, @rv, @ap, @vf, @vt, @lat, @lng, @j, @ren)");
         }
+
+        console.log("Save Success:", pid);
         res.json({ success: true, permitId: pid });
+
     } catch (e) {
         console.error("SERVER SAVE ERROR:", e);
         res.status(500).json({ error: e.message, stack: e.stack });
     }
 });
 
-// --- UPDATE STATUS & ARCHIVE (FIXED: Handles Async PDF Generation Safely) ---
+// --- UPDATE STATUS & ARCHIVE (FIXED ASYNC) ---
 app.post('/api/update-status', async (req, res) => {
     try {
         const { PermitID, action, role, user, comment, bgColor, IOCLSupervisors, FirstRenewalAction, RequireRenewalPhotos, ...extras } = req.body;
@@ -795,8 +788,8 @@ app.post('/api/update-status', async (req, res) => {
                 st = 'Closed';
                 d.Closure_Issuer_Sig = `${user} on ${now}`;
                 d.Closure_Approver_Date = now;
-                d.Closure_Approver_Sig = `${user} on ${now}`; 
-                isFinalClosure = true; 
+                d.Closure_Approver_Sig = `${user} on ${now}`; // History
+                isFinalClosure = true;
             } else {
                 st = 'Active';
                 d.Approver_Sig = `${user} on ${now}`;
@@ -838,21 +831,31 @@ app.post('/api/update-status', async (req, res) => {
                 doc.on('error', reject);
                 
                 try {
+                    // Pass current `d` and `renewals` which are fully updated
+                    // We MUST await this because it downloads images!
                     await drawPermitPDF(doc, pdfRecord, d, renewals);
                     doc.end();
-                } catch (err) {
-                    // Force close doc to release promise if drawing fails
+                } catch(err) {
                     console.error("PDF Draw Error:", err);
                     doc.end();
                     reject(err);
                 }
             });
 
+            // Upload to Azure Blob
             const blobName = `closed-permits/${PermitID}_FINAL.pdf`;
             finalPdfUrl = await uploadToAzure(pdfBuffer, blobName, "application/pdf");
-            finalJson = null; // Prepare to wipe data
+            
+            // CRITICAL: If upload fails, ABORT to prevent data loss
+            if (!finalPdfUrl) {
+                throw new Error("Failed to upload PDF to Azure. Operation aborted to preserve data.");
+            }
+
+            // Prepare for deletion
+            finalJson = null; 
         }
 
+        // --- SQL UPDATE ---
         const q = pool.request()
             .input('p', PermitID)
             .input('s', st)
@@ -899,6 +902,7 @@ app.post('/api/renewal', upload.any(), async (req, res) => {
                 if (last.status !== 'rejected' && rs < new Date(last.valid_till)) return res.status(400).json({ error: "Overlap detected" });
             }
 
+            // --- PHOTO UPLOAD LOGIC ---
             let photoUrl = null;
             const renImageFile = req.files ? req.files.find(f => f.fieldname === 'RenewalImage') : null;
             if (renImageFile) {
