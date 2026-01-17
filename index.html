@@ -21,7 +21,6 @@
         .section-title { font-weight: 800; color: #c2410c; margin: 1.5rem 0 1rem 0; border-bottom: 2px solid #fdba74; padding-bottom: 0.5rem; font-size: 1.1rem; }
         .loader { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255,255,255,0.9); display: none; justify-content: center; align-items: center; z-index: 2000; font-size: 1.5rem; color: #ea580c; font-weight: bold; flex-direction: column; gap: 10px; }
         
-        /* New Style for PDF Download Button */
         .btn-pdf { display: inline-block; padding: 8px 12px; background-color: #dc2626; color: white; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 0.8rem; text-align: center; }
         .btn-pdf:hover { background-color: #b91c1c; }
 
@@ -247,11 +246,13 @@
                         </div>
 
                         <div class="mt-3 border-t border-blue-200 pt-2 bg-white p-2 rounded"><label class="text-xs font-bold text-gray-500 block mb-1">Workers for this Renewal (Optional - Select from Approved)</label><div id="renewal-worker-select" class="grid grid-cols-2 gap-2 max-h-40 overflow-y-auto"></div></div><input id="RenewalPrec" placeholder="Precautions" class="w-full mb-2 mt-3">
-                        <div class="mt-2 bg-white p-2 rounded border border-red-200">
+                        
+                        <div id="renewal-photo-container" class="mt-2 bg-white p-2 rounded border border-red-200 hidden">
                             <label class="text-xs font-bold text-red-600 uppercase block mb-1">Photo (Mandatory if required)</label>
                             <input type="file" id="ren-cam-sub" accept="image/*" capture="environment" class="text-sm w-full">
                             <p id="photo-mandate-msg" class="text-[10px] text-gray-500 mt-1"></p>
                         </div>
+
                         <button type="button" onclick="window.submitRenewal('approve')" class="w-full bg-blue-600 text-white py-3 rounded-lg font-bold shadow mt-2">Submit Renewal</button>
                     </div>
 
@@ -297,8 +298,8 @@
         let chartT = null;
         let currentPermitWorkers = []; 
         let currentPermitId = null; 
-        let currentRenewalCount = 0; // NEW: Track renewal count
-        let permitRequirePhoto = false; // NEW: Track photo requirement
+        let currentRenewalCount = 0; 
+        let permitRequirePhoto = false; 
         const loader = document.getElementById('loader');
 
         const CL_DATA = { 
@@ -318,7 +319,7 @@
                 "13. Running water hose / Fire extinguisher provided. Fire water system available.", 
                 "14. Area cordoned off and Precautionary tag/Board provided.", 
                 "15. CCTV monitoring facility available at site.", 
-                "16. Proper ventilation and Lighting provided"
+                "16. Proper ventilation and Lighting provided."
             ], 
             B: [
                 "1. Proper means of exit / escape provided.", 
@@ -426,7 +427,7 @@
         window.workerAction = async function(id, act) { await apiCall('/save-worker', 'POST', {WorkerID:id, Action:act, Role:currentUser.Role, ApproverName: currentUser.name}); loadWorkers('dashboard'); }
         async function loadDashboard() { const res = await apiCall('/dashboard', 'POST', {role:currentUser.Role, email:currentUser.Email}); const tP=document.querySelector('#table-pending tbody'), tA=document.querySelector('#table-active tbody'), tO=document.querySelector('#table-other tbody'); tP.innerHTML=""; tA.innerHTML=""; tO.innerHTML=""; res.forEach(p => { let pendingWith = "-"; if(p.Status.includes('Review')) pendingWith = p.ReviewerEmail ? p.ReviewerEmail.split('@')[0] : '-'; if(p.Status.includes('Approval')) pendingWith = p.ApproverEmail ? p.ApproverEmail.split('@')[0] : '-'; const statusColor = p.Status.includes('Pending') ? 'text-red-600' : (p.Status==='Active' ? 'text-green-600' : 'text-gray-600'); 
         
-        // NEW FEATURE A: Closed Permit PDF Link
+        // Feature A: Closed Permit PDF Link
         let actionHtml = `<span class="bg-blue-50 text-blue-600 px-3 py-1 rounded-full text-xs font-bold">OPEN</span>`;
         if (p.Status === 'Closed') {
             actionHtml = `<a href="${p.FinalPdfUrl}" target="_blank" class="btn-pdf">Download PDF</a>`;
@@ -554,7 +555,7 @@
             if (r === 'Approver') {
                 if (s === 'Pending Approval' || s === 'Active' || s.includes('Renewal')) {
                      document.getElementById("iocl-approver-wrapper").classList.remove('hidden');
-                     // NEW Feature C: Enable Photo Requirement Checkbox for Approver
+                     // Enable Photo Requirement Checkbox for Approver
                      document.getElementById("RequireRenewalPhotos").disabled = (s !== 'Pending Approval');
                 }
             }
@@ -594,14 +595,19 @@
                         document.getElementById("form-renewal").classList.remove('hidden'); document.querySelectorAll('#form-renewal input').forEach(e => e.disabled = false);
                         const renSel = document.getElementById('renewal-worker-select'); renSel.innerHTML = currentPermitWorkers.map(w => `<label class="flex items-center gap-1 text-xs bg-white p-1 rounded border"><input type="checkbox" value="${w.Name}" checked class="ren-worker-cb"> ${w.Name}</label>`).join('');
                         
-                        // Feature C: Show mandatory message if applicable
+                        // FEATURE C: LOGIC FOR PHOTO BOX VISIBILITY
+                        // 1. Never show for 1st renewal (count == 0)
+                        // 2. Show for 2nd+ ONLY IF flag is true
+                        const showPhotoBox = (currentRenewalCount > 0 && permitRequirePhoto);
+                        const photoDiv = document.getElementById("renewal-photo-container");
                         const msgEl = document.getElementById("photo-mandate-msg");
-                        if(currentRenewalCount === 0 || (currentRenewalCount > 0 && permitRequirePhoto)) {
-                             msgEl.innerText = "* Photo Upload is MANDATORY for this renewal.";
+
+                        if(showPhotoBox) {
+                             photoDiv.classList.remove('hidden');
+                             msgEl.innerText = "* Photo Upload is MANDATORY.";
                              msgEl.classList.add("text-red-600", "font-bold");
                         } else {
-                             msgEl.innerText = "* Photo Upload is optional.";
-                             msgEl.classList.remove("text-red-600", "font-bold");
+                             photoDiv.classList.add('hidden');
                         }
 
                         btns += `<button type="button" onclick="window.upd('initiate_closure')" class="bg-red-600 text-white px-6 py-3 rounded-lg font-bold shadow flex-1">Job Complete</button>`;
@@ -615,12 +621,18 @@
                         setText("disp-ren-gas", `${last.hc}/${last.toxic}/${last.oxygen}`); 
                         setText("disp-ren-prec", last.precautions); 
                         
-                        // NEW Feature B: Odd Hour Check for Approver/Reviewer
+                        // FEATURE A: Odd Hour Check for Approver/Reviewer
                         if(last.odd_hour_req) {
                             document.getElementById("odd-hour-approval-controls").classList.remove('hidden');
                             setText("odd-hour-req-status", "Requester Agreed to Safety Precautions");
+                            
                             // Reset toggle and disable button initially
-                            document.getElementById("odd-hour-allow-check").checked = false;
+                            const chk = document.getElementById("odd-hour-allow-check");
+                            chk.checked = false;
+                            
+                            // FIX A: Unlock the checkbox so they can click it!
+                            chk.disabled = false; 
+
                             document.getElementById("btn-approve-renewal").disabled = true;
                         } else {
                             document.getElementById("odd-hour-approval-controls").classList.add('hidden');
@@ -727,7 +739,7 @@
             }
             if(currentUser.Role === 'Approver' && act === 'approve') { 
                 body.Approver_Remarks = getVal("Approver_Remarks"); 
-                // NEW Feature C: Save Photo Requirement Preference
+                // Save Photo Requirement Preference
                 body.RequireRenewalPhotos = document.getElementById("RequireRenewalPhotos").checked ? 'Y' : 'N';
             }
             
@@ -735,7 +747,7 @@
             if(res.success) showDashboard(); else alert(res.error);
         }
 
-        // NEW Feature B: Helper to check odd hours (18:00 - 06:00)
+        // Helper to check odd hours (18:00 - 06:00)
         window.isOddHour = function(dateObj) {
             const h = dateObj.getHours();
             return (h >= 18 || h < 6);
@@ -750,8 +762,6 @@
             if(fVal && tVal) {
                 const d1 = new Date(fVal);
                 const d2 = new Date(tVal);
-                // Check if range touches odd hours. Simple logic: check start or end hour.
-                // Ideally check overlap, but for this use case checking endpoints is usually sufficient for short shifts.
                 if(window.isOddHour(d1) || window.isOddHour(d2)) {
                     div.classList.remove('hidden');
                 } else {
@@ -761,7 +771,7 @@
             }
         }
         
-        // NEW Feature B: Toggle Approval Button
+        // Toggle Approval Button
         window.toggleRenewalApproveBtn = function() {
              const chk = document.getElementById("odd-hour-allow-check");
              const btn = document.getElementById("btn-approve-renewal");
@@ -773,7 +783,7 @@
                 const fVal = document.getElementById("RenewalValidFrom").value;
                 const tVal = document.getElementById("RenewalValidTo").value;
                 
-                // NEW Feature B Validation
+                // Feature B Validation
                 if(!document.getElementById("odd-hour-agreement").classList.contains("hidden")) {
                     if(!document.getElementById("OddHourSafetyCheck").checked) {
                         alert("For Odd Hours (6 PM - 6 AM), you must agree to the safety precautions checkbox.");
@@ -781,11 +791,10 @@
                     }
                 }
 
-                // NEW Feature C Validation
-                // Logic: 1st Renewal (Index 0/Count 0) -> Mandatory (Existing Logic)
-                // 2nd Renewal+ (Index 1+) -> Mandatory ONLY if permitRequirePhoto is true
+                // Feature B & C Validation
                 const fileInput = document.getElementById("ren-cam-sub");
-                const isPhotoMandatory = (currentRenewalCount === 0) || (currentRenewalCount > 0 && permitRequirePhoto);
+                // Rule: NEVER mandate for 1st (index 0). ONLY mandate for 2nd+ (index > 0) IF flag is set.
+                const isPhotoMandatory = (currentRenewalCount > 0 && permitRequirePhoto);
 
                 if(isPhotoMandatory) {
                      if(!fileInput.files || fileInput.files.length === 0) {
@@ -815,7 +824,7 @@
             fd.append('rejectionReason', getVal("RenewalRemark"));
             fd.append('renewalWorkers', JSON.stringify(selWorkers));
             
-            // Feature B: Send odd hour flag
+            // Send odd hour flag
             const oddHourAgree = document.getElementById("OddHourSafetyCheck").checked;
             fd.append('oddHourReq', oddHourAgree ? 'Y' : 'N');
 
@@ -978,4 +987,3 @@
     </script>
 </body>
 </html>
-
