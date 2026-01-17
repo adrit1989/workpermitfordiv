@@ -112,7 +112,7 @@ const CHECKLIST_DATA = {
     ]
 };
 
-// --- CORE PDF GENERATOR (Fixed: Watermark & Full Data) ---
+// --- CORE PDF GENERATOR (Refactored to support both Active & Closed) ---
 async function drawPermitPDF(doc, p, d, renewalsList) {
     // Helper: Draw Header
     const bgColor = d.PdfBgColor || 'White';
@@ -121,16 +121,15 @@ async function drawPermitPDF(doc, p, d, renewalsList) {
     const drawWatermark = () => {
         if (p.Status === 'Closed') {
             doc.save();
-            doc.rotate(-45, { origin: [297.5, 421] });
-            doc.font('Helvetica-Bold').fontSize(80).fillColor('red').opacity(0.10);
+            doc.rotate(-45, { origin: [297.5, 421] }); // Center of A4
+            doc.font('Helvetica-Bold').fontSize(80).fillColor('red').opacity(0.15);
             doc.text('CLOSED PERMIT', 0, 300, { align: 'center', width: 595 });
             doc.restore();
-            doc.opacity(1); 
+            doc.opacity(1);
         }
     };
 
     const drawHeader = (doc, bgColor, permitNoStr) => {
-        // 1. Draw Background
         if (bgColor && bgColor !== 'Auto' && bgColor !== 'White') {
             const colorMap = { 'Red': '#fee2e2', 'Green': '#dcfce7', 'Yellow': '#fef9c3' };
             doc.save();
@@ -139,14 +138,11 @@ async function drawPermitPDF(doc, p, d, renewalsList) {
             doc.restore();
         }
 
-        // 2. Draw Watermark (Behind everything)
         drawWatermark();
 
-        // 3. Draw Header Boxes
         const startX = 30, startY = 30;
         doc.lineWidth(1);
         doc.rect(startX, startY, 535, 95).stroke();
-        
         // Logo Box (Left)
         doc.rect(startX, startY, 80, 95).stroke();
         if (fs.existsSync('logo.png')) {
@@ -189,7 +185,7 @@ async function drawPermitPDF(doc, p, d, renewalsList) {
         } catch (err) { }
     }
 
-    // GSR Acceptance (Statutory Guideline)
+    // GSR Acceptance
     if (d.GSR_Accepted === 'Y') {
         doc.rect(30, doc.y, 535, 20).fillColor('#e6fffa').fill();
         doc.fillColor('black').stroke();
@@ -636,6 +632,9 @@ app.post('/api/dashboard', async (req, res) => {
                 PermitID: x.PermitID, 
                 Status: x.Status, 
                 ValidFrom: x.ValidFrom,
+                RequesterEmail: x.RequesterEmail,
+                ReviewerEmail: x.ReviewerEmail,
+                ApproverEmail: x.ApproverEmail,
                 FinalPdfUrl: x.FinalPdfUrl // Send PDF link to frontend
             };
         });
