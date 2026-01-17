@@ -63,9 +63,9 @@
     <div id="view-login" class="flex items-center justify-center min-h-screen p-4 bg-orange-50">
         <div class="glass w-full max-w-md text-center shadow-xl border-t-4 border-orange-600">
            <div class="flex justify-center items-center gap-4 mb-4">
-                <img src="logo.png" alt="IOCL Logo" class="h-24 object-contain">
-                <img src="rhino.png" alt="Rhino Logo" class="h-24 object-contain">
-            </div>
+    <img src="logo.png" alt="IOCL Logo" class="h-24 object-contain">
+    <img src="rhino.png" alt="Rhino Logo" class="h-24 object-contain">
+</div>
             <h1 class="text-3xl font-extrabold text-orange-600 mb-2">IndianOil</h1>
             <p class="text-gray-500 mb-6 font-semibold"> Mainline Work Permit System (By ERPL)</p>
             <form onsubmit="event.preventDefault(); window.handleLogin();" class="space-y-4 text-left">
@@ -84,10 +84,10 @@
         </div>
         <div class="flex justify-between items-center mb-4 bg-orange-600 p-4 rounded-xl shadow-lg text-white sticky top-2 z-40">
            <div class="flex items-center gap-3">
-                <img src="logo.png" alt="Logo" class="h-10 w-10 bg-white rounded-full p-1 object-contain">
-                <img src="rhino.png" alt="Rhino" class="h-10 w-10 bg-white rounded-full p-1 object-contain">
-                <div class="flex flex-col"><h1 class="text-lg font-bold leading-tight">Mainline Permit System </h1><span id="user-info" class="text-xs text-orange-100 font-medium"></span></div>
-            </div>
+    <img src="logo.png" alt="Logo" class="h-10 w-10 bg-white rounded-full p-1 object-contain">
+    <img src="rhino.png" alt="Rhino" class="h-10 w-10 bg-white rounded-full p-1 object-contain">
+    <div class="flex flex-col"><h1 class="text-lg font-bold leading-tight">Mainline Permit System </h1><span id="user-info" class="text-xs text-orange-100 font-medium"></span></div>
+</div>
             <div class="flex gap-2"><button onclick="window.toggleWorkerMode()" class="bg-white/20 p-2 rounded-lg hover:bg-white/30" title="Workers">👷</button><button onclick="window.showMap()" id="btn-header-map" class="bg-white/20 p-2 rounded-lg hover:bg-white/30 hidden" title="Map">🗺️</button><button onclick="location.reload()" class="bg-white/20 p-2 rounded-lg hover:bg-white/30" title="Logout">🚪</button></div>
         </div>
 
@@ -529,463 +529,532 @@
                 }
             }
 
-            // --- FIX A: FORCE UNHIDE RENEWALS/CLOSURE FOR REQUESTOR ---
-            if(r==='Requester' && (!last || (last.status!=='pending_review' && last.status!=='pending_approval'))) {
-               // 1. Force Parent Container Visible
-               document.getElementById("renewals-section").classList.remove('hidden');
-               
-               // 2. Unhide Closure Section
-               document.getElementById("closure-section").classList.remove('hidden'); 
-               document.getElementById("div-closure-req").classList.remove('hidden');
-               document.getElementById("Closure_Requestor_Remarks").disabled = false; 
-               document.getElementById("Site_Restored_Check").disabled = false;
-
-               // 3. Unhide Renewal Form
-               document.getElementById("form-renewal").classList.remove('hidden'); 
-               document.querySelectorAll('#form-renewal input').forEach(e => e.disabled = false);
-               
-               // 4. Populate Renewal Workers
-               const renSel = document.getElementById('renewal-worker-select'); 
-               renSel.innerHTML = currentPermitWorkers.map(w => `<label class="flex items-center gap-1 text-xs bg-white p-1 rounded border"><input type="checkbox" value="${escapeHtml(w.Name)}" checked class="ren-worker-cb"> ${escapeHtml(w.Name)}</label>`).join('');
-
-               // 5. Handle Photo Logic
-               const showPhotoBox = (currentRenewalCount > 0 && permitRequirePhoto);
-               const photoDiv = document.getElementById("renewal-photo-container");
-               const msgEl = document.getElementById("photo-mandate-msg");
-
-               if(showPhotoBox) {
-                     photoDiv.classList.remove('hidden');
-                     msgEl.innerText = "* Photo Upload is MANDATORY.";
-                     msgEl.classList.add("text-red-600", "font-bold");
-               } else {
-                     photoDiv.classList.add('hidden');
-               }
-
-               // 6. Show Job Complete Button
-               btns += `<button type="button" onclick="window.upd('initiate_closure')" class="bg-red-600 text-white px-6 py-3 rounded-lg font-bold shadow flex-1">Job Complete</button>`;
+            if(s==='Pending Review' && r==='Requester') {
+               document.getElementById('worker-checkboxes').classList.remove('hidden');
+               document.getElementById('worker-readonly-table').classList.add('hidden');
+               document.querySelectorAll('#worker-checkboxes input').forEach(c => {
+                   const wData = JSON.parse(c.value);
+                   if(workersArr.find(sw => sw.WorkerID === wData.WorkerID)) c.checked = true;
+                   c.disabled = false;
+               });
+            } else {
+               document.getElementById('worker-checkboxes').classList.add('hidden');
+               const wTable = document.querySelector('#worker-readonly-table tbody');
+               wTable.innerHTML = workersArr.map(w => `<tr><td data-label="Name" class="font-bold">${escapeHtml(w.Name)}</td><td data-label="Gender">${w.Gender||'-'}</td><td data-label="Age">${w.Age}</td><td data-label="Cont">${escapeHtml(p.RequesterName)}</td></tr>`).join('');
+               document.getElementById('worker-readonly-table').classList.remove('hidden');
             }
-            // -------------------------------------------------------------
             
-            if(last && (last.status==='pending_review' || last.status==='pending_approval')) {
-                if(r!=='Requester') { 
-                    document.getElementById("pending-renewal-display").classList.remove('hidden'); 
-                    setText("disp-ren-from", last.valid_from.replace('T', ' ')); 
-                    setText("disp-ren-to", last.valid_till.replace('T', ' ')); 
-                    setText("disp-ren-gas", `${escapeHtml(last.hc)}/${escapeHtml(last.toxic)}/${escapeHtml(last.oxygen)}`); 
-                    setText("disp-ren-prec", escapeHtml(last.precautions)); 
-                    
-                    // FEATURE A: Odd Hour Check for Approver/Reviewer
-                    if(last.odd_hour_req) {
-                        document.getElementById("odd-hour-approval-controls").classList.remove('hidden');
-                        setText("odd-hour-req-status", "Requester Agreed to Safety Precautions");
-                        
-                        const chk = document.getElementById("odd-hour-allow-check");
-                        chk.checked = false;
-                        
-                        chk.disabled = false; 
+            if(r === 'Requester' && (s === 'New' || s === 'Pending Review')) {
+                document.getElementById("ExactLocation").disabled = false; document.getElementById("btn-get-geo").disabled = false; document.getElementById("Latitude").disabled = false; document.getElementById("Longitude").disabled = false;
+            } else {
+                document.getElementById("ExactLocation").disabled = true; document.getElementById("btn-get-geo").disabled = true; document.getElementById("Latitude").disabled = true; document.getElementById("Longitude").disabled = true;
+            }
 
-                        document.getElementById("btn-approve-renewal").disabled = true;
-                    } else {
-                        document.getElementById("odd-hour-approval-controls").classList.add('hidden');
-                        document.getElementById("btn-approve-renewal").disabled = false;
+            if(p.H_Others==='Y') document.getElementById('other-hazard-div').classList.remove('hidden');
+
+            ['fs-reviewer-section', 'fs-approver-section', 'closure-section', 'pending-renewal-display', 'action-renewal', 'signature-history', 'iocl-sup-display-section', 'iocl-reviewer-wrapper', 'iocl-approver-wrapper'].forEach(id => document.getElementById(id).classList.add('hidden'));
+            
+            document.getElementById("init-renewal-wrapper").classList.add('hidden');
+
+            const ioclData = p.IOCLSupervisors || [];
+            document.getElementById("iocl-sup-container-rev").innerHTML = ""; document.getElementById("iocl-sup-container-app").innerHTML = "";
+            ioclData.forEach(d => { window.addIOCLRow('iocl-sup-container-rev', d); window.addIOCLRow('iocl-sup-container-app', d); });
+            
+            const dispTable = document.querySelector('#table-iocl-display tbody');
+            let dispHTML = ioclData.length === 0 ? '<tr><td colspan="4" class="text-gray-400">No Supervisors Added</td></tr>' : ioclData.map(x => {
+                let style = x.is_deleted ? 'style="text-decoration: line-through; color: red;"' : '';
+                let audit = `Added by ${escapeHtml(x.added_by)} on ${x.added_at}` + (x.is_deleted ? `<br><span class="text-red-600 font-bold">Deleted by ${escapeHtml(x.deleted_by)} on ${x.deleted_at}</span>` : '');
+                return `<tr ${style}><td>${escapeHtml(x.name)}</td><td>${escapeHtml(x.desig)}</td><td>${escapeHtml(x.contact)}</td><td class="text-[10px]">${audit}</td></tr>`;
+            }).join('');
+            dispTable.innerHTML = dispHTML;
+
+            const isDataView = (s === 'Active' || s === 'Closed' || s.includes('Renewal') || s.includes('Closure'));
+            if (isDataView) {
+                document.getElementById("iocl-sup-display-section").classList.remove('hidden');
+            }
+
+            if (r === 'Reviewer' && s === 'Pending Review') {
+                 document.getElementById("iocl-reviewer-wrapper").classList.remove('hidden');
+            }
+            if (r === 'Approver') {
+                if (s === 'Pending Approval' || s === 'Active' || s.includes('Renewal')) {
+                     document.getElementById("iocl-approver-wrapper").classList.remove('hidden');
+                     // Enable Photo Requirement Checkbox for Approver
+                     document.getElementById("RequireRenewalPhotos").disabled = (s !== 'Pending Approval');
+                }
+            }
+
+            let btns = "";
+
+            if(s === 'Pending Review') {
+                if(r==='Requester') { 
+                   document.querySelectorAll('#pf input, #pf select, #pf textarea').forEach(e=>e.disabled=false); 
+                   document.getElementById("Vendor").value = currentUser.name; document.getElementById("Vendor").readOnly=true; 
+                   document.getElementById("RequesterName").disabled=false; 
+                   btns=`<button type="button" onclick="window.savePermit()" class="w-full bg-blue-600 text-white px-3 rounded-lg font-bold shadow-lg">Update Permit</button>`; 
+                }
+                if(r==='Reviewer') { 
+                   document.getElementById("fs-reviewer-section").classList.remove('hidden');
+                   document.querySelectorAll('#fs-reviewer-section *, #hazards-section input').forEach(e=>e.disabled=false);
+                   btns=`<button type="button" onclick="window.upd('reject')" class="bg-red-600 text-white px-4 py-3 rounded-lg font-bold flex-1">Reject</button><button type="button" onclick="window.upd('review')" class="bg-green-600 text-white px-4 py-3 rounded-lg font-bold flex-1">Submit Review</button>`; 
+                }
+            }
+            if(s === 'Pending Approval') {
+                document.getElementById("fs-reviewer-section").classList.remove('hidden');
+                if(r==='Approver') { 
+                   document.getElementById("fs-approver-section").classList.remove('hidden');
+                   document.getElementById("Approver_Remarks").disabled=false; 
+                   btns=`<button type="button" onclick="window.upd('reject')" class="bg-red-600 text-white px-4 py-3 rounded-lg font-bold flex-1">Reject</button><button type="button" onclick="window.upd('approve')" class="bg-green-600 text-white px-4 py-3 rounded-lg font-bold flex-1">Approve</button>`; 
+                }
+            }
+            if(s==='Active' || s.includes('Renewal') || s.includes('Closure') || s==='Closed') {
+                document.getElementById("fs-reviewer-section").classList.remove('hidden'); document.getElementById("fs-approver-section").classList.remove('hidden'); document.getElementById("renewals-section").classList.remove('hidden');
+                
+                const last = rens[rens.length-1];
+                
+                if(r==='Requester' && (!last || (last.status!=='pending_review' && last.status!=='pending_approval'))) {
+                        document.getElementById("closure-section").classList.remove('hidden'); document.getElementById("div-closure-req").classList.remove('hidden');
+                        document.getElementById("Closure_Requestor_Remarks").disabled = false; document.getElementById("Site_Restored_Check").disabled = false;
+                        
+                        document.getElementById("form-renewal").classList.remove('hidden'); document.querySelectorAll('#form-renewal input').forEach(e => e.disabled = false);
+                        const renSel = document.getElementById('renewal-worker-select'); renSel.innerHTML = currentPermitWorkers.map(w => `<label class="flex items-center gap-1 text-xs bg-white p-1 rounded border"><input type="checkbox" value="${escapeHtml(w.Name)}" checked class="ren-worker-cb"> ${escapeHtml(w.Name)}</label>`).join('');
+                        
+                        // FEATURE C: LOGIC FOR PHOTO BOX VISIBILITY
+                        const showPhotoBox = (currentRenewalCount > 0 && permitRequirePhoto);
+                        const photoDiv = document.getElementById("renewal-photo-container");
+                        const msgEl = document.getElementById("photo-mandate-msg");
+
+                        if(showPhotoBox) {
+                             photoDiv.classList.remove('hidden');
+                             msgEl.innerText = "* Photo Upload is MANDATORY.";
+                             msgEl.classList.add("text-red-600", "font-bold");
+                        } else {
+                             photoDiv.classList.add('hidden');
+                        }
+
+                        btns += `<button type="button" onclick="window.upd('initiate_closure')" class="bg-red-600 text-white px-6 py-3 rounded-lg font-bold shadow flex-1">Job Complete</button>`;
+                }
+                
+                if(last && (last.status==='pending_review' || last.status==='pending_approval')) {
+                    if(r!=='Requester') { 
+                        document.getElementById("pending-renewal-display").classList.remove('hidden'); 
+                        setText("disp-ren-from", last.valid_from.replace('T', ' ')); 
+                        setText("disp-ren-to", last.valid_till.replace('T', ' ')); 
+                        setText("disp-ren-gas", `${escapeHtml(last.hc)}/${escapeHtml(last.toxic)}/${escapeHtml(last.oxygen)}`); 
+                        setText("disp-ren-prec", escapeHtml(last.precautions)); 
+                        
+                        // FEATURE A: Odd Hour Check for Approver/Reviewer
+                        if(last.odd_hour_req) {
+                            document.getElementById("odd-hour-approval-controls").classList.remove('hidden');
+                            setText("odd-hour-req-status", "Requester Agreed to Safety Precautions");
+                            
+                            const chk = document.getElementById("odd-hour-allow-check");
+                            chk.checked = false;
+                            
+                            chk.disabled = false; 
+
+                            document.getElementById("btn-approve-renewal").disabled = true;
+                        } else {
+                            document.getElementById("odd-hour-approval-controls").classList.add('hidden');
+                            document.getElementById("btn-approve-renewal").disabled = false;
+                        }
                     }
                 }
-            }
-            if(r==='Reviewer' && last && last.status==='pending_review') { document.getElementById("action-renewal").classList.remove('hidden'); document.getElementById("RenewalRemark").disabled = false; btns=""; } 
-            else if(r==='Approver' && last && last.status==='pending_approval') { document.getElementById("action-renewal").classList.remove('hidden'); document.getElementById("RenewalRemark").disabled = false; btns=""; } 
-            else {
-                if(r==='Approver' && s==='Active') { 
-                     btns += `<button type="button" onclick="window.upd('approve')" class="bg-blue-600 text-white px-6 py-3 rounded-lg font-bold shadow flex-1 text-center">Update Supervisors</button>`;
-                     document.getElementById("pdf-color-select").classList.remove('hidden');
+                if(r==='Reviewer' && last && last.status==='pending_review') { document.getElementById("action-renewal").classList.remove('hidden'); document.getElementById("RenewalRemark").disabled = false; btns=""; } 
+                else if(r==='Approver' && last && last.status==='pending_approval') { document.getElementById("action-renewal").classList.remove('hidden'); document.getElementById("RenewalRemark").disabled = false; btns=""; } 
+                else {
+                    if(r==='Approver' && s==='Active') { 
+                         btns += `<button type="button" onclick="window.upd('approve')" class="bg-blue-600 text-white px-6 py-3 rounded-lg font-bold shadow flex-1 text-center">Update Supervisors</button>`;
+                         document.getElementById("pdf-color-select").classList.remove('hidden');
+                    }
+                    // --- FIX 2: Secure Download Button ---
+                    btns += `<button type="button" onclick="window.downloadSecurePDF('${id}')" class="bg-gray-700 text-white px-6 py-3 rounded-lg font-bold shadow flex-1 text-center">Download PDF</button>`;
                 }
-                // --- FIX 2: Secure Download Button ---
-                btns += `<button type="button" onclick="window.downloadSecurePDF('${id}')" class="bg-gray-700 text-white px-6 py-3 rounded-lg font-bold shadow flex-1 text-center">Download PDF</button>`;
-            }
-        }
-        
-        if(s.includes('Closure') || s === 'Closed') {
-            document.getElementById("closure-section").classList.remove('hidden'); document.getElementById("div-closure-req").classList.remove('hidden');
-            setText("ts-clos-req", p.Closure_Requestor_Date);
-            
-            document.getElementById("Site_Restored_Check").checked = (p.Site_Restored_Check === 'Y');
-            document.getElementById("Site_Restored_Check").disabled = true;
-            
-            if(s!=='Closure Pending Review') { document.getElementById("div-closure-rev").classList.remove('hidden'); setText("ts-clos-rev", p.Closure_Reviewer_Date); }
-            if(s==='Closed') { document.getElementById("div-closure-app").classList.remove('hidden'); setText("ts-clos-app", p.Closure_Approver_Date); }
-            
-            if(s==='Closure Pending Review' && r==='Reviewer') { 
-                  document.getElementById("div-closure-rev").classList.remove('hidden'); 
-                  document.getElementById("Closure_Reviewer_Remarks").disabled=false;
-                  btns=`<button type="button" onclick="window.upd('reject_closure')" class="bg-red-600 text-white px-4 py-3 rounded-lg font-bold flex-1">Reject</button><button type="button" onclick="window.upd('approve_closure')" class="bg-green-600 text-white px-4 py-3 rounded-lg font-bold flex-1">Verify</button>`; 
-            }
-            if(s==='Closure Pending Approval' && r==='Approver') { 
-                  document.getElementById("div-closure-app").classList.remove('hidden'); 
-                  document.getElementById("Closure_Approver_Remarks").disabled=false;
-                  btns=`<button type="button" onclick="window.upd('reject_closure')" class="bg-red-600 text-white px-4 py-3 rounded-lg font-bold flex-1">Reject</button><button type="button" onclick="window.upd('approve')" class="bg-black text-white px-4 py-3 rounded-lg font-bold flex-1">Close Permit</button>`; 
             }
             
-            if(s==='Closed') { 
-                // --- FIX 3: Secure Download Button ---
-                btns = `<button type="button" onclick="window.downloadSecurePDF('${id}')" class="bg-gray-700 text-white px-6 py-3 rounded-lg font-bold shadow flex-1 text-center">Download PDF</button>`; 
+            if(s.includes('Closure') || s === 'Closed') {
+                document.getElementById("closure-section").classList.remove('hidden'); document.getElementById("div-closure-req").classList.remove('hidden');
+                setText("ts-clos-req", p.Closure_Requestor_Date);
+                
+                document.getElementById("Site_Restored_Check").checked = (p.Site_Restored_Check === 'Y');
+                document.getElementById("Site_Restored_Check").disabled = true;
+                
+                if(s!=='Closure Pending Review') { document.getElementById("div-closure-rev").classList.remove('hidden'); setText("ts-clos-rev", p.Closure_Reviewer_Date); }
+                if(s==='Closed') { document.getElementById("div-closure-app").classList.remove('hidden'); setText("ts-clos-app", p.Closure_Approver_Date); }
+                
+                if(s==='Closure Pending Review' && r==='Reviewer') { 
+                      document.getElementById("div-closure-rev").classList.remove('hidden'); 
+                      document.getElementById("Closure_Reviewer_Remarks").disabled=false;
+                      btns=`<button type="button" onclick="window.upd('reject_closure')" class="bg-red-600 text-white px-4 py-3 rounded-lg font-bold flex-1">Reject</button><button type="button" onclick="window.upd('approve_closure')" class="bg-green-600 text-white px-4 py-3 rounded-lg font-bold flex-1">Verify</button>`; 
+                }
+                if(s==='Closure Pending Approval' && r==='Approver') { 
+                      document.getElementById("div-closure-app").classList.remove('hidden'); 
+                      document.getElementById("Closure_Approver_Remarks").disabled=false;
+                      btns=`<button type="button" onclick="window.upd('reject_closure')" class="bg-red-600 text-white px-4 py-3 rounded-lg font-bold flex-1">Reject</button><button type="button" onclick="window.upd('approve')" class="bg-black text-white px-4 py-3 rounded-lg font-bold flex-1">Close Permit</button>`; 
+                }
+                
+                if(s==='Closed') { 
+                    // --- FIX 3: Secure Download Button ---
+                    btns = `<button type="button" onclick="window.downloadSecurePDF('${id}')" class="bg-gray-700 text-white px-6 py-3 rounded-lg font-bold shadow flex-1 text-center">Download PDF</button>`; 
+                }
             }
+
+            document.getElementById("signature-history").classList.remove('hidden');
+            setText("sig-app", p.Approver_Sig || 'Pending');
+            const lastRenEntry = JSON.parse(p.RenewalsJSON||"[]").pop();
+            setText("sig-ren", (lastRenEntry && lastRenEntry.app_name) ? `${escapeHtml(lastRenEntry.app_name)} on ${lastRenEntry.app_at}` : 'None');
+            setText("sig-clos", p.Closure_Approver_Sig || 'Pending');
+            
+            const gsrEl = document.getElementById("gsr-check");
+            gsrEl.checked = (p.GSR_Accepted === 'Y');
+            gsrEl.disabled = true;
+            document.getElementById("gsr-container").classList.remove('hidden');
+
+            document.getElementById("actions").innerHTML = btns;
+            document.getElementById("view-dashboard").classList.add('hidden'); document.getElementById("view-form").classList.remove('hidden');
         }
 
-        document.getElementById("signature-history").classList.remove('hidden');
-        setText("sig-app", p.Approver_Sig || 'Pending');
-        const lastRenEntry = JSON.parse(p.RenewalsJSON||"[]").pop();
-        setText("sig-ren", (lastRenEntry && lastRenEntry.app_name) ? `${escapeHtml(lastRenEntry.app_name)} on ${lastRenEntry.app_at}` : 'None');
-        setText("sig-clos", p.Closure_Approver_Sig || 'Pending');
-        
-        const gsrEl = document.getElementById("gsr-check");
-        gsrEl.checked = (p.GSR_Accepted === 'Y');
-        gsrEl.disabled = true;
-        document.getElementById("gsr-container").classList.remove('hidden');
-
-        document.getElementById("actions").innerHTML = btns;
-        document.getElementById("view-dashboard").classList.add('hidden'); document.getElementById("view-form").classList.remove('hidden');
-    }
-
-    window.upd = async function(act) {
-        if(act === 'initiate_closure') {
-            if(!document.getElementById("Site_Restored_Check").checked) { alert("You must certify that the Site is Restored & Cleaned."); return; }
-        }
-
-        const getVal = (id) => { const el = document.getElementById(id); return el ? el.value : ''; };
-        
-        let ioclData = [];
-        const isReviewerEditing = (currentUser.Role === 'Reviewer' && !document.getElementById('iocl-sup-container-rev').parentElement.classList.contains('hidden'));
-        const isApproverEditing = (currentUser.Role === 'Approver' && !document.getElementById('iocl-sup-container-app').parentElement.classList.contains('hidden'));
-
-        if (isReviewerEditing) {
-            ioclData = window.getIOCLData('iocl-sup-container-rev');
-        } else if (isApproverEditing) {
-            ioclData = window.getIOCLData('iocl-sup-container-app');
-        } else {
-            ioclData = window.currentPermitIOCLData || [];
-        }
-
-        let firstRenewalAction = null;
-        if(!document.getElementById('first-renewal-decision').classList.contains('hidden')) {
-            const radios = document.getElementsByName('FirstRenewalAction');
-            for (const r of radios) { if (r.checked) firstRenewalAction = r.value; }
-            if (!firstRenewalAction && (act === 'review' || act === 'approve')) {
-                alert("⚠️ Action Required: Please Approve or Reject the attached 1st Renewal Request.");
-                return;
+        window.upd = async function(act) {
+            if(act === 'initiate_closure') {
+                if(!document.getElementById("Site_Restored_Check").checked) { alert("You must certify that the Site is Restored & Cleaned."); return; }
             }
-        }
 
-        const body = { 
-            PermitID: currentPermitId, action: act, role: currentUser.Role, user: currentUser.name,
-            comment: (currentUser.Role==='Reviewer' ? getVal("Reviewer_Remarks") : getVal("Approver_Remarks")),
-            Closure_Requestor_Remarks: getVal("Closure_Requestor_Remarks"), 
-            Closure_Reviewer_Remarks: getVal("Closure_Reviewer_Remarks"), 
-            Closure_Approver_Remarks: getVal("Closure_Approver_Remarks"),
-            bgColor: getVal("PdfBgColor"), IOCLSupervisors: ioclData,
-            Site_Restored_Check: document.getElementById("Site_Restored_Check").checked ? 'Y' : 'N',
-            FirstRenewalAction: firstRenewalAction
-        };
-        
-        if(currentUser.Role === 'Reviewer' && act === 'review') {
-                const fd = new FormData(document.getElementById("pf"));
-                document.querySelectorAll('#hazards-section input[type=checkbox]').forEach(c => body[c.name] = c.checked ? 'Y' : 'N');
-                document.querySelectorAll('#ppe-container input[type=checkbox]').forEach(c => body[c.name] = c.checked ? 'Y' : 'N');
-                body.Reviewer_Remarks = getVal("Reviewer_Remarks"); body.AdditionalPrecautions = getVal("AdditionalPrecautions");
-                if(document.getElementById("H_Others_Detail")) { body.H_Others_Detail = document.getElementById("H_Others_Detail").value; }
-        }
-        if(currentUser.Role === 'Approver' && act === 'approve') { 
-            body.Approver_Remarks = getVal("Approver_Remarks"); 
-            // Save Photo Requirement Preference
-            body.RequireRenewalPhotos = document.getElementById("RequireRenewalPhotos").checked ? 'Y' : 'N';
-        }
-        
-        const res = await apiCall('/update-status', 'POST', body);
-        if(res.success) showDashboard(); else alert(res.error);
-    }
+            const getVal = (id) => { const el = document.getElementById(id); return el ? el.value : ''; };
+            
+            let ioclData = [];
+            const isReviewerEditing = (currentUser.Role === 'Reviewer' && !document.getElementById('iocl-sup-container-rev').parentElement.classList.contains('hidden'));
+            const isApproverEditing = (currentUser.Role === 'Approver' && !document.getElementById('iocl-sup-container-app').parentElement.classList.contains('hidden'));
 
-    // Helper to check odd hours (18:00 - 06:00)
-    window.isOddHour = function(dateObj) {
-        const h = dateObj.getHours();
-        return (h >= 18 || h < 6);
-    }
-
-    window.checkRenewalTime = function() {
-        const fVal = document.getElementById("RenewalValidFrom").value;
-        const tVal = document.getElementById("RenewalValidTo").value;
-        const div = document.getElementById("odd-hour-agreement");
-        const chk = document.getElementById("OddHourSafetyCheck");
-        
-        if(fVal && tVal) {
-            const d1 = new Date(fVal);
-            const d2 = new Date(tVal);
-            if(window.isOddHour(d1) || window.isOddHour(d2)) {
-                div.classList.remove('hidden');
+            if (isReviewerEditing) {
+                ioclData = window.getIOCLData('iocl-sup-container-rev');
+            } else if (isApproverEditing) {
+                ioclData = window.getIOCLData('iocl-sup-container-app');
             } else {
-                div.classList.add('hidden');
-                chk.checked = false; 
+                ioclData = window.currentPermitIOCLData || [];
             }
-        }
-    }
-    
-    // Toggle Approval Button
-    window.toggleRenewalApproveBtn = function() {
-         const chk = document.getElementById("odd-hour-allow-check");
-         const btn = document.getElementById("btn-approve-renewal");
-         btn.disabled = !chk.checked;
-    }
 
-    window.submitRenewal = async function(act) { 
-        if(currentUser.Role === 'Requester') {
-            const fVal = document.getElementById("RenewalValidFrom").value;
-            const tVal = document.getElementById("RenewalValidTo").value;
-            
-            // Feature B Validation
-            if(!document.getElementById("odd-hour-agreement").classList.contains("hidden")) {
-                if(!document.getElementById("OddHourSafetyCheck").checked) {
-                    alert("For Odd Hours (6 PM - 6 AM), you must agree to the safety precautions checkbox.");
+            let firstRenewalAction = null;
+            if(!document.getElementById('first-renewal-decision').classList.contains('hidden')) {
+                const radios = document.getElementsByName('FirstRenewalAction');
+                for (const r of radios) { if (r.checked) firstRenewalAction = r.value; }
+                if (!firstRenewalAction && (act === 'review' || act === 'approve')) {
+                    alert("⚠️ Action Required: Please Approve or Reject the attached 1st Renewal Request.");
                     return;
                 }
             }
 
-            // Feature B & C Validation
-            const fileInput = document.getElementById("ren-cam-sub");
-            // Rule: NEVER mandate for 1st (index 0). ONLY mandate for 2nd+ (index > 0) IF flag is set.
-            const isPhotoMandatory = (currentRenewalCount > 0 && permitRequirePhoto);
-
-            if(isPhotoMandatory) {
-                  if(!fileInput.files || fileInput.files.length === 0) {
-                       alert("MANDATORY: You must capture a photo for this renewal.");
-                       return;
-                  }
+            const body = { 
+                PermitID: currentPermitId, action: act, role: currentUser.Role, user: currentUser.name,
+                comment: (currentUser.Role==='Reviewer' ? getVal("Reviewer_Remarks") : getVal("Approver_Remarks")),
+                Closure_Requestor_Remarks: getVal("Closure_Requestor_Remarks"), 
+                Closure_Reviewer_Remarks: getVal("Closure_Reviewer_Remarks"), 
+                Closure_Approver_Remarks: getVal("Closure_Approver_Remarks"),
+                bgColor: getVal("PdfBgColor"), IOCLSupervisors: ioclData,
+                Site_Restored_Check: document.getElementById("Site_Restored_Check").checked ? 'Y' : 'N',
+                FirstRenewalAction: firstRenewalAction
+            };
+            
+            if(currentUser.Role === 'Reviewer' && act === 'review') {
+                    const fd = new FormData(document.getElementById("pf"));
+                    document.querySelectorAll('#hazards-section input[type=checkbox]').forEach(c => body[c.name] = c.checked ? 'Y' : 'N');
+                    document.querySelectorAll('#ppe-container input[type=checkbox]').forEach(c => body[c.name] = c.checked ? 'Y' : 'N');
+                    body.Reviewer_Remarks = getVal("Reviewer_Remarks"); body.AdditionalPrecautions = getVal("AdditionalPrecautions");
+                    if(document.getElementById("H_Others_Detail")) { body.H_Others_Detail = document.getElementById("H_Others_Detail").value; }
             }
-        }
-        const getVal = (id) => { const el = document.getElementById(id); return el ? el.value : ''; }; 
-        const vf = new Date(getVal("RenewalValidFrom")); const vt = new Date(getVal("RenewalValidTo")); 
-        if (vt <= vf) { alert("End time must be greater than Start time"); return; } 
-        
-        const selWorkers = []; 
-        document.querySelectorAll('.ren-worker-cb:checked').forEach(c => selWorkers.push(c.value)); 
-        
-        const fd = new FormData();
-        fd.append('PermitID', currentPermitId);
-        fd.append('userRole', currentUser.Role);
-        fd.append('userName', currentUser.name);
-        fd.append('action', act);
-        fd.append('RenewalValidFrom', getVal("RenewalValidFrom"));
-        fd.append('RenewalValidTo', getVal("RenewalValidTo"));
-        fd.append('hc', getVal("RenewalHC"));
-        fd.append('toxic', getVal("RenewalToxic"));
-        fd.append('oxygen', getVal("RenewalOxygen"));
-        fd.append('precautions', getVal("RenewalPrec"));
-        fd.append('rejectionReason', getVal("RenewalRemark"));
-        fd.append('renewalWorkers', JSON.stringify(selWorkers));
-        
-        // Send odd hour flag
-        const oddHourAgree = document.getElementById("OddHourSafetyCheck").checked;
-        fd.append('oddHourReq', oddHourAgree ? 'Y' : 'N');
-
-        if(currentUser.Role === 'Requester') {
-            fd.append('RenewalImage', document.getElementById("ren-cam-sub").files[0]);
-        }
-
-        loader.style.display = 'flex';
-        try {
-             // Token handled by apiCall, but for FormData we use fetch manually.
-             // Need to attach token here too!
-             const headers = {};
-             if(authToken) headers['Authorization'] = `Bearer ${authToken}`;
-             
-             const res = await fetch(API+'/renewal', {method:'POST', body:fd, headers: headers});
-             const json = await res.json();
-             if(json.success) { alert("Done"); showDashboard(); } else alert(json.error); 
-        } catch(e) { console.error(e); alert("Failed: " + e.message); }
-        finally { loader.style.display = 'none'; }
-    }
-    
-    window.showNewPermit = async function() { 
-        document.getElementById("pf").reset(); currentPermitId=null; 
-        document.getElementById("Status").value="New"; document.getElementById("permit-header-display").innerText = "New Permit"; 
-        document.getElementById("permit-worker-audit-display").classList.add("hidden"); 
-        document.getElementById("iocl-sup-display-section").classList.add('hidden'); 
-        document.getElementById("iocl-reviewer-wrapper").classList.add('hidden'); 
-        document.getElementById("iocl-approver-wrapper").classList.add('hidden'); 
-        document.getElementById("first-renewal-decision").classList.add('hidden'); 
-        
-        const rS=document.getElementById("ReviewerEmail"), aS=document.getElementById("ApproverEmail"); 
-        if(rS && aS) { rS.innerHTML=""; aS.innerHTML=""; if(usersData){ usersData.Reviewers.forEach(u=>rS.innerHTML+=`<option value="${u.email}">${escapeHtml(u.name)}</option>`); usersData.Approvers.forEach(u=>aS.innerHTML+=`<option value="${u.email}">${escapeHtml(u.name)}</option>`); } } 
-        document.querySelectorAll('input, textarea, select').forEach(e=>e.disabled=false); 
-        
-        const safeSet = (id, val) => { const el = document.getElementById(id); if(el) { el.value = val; } }; 
-        safeSet("RequesterName", currentUser.name); safeSet("Vendor", currentUser.name); document.getElementById("Vendor").readOnly=true; document.getElementById("RequesterName").disabled=false; 
-        await loadWorkers('permit_dropdown'); document.querySelectorAll('#worker-checkboxes input').forEach(c => c.disabled = false); document.getElementById('worker-checkboxes').classList.remove('hidden'); document.getElementById('worker-readonly-table').classList.add('hidden'); document.getElementById("fs-reviewer-section").classList.add('hidden'); document.getElementById("fs-approver-section").classList.add('hidden'); document.getElementById("renewals-section").classList.add('hidden'); document.getElementById("closure-section").classList.add('hidden'); 
-        
-        const gsrEl = document.getElementById("gsr-check");
-        gsrEl.checked = false;
-        gsrEl.disabled = false;
-        document.getElementById("gsr-container").classList.remove('hidden');
-
-        document.getElementById("chk-init-renewal").checked = false;
-        document.getElementById("div-init-renewal").classList.add('hidden');
-        document.getElementById("init-renewal-wrapper").classList.remove('hidden'); 
-        
-        document.getElementById("actions").innerHTML = `<button type="button" onclick="window.savePermit()" class="w-full bg-blue-600 text-white px-6 py-3 rounded-lg font-bold shadow-lg">Submit Permit</button>`; 
-        document.getElementById("view-dashboard").classList.add('hidden'); document.getElementById("view-form").classList.remove('hidden'); 
-    }
-
-    window.savePermit = async function() { 
-        if(!document.getElementById('gsr-check').checked) {
-            alert("You must accept the Golden Safety Rules terms to proceed.");
-            document.getElementById('gsr-container').classList.add('ring-2', 'ring-red-500');
-            setTimeout(()=>document.getElementById('gsr-container').classList.remove('ring-2', 'ring-red-500'), 2000);
-            return;
-        }
-
-        if (document.getElementById("chk-init-renewal").checked) {
-            const pStart = new Date(document.getElementById("ValidFrom").value);
-            const pEnd = new Date(document.getElementById("ValidTo").value);
-            const rStartInput = document.querySelector('input[name="InitRenFrom"]').value;
-            const rEndInput = document.querySelector('input[name="InitRenTo"]').value;
-
-            if(!rStartInput || !rEndInput) { alert("Please set 1st Renewal Start/End times."); return; }
-
-            const rStart = new Date(rStartInput);
-            const rEnd = new Date(rEndInput);
-
-            if (rEnd <= rStart) { alert("1st Renewal: End time must be greater than Start time."); return; }
-            if (rStart.getTime() < pStart.getTime() || rEnd.getTime() > pEnd.getTime()) { alert("1st Renewal must be within the Permit Validity period."); return; }
-            if ((rEnd - rStart) > (8 * 60 * 60 * 1000)) { alert("1st Renewal duration cannot exceed 8 hours."); return; }
-
-            const photoInput = document.getElementById('ren-cam-1');
-            if (!photoInput.files || photoInput.files.length === 0) {
-                  alert("MANDATORY: You must capture a photo for the 1st Renewal.");
-                  return;
+            if(currentUser.Role === 'Approver' && act === 'approve') { 
+                body.Approver_Remarks = getVal("Approver_Remarks"); 
+                // Save Photo Requirement Preference
+                body.RequireRenewalPhotos = document.getElementById("RequireRenewalPhotos").checked ? 'Y' : 'N';
             }
+            
+            const res = await apiCall('/update-status', 'POST', body);
+            if(res.success) showDashboard(); else alert(res.error);
         }
 
-        document.getElementById('loader').style.display = 'flex'; 
-        try { 
-            const fd = new FormData(document.getElementById("pf")); 
-            document.querySelectorAll('input[type="checkbox"]').forEach(c => {
-                if (c.name) {
-                    fd.set(c.name, c.checked ? "Y" : "N");
+        // Helper to check odd hours (18:00 - 06:00)
+        window.isOddHour = function(dateObj) {
+            const h = dateObj.getHours();
+            return (h >= 18 || h < 6);
+        }
+
+        window.checkRenewalTime = function() {
+            const fVal = document.getElementById("RenewalValidFrom").value;
+            const tVal = document.getElementById("RenewalValidTo").value;
+            const div = document.getElementById("odd-hour-agreement");
+            const chk = document.getElementById("OddHourSafetyCheck");
+            
+            if(fVal && tVal) {
+                const d1 = new Date(fVal);
+                const d2 = new Date(tVal);
+                if(window.isOddHour(d1) || window.isOddHour(d2)) {
+                    div.classList.remove('hidden');
+                } else {
+                    div.classList.add('hidden');
+                    chk.checked = false; 
                 }
-            }); 
-            
-            fd.set("GSR_Accepted", "Y"); 
+            }
+        }
+        
+        // Toggle Approval Button
+        window.toggleRenewalApproveBtn = function() {
+             const chk = document.getElementById("odd-hour-allow-check");
+             const btn = document.getElementById("btn-approve-renewal");
+             btn.disabled = !chk.checked;
+        }
 
-            const selectedWorkers = []; 
-            document.querySelectorAll('#worker-checkboxes input:checked').forEach(c => { selectedWorkers.push(JSON.parse(c.value)); }); 
-            fd.append("SelectedWorkers", JSON.stringify(selectedWorkers)); 
+        window.submitRenewal = async function(act) { 
+            if(currentUser.Role === 'Requester') {
+                const fVal = document.getElementById("RenewalValidFrom").value;
+                const tVal = document.getElementById("RenewalValidTo").value;
+                
+                // Feature B Validation
+                if(!document.getElementById("odd-hour-agreement").classList.contains("hidden")) {
+                    if(!document.getElementById("OddHourSafetyCheck").checked) {
+                        alert("For Odd Hours (6 PM - 6 AM), you must agree to the safety precautions checkbox.");
+                        return;
+                    }
+                }
+
+                // Feature B & C Validation
+                const fileInput = document.getElementById("ren-cam-sub");
+                // Rule: NEVER mandate for 1st (index 0). ONLY mandate for 2nd+ (index > 0) IF flag is set.
+                const isPhotoMandatory = (currentRenewalCount > 0 && permitRequirePhoto);
+
+                if(isPhotoMandatory) {
+                      if(!fileInput.files || fileInput.files.length === 0) {
+                           alert("MANDATORY: You must capture a photo for this renewal.");
+                           return;
+                      }
+                }
+            }
+            const getVal = (id) => { const el = document.getElementById(id); return el ? el.value : ''; }; 
+            const vf = new Date(getVal("RenewalValidFrom")); const vt = new Date(getVal("RenewalValidTo")); 
+            if (vt <= vf) { alert("End time must be greater than Start time"); return; } 
             
-            if(currentUser && currentUser.Email) {
-                fd.append("RequesterEmail", currentUser.Email); 
+            const selWorkers = []; 
+            document.querySelectorAll('.ren-worker-cb:checked').forEach(c => selWorkers.push(c.value)); 
+            
+            const fd = new FormData();
+            fd.append('PermitID', currentPermitId);
+            fd.append('userRole', currentUser.Role);
+            fd.append('userName', currentUser.name);
+            fd.append('action', act);
+            fd.append('RenewalValidFrom', getVal("RenewalValidFrom"));
+            fd.append('RenewalValidTo', getVal("RenewalValidTo"));
+            fd.append('hc', getVal("RenewalHC"));
+            fd.append('toxic', getVal("RenewalToxic"));
+            fd.append('oxygen', getVal("RenewalOxygen"));
+            fd.append('precautions', getVal("RenewalPrec"));
+            fd.append('rejectionReason', getVal("RenewalRemark"));
+            fd.append('renewalWorkers', JSON.stringify(selWorkers));
+            
+            // Send odd hour flag
+            const oddHourAgree = document.getElementById("OddHourSafetyCheck").checked;
+            fd.append('oddHourReq', oddHourAgree ? 'Y' : 'N');
+
+            if(currentUser.Role === 'Requester') {
+                fd.append('RenewalImage', document.getElementById("ren-cam-sub").files[0]);
             }
 
-            fd.append("Latitude", document.getElementById("Latitude").value || ""); 
-            fd.append("Longitude", document.getElementById("Longitude").value || ""); 
+            loader.style.display = 'flex';
+            try {
+                 // Token handled by apiCall, but for FormData we use fetch manually.
+                 // Need to attach token here too!
+                 const headers = {};
+                 if(authToken) headers['Authorization'] = `Bearer ${authToken}`;
+                 
+                 const res = await fetch(API+'/renewal', {method:'POST', body:fd, headers: headers});
+                 const json = await res.json();
+                 if(json.success) { alert("Done"); showDashboard(); } else alert(json.error); 
+            } catch(e) { console.error(e); alert("Failed: " + e.message); }
+            finally { loader.style.display = 'none'; }
+        }
+        
+        window.showNewPermit = async function() { 
+            document.getElementById("pf").reset(); currentPermitId=null; 
+            document.getElementById("Status").value="New"; document.getElementById("permit-header-display").innerText = "New Permit"; 
+            document.getElementById("permit-worker-audit-display").classList.add("hidden"); 
+            document.getElementById("iocl-sup-display-section").classList.add('hidden'); 
+            document.getElementById("iocl-reviewer-wrapper").classList.add('hidden'); 
+            document.getElementById("iocl-approver-wrapper").classList.add('hidden'); 
+            document.getElementById("first-renewal-decision").classList.add('hidden'); 
             
-            if(currentPermitId) fd.set("PermitID", currentPermitId); 
+            const rS=document.getElementById("ReviewerEmail"), aS=document.getElementById("ApproverEmail"); 
+            if(rS && aS) { rS.innerHTML=""; aS.innerHTML=""; if(usersData){ usersData.Reviewers.forEach(u=>rS.innerHTML+=`<option value="${u.email}">${escapeHtml(u.name)}</option>`); usersData.Approvers.forEach(u=>aS.innerHTML+=`<option value="${u.email}">${escapeHtml(u.name)}</option>`); } } 
+            document.querySelectorAll('input, textarea, select').forEach(e=>e.disabled=false); 
             
-            // Add Authorization Header to fetch
-            const headers = {};
-            if(authToken) headers['Authorization'] = `Bearer ${authToken}`;
-
-            const res = await fetch(API+'/save-permit', {method:'POST', body:fd, headers:headers}); 
+            const safeSet = (id, val) => { const el = document.getElementById(id); if(el) { el.value = val; } }; 
+            safeSet("RequesterName", currentUser.name); safeSet("Vendor", currentUser.name); document.getElementById("Vendor").readOnly=true; document.getElementById("RequesterName").disabled=false; 
+            await loadWorkers('permit_dropdown'); document.querySelectorAll('#worker-checkboxes input').forEach(c => c.disabled = false); document.getElementById('worker-checkboxes').classList.remove('hidden'); document.getElementById('worker-readonly-table').classList.add('hidden'); document.getElementById("fs-reviewer-section").classList.add('hidden'); document.getElementById("fs-approver-section").classList.add('hidden'); document.getElementById("renewals-section").classList.add('hidden'); document.getElementById("closure-section").classList.add('hidden'); 
             
-            if (!res.ok) {
-                const text = await res.text();
-                console.error("Server Error HTML:", text); 
-                throw new Error(`Server Error (${res.status}). Check console.`);
-            }
+            const gsrEl = document.getElementById("gsr-check");
+            gsrEl.checked = false;
+            gsrEl.disabled = false;
+            document.getElementById("gsr-container").classList.remove('hidden');
 
-            const json = await res.json(); 
-            if(json.success){
-                alert("Saved successfully: " + json.permitId); 
-                showDashboard();
-            } else {
-                alert("Error: " + json.error); 
-            }
-        } catch (e) {
-            console.error(e);
-            alert("Submission Failed: " + e.message);
-        } finally { 
-            document.getElementById('loader').style.display = 'none'; 
-        } 
-    };
-    
-    window.checkDate = function() { const vf=new Date(document.getElementById("ValidFrom").value); const vt=new Date(document.getElementById("ValidTo").value); if(vf && vt) { if(vt <= vf) { alert("End time must be greater than Start time"); document.getElementById("ValidTo").value=""; return; } if((vt-vf)/(1000*60*60*24) > 7) { alert("Max 7 Days"); document.getElementById("ValidTo").value=""; } } }
-    window.showDashboard = function() { document.getElementById("view-dashboard").classList.remove('hidden'); document.getElementById("view-form").classList.add('hidden'); document.getElementById("view-add-user").classList.add('hidden'); document.getElementById("view-worker-management").classList.add('hidden'); document.getElementById("view-map").classList.add('hidden'); loadDashboard(); }
-    
-    window.getGeo = function() {
-        if (!navigator.geolocation) { alert("Geolocation is not supported by your browser."); return; }
-        const options = { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 };
-        const btn = document.getElementById("btn-get-geo");
-        btn.innerText = "Locating...";
-        btn.disabled = true;
-
-        navigator.geolocation.getCurrentPosition(
-            (p) => {
-                document.getElementById("ExactLocation").value = `${p.coords.latitude.toFixed(6)}, ${p.coords.longitude.toFixed(6)}`;
-                document.getElementById("Latitude").value = p.coords.latitude;
-                document.getElementById("Longitude").value = p.coords.longitude;
-                btn.innerText = "📍 GPS Set";
-                btn.disabled = false;
-            },
-            (err) => {
-                btn.innerText = "📍 Retry GPS";
-                btn.disabled = false;
-                let msg = "Error fetching location.";
-                if (err.code === 1) msg = "Permission denied.";
-                else if (err.code === 2) msg = "Position unavailable.";
-                else if (err.code === 3) msg = "Timeout.";
-                if (window.location.protocol !== 'https:' && window.location.hostname !== 'localhost') { msg += " \nNOTE: GPS requires HTTPS."; }
-                alert(msg);
-            },
-            options
-        );
-    };
-
-    window.showAddUser = function() { document.getElementById("view-add-user").classList.remove('hidden'); }
-    window.submitNewUser = async function() { const n=document.getElementById("new-user-name").value; const e=document.getElementById("new-user-email").value; const r=document.getElementById("new-user-role").value; const p=document.getElementById("new-user-pass").value; const res=await apiCall('/add-user','POST',{name:n,email:e,role:r,password:p}); if(res.success){alert("User Added"); document.getElementById("view-add-user").classList.add('hidden');} else alert(res.error); }
-    window.showMap = function() { document.getElementById("view-dashboard").classList.add('hidden'); document.getElementById("view-map").classList.remove('hidden'); loadMapData(); }
-    async function loadMapData() { const p = await apiCall('/map-data', 'POST'); if(!mapInstance) mapInstance=new google.maps.Map(document.getElementById("map"),{center:{lat:22.57,lng:88.36},zoom:5}); const listEl = document.getElementById("map-list-content"); listEl.innerHTML = ""; const infoWindow = new google.maps.InfoWindow(); p.forEach(x => { const marker = new google.maps.Marker({position:{lat:x.lat,lng:x.lng}, map:mapInstance, title:x.PermitID}); const content = `<div><b>${escapeHtml(x.PermitID)}</b><br>Loc: ${escapeHtml(x.ExactLocation)}<br>Req: ${escapeHtml(x.RequesterName)}<br>Valid: ${x.ValidTo}</div>`; marker.addListener("click", () => { infoWindow.setContent(content); infoWindow.open(mapInstance, marker); }); const item = document.createElement("div"); item.className = "p-3 border-b cursor-pointer hover:bg-orange-50 text-sm flex justify-between"; item.innerHTML = `<div><b>${escapeHtml(x.PermitID)}</b><div class="text-xs text-gray-500">${escapeHtml(x.ExactLocation)}</div></div><div class="text-xs font-bold text-orange-600">${escapeHtml(x.WorkType)}</div>`; item.onclick = () => { mapInstance.setCenter({lat:x.lat,lng:x.lng}); mapInstance.setZoom(12); infoWindow.setContent(`<b>${escapeHtml(x.PermitID)}</b><br>${escapeHtml(x.WorkType)}`); infoWindow.open(mapInstance, marker); }; listEl.appendChild(item); }); }
-    
-    // --- NEW SECURE PDF DOWNLOAD FUNCTION ---
-    window.downloadSecurePDF = async function(id) {
-        loader.style.display = 'flex';
-        try {
-            const headers = {};
-            if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
+            document.getElementById("chk-init-renewal").checked = false;
+            document.getElementById("div-init-renewal").classList.add('hidden');
+            document.getElementById("init-renewal-wrapper").classList.remove('hidden'); 
             
-            const res = await fetch(`${API}/download-pdf/${id}`, {
-                method: 'GET',
-                headers: headers
-            });
+            document.getElementById("actions").innerHTML = `<button type="button" onclick="window.savePermit()" class="w-full bg-blue-600 text-white px-6 py-3 rounded-lg font-bold shadow-lg">Submit Permit</button>`; 
+            document.getElementById("view-dashboard").classList.add('hidden'); document.getElementById("view-form").classList.remove('hidden'); 
+        }
 
-            if (res.status === 401 || res.status === 403) {
-                alert("Session expired. Please login again.");
-                location.reload();
+        window.savePermit = async function() { 
+            if(!document.getElementById('gsr-check').checked) {
+                alert("You must accept the Golden Safety Rules terms to proceed.");
+                document.getElementById('gsr-container').classList.add('ring-2', 'ring-red-500');
+                setTimeout(()=>document.getElementById('gsr-container').classList.remove('ring-2', 'ring-red-500'), 2000);
                 return;
             }
 
-            if (!res.ok) throw new Error("Download failed");
+            if (document.getElementById("chk-init-renewal").checked) {
+                const pStart = new Date(document.getElementById("ValidFrom").value);
+                const pEnd = new Date(document.getElementById("ValidTo").value);
+                const rStartInput = document.querySelector('input[name="InitRenFrom"]').value;
+                const rEndInput = document.querySelector('input[name="InitRenTo"]').value;
 
-            const blob = await res.blob();
-            const url = window.URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `${id}.pdf`;
-            document.body.appendChild(a);
-            a.click();
-            window.URL.revokeObjectURL(url);
-            document.body.removeChild(a);
-        } catch (e) {
-            console.error(e);
-            alert("Failed to download PDF. You might not have permission.");
-        } finally {
-            loader.style.display = 'none';
-        }
-    };
+                if(!rStartInput || !rEndInput) { alert("Please set 1st Renewal Start/End times."); return; }
 
-</script>
+                const rStart = new Date(rStartInput);
+                const rEnd = new Date(rEndInput);
+
+                if (rEnd <= rStart) { alert("1st Renewal: End time must be greater than Start time."); return; }
+                if (rStart.getTime() < pStart.getTime() || rEnd.getTime() > pEnd.getTime()) { alert("1st Renewal must be within the Permit Validity period."); return; }
+                if ((rEnd - rStart) > (8 * 60 * 60 * 1000)) { alert("1st Renewal duration cannot exceed 8 hours."); return; }
+
+                const photoInput = document.getElementById('ren-cam-1');
+                if (!photoInput.files || photoInput.files.length === 0) {
+                      alert("MANDATORY: You must capture a photo for the 1st Renewal.");
+                      return;
+                }
+            }
+
+            document.getElementById('loader').style.display = 'flex'; 
+            try { 
+                const fd = new FormData(document.getElementById("pf")); 
+                document.querySelectorAll('input[type="checkbox"]').forEach(c => {
+                    if (c.name) {
+                        fd.set(c.name, c.checked ? "Y" : "N");
+                    }
+                }); 
+                
+                fd.set("GSR_Accepted", "Y"); 
+
+                const selectedWorkers = []; 
+                document.querySelectorAll('#worker-checkboxes input:checked').forEach(c => { selectedWorkers.push(JSON.parse(c.value)); }); 
+                fd.append("SelectedWorkers", JSON.stringify(selectedWorkers)); 
+                
+                if(currentUser && currentUser.Email) {
+                    fd.append("RequesterEmail", currentUser.Email); 
+                }
+
+                fd.append("Latitude", document.getElementById("Latitude").value || ""); 
+                fd.append("Longitude", document.getElementById("Longitude").value || ""); 
+                
+                if(currentPermitId) fd.set("PermitID", currentPermitId); 
+                
+                // Add Authorization Header to fetch
+                const headers = {};
+                if(authToken) headers['Authorization'] = `Bearer ${authToken}`;
+
+                const res = await fetch(API+'/save-permit', {method:'POST', body:fd, headers:headers}); 
+                
+                if (!res.ok) {
+                    const text = await res.text();
+                    console.error("Server Error HTML:", text); 
+                    throw new Error(`Server Error (${res.status}). Check console.`);
+                }
+
+                const json = await res.json(); 
+                if(json.success){
+                    alert("Saved successfully: " + json.permitId); 
+                    showDashboard();
+                } else {
+                    alert("Error: " + json.error); 
+                }
+            } catch (e) {
+                console.error(e);
+                alert("Submission Failed: " + e.message);
+            } finally { 
+                document.getElementById('loader').style.display = 'none'; 
+            } 
+        };
+        
+        window.checkDate = function() { const vf=new Date(document.getElementById("ValidFrom").value); const vt=new Date(document.getElementById("ValidTo").value); if(vf && vt) { if(vt <= vf) { alert("End time must be greater than Start time"); document.getElementById("ValidTo").value=""; return; } if((vt-vf)/(1000*60*60*24) > 7) { alert("Max 7 Days"); document.getElementById("ValidTo").value=""; } } }
+        window.showDashboard = function() { document.getElementById("view-dashboard").classList.remove('hidden'); document.getElementById("view-form").classList.add('hidden'); document.getElementById("view-add-user").classList.add('hidden'); document.getElementById("view-worker-management").classList.add('hidden'); document.getElementById("view-map").classList.add('hidden'); loadDashboard(); }
+        
+        window.getGeo = function() {
+            if (!navigator.geolocation) { alert("Geolocation is not supported by your browser."); return; }
+            const options = { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 };
+            const btn = document.getElementById("btn-get-geo");
+            btn.innerText = "Locating...";
+            btn.disabled = true;
+
+            navigator.geolocation.getCurrentPosition(
+                (p) => {
+                    document.getElementById("ExactLocation").value = `${p.coords.latitude.toFixed(6)}, ${p.coords.longitude.toFixed(6)}`;
+                    document.getElementById("Latitude").value = p.coords.latitude;
+                    document.getElementById("Longitude").value = p.coords.longitude;
+                    btn.innerText = "📍 GPS Set";
+                    btn.disabled = false;
+                },
+                (err) => {
+                    btn.innerText = "📍 Retry GPS";
+                    btn.disabled = false;
+                    let msg = "Error fetching location.";
+                    if (err.code === 1) msg = "Permission denied.";
+                    else if (err.code === 2) msg = "Position unavailable.";
+                    else if (err.code === 3) msg = "Timeout.";
+                    if (window.location.protocol !== 'https:' && window.location.hostname !== 'localhost') { msg += " \nNOTE: GPS requires HTTPS."; }
+                    alert(msg);
+                },
+                options
+            );
+        };
+
+        window.showAddUser = function() { document.getElementById("view-add-user").classList.remove('hidden'); }
+        window.submitNewUser = async function() { const n=document.getElementById("new-user-name").value; const e=document.getElementById("new-user-email").value; const r=document.getElementById("new-user-role").value; const p=document.getElementById("new-user-pass").value; const res=await apiCall('/add-user','POST',{name:n,email:e,role:r,password:p}); if(res.success){alert("User Added"); document.getElementById("view-add-user").classList.add('hidden');} else alert(res.error); }
+        window.showMap = function() { document.getElementById("view-dashboard").classList.add('hidden'); document.getElementById("view-map").classList.remove('hidden'); loadMapData(); }
+        async function loadMapData() { const p = await apiCall('/map-data', 'POST'); if(!mapInstance) mapInstance=new google.maps.Map(document.getElementById("map"),{center:{lat:22.57,lng:88.36},zoom:5}); const listEl = document.getElementById("map-list-content"); listEl.innerHTML = ""; const infoWindow = new google.maps.InfoWindow(); p.forEach(x => { const marker = new google.maps.Marker({position:{lat:x.lat,lng:x.lng}, map:mapInstance, title:x.PermitID}); const content = `<div><b>${escapeHtml(x.PermitID)}</b><br>Loc: ${escapeHtml(x.ExactLocation)}<br>Req: ${escapeHtml(x.RequesterName)}<br>Valid: ${x.ValidTo}</div>`; marker.addListener("click", () => { infoWindow.setContent(content); infoWindow.open(mapInstance, marker); }); const item = document.createElement("div"); item.className = "p-3 border-b cursor-pointer hover:bg-orange-50 text-sm flex justify-between"; item.innerHTML = `<div><b>${escapeHtml(x.PermitID)}</b><div class="text-xs text-gray-500">${escapeHtml(x.ExactLocation)}</div></div><div class="text-xs font-bold text-orange-600">${escapeHtml(x.WorkType)}</div>`; item.onclick = () => { mapInstance.setCenter({lat:x.lat,lng:x.lng}); mapInstance.setZoom(12); infoWindow.setContent(`<b>${escapeHtml(x.PermitID)}</b><br>${escapeHtml(x.WorkType)}`); infoWindow.open(mapInstance, marker); }; listEl.appendChild(item); }); }
+        
+        // --- NEW SECURE PDF DOWNLOAD FUNCTION ---
+        window.downloadSecurePDF = async function(id) {
+            loader.style.display = 'flex';
+            try {
+                const headers = {};
+                if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
+                
+                const res = await fetch(`${API}/download-pdf/${id}`, {
+                    method: 'GET',
+                    headers: headers
+                });
+
+                if (res.status === 401 || res.status === 403) {
+                    alert("Session expired. Please login again.");
+                    location.reload();
+                    return;
+                }
+
+                if (!res.ok) throw new Error("Download failed");
+
+                const blob = await res.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `${id}.pdf`;
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+                document.body.removeChild(a);
+            } catch (e) {
+                console.error(e);
+                alert("Failed to download PDF. You might not have permission.");
+            } finally {
+                loader.style.display = 'none';
+            }
+        };
+
+    </script>
 </body>
 </html>
