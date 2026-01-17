@@ -18,7 +18,7 @@ const rateLimit = require('express-rate-limit');
 
 const app = express();
 
-// --- SECURITY MIDDLEWARE (Updated for Charts & Google Fonts) ---
+// --- SECURITY MIDDLEWARE ---
 app.use(
   helmet({
     contentSecurityPolicy: {
@@ -35,11 +35,11 @@ app.use(
         styleSrc: [
           "'self'",
           "'unsafe-inline'",
-          "https://fonts.googleapis.com" // Allows Google Maps Fonts
+          "https://fonts.googleapis.com"
         ],
         fontSrc: [
           "'self'",
-          "https://fonts.gstatic.com"    // Allows Google Font Files
+          "https://fonts.gstatic.com"
         ],
         imgSrc: [
           "'self'",
@@ -51,7 +51,7 @@ app.use(
         connectSrc: [
           "'self'",
           "https://maps.googleapis.com",
-          "https://cdn.jsdelivr.net"     // Fixes Chart.js Loading
+          "https://cdn.jsdelivr.net"
         ],
       },
     },
@@ -729,6 +729,10 @@ app.post('/api/save-permit', authenticateToken, upload.any(), async (req, res) =
         const renewalsJsonStr = JSON.stringify(renewalsArr);
         const data = { ...req.body, SelectedWorkers: workers, PermitID: pid, CreatedDate: getNowIST(), GSR_Accepted: 'Y' };
         
+        // --- CRITICAL FIX FOR 500 ERROR (Empty GPS handling) ---
+        const safeLat = (req.body.Latitude && req.body.Latitude !== 'undefined') ? String(req.body.Latitude) : null;
+        const safeLng = (req.body.Longitude && req.body.Longitude !== 'undefined') ? String(req.body.Longitude) : null;
+
         const q = pool.request()
             .input('p', sql.NVarChar, pid)
             .input('s', sql.NVarChar, 'Pending Review')
@@ -737,7 +741,8 @@ app.post('/api/save-permit', authenticateToken, upload.any(), async (req, res) =
             .input('rv', sql.NVarChar, req.body.ReviewerEmail)
             .input('ap', sql.NVarChar, req.body.ApproverEmail)
             .input('vf', sql.DateTime, vf).input('vt', sql.DateTime, vt)
-            .input('lat', sql.NVarChar, req.body.Latitude).input('lng', sql.NVarChar, req.body.Longitude)
+            .input('lat', sql.NVarChar, safeLat) // Fixed GPS
+            .input('lng', sql.NVarChar, safeLng) // Fixed GPS
             .input('j', sql.NVarChar(sql.MAX), JSON.stringify(data))
             .input('ren', sql.NVarChar(sql.MAX), renewalsJsonStr);
 
