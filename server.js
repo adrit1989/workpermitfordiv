@@ -18,7 +18,7 @@ const rateLimit = require('express-rate-limit');
 
 const app = express();
 
-// --- SECURITY MIDDLEWARE ---
+// --- SECURITY MIDDLEWARE (Updated for Charts & Google Fonts) ---
 app.use(
   helmet({
     contentSecurityPolicy: {
@@ -26,15 +26,20 @@ app.use(
         defaultSrc: ["'self'"],
         scriptSrc: [
           "'self'",
-          "'unsafe-inline'", // Allows <script> tags
+          "'unsafe-inline'",
           "https://cdn.tailwindcss.com",
           "https://cdn.jsdelivr.net",
           "https://maps.googleapis.com"
         ],
-        scriptSrcAttr: ["'unsafe-inline'"], // Fixes dropdowns/inline events
+        scriptSrcAttr: ["'unsafe-inline'"],
         styleSrc: [
           "'self'",
-          "'unsafe-inline'"
+          "'unsafe-inline'",
+          "https://fonts.googleapis.com" // Allows Google Maps Fonts
+        ],
+        fontSrc: [
+          "'self'",
+          "https://fonts.gstatic.com"    // Allows Google Font Files
         ],
         imgSrc: [
           "'self'",
@@ -46,7 +51,7 @@ app.use(
         connectSrc: [
           "'self'",
           "https://maps.googleapis.com",
-          "https://cdn.jsdelivr.net" // Fixes Chart.js connection error
+          "https://cdn.jsdelivr.net"     // Fixes Chart.js Loading
         ],
       },
     },
@@ -555,6 +560,89 @@ app.post('/api/add-user', authenticateToken, async (req, res) => {
         
         res.json({ success: true });
     } catch (e) { res.status(500).json({ error: e.message }) }
+});
+
+// WORKER MANAGEMENT (RESTORED ROUTES)
+app.post('/api/save-worker', authenticateToken, async (req, res) => {
+    try {
+        const { WorkerID, Action, Role, Details, RequestorEmail, RequestorName, ApproverName } = req.body;
+        const pool = await getConnection();
+        if ((Action === 'create' || Action === 'edit_request') && Details && parseInt(Details.Age) < 18) return res.status(400).json({ error: "Worker must be 18+" });
+
+        if (Action === 'create') {
+            const idRes = await pool.request().query("SELECT TOP 1 WorkerID FROM Workers ORDER BY WorkerID DESC");
+            const wid = `W-${parseInt(idRes.recordset.length > 0 ? idRes.recordset[0].WorkerID.split('-')[1] : 1000) + 1}`;
+            const dataObj = { Current: {}, Pending: { ...Details, RequestorName: RequestorName } };
+
+            await pool.request()
+                .input('w', wid).input('s', 'Pending Review').input('r', RequestorEmail)
+                .input('j', JSON.stringify(dataObj))
+                .input('idt', sql.NVarChar, Details.IDType)
+                .query("INSERT INTO Workers (WorkerID, Status, RequestorEmail, DataJSON, IDType) VALUES (@w, @s, @r, @j, @idt)");
+            res.json({ success: true });
+        }
+        else if (Action === 'edit_request') {
+            const cur = await pool.request().input('w', WorkerID).query("SELECT DataJSON FROM Workers WHERE WorkerID=@w");
+            if (cur.recordset.length === 0) return res.status(404).json({ error: "Worker not found" });
+            let dataObj = JSON.parse(cur.recordset[0].DataJSON);
+            dataObj.Pending = { ...dataObj.Current, ...Details, RequestorName: RequestorName || dataObj.Current.RequestorName };
+
+            await pool.request()
+                .input('w', WorkerID).input('s', 'Edit Pending Review').input('j', JSON.stringify(dataObj))
+                .input('idt', sql.NVarChar, Details.IDType)
+                .query("UPDATE Workers SET Status=@s, DataJSON=@j, IDType=@idt WHERE WorkerID=@w");
+            res.json({ success: true });
+        }
+        else if (Action === 'delete') {
+            await pool.request().input('w', WorkerID).query("DELETE FROM Workers WHERE WorkerID=@w");
+            res.json({ success: true });
+        }
+        else {
+            const cur = await pool.request().input('w', WorkerID).query("SELECT Status, DataJSON FROM Workers WHERE WorkerID=@w");
+            if (cur.recordset.length === 0) return res.status(404).json({ error: "Worker not found" });
+            let st = cur.recordset[0].Status;
+            let dataObj = JSON.parse(cur.recordset[0].DataJSON);
+
+            let appBy = null; let appOn = null;
+
+            if (Action === 'approve') {
+                if (st.includes('Pending Review')) st = st.replace('Review', 'Approval');
+                else if (st.includes('Pending Approval')) {
+                    st = 'Approved';
+                    appBy = ApproverName;
+                    appOn = getNowIST();
+                    dataObj.Current = { ...dataObj.Pending, ApprovedBy: appBy, ApprovedAt: appOn };
+                    dataObj.Pending = null;
+                }
+            } else if (Action === 'reject') { st = 'Rejected'; dataObj.Pending = null; }
+
+            await pool.request()
+                .input('w', WorkerID).input('s', st).input('j', JSON.stringify(dataObj))
+                .input('aby', sql.NVarChar, appBy).input('aon', sql.NVarChar, appOn)
+                .query("UPDATE Workers SET Status=@s, DataJSON=@j, ApprovedBy=@aby, ApprovedOn=@aon WHERE WorkerID=@w");
+            res.json({ success: true });
+        }
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/api/get-workers', authenticateToken, async (req, res) => {
+    try {
+        const pool = await getConnection();
+        const r = await pool.request().query("SELECT * FROM Workers");
+        const list = r.recordset.map(w => {
+            const d = JSON.parse(w.DataJSON);
+            const details = d.Pending || d.Current || {};
+            details.IDType = w.IDType || details.IDType;
+            details.ApprovedBy = w.ApprovedBy || details.ApprovedBy;
+            details.ApprovedAt = w.ApprovedOn || details.ApprovedAt;
+            return { ...details, WorkerID: w.WorkerID, Status: w.Status, RequestorEmail: w.RequestorEmail, IsEdit: w.Status.includes('Edit') };
+        });
+        if (req.body.context === 'permit_dropdown') res.json(list.filter(w => w.Status === 'Approved'));
+        else {
+            if (req.body.role === 'Requester') res.json(list.filter(w => w.RequestorEmail === req.body.email || w.Status === 'Approved'));
+            else res.json(list);
+        }
+    } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 // PROTECTED ROUTES
