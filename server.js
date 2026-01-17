@@ -97,7 +97,7 @@ const CHECKLIST_DATA = {
         "8. Attendant Trained Provided With Rescue Equipment/SCABA.",
         "9. Space Adequately Cooled for Safe Entry Of Person.",
         "10. Continuous Inert Gas Flow Arranged.",
-        "11. Check For Earthing/ELCB of all Temporary Electrical Connections being used for welding..",
+        "11. Check For Earthing/ELCB of all Temporary Electrical Connections being used for welding.",
         "12. Gas Cylinders are kept outside the confined Space.",
         "13. Spark arrestor Checked on mobile Equipments.",
         "14. Welding Machine Checked for Safe Location.",
@@ -112,7 +112,7 @@ const CHECKLIST_DATA = {
     ]
 };
 
-// --- CORE PDF GENERATOR (REFACTORED FOR ARCHIVAL) ---
+// --- CORE PDF GENERATOR (Reusable for Download & Archive) ---
 async function drawPermitPDF(doc, p, d) {
     // Helper: Draw Header
     const bgColor = d.PdfBgColor || 'White';
@@ -385,7 +385,7 @@ async function drawPermitPDF(doc, p, d) {
     doc.rect(386, sY, 179, 40).stroke().text(`APP: ${d.Approver_Sig || '-'}\nRem: ${d.Approver_Remarks || '-'}`, 391, sY + 5, { width: 169 });
     doc.y = sY + 50;
 
-    // --- RENEWAL TABLE WITH PHOTO ---
+    // --- RENEWAL TABLE WITH PHOTO (UPDATED FOR FEATURE B) ---
     if (doc.y > 650) { doc.addPage(); drawHeaderOnAll(); doc.y = 135; }
     doc.font('Helvetica-Bold').text("CLEARANCE RENEWAL", 30, doc.y); doc.y += 15;
     let ry = doc.y;
@@ -411,8 +411,8 @@ async function drawPermitPDF(doc, p, d) {
         let startTxt = r.valid_from.replace('T', '\n');
         let endTxt = r.valid_till.replace('T', '\n');
         
-        // FEATURE B: Highlight Odd Hour Renewals
-        if (r.odd_hour_req) {
+        // FEATURE B: Mark Odd Hours in PDF
+        if (r.odd_hour_req === true) {
             endTxt += "\n(Night Shift)";
             doc.font('Helvetica-Bold').fillColor('purple');
         }
@@ -595,16 +595,16 @@ app.post('/api/get-workers', async (req, res) => {
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// --- DASHBOARD ROUTE (UPDATED FOR FEATURE A) ---
+// --- UPDATED DASHBOARD: Handles 'Closed' Null Data & Returns FinalPdfUrl ---
 app.post('/api/dashboard', async (req, res) => {
     try {
         const { role, email } = req.body;
         const pool = await getConnection();
-        // Fetch FinalPdfUrl to send to frontend
+        // Updated query to include FinalPdfUrl
         const r = await pool.request().query("SELECT PermitID, Status, ValidFrom, ValidTo, RequesterEmail, ReviewerEmail, ApproverEmail, FullDataJSON, FinalPdfUrl FROM Permits");
         
         const p = r.recordset.map(x => {
-            // Feature A: Handle Closed Permits where FullDataJSON is NULL
+            // Feature A: Handle Closed Permits (FullDataJSON is NULL)
             let baseData = {};
             if (x.FullDataJSON) {
                 try { baseData = JSON.parse(x.FullDataJSON); } catch(e) {}
@@ -618,7 +618,7 @@ app.post('/api/dashboard', async (req, res) => {
                 RequesterEmail: x.RequesterEmail,
                 ReviewerEmail: x.ReviewerEmail,
                 ApproverEmail: x.ApproverEmail,
-                FinalPdfUrl: x.FinalPdfUrl // Link to Blob PDF
+                FinalPdfUrl: x.FinalPdfUrl // Send the link to frontend
             };
         });
         
@@ -714,7 +714,7 @@ app.post('/api/save-permit', upload.any(), async (req, res) => {
     }
 });
 
-// --- UPDATED STATUS ROUTE (Feature A & C) ---
+// --- UPDATED STATUS & ARCHIVAL ROUTE ---
 app.post('/api/update-status', async (req, res) => {
     try {
         const { PermitID, action, role, user, comment, bgColor, IOCLSupervisors, FirstRenewalAction, RequireRenewalPhotos, ...extras } = req.body;
@@ -737,7 +737,7 @@ app.post('/api/update-status', async (req, res) => {
         if (IOCLSupervisors) d.IOCLSupervisors = IOCLSupervisors;
         if (req.body.Site_Restored_Check) d.Site_Restored_Check = req.body.Site_Restored_Check;
 
-        // FEATURE C: Save Photo Requirement Preference
+        // FEATURE C: Save Approver's Photo Preference
         if (role === 'Approver' && action === 'approve' && RequireRenewalPhotos) {
             d.RequireRenewalPhotos = RequireRenewalPhotos;
         }
@@ -791,7 +791,7 @@ app.post('/api/update-status', async (req, res) => {
                 st = 'Closed';
                 d.Closure_Issuer_Sig = `${user} on ${now}`;
                 d.Closure_Approver_Date = now;
-                d.Closure_Approver_Sig = `${user} on ${now}`; // History
+                d.Closure_Approver_Sig = `${user} on ${now}`; // Ensure history logic works
                 isFinalClosure = true; // TRIGGER FEATURE A
             } else {
                 st = 'Active';
@@ -818,12 +818,12 @@ app.post('/api/update-status', async (req, res) => {
             d.Reviewer_Sig = `${user} on ${now}`;
         }
 
-        // --- Feature A: ARCHIVAL LOGIC ---
+        // --- Feature A: ARCHIVAL PROCESS ---
         let finalPdfUrl = null;
         let finalJson = JSON.stringify(d);
 
         if (isFinalClosure) {
-            // 1. Generate Buffer in Memory
+            // 1. Generate PDF Buffer
             const pdfBuffer = await new Promise((resolve, reject) => {
                 const doc = new PDFDocument({ margin: 30, size: 'A4', bufferPages: true });
                 const buffers = [];
@@ -831,7 +831,7 @@ app.post('/api/update-status', async (req, res) => {
                 doc.on('end', () => resolve(Buffer.concat(buffers)));
                 doc.on('error', reject);
                 
-                // Construct record for drawing
+                // Reconstruct full record for PDF generator
                 const record = { ...cur.recordset[0], PermitID, Status: st, ValidFrom: cur.recordset[0].ValidFrom, ValidTo: cur.recordset[0].ValidTo, RenewalsJSON: JSON.stringify(renewals) };
                 drawPermitPDF(doc, record, d);
                 doc.end();
@@ -841,7 +841,7 @@ app.post('/api/update-status', async (req, res) => {
             const blobName = `closed-permits/${PermitID}_FINAL.pdf`;
             finalPdfUrl = await uploadToAzure(pdfBuffer, blobName, "application/pdf");
 
-            // 3. Clear JSON to reclaim SQL space
+            // 3. Set JSON to NULL for SQL cleanup
             finalJson = null; 
         }
 
@@ -852,9 +852,11 @@ app.post('/api/update-status', async (req, res) => {
             .input('r', JSON.stringify(renewals));
 
         if (isFinalClosure) {
+            // Feature A: Wipe JSON, Set PDF URL
             await q.input('url', finalPdfUrl)
                    .query("UPDATE Permits SET Status=@s, FullDataJSON=NULL, RenewalsJSON=@r, FinalPdfUrl=@url WHERE PermitID=@p");
         } else {
+            // Normal Update
             await q.input('j', finalJson)
                    .query("UPDATE Permits SET Status=@s, FullDataJSON=@j, RenewalsJSON=@r WHERE PermitID=@p");
         }
@@ -891,6 +893,7 @@ app.post('/api/renewal', upload.any(), async (req, res) => {
                 if (last.status !== 'rejected' && rs < new Date(last.valid_till)) return res.status(400).json({ error: "Overlap detected" });
             }
 
+            // --- PHOTO UPLOAD LOGIC ---
             let photoUrl = null;
             const renImageFile = req.files ? req.files.find(f => f.fieldname === 'RenewalImage') : null;
             if (renImageFile) {
@@ -909,7 +912,7 @@ app.post('/api/renewal', upload.any(), async (req, res) => {
                 req_at: now,
                 worker_list: JSON.parse(renewalWorkers || "[]"),
                 photoUrl: photoUrl,
-                odd_hour_req: (oddHourReq === 'Y') // FEATURE B: Save Flag
+                odd_hour_req: (oddHourReq === 'Y') // Feature B: Store Odd Hour Flag
             });
         } else {
             const last = r[r.length - 1];
@@ -937,14 +940,14 @@ app.post('/api/permit-data', async (req, res) => {
         const pool = await getConnection(); 
         const r = await pool.request().input('p', sql.NVarChar, req.body.permitId).query("SELECT * FROM Permits WHERE PermitID=@p"); 
         if (r.recordset.length) {
-            // Feature A: Handle Closed Permits gracefully
+            // Feature A: Safety check for Closed permits (NULL JSON)
             const jsonStr = r.recordset[0].FullDataJSON;
             const data = jsonStr ? JSON.parse(jsonStr) : {};
             res.json({ 
                 ...data, 
                 Status: r.recordset[0].Status, 
                 RenewalsJSON: r.recordset[0].RenewalsJSON, 
-                FullDataJSON: null // Don't return heavy JSON
+                FullDataJSON: null // Don't send raw large string
             }); 
         } else res.json({ error: "404" }); 
     } catch (e) { res.status(500).json({ error: e.message }) } 
@@ -978,8 +981,6 @@ app.get('/api/download-pdf/:id', async (req, res) => {
         const result = await pool.request().input('p', req.params.id).query("SELECT * FROM Permits WHERE PermitID = @p");
         if (!result.recordset.length) return res.status(404).send('Not Found');
         const p = result.recordset[0]; 
-        // If Closed, this route won't work perfectly without JSON, so Frontend uses Blob Link.
-        // But for active/archived history:
         const d = p.FullDataJSON ? JSON.parse(p.FullDataJSON) : {};
         
         const doc = new PDFDocument({ margin: 30, size: 'A4', bufferPages: true });
@@ -987,6 +988,7 @@ app.get('/api/download-pdf/:id', async (req, res) => {
         res.setHeader('Content-Disposition', `attachment; filename=${p.PermitID}.pdf`);
         doc.pipe(res);
 
+        // Call reusable PDF drawer
         await drawPermitPDF(doc, p, d);
         doc.end();
 
