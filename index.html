@@ -21,7 +21,7 @@
         .section-title { font-weight: 800; color: #c2410c; margin: 1.5rem 0 1rem 0; border-bottom: 2px solid #fdba74; padding-bottom: 0.5rem; font-size: 1.1rem; }
         .loader { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255,255,255,0.9); display: none; justify-content: center; align-items: center; z-index: 2000; font-size: 1.5rem; color: #ea580c; font-weight: bold; flex-direction: column; gap: 10px; }
         
-        .btn-pdf { display: inline-block; padding: 8px 12px; background-color: #dc2626; color: white; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 0.8rem; text-align: center; }
+        .btn-pdf { display: inline-block; padding: 8px 12px; background-color: #dc2626; color: white; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 0.8rem; text-align: center; cursor: pointer; }
         .btn-pdf:hover { background-color: #b91c1c; }
 
         /* MOBILE TABLE */
@@ -449,10 +449,11 @@
             res.forEach(p => { 
                 let pendingWith = "-"; if(p.Status.includes('Review')) pendingWith = p.ReviewerEmail ? p.ReviewerEmail.split('@')[0] : '-'; if(p.Status.includes('Approval')) pendingWith = p.ApproverEmail ? p.ApproverEmail.split('@')[0] : '-'; const statusColor = p.Status.includes('Pending') ? 'text-red-600' : (p.Status==='Active' ? 'text-green-600' : 'text-gray-600'); 
                 
-                // Feature A: Closed Permit PDF Link
+                // --- FIX 1: Secure Download Button ---
                 let actionHtml = `<span class="bg-blue-50 text-blue-600 px-3 py-1 rounded-full text-xs font-bold">OPEN</span>`;
                 if (p.Status === 'Closed') {
-                    actionHtml = `<a href="${p.FinalPdfUrl}" target="_blank" class="btn-pdf">Download PDF</a>`;
+                    // Use JavaScript function instead of direct link
+                    actionHtml = `<button onclick="window.downloadSecurePDF('${p.PermitID}')" class="btn-pdf">Download PDF</button>`;
                 }
 
                 const row = `<tr class="cursor-pointer hover:bg-orange-50 transition" onclick="if('${p.Status}' !== 'Closed') window.openPermit('${p.PermitID}')"><td data-label="ID" class="font-bold text-blue-600 text-lg">${p.PermitID}</td><td data-label="Type" class="font-medium">${escapeHtml(p.WorkType||'-')}</td><td data-label="Loc" class="text-gray-600">${escapeHtml(p.LocationUnit||'-')}</td><td data-label="Status" class="font-bold ${statusColor}">${p.Status}</td><td data-label="With" class="text-sm text-gray-500">${escapeHtml(pendingWith)}</td><td data-label="Action">${actionHtml}</td></tr>`; let isAction = false; const s = p.Status; if(currentUser.Role === 'Reviewer') { if((s === 'Pending Review' || s === 'Renewal Pending Review' || s === 'Closure Pending Review') && p.ReviewerEmail === currentUser.Email) isAction = true; } else if(currentUser.Role === 'Approver') { if((s === 'Pending Approval' || s === 'Renewal Pending Approval' || s === 'Closure Pending Approval') && p.ApproverEmail === currentUser.Email) isAction = true; } else if (currentUser.Role === 'Requester') { if (s.includes('Pending')) isAction = true; } if(isAction) tP.innerHTML += row; else if(s === 'Active') tA.innerHTML += row; else tO.innerHTML += row; }); 
@@ -666,7 +667,8 @@
                          btns += `<button type="button" onclick="window.upd('approve')" class="bg-blue-600 text-white px-6 py-3 rounded-lg font-bold shadow flex-1 text-center">Update Supervisors</button>`;
                          document.getElementById("pdf-color-select").classList.remove('hidden');
                     }
-                    btns += `<a href="${API}/download-pdf/${id}" target="_blank" class="bg-gray-700 text-white px-6 py-3 rounded-lg font-bold shadow flex-1 text-center">Download PDF</a>`;
+                    // --- FIX 2: Secure Download Button ---
+                    btns += `<button type="button" onclick="window.downloadSecurePDF('${id}')" class="bg-gray-700 text-white px-6 py-3 rounded-lg font-bold shadow flex-1 text-center">Download PDF</button>`;
                 }
             }
             
@@ -691,7 +693,10 @@
                       btns=`<button type="button" onclick="window.upd('reject_closure')" class="bg-red-600 text-white px-4 py-3 rounded-lg font-bold flex-1">Reject</button><button type="button" onclick="window.upd('approve')" class="bg-black text-white px-4 py-3 rounded-lg font-bold flex-1">Close Permit</button>`; 
                 }
                 
-                if(s==='Closed') { btns = `<a href="${API}/download-pdf/${id}" target="_blank" class="bg-gray-700 text-white px-6 py-3 rounded-lg font-bold shadow flex-1 text-center">Download PDF</a>`; }
+                if(s==='Closed') { 
+                    // --- FIX 3: Secure Download Button ---
+                    btns = `<button type="button" onclick="window.downloadSecurePDF('${id}')" class="bg-gray-700 text-white px-6 py-3 rounded-lg font-bold shadow flex-1 text-center">Download PDF</button>`; 
+                }
             }
 
             document.getElementById("signature-history").classList.remove('hidden');
@@ -1012,6 +1017,44 @@
         window.submitNewUser = async function() { const n=document.getElementById("new-user-name").value; const e=document.getElementById("new-user-email").value; const r=document.getElementById("new-user-role").value; const p=document.getElementById("new-user-pass").value; const res=await apiCall('/add-user','POST',{name:n,email:e,role:r,password:p}); if(res.success){alert("User Added"); document.getElementById("view-add-user").classList.add('hidden');} else alert(res.error); }
         window.showMap = function() { document.getElementById("view-dashboard").classList.add('hidden'); document.getElementById("view-map").classList.remove('hidden'); loadMapData(); }
         async function loadMapData() { const p = await apiCall('/map-data', 'POST'); if(!mapInstance) mapInstance=new google.maps.Map(document.getElementById("map"),{center:{lat:22.57,lng:88.36},zoom:5}); const listEl = document.getElementById("map-list-content"); listEl.innerHTML = ""; const infoWindow = new google.maps.InfoWindow(); p.forEach(x => { const marker = new google.maps.Marker({position:{lat:x.lat,lng:x.lng}, map:mapInstance, title:x.PermitID}); const content = `<div><b>${escapeHtml(x.PermitID)}</b><br>Loc: ${escapeHtml(x.ExactLocation)}<br>Req: ${escapeHtml(x.RequesterName)}<br>Valid: ${x.ValidTo}</div>`; marker.addListener("click", () => { infoWindow.setContent(content); infoWindow.open(mapInstance, marker); }); const item = document.createElement("div"); item.className = "p-3 border-b cursor-pointer hover:bg-orange-50 text-sm flex justify-between"; item.innerHTML = `<div><b>${escapeHtml(x.PermitID)}</b><div class="text-xs text-gray-500">${escapeHtml(x.ExactLocation)}</div></div><div class="text-xs font-bold text-orange-600">${escapeHtml(x.WorkType)}</div>`; item.onclick = () => { mapInstance.setCenter({lat:x.lat,lng:x.lng}); mapInstance.setZoom(12); infoWindow.setContent(`<b>${escapeHtml(x.PermitID)}</b><br>${escapeHtml(x.WorkType)}`); infoWindow.open(mapInstance, marker); }; listEl.appendChild(item); }); }
+        
+        // --- NEW SECURE PDF DOWNLOAD FUNCTION ---
+        window.downloadSecurePDF = async function(id) {
+            loader.style.display = 'flex';
+            try {
+                const headers = {};
+                if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
+                
+                const res = await fetch(`${API}/download-pdf/${id}`, {
+                    method: 'GET',
+                    headers: headers
+                });
+
+                if (res.status === 401 || res.status === 403) {
+                    alert("Session expired. Please login again.");
+                    location.reload();
+                    return;
+                }
+
+                if (!res.ok) throw new Error("Download failed");
+
+                const blob = await res.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `${id}.pdf`;
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+                document.body.removeChild(a);
+            } catch (e) {
+                console.error(e);
+                alert("Failed to download PDF. You might not have permission.");
+            } finally {
+                loader.style.display = 'none';
+            }
+        };
+
     </script>
 </body>
 </html>
