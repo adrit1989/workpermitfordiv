@@ -19,7 +19,6 @@ const rateLimit = require('express-rate-limit');
 const app = express();
 
 // --- SECURITY MIDDLEWARE ---
-// --- SECURITY MIDDLEWARE ---
 app.use(
   helmet({
     contentSecurityPolicy: {
@@ -32,9 +31,7 @@ app.use(
           "https://cdn.jsdelivr.net",
           "https://maps.googleapis.com"
         ],
-        // 👇 THIS IS THE NEW LINE THAT FIXES YOUR DROPDOWNS 👇
-        scriptSrcAttr: ["'unsafe-inline'"], 
-        
+        scriptSrcAttr: ["'unsafe-inline'"], // Fixes dropdowns/inline events
         styleSrc: [
           "'self'",
           "'unsafe-inline'"
@@ -48,7 +45,8 @@ app.use(
         ],
         connectSrc: [
           "'self'",
-          "https://maps.googleapis.com"
+          "https://maps.googleapis.com",
+          "https://cdn.jsdelivr.net" // Fixes Chart.js connection error
         ],
       },
     },
@@ -813,6 +811,98 @@ app.post('/api/permit-data', authenticateToken, async (req, res) => {
             }); 
         } else res.json({ error: "404" }); 
     } catch (e) { res.status(500).json({ error: e.message }) } 
+});
+
+// --- MISSING ROUTES RESTORED ---
+
+app.post('/api/map-data', authenticateToken, async (req, res) => {
+    try {
+        const pool = await getConnection();
+        const r = await pool.request().query("SELECT PermitID, FullDataJSON, Latitude, Longitude FROM Permits WHERE Status='Active'");
+        res.json(r.recordset.map(x => ({
+            PermitID: x.PermitID,
+            lat: parseFloat(x.Latitude),
+            lng: parseFloat(x.Longitude),
+            ...JSON.parse(x.FullDataJSON)
+        })));
+    } catch (e) {
+        res.status(500).json({ error: e.message })
+    }
+});
+
+app.post('/api/stats', authenticateToken, async (req, res) => {
+    try {
+        const pool = await getConnection();
+        const r = await pool.request().query("SELECT Status, WorkType FROM Permits");
+        const s = {}, t = {};
+        r.recordset.forEach(x => {
+            s[x.Status] = (s[x.Status] || 0) + 1;
+            t[x.WorkType] = (t[x.WorkType] || 0) + 1;
+        });
+        res.json({ success: true, statusCounts: s, typeCounts: t });
+    } catch (e) {
+        res.status(500).json({ error: e.message })
+    }
+});
+
+app.get('/api/download-excel', authenticateToken, async (req, res) => {
+    try {
+        const pool = await getConnection();
+        const result = await pool.request().query("SELECT * FROM Permits ORDER BY Id DESC");
+        const workbook = new ExcelJS.Workbook();
+        const sheet = workbook.addWorksheet('Permits');
+        sheet.columns = [
+            { header: 'Permit ID', key: 'id', width: 15 },
+            { header: 'Status', key: 'status', width: 20 },
+            { header: 'Work', key: 'wt', width: 25 },
+            { header: 'Requester', key: 'req', width: 25 },
+            { header: 'Location', key: 'loc', width: 30 },
+            { header: 'Vendor', key: 'ven', width: 20 },
+            { header: 'Valid From', key: 'vf', width: 20 },
+            { header: 'Valid To', key: 'vt', width: 20 }
+        ];
+        sheet.getRow(1).font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 12 };
+        sheet.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFED7D31' } };
+        result.recordset.forEach(r => {
+            const d = r.FullDataJSON ? JSON.parse(r.FullDataJSON) : {};
+            sheet.addRow({
+                id: r.PermitID,
+                status: r.Status,
+                wt: d.WorkType || '-',
+                req: d.RequesterName || '-',
+                loc: d.ExactLocation || '-',
+                ven: d.Vendor || '-',
+                vf: formatDate(r.ValidFrom),
+                vt: formatDate(r.ValidTo)
+            });
+        });
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        res.setHeader('Content-Disposition', 'attachment; filename=IndianOil_Permits.xlsx');
+        await workbook.xlsx.write(res);
+        res.end();
+    } catch (e) {
+        res.status(500).send(e.message);
+    }
+});
+
+app.get('/api/download-pdf/:id', async (req, res) => {
+    try {
+        const pool = await getConnection();
+        const result = await pool.request().input('p', req.params.id).query("SELECT * FROM Permits WHERE PermitID = @p");
+        if (!result.recordset.length) return res.status(404).send('Not Found');
+        const p = result.recordset[0];
+        const d = p.FullDataJSON ? JSON.parse(p.FullDataJSON) : {};
+        const renewals = p.RenewalsJSON ? JSON.parse(p.RenewalsJSON) : [];
+        const doc = new PDFDocument({ margin: 30, size: 'A4', bufferPages: true });
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `attachment; filename=${p.PermitID}.pdf`);
+        doc.pipe(res);
+        await drawPermitPDF(doc, p, d, renewals);
+        doc.end();
+    } catch (e) {
+        console.error(e);
+        res.status(500).send(e.message);
+    }
 });
 
 // START SERVER
