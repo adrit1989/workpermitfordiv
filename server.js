@@ -72,7 +72,7 @@ const AZURE_CONN_STR = process.env.AZURE_STORAGE_CONNECTION_STRING;
 // --- RATE LIMITER ---
 const loginLimiter = rateLimit({
     windowMs: 15 * 60 * 1000, 
-    max: 100, // Relaxed for testing
+    max: 100, // Limit each IP to 100 requests per windowMs
     message: "Too many login attempts, please try again later."
 });
 
@@ -688,6 +688,9 @@ app.post('/api/dashboard', authenticateToken, async (req, res) => {
 app.post('/api/save-permit', authenticateToken, upload.any(), async (req, res) => {
     try {
         console.log("Received Permit Submit Request:", req.body.PermitID);
+        // SECURITY FIX: User identity from Token
+        const requesterEmail = req.user.email;
+
         let vf, vt;
         try {
             vf = req.body.ValidFrom ? new Date(req.body.ValidFrom) : null;
@@ -747,12 +750,12 @@ app.post('/api/save-permit', authenticateToken, upload.any(), async (req, res) =
             .input('p', sql.NVarChar, pid)
             .input('s', sql.NVarChar, 'Pending Review')
             .input('w', sql.NVarChar, req.body.WorkType)
-            .input('re', sql.NVarChar, req.body.RequesterEmail)
+            .input('re', sql.NVarChar, requesterEmail) // Use secure email
             .input('rv', sql.NVarChar, req.body.ReviewerEmail)
             .input('ap', sql.NVarChar, req.body.ApproverEmail)
             .input('vf', sql.DateTime, vf).input('vt', sql.DateTime, vt)
-            .input('lat', sql.NVarChar, safeLat) // Fixed GPS
-            .input('lng', sql.NVarChar, safeLng) // Fixed GPS
+            .input('lat', sql.NVarChar, safeLat) 
+            .input('lng', sql.NVarChar, safeLng) 
             .input('j', sql.NVarChar(sql.MAX), JSON.stringify(data))
             .input('ren', sql.NVarChar(sql.MAX), renewalsJsonStr);
 
@@ -768,9 +771,16 @@ app.post('/api/save-permit', authenticateToken, upload.any(), async (req, res) =
     }
 });
 
+// --- UPDATED SECURE UPDATE-STATUS ROUTE ---
 app.post('/api/update-status', authenticateToken, async (req, res) => {
     try {
-        const { PermitID, action, role, user, ...extras } = req.body;
+        // SECURITY FIX: Do not destructure 'role' or 'user' from req.body.
+        const { PermitID, action, ...extras } = req.body;
+        
+        // SECURITY FIX: Always get identity from the validated Token
+        const role = req.user.role; 
+        const user = req.user.name; 
+
         const pool = await getConnection();
         const cur = await pool.request().input('p', PermitID).query("SELECT * FROM Permits WHERE PermitID=@p");
         if (cur.recordset.length === 0) return res.json({ error: "Not found" });
@@ -782,10 +792,9 @@ app.post('/api/update-status', authenticateToken, async (req, res) => {
 
         Object.assign(d, extras);
 
-        // --- NEW LOGIC: AUTO-PROCESS 1ST RENEWAL (Requirement B) ---
+        // --- REQUIREMENT B: AUTO-PROCESS 1ST RENEWAL ---
         if (renewals.length === 1) {
             const r1 = renewals[0];
-            // Only update if currently pending
             if (r1.status === 'pending_review' || r1.status === 'pending_approval') {
                 if (action === 'reject') {
                     r1.status = 'rejected';
@@ -793,22 +802,19 @@ app.post('/api/update-status', authenticateToken, async (req, res) => {
                     r1.rej_reason = "Rejected along with Main Permit";
                 } 
                 else if (role === 'Reviewer' && action === 'review') {
-                    // Reviewer reviews Permit -> Renewal moves to Pending Approval
                     r1.status = 'pending_approval';
                     r1.rev_name = user;
                     r1.rev_at = now;
                 } 
                 else if (role === 'Approver' && action === 'approve') {
-                    // Approver approves Permit -> Renewal becomes Approved
                     r1.status = 'approved';
                     r1.app_name = user;
                     r1.app_at = now;
                 }
             }
         }
-        // -----------------------------------------------------------
         
-        // Status Logic (Standard flow)
+        // Status Logic
         if (action === 'reject_closure') { st = 'Active'; }
         else if (action === 'approve_closure' && role === 'Reviewer') {
             st = 'Closure Pending Approval';
@@ -844,7 +850,6 @@ app.post('/api/update-status', authenticateToken, async (req, res) => {
         if (st === 'Closed') {
              const pdfRecord = { ...cur.recordset[0], Status: 'Closed', PermitID: PermitID, ValidFrom: cur.recordset[0].ValidFrom, ValidTo: cur.recordset[0].ValidTo };
              
-             // Create buffer safely
              const pdfBuffer = await new Promise(async (resolve, reject) => {
                 const doc = new PDFDocument({ margin: 30, size: 'A4', bufferPages: true });
                 const buffers = [];
@@ -855,17 +860,12 @@ app.post('/api/update-status', authenticateToken, async (req, res) => {
                 try {
                     await drawPermitPDF(doc, pdfRecord, d, renewals);
                     doc.end();
-                } catch(e) { 
-                    console.error(e);
-                    doc.end();
-                    reject(e); 
-                }
+                } catch(e) { doc.end(); reject(e); }
              });
              
              const blobName = `closed-permits/${PermitID}_FINAL.pdf`;
              finalPdfUrl = await uploadToAzure(pdfBuffer, blobName, "application/pdf");
-             
-             if(finalPdfUrl) finalJson = null; // Wipe only on success
+             if(finalPdfUrl) finalJson = null;
         }
 
         const q = pool.request().input('p', PermitID).input('s', st).input('r', JSON.stringify(renewals));
@@ -879,10 +879,14 @@ app.post('/api/update-status', authenticateToken, async (req, res) => {
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// --- OTHER ROUTES (Protected) ---
+// --- UPDATED SECURE RENEWAL ROUTE ---
 app.post('/api/renewal', authenticateToken, upload.any(), async (req, res) => {
     try {
-        const { PermitID, userRole, userName, action, rejectionReason, renewalWorkers, oddHourReq, ...data } = req.body;
+        // SECURITY FIX: Extract identity from Token, not Body
+        const { PermitID, action, rejectionReason, renewalWorkers, oddHourReq, ...data } = req.body;
+        const userRole = req.user.role; 
+        const userName = req.user.name;
+
         const pool = await getConnection();
         const cur = await pool.request().input('p', PermitID).query("SELECT RenewalsJSON, Status, ValidFrom, ValidTo FROM Permits WHERE PermitID=@p");
         if (cur.recordset[0].Status === 'Closed') return res.status(400).json({ error: "Permit is CLOSED." });
@@ -895,8 +899,14 @@ app.post('/api/renewal', authenticateToken, upload.any(), async (req, res) => {
             const re = new Date(data.RenewalValidTo);
 
             if (re <= rs) return res.status(400).json({ error: "End time must be after Start time" });
+            
+            // REQUIREMENT A: Backend Validation for 8 Hours
+            const diffMs = re - rs;
+            if (diffMs > 8 * 60 * 60 * 1000) {
+                return res.status(400).json({ error: "Renewal duration cannot exceed 8 hours." });
+            }
 
-            // --- CRITICAL FIX: OVERLAP CHECK ---
+            // --- OVERLAP CHECK ---
             if (r.length > 0) {
                 const last = r[r.length - 1];
                 if (last.status !== 'rejected') {
@@ -906,7 +916,6 @@ app.post('/api/renewal', authenticateToken, upload.any(), async (req, res) => {
                     }
                 }
             }
-            // ------------------------------------
 
             const photoFile = req.files ? req.files.find(f => f.fieldname === 'RenewalImage') : null;
             let photoUrl = null;
