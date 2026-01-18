@@ -781,6 +781,30 @@ app.post('/api/update-status', authenticateToken, async (req, res) => {
         const now = getNowIST();
 
         Object.assign(d, extras);
+        if (renewals.length === 1) {
+            const r1 = renewals[0];
+            // Only modify if it hasn't been finalized yet
+            if (r1.status !== 'approved' && r1.status !== 'rejected') {
+                if (action === 'reject') {
+                    r1.status = 'rejected';
+                    r1.rej_by = user;
+                    r1.rej_reason = "Rejected along with Permit";
+                } else if (role === 'Reviewer' && action === 'review') {
+                    r1.status = 'pending_approval';
+                    r1.rev_name = user;
+                    r1.rev_at = now;
+                } else if (role === 'Approver' && action === 'approve') {
+                    r1.status = 'approved';
+                    r1.app_name = user;
+                    r1.app_at = now;
+                }
+            }
+       }
+        // --- UPDATED SNIPPET END ---
+        
+        // Status Logic (Standard flow)
+        if (action === 'reject_closure') { st = 'Active'; }
+        // ... rest of your status logic ...
         
         // Status Logic (Standard flow)
         if (action === 'reject_closure') { st = 'Active'; }
