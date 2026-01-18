@@ -828,7 +828,10 @@
             }
             const getVal = (id) => { const el = document.getElementById(id); return el ? el.value : ''; }; 
             const vf = new Date(getVal("RenewalValidFrom")); const vt = new Date(getVal("RenewalValidTo")); 
+            
             if (vt <= vf) { alert("End time must be greater than Start time"); return; } 
+            if ((vt - vf) > (8 * 60 * 60 * 1000)) { alert("Renewal duration cannot exceed 8 hours."); return; } 
+            const selWorkers = [];
             
             const selWorkers = []; 
             document.querySelectorAll('.ren-worker-cb:checked').forEach(c => selWorkers.push(c.value)); 
@@ -1076,3 +1079,4 @@
     </script>
 </body>
 </html>
+
