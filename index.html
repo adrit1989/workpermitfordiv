@@ -861,7 +861,10 @@
             }).join('');
             document.querySelectorAll('.btn-view-photo').forEach(b => b.addEventListener('click', (e) => viewSecurePhoto(e.target.dataset.url)));
 
-            if(rens.length > 0) document.getElementById("renewals-section").classList.remove('hidden');
+            // LOGIC FIX: Always show renewal section if Active (for creating new) or if history exists
+            if(rens.length > 0 || (p.Status === 'Active' && currentUser.Role === 'Requester')) {
+                document.getElementById("renewals-section").classList.remove('hidden');
+            }
             
             const lastApprovedRen = rens.slice().reverse().find(r => r.status === 'approved');
             setText("sig-ren", lastApprovedRen ? `${lastApprovedRen.app_name} on ${lastApprovedRen.app_at}` : 'None');
@@ -974,6 +977,9 @@
 
             const last = rens[rens.length-1];
             if(currentUser.Role === 'Requester' && (p.Status === 'Active' || p.Status.includes('Renewal')) && (!last || !last.status.includes('pending'))) {
+                 // --- FIX: Unhide Parent Container so form is visible ---
+                 document.getElementById("renewals-section").classList.remove('hidden');
+                 
                  document.getElementById("closure-section").classList.remove('hidden'); document.getElementById("div-closure-req").classList.remove('hidden');
                  document.getElementById("Closure_Requestor_Remarks").disabled = false; document.getElementById("Site_Restored_Check").disabled = false;
                  document.getElementById("form-renewal").classList.remove('hidden'); document.querySelectorAll('#form-renewal input').forEach(e => e.disabled = false);
