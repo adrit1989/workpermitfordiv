@@ -236,8 +236,13 @@ async function drawPermitPDF(doc, p, d, renewalsList) {
         doc.rect(startX, startY, 535, 95).stroke();
         
         doc.rect(startX, startY, 80, 95).stroke(); 
-        if (fs.existsSync('logo.png')) {
-            try { doc.image('logo.png', startX, startY, { fit: [80, 95], align: 'center', valign: 'center' }); } catch (err) { }
+        
+        // --- PATCHED LOGO LOGIC ---
+        const logoPath = path.join(__dirname, 'public', 'logo.png');
+        if (fs.existsSync(logoPath)) {
+            try { 
+                doc.image(logoPath, startX, startY, { fit: [80, 95], align: 'center', valign: 'center' }); 
+            } catch (err) { }
         }
 
         doc.rect(startX + 80, startY, 320, 95).stroke();
@@ -267,9 +272,11 @@ async function drawPermitPDF(doc, p, d, renewalsList) {
 
     drawHeaderOnAll();
 
-    if (fs.existsSync('safety_banner.png')) {
+    // --- PATCHED SAFETY BANNER PATH ---
+    const bannerPath = path.join(__dirname, 'public', 'safety_banner.png');
+    if (fs.existsSync(bannerPath)) {
         try {
-            doc.image('safety_banner.png', 30, doc.y, { width: 535, height: 100 });
+            doc.image(bannerPath, 30, doc.y, { width: 535, height: 100 });
             doc.y += 110;
         } catch (err) { }
     }
@@ -1220,6 +1227,11 @@ app.get('/api/view-photo/:filename', authenticateToken, async (req, res) => {
         console.error("Photo retrieval error:", e.message);
         res.status(500).send("Error retrieving photo");
     }
+});
+
+// --- SERVE THE FRONTEND ---
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'index.html'));
 });
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'index.html'));
