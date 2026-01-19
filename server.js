@@ -676,15 +676,22 @@ app.post('/api/save-permit', authenticateAccess, upload.any(), async (req, res) 
     let pid = req.body.PermitID;
 
     // --- FIX: MATHEMATICAL ID GENERATION ---
+    // --- FIX: MATHEMATICAL ID GENERATION ---
     if (!pid || pid === 'undefined' || pid === 'null' || pid === '') {
-      const idRes = await pool.request().query("SELECT MAX(CAST(SUBSTRING(PermitID, 4, 10) AS INT)) as MaxVal FROM Permits WHERE PermitID LIKE 'WP-%'");
+      // 1. Ask SQL to extract the NUMBER (substring) and find the mathematical MAX
+      const idRes = await pool.request().query(
+        "SELECT MAX(CAST(SUBSTRING(PermitID, 4, 10) AS INT)) as MaxVal FROM Permits WHERE PermitID LIKE 'WP-%'"
+      );
       
-      let nextNum = 1000;
-      if (idRes.recordset[0].MaxVal) {
+      let nextNum = 1000; // Default if table is empty
+      
+      // 2. If a number exists (e.g., 100), make the next one 101
+      if (idRes.recordset.length > 0 && idRes.recordset[0].MaxVal) {
         nextNum = idRes.recordset[0].MaxVal + 1;
       }
+      
       pid = `WP-${nextNum}`;
-      console.log("Generated New ID:", pid);
+      console.log("Generated New ID:", pid); // Watch logs: Should say WP-101
     }
 
     // Check if ID exists to decide INSERT vs UPDATE
