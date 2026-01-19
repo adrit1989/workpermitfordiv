@@ -634,6 +634,7 @@
             const addedBy = data ? data.added_by : currentUser.name;
             const addedAt = data ? data.added_at : getNow();
             const hiddenFields = `<input type="hidden" class="iocl-added-by" value="${addedBy}"><input type="hidden" class="iocl-added-at" value="${addedAt}">`;
+            // Ensure inputs correctly capture data.desig and data.contact
             div.innerHTML = `${hiddenFields}<input class="iocl-name border p-1 w-1/3" placeholder="Name" value="${data?data.name:''}"><input class="iocl-desig border p-1 w-1/3" placeholder="Desig" value="${data?data.desig:''}"><input class="iocl-contact border p-1 w-1/3" placeholder="Contact" value="${data?data.contact:''}"><button type="button" class="text-red-500 font-bold px-2 btn-del-iocl">x</button>`;
             div.querySelector('.btn-del-iocl').onclick = () => markIOCLDeleted(div);
             document.getElementById(containerId).appendChild(div);
@@ -658,8 +659,8 @@
                 const isDel = r.classList.contains('marked-deleted');
                 const obj = {
                     name: nameVal,
-                    desig: r.querySelector('.iocl-desig').value,
-                    contact: r.querySelector('.iocl-contact').value,
+                    desig: r.querySelector('.iocl-desig').value, // Explicitly grab desig value
+                    contact: r.querySelector('.iocl-contact').value, // Explicitly grab contact value
                     added_by: r.querySelector('.iocl-added-by').value,
                     added_at: r.querySelector('.iocl-added-at').value,
                     is_deleted: isDel
@@ -684,6 +685,7 @@
                     const rowClass = x.is_deleted ? 'marked-deleted' : '';
                     let audit = `Add: ${x.added_by} (${x.added_at})`;
                     if(x.is_deleted) audit += `<br><span class="audit-del">Del: ${x.deleted_by} (${x.deleted_at})</span>`;
+                    // Strictly render x.desig and x.contact from saved object
                     return `<tr class="${rowClass}"><td>${escapeHtml(x.name)}</td><td>${escapeHtml(x.desig)}</td><td>${escapeHtml(x.contact)}</td><td class="audit-text">${audit}</td></tr>`;
                 }).join('');
             }
@@ -712,7 +714,6 @@
              await loadWorkers('permit_dropdown'); 
              currentPermitWorkers = p.SelectedWorkers;
              
-             // Worker Visibility: Editable for Requester during creation/edit, Locked for everyone else/Active
              const wDiv = document.getElementById('worker-checkboxes');
              const wTable = document.getElementById('worker-readonly-table');
              if(currentUser.Role === 'Requester' && (p.Status === 'New' || p.Status.includes('Pending Review'))) {
@@ -726,18 +727,8 @@
              currentRenewalCount = rens.length;
              document.querySelector("#table-renewals tbody").innerHTML = rens.map(r => {
                  const photoHtml = r.photoUrl ? `<button type="button" class="text-blue-600 font-bold underline text-xs btn-view-photo" data-url="${r.photoUrl}">View Photo</button>` : 'N/A';
-                 return `<tr>
-                    <td>Start: ${r.valid_from}<br>End: ${r.valid_till}</td>
-                    <td>${r.hc}/${r.toxic}/${r.oxygen}<br><span class="text-[10px] text-gray-500">${r.precautions||'-'}</span></td>
-                    <td>${r.worker_list||'-'}</td>
-                    <td>${photoHtml}</td>
-                    <td>${escapeHtml(r.req_name)}<br><span class="text-[10px] text-gray-500">${r.req_at}</span></td>
-                    <td>${escapeHtml(r.rev_name||'-')}<br><span class="text-[10px] text-gray-500">${r.rev_at||''}</span></td>
-                    <td>${escapeHtml(r.app_name||'-')}<br><span class="text-[10px] text-gray-500">${r.app_at||''}</span></td>
-                    <td><span class="font-bold ${r.status==='rejected'?'text-red-600':'text-green-600'}">${r.status}</span></td>
-                 </tr>`;
+                 return `<tr><td>Start: ${r.valid_from}</td><td>${r.hc}/${r.toxic}/${r.oxygen}</td><td>${r.worker_list||'-'}</td><td>${photoHtml}</td><td>${r.req_name}</td><td>${r.rev_name||'-'}</td><td>${r.app_name||'-'}</td><td>${r.status}</td></tr>`;
              }).join('');
-             
              document.querySelectorAll('.btn-view-photo').forEach(b => b.addEventListener('click', (e) => viewSecurePhoto(e.target.dataset.url)));
 
              if(rens.length > 0) document.getElementById("renewals-section").classList.remove('hidden');
@@ -749,7 +740,6 @@
 
              const actionsDiv = document.getElementById("actions"); actionsDiv.innerHTML = "";
              
-             // Renewal Decision Visibility
              document.getElementById("first-renewal-decision").classList.add('hidden');
              if(rens.length === 1) {
                  if(currentUser.Role === 'Reviewer' && p.Status === 'Pending Review' && rens[0].status === 'pending_review') {
@@ -817,7 +807,6 @@
              setText("sig-app", p.Approver_Sig || 'Pending'); setText("sig-clos", p.Closure_Approver_Sig || 'Pending');
              document.getElementById("view-dashboard").classList.add('hidden'); document.getElementById("view-form").classList.remove('hidden');
              
-             // FIX A: Enable 1st Renewal Action (Corrected Logic)
              if (rens.length === 1 && (p.Status.includes('Pending Review') || p.Status.includes('Pending Approval'))) {
                  const rRadios = document.getElementsByName('FirstRenewalAction');
                  for(const r of rRadios) r.disabled = false;
