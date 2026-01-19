@@ -13,7 +13,7 @@ const { getConnection, sql } = require('./db');
 
 // SECURITY
 const jwt = require('jsonwebtoken');
-const bcrypt = require('bcryptjs'); // Fixed: Use bcryptjs for Azure
+const bcrypt = require('bcryptjs'); // Fixed: Uses bcryptjs for Azure
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const crypto = require('crypto');
@@ -484,6 +484,7 @@ app.post('/api/logout', async (req, res) => {
    CORE API ROUTES
 ===================================================== */
 
+// Fixed: Public route for login dropdown
 app.get('/api/users', async (req, res) => {
   try {
     const pool = await getConnection();
@@ -760,6 +761,7 @@ app.post('/api/save-permit', authenticateAccess, upload.any(), async (req, res) 
   }
 });
 
+// --- 5. Update Status (With Reference Deletion Logic) ---
 app.post('/api/update-status', authenticateAccess, async (req, res) => {
   try {
     const { PermitID, action, ...extras } = req.body;
@@ -771,7 +773,7 @@ app.post('/api/update-status', authenticateAccess, async (req, res) => {
     if (!cur.recordset.length) return res.status(404).json({ error:"Not found" });
 
     let st = cur.recordset[0].Status;
-    let d = JSON.parse(cur.recordset[0].FullDataJSON);
+    let d = JSON.parse(cur.recordset[0].FullDataJSON || "{}");
     let renewals = JSON.parse(cur.recordset[0].RenewalsJSON || "[]");
     const now = getNowIST();
 
@@ -822,6 +824,7 @@ app.post('/api/update-status', authenticateAccess, async (req, res) => {
     let finalJson = JSON.stringify(d);
 
     if (st === 'Closed') {
+      // Fixed: Promise based PDF generation to prevent crashes
       const pdfRecord = { ...cur.recordset[0], Status:'Closed', PermitID, ValidFrom:cur.recordset[0].ValidFrom, ValidTo:cur.recordset[0].ValidTo };
       const pdfBuffer = await new Promise(async (resolve, reject)=>{
         const doc = new PDFDocument({ margin:30, size:'A4', bufferPages:true });
@@ -841,14 +844,16 @@ app.post('/api/update-status', authenticateAccess, async (req, res) => {
       });
       const blobName = `closed-permits/${PermitID}_FINAL.pdf`;
       finalPdfUrl = await uploadToAzure(pdfBuffer, blobName, "application/pdf");
-      if(finalPdfUrl) finalJson=null;
     }
 
-    const q = pool.request().input('p', PermitID).input('s', st).input('r', JSON.stringify(renewals));
+    const q = pool.request().input('p', PermitID).input('s', st);
+    
     if (finalPdfUrl) {
+      // REFERENCE LOGIC APPLIED: JSONs set to NULL upon closure
       await q.input('url', finalPdfUrl).query("UPDATE Permits SET Status=@s, FullDataJSON=NULL, RenewalsJSON=NULL, FinalPdfUrl=@url WHERE PermitID=@p");
     } else {
-      await q.input('j', finalJson).query("UPDATE Permits SET Status=@s, FullDataJSON=@j, RenewalsJSON=@r WHERE PermitID=@p");
+      // STANDARD UPDATE: JSONs preserved
+      await q.input('j', finalJson).input('r', JSON.stringify(renewals)).query("UPDATE Permits SET Status=@s, FullDataJSON=@j, RenewalsJSON=@r WHERE PermitID=@p");
     }
 
     res.json({ success:true, archived:!!finalPdfUrl });
@@ -1061,21 +1066,20 @@ app.get('/api/download-pdf/:id', authenticateAccess, async (req, res) => {
     if (req.user.role==='Requester' && p.RequesterEmail!==req.user.email)
       return res.status(403).send("Unauthorized");
 
+    // REFERENCE LOGIC: Check Blob Storage for closed permits first
     if ((p.Status==='Closed' || p.Status.includes('Closure')) && p.FinalPdfUrl) {
       if (!containerClient) return res.status(500).send("Storage Error");
       try {
         const blobName = `closed-permits/${p.PermitID}_FINAL.pdf`;
         const blockBlobClient = containerClient.getBlockBlobClient(blobName);
-        if (!await blockBlobClient.exists()) return res.status(404).send("Archived PDF missing");
-
-        const download = await blockBlobClient.download(0);
-        res.setHeader('Content-Type','application/pdf');
-        res.setHeader('Content-Disposition',`attachment; filename=${p.PermitID}.pdf`);
-        return download.readableStreamBody.pipe(res);
-
+        if (await blockBlobClient.exists()) {
+            const download = await blockBlobClient.download(0);
+            res.setHeader('Content-Type','application/pdf');
+            res.setHeader('Content-Disposition',`attachment; filename=${p.PermitID}.pdf`);
+            return download.readableStreamBody.pipe(res);
+        }
       } catch (err) {
         console.error("Azure Download Error:", err.message);
-        return res.status(500).send("Storage Error");
       }
     }
 
@@ -1083,7 +1087,6 @@ app.get('/api/download-pdf/:id', authenticateAccess, async (req, res) => {
     const renewals = p.RenewalsJSON ? JSON.parse(p.RenewalsJSON) : [];
 
     const doc = new PDFDocument({ margin:30, size:'A4', bufferPages:true });
-    
     res.setHeader('Content-Type','application/pdf');
     res.setHeader('Content-Disposition',`attachment; filename=${p.PermitID}.pdf`);
     
