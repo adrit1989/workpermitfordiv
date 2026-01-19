@@ -15,10 +15,45 @@ const jwt = require('jsonwebtoken');
 const bcrypt = require('bcrypt');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
+const crypto = require('crypto'); // REQUIRED FOR NONCE
 
 const app = express();
 
-// --- 1. SECURITY: STRICT CORS POLICY ---
+// --- 1. NONCE GENERATOR MIDDLEWARE ---
+app.use((req, res, next) => {
+  res.locals.nonce = crypto.randomBytes(16).toString('base64');
+  next();
+});
+
+// --- 2. SECURITY: STRICT CSP WITH NONCE ---
+app.use(
+  helmet({
+    contentSecurityPolicy: {
+      useDefaults: true,
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: [
+          "'self'",
+          // Allow scripts ONLY if they have the specific nonce ID
+          (req, res) => `'nonce-${res.locals.nonce}'`,
+          "https://cdn.tailwindcss.com",
+          "https://cdn.jsdelivr.net",
+          "https://maps.googleapis.com"
+        ],
+        styleSrc: [
+          "'self'",
+          (req, res) => `'nonce-${res.locals.nonce}'`, // Allow inline styles with nonce
+          "https://fonts.googleapis.com"
+        ],
+        fontSrc: ["'self'", "https://fonts.gstatic.com"],
+        imgSrc: ["'self'", "data:", "blob:", "https://maps.gstatic.com", "https://maps.googleapis.com"],
+        connectSrc: ["'self'", "https://maps.googleapis.com", "https://cdn.jsdelivr.net"]
+      }
+    }
+  })
+);
+
+// --- 3. CORS & CONFIG ---
 const allowedOrigins = [
   "https://workpermit-a8hueufcdzc0ftcd.centralindia-01.azurewebsites.net",
   "http://localhost:3000"
@@ -26,7 +61,6 @@ const allowedOrigins = [
 
 app.use(cors({
   origin: (origin, cb) => {
-    // Allow requests with no origin (like mobile apps or curl requests)
     if (!origin) return cb(null, true);
     if (allowedOrigins.indexOf(origin) === -1) {
       return cb(new Error('CORS Policy Blocked this Origin'), false);
@@ -37,58 +71,9 @@ app.use(cors({
   methods: "GET,POST,PUT,DELETE,OPTIONS"
 }));
 
-// --- 2. SECURITY: STRICT CSP (Prevent XSS) ---
-// FIXED: Explicitly allow 'unsafe-inline' for scripts and styles to fix the "Loading..." error
-app.use(
-  helmet({
-    contentSecurityPolicy: {
-      useDefaults: false, // Turn off defaults to have full control
-      directives: {
-        defaultSrc: ["'self'"],
-        scriptSrc: [
-          "'self'",
-          "'unsafe-inline'", // Allows <script>...</script>
-          "'unsafe-eval'",   // Sometimes needed for Chart.js / Maps
-          "https://cdn.tailwindcss.com",
-          "https://cdn.jsdelivr.net",
-          "https://maps.googleapis.com" 
-        ],
-        styleSrc: [
-          "'self'",
-          "'unsafe-inline'", // Allows <style>...</style>
-          "https://fonts.googleapis.com"
-        ],
-        fontSrc: [
-          "'self'",
-          "https://fonts.gstatic.com"
-        ],
-        imgSrc: [
-          "'self'",
-          "data:",
-          "blob:",
-          "https://maps.gstatic.com",
-          "https://maps.googleapis.com"
-        ],
-        connectSrc: [
-          "'self'",
-          "https://maps.googleapis.com",
-          "https://cdn.jsdelivr.net"
-        ],
-        frameSrc: ["'self'"],
-        objectSrc: ["'none'"],
-        upgradeInsecureRequests: [] // Optional: Force HTTPS
-      }
-    }
-  })
-);
-
 app.use(bodyParser.json({ limit: '50mb' }));
-
-// --- 3. SECURITY: SAFE STATIC SERVING ---
-// Only serve the specific 'public' folder, never root
 app.use('/public', express.static(path.join(__dirname, 'public')));
 
-// --- CONFIGURATION ---
 if (!process.env.JWT_SECRET) {
     console.error("FATAL ERROR: JWT_SECRET is not defined.");
     process.exit(1);
@@ -96,36 +81,24 @@ if (!process.env.JWT_SECRET) {
 const JWT_SECRET = process.env.JWT_SECRET;
 const AZURE_CONN_STR = process.env.AZURE_STORAGE_CONNECTION_STRING;
 
-// --- 4. SECURITY: GLOBAL RATE LIMITING ---
-const apiLimiter = rateLimit({
-    windowMs: 10 * 1000, // 10 seconds
-    max: 50, 
-    message: "Too many requests, please try again later."
-});
+// --- 4. RATE LIMITERS ---
+const apiLimiter = rateLimit({ windowMs: 10 * 1000, max: 50, message: "Too many requests" });
 app.use('/api/', apiLimiter);
+const loginLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 100, message: "Too many login attempts" });
 
-const loginLimiter = rateLimit({
-    windowMs: 15 * 60 * 1000, 
-    max: 100, 
-    message: "Too many login attempts, please try again later."
-});
-
-// --- AZURE STORAGE SETUP ---
+// --- AZURE SETUP ---
 let containerClient;
 if (AZURE_CONN_STR) {
     try {
         const blobServiceClient = BlobServiceClient.fromConnectionString(AZURE_CONN_STR);
         containerClient = blobServiceClient.getContainerClient("permit-attachments");
-        (async () => { try { await containerClient.createIfNotExists(); } catch (e) { console.log("Container info:", e.message); } })();
-    } catch (err) { console.error("Blob Storage Error:", err.message); }
+        (async () => { try { await containerClient.createIfNotExists(); } catch (e) { } })();
+    } catch (err) { console.error("Blob Error:", err.message); }
 }
 
-const upload = multer({ 
-    storage: multer.memoryStorage(),
-    limits: { fileSize: 10 * 1024 * 1024 } // 10MB Limit (DoS Protection)
-});
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
 
-// --- 5. SECURITY: ENHANCED AUTH MIDDLEWARE (Token Revocation) ---
+// --- 5. AUTH MIDDLEWARE (With Revocation) ---
 async function authenticateToken(req, res, next) {
     const authHeader = req.headers['authorization'];
     const token = authHeader && authHeader.split(' ')[1]; 
@@ -133,85 +106,44 @@ async function authenticateToken(req, res, next) {
 
     jwt.verify(token, JWT_SECRET, async (err, user) => {
         if (err) return res.sendStatus(403); 
-        
         try {
-            // Check if password was changed AFTER token was issued
             const pool = await getConnection();
-            const r = await pool.request()
-                .input('e', sql.NVarChar, user.email)
-                .query('SELECT LastPasswordChange FROM Users WHERE Email=@e');
-            
+            const r = await pool.request().input('e', sql.NVarChar, user.email).query('SELECT LastPasswordChange FROM Users WHERE Email=@e');
             if (r.recordset.length === 0) return res.sendStatus(401);
-
-            const dbLastPwd = r.recordset[0].LastPasswordChange 
-                ? Math.floor(new Date(r.recordset[0].LastPasswordChange).getTime() / 1000)
-                : 0;
-            
-            const tokenLastPwd = user.lastPwd || 0;
-
-            if (dbLastPwd > tokenLastPwd) {
-                return res.status(401).json({ error: "Session expired: Password was changed." });
-            }
-
+            const dbLastPwd = r.recordset[0].LastPasswordChange ? Math.floor(new Date(r.recordset[0].LastPasswordChange).getTime() / 1000) : 0;
+            if (dbLastPwd > (user.lastPwd || 0)) return res.status(401).json({ error: "Session expired" });
             req.user = user; 
             next(); 
-        } catch (dbErr) {
-            console.error("Auth DB Error:", dbErr.message);
-            return res.sendStatus(500);
-        }
+        } catch (dbErr) { return res.sendStatus(500); }
     });
 }
 
 // --- HELPERS ---
 function getNowIST() {
-    return new Date().toLocaleString("en-GB", {
-        timeZone: "Asia/Kolkata",
-        day: '2-digit', month: '2-digit', year: 'numeric',
-        hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false
-    }).replace(',', '');
+    return new Date().toLocaleString("en-GB", { timeZone: "Asia/Kolkata", day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }).replace(',', '');
 }
-
 function formatDate(dateStr) {
     if (!dateStr) return '-';
     const d = new Date(dateStr);
     if (isNaN(d.getTime())) return dateStr;
-    return d.toLocaleString("en-GB", {
-        day: '2-digit', month: '2-digit', year: 'numeric',
-        hour: '2-digit', minute: '2-digit', hour12: false
-    }).replace(',', '');
+    return d.toLocaleString("en-GB", { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false }).replace(',', '');
 }
-
-function getOrdinal(n) {
-    const s = ["th", "st", "nd", "rd"];
-    const v = n % 100;
-    return n + (s[(v - 20) % 10] || s[v] || s[0]);
-}
+function getOrdinal(n) { const s = ["th", "st", "nd", "rd"]; const v = n % 100; return n + (s[(v - 20) % 10] || s[v] || s[0]); }
 
 async function uploadToAzure(buffer, blobName, mimeType = "image/jpeg") {
     if (!containerClient) return null;
     try {
         const blockBlobClient = containerClient.getBlockBlobClient(blobName);
-        await blockBlobClient.uploadData(buffer, {
-            blobHTTPHeaders: { blobContentType: mimeType }
-        });
+        await blockBlobClient.uploadData(buffer, { blobHTTPHeaders: { blobContentType: mimeType } });
         return blockBlobClient.url;
-    } catch (error) {
-        console.error("Azure Upload Error:", error);
-        return null;
-    }
+    } catch (error) { console.error("Azure Upload Error:", error); return null; }
 }
 
-// --- 6. FUNCTIONAL: FULL PDF GENERATOR ---
+// --- 6. PDF GENERATOR ---
 async function drawPermitPDF(doc, p, d, renewalsList) {
     const workType = (d.WorkType || "PERMIT").toUpperCase();
     const status = p.Status || "Active";
-    let watermarkText = "";
-
-    if (status === 'Closed' || status.includes('Closure')) {
-        watermarkText = `CLOSED - ${workType}`;
-    } else {
-        watermarkText = `ACTIVE - ${workType}`;
-    }
+    let watermarkText = (status === 'Closed' || status.includes('Closure')) ? `CLOSED - ${workType}` : `ACTIVE - ${workType}`;
 
     const drawWatermark = () => {
         doc.save();
@@ -243,12 +175,12 @@ async function drawPermitPDF(doc, p, d, renewalsList) {
         
         doc.rect(startX, startY, 80, 95).stroke(); 
         
-        // --- PATCH: Use 'public' folder for logo ---
+        // --- PATCHED: LOGO RENDERING FROM PUBLIC FOLDER ---
         const logoPath = path.join(__dirname, 'public', 'logo.png');
         if (fs.existsSync(logoPath)) {
             try { 
                 doc.image(logoPath, startX, startY, { fit: [80, 95], align: 'center', valign: 'center' }); 
-            } catch (err) { }
+            } catch (err) { console.error("Logo PDF Error:", err); }
         }
 
         doc.rect(startX + 80, startY, 320, 95).stroke();
@@ -278,13 +210,13 @@ async function drawPermitPDF(doc, p, d, renewalsList) {
 
     drawHeaderOnAll();
 
-    // --- PATCH: Use 'public' folder for banner ---
+    // --- PATCHED: BANNER RENDERING FROM PUBLIC FOLDER ---
     const bannerPath = path.join(__dirname, 'public', 'safety_banner.png');
     if (fs.existsSync(bannerPath)) {
         try {
             doc.image(bannerPath, 30, doc.y, { width: 535, height: 100 });
             doc.y += 110;
-        } catch (err) { }
+        } catch (err) { console.error("Banner PDF Error:", err); }
     }
 
     if (d.GSR_Accepted === 'Y') {
@@ -774,7 +706,7 @@ app.post('/api/get-workers', authenticateToken, async (req, res) => {
 
 // PROTECTED ROUTES
 
-app.get('/api/users', async (req, res) => {
+app.get('/api/users', authenticateToken, async (req, res) => {
     try {
         const pool = await getConnection();
         const r = await pool.request().query('SELECT Name, Email, Role FROM Users');
@@ -1235,11 +1167,19 @@ app.get('/api/view-photo/:filename', authenticateToken, async (req, res) => {
     }
 });
 
-// --- SERVE THE FRONTEND ---
+// --- SERVE THE FRONTEND WITH NONCE INJECTION ---
 app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'index.html'));
+    const indexPath = path.join(__dirname, 'index.html');
+    fs.readFile(indexPath, 'utf8', (err, htmlData) => {
+        if (err) {
+            console.error('Error reading index.html', err);
+            return res.status(500).send('Error loading page');
+        }
+        // Inject the secure random ID into the HTML
+        const finalHtml = htmlData.replace(/NONCE_PLACEHOLDER/g, res.locals.nonce);
+        res.send(finalHtml);
+    });
 });
 
-// START SERVER
 const PORT = process.env.PORT || 8080;
 app.listen(PORT, () => console.log('Server running on port ' + PORT));
