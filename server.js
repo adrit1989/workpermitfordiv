@@ -13,14 +13,14 @@ const { getConnection, sql } = require('./db');
 
 // SECURITY
 const jwt = require('jsonwebtoken');
-const bcrypt = require('bcryptjs'); // Fixed: Uses bcryptjs for Azure
+const bcrypt = require('bcryptjs'); 
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const crypto = require('crypto');
 
 // APP SETUP
 const app = express();
-app.set('trust proxy', 1); // Fixed: Required for Azure App Service
+app.set('trust proxy', 1); 
 app.use(cookieParser());
 
 /* --- NONCE CSP --- */
@@ -73,9 +73,24 @@ const JWT_SECRET = process.env.JWT_SECRET;
 const REFRESH_SECRET = process.env.REFRESH_SECRET || (process.env.JWT_SECRET + "_refresh");
 const AZURE_CONN_STR = process.env.AZURE_STORAGE_CONNECTION_STRING;
 
-// RATE LIMIT
-app.use('/api/', rateLimit({ windowMs: 10 * 1000, max: 50 }));
-const loginLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 100 });
+// --- FIX: RATE LIMITER CRASH PREVENTION ---
+// Custom key generator to strip port numbers from IP addresses (e.g. 1.2.3.4:1234 -> 1.2.3.4)
+const safeKeyGenerator = (req) => {
+    return req.ip ? req.ip.replace(/:\d+$/, '') : req.ip;
+};
+
+app.use('/api/', rateLimit({ 
+    windowMs: 10 * 1000, 
+    max: 50,
+    keyGenerator: safeKeyGenerator, // Apply fix
+    validate: { trustProxy: false } // Disable strict validation to prevent crashes
+}));
+const loginLimiter = rateLimit({ 
+    windowMs: 15 * 60 * 1000, 
+    max: 100,
+    keyGenerator: safeKeyGenerator,
+    validate: { trustProxy: false }
+});
 
 /* --- MULTER SETUP --- */
 const upload = multer({
@@ -484,7 +499,6 @@ app.post('/api/logout', async (req, res) => {
    CORE API ROUTES
 ===================================================== */
 
-// Fixed: Public route for login dropdown
 app.get('/api/users', async (req, res) => {
   try {
     const pool = await getConnection();
@@ -648,7 +662,15 @@ app.post('/api/dashboard', authenticateAccess, async (req, res) => {
     const f = (role === 'Requester')
       ? p.filter(x => x.RequesterEmail === email)
       : p;
-    res.json(f.sort((a,b)=> b.PermitID.localeCompare(a.PermitID)));
+    
+    // --- FIX: DASHBOARD SORTING (NUMERIC) ---
+    // Extract the number after "WP-" and sort DESCENDING by that number
+    res.json(f.sort((a,b) => {
+        const numA = parseInt(a.PermitID.split('-')[1] || 0);
+        const numB = parseInt(b.PermitID.split('-')[1] || 0);
+        return numB - numA; 
+    }));
+
   } catch (err) {
     res.status(500).json({ error: "Internal Server Error" });
   }
@@ -657,21 +679,15 @@ app.post('/api/dashboard', authenticateAccess, async (req, res) => {
 /* =====================================================
    SAVE PERMIT (RECTIFIED ID LOGIC & LOGGING)
 ===================================================== */
-/* =====================================================
-   SAVE PERMIT (WITH DEBUG LOGGING)
-===================================================== */
 app.post('/api/save-permit', authenticateAccess, upload.any(), async (req, res) => {
-  console.log("=== [DEBUG] Starting Save Permit Request ==="); 
   try {
+    console.log("--- SAVE PERMIT START ---"); 
     const requesterEmail = req.user.email;
-    console.log("User:", requesterEmail);
-
     let vf, vt;
     try {
       vf = req.body.ValidFrom ? new Date(req.body.ValidFrom) : null;
       vt = req.body.ValidTo ? new Date(req.body.ValidTo) : null;
-    } catch (e) {
-      console.error("[DEBUG] Date Error:", e.message);
+    } catch {
       return res.status(400).json({ error: "Invalid Date Format" });
     }
 
@@ -680,40 +696,29 @@ app.post('/api/save-permit', authenticateAccess, upload.any(), async (req, res) 
 
     const pool = await getConnection();
     let pid = req.body.PermitID;
-    console.log("[DEBUG] Received PermitID from Frontend:", pid);
 
-    // --- ID GENERATION LOGIC ---
+    // --- FIX: MATHEMATICAL ID GENERATION ---
     if (!pid || pid === 'undefined' || pid === 'null' || pid === '') {
-      console.log("[DEBUG] Generating NEW Permit ID...");
+      const idRes = await pool.request().query("SELECT MAX(CAST(SUBSTRING(PermitID, 4, 10) AS INT)) as MaxVal FROM Permits WHERE PermitID LIKE 'WP-%'");
       
-      // LOG THE MAX VALUE QUERY RESULT
-      const idRes = await pool.request().query(
-        "SELECT MAX(CAST(SUBSTRING(PermitID, 4, 10) AS INT)) as MaxVal FROM Permits WHERE PermitID LIKE 'WP-%'"
-      );
-      
-      console.log("[DEBUG] Max ID found in DB:", idRes.recordset[0].MaxVal);
-
-      let nextNum = 1000; 
-      if (idRes.recordset.length > 0 && idRes.recordset[0].MaxVal) {
+      let nextNum = 1000;
+      if (idRes.recordset[0].MaxVal) {
         nextNum = idRes.recordset[0].MaxVal + 1;
       }
-      
       pid = `WP-${nextNum}`;
-      console.log("[DEBUG] Calculated New ID:", pid);
+      console.log("Generated New ID:", pid);
     }
 
-    // CHECK IF ID ALREADY EXISTS
+    // Check if ID exists to decide INSERT vs UPDATE
     const chk = await pool.request().input('p', sql.NVarChar, pid)
       .query("SELECT Status FROM Permits WHERE PermitID=@p");
     
-    console.log("[DEBUG] Does ID Exist?", chk.recordset.length > 0 ? "YES" : "NO");
-
+    // Validate Status (Prevent editing Closed permits)
     if (chk.recordset.length && chk.recordset[0].Status.includes('Closed')) {
-      console.log("[DEBUG] Blocked: Permit is Closed");
+      console.error("Attempt to edit closed permit:", pid);
       return res.status(400).json({ error: "Permit CLOSED" });
     }
 
-    // DATA PREPARATION
     let workers = req.body.SelectedWorkers;
     if (typeof workers === 'string') { try { workers = JSON.parse(workers); } catch { workers = []; } }
 
@@ -724,7 +729,6 @@ app.post('/api/save-permit', authenticateAccess, upload.any(), async (req, res) 
       if (renImg) {
         const blobName = `${pid}-1stRenewal.jpg`;
         photoUrl = await uploadToAzure(renImg.buffer, blobName);
-        console.log("[DEBUG] Uploaded Renewal Photo:", photoUrl);
       }
       renewalsArr.push({
         status: 'pending_review',
@@ -749,7 +753,7 @@ app.post('/api/save-permit', authenticateAccess, upload.any(), async (req, res) 
 
     const q = pool.request()
       .input('p', sql.NVarChar, pid)
-      .input('s', sql.NVarChar, 'Pending Review')
+      .input('s', sql.NVarChar, 'Pending Review') // Always reset status on save/edit
       .input('w', sql.NVarChar, req.body.WorkType)
       .input('re', sql.NVarChar, requesterEmail)
       .input('rv', sql.NVarChar, req.body.ReviewerEmail)
@@ -761,29 +765,24 @@ app.post('/api/save-permit', authenticateAccess, upload.any(), async (req, res) 
       .input('j', sql.NVarChar(sql.MAX), JSON.stringify(data))
       .input('ren', sql.NVarChar(sql.MAX), renewalsJsonStr);
 
-    // EXECUTE QUERY AND LOG RESULT
     if (chk.recordset.length) {
-      console.log(`[DEBUG] Executing UPDATE command for ${pid}...`);
+      console.log("Executing UPDATE for:", pid);
       await q.query("UPDATE Permits SET FullDataJSON=@j, WorkType=@w, ValidFrom=@vf, ValidTo=@vt, Latitude=@lat, Longitude=@lng, Status=@s, ReviewerEmail=@rv, ApproverEmail=@ap, RenewalsJSON=@ren WHERE PermitID=@p");
-      console.log("[DEBUG] UPDATE Complete.");
     } else {
-      console.log(`[DEBUG] Executing INSERT command for ${pid}...`);
+      console.log("Executing INSERT for:", pid);
       await q.query("INSERT INTO Permits (PermitID, Status, WorkType, RequesterEmail, ReviewerEmail, ApproverEmail, ValidFrom, ValidTo, Latitude, Longitude, FullDataJSON, RenewalsJSON) VALUES (@p,@s,@w,@re,@rv,@ap,@vf,@vt,@lat,@lng,@j,@ren)");
-      console.log("[DEBUG] INSERT Complete.");
     }
 
+    console.log("--- SAVE SUCCESS ---");
     res.json({ success: true, permitId: pid });
 
   } catch (err) {
-    // --- THIS IS THE MOST IMPORTANT LOG ---
-    console.error("!!! [DEBUG] SQL ERROR !!!");
+    console.error("!!! SQL SAVE ERROR !!!");
     console.error("Message:", err.message);
-    console.error("Code:", err.code); 
-    console.error("Stack:", err.stack);
-    res.status(500).json({ error: "Database Error: " + err.message });
+    res.status(500).json({ error: "Database Save Failed: " + err.message });
   }
 });
-// --- 5. Update Status (With Reference Deletion Logic) ---
+
 app.post('/api/update-status', authenticateAccess, async (req, res) => {
   try {
     const { PermitID, action, ...extras } = req.body;
@@ -846,7 +845,6 @@ app.post('/api/update-status', authenticateAccess, async (req, res) => {
     let finalJson = JSON.stringify(d);
 
     if (st === 'Closed') {
-      // Fixed: Promise based PDF generation to prevent crashes
       const pdfRecord = { ...cur.recordset[0], Status:'Closed', PermitID, ValidFrom:cur.recordset[0].ValidFrom, ValidTo:cur.recordset[0].ValidTo };
       const pdfBuffer = await new Promise(async (resolve, reject)=>{
         const doc = new PDFDocument({ margin:30, size:'A4', bufferPages:true });
@@ -868,14 +866,12 @@ app.post('/api/update-status', authenticateAccess, async (req, res) => {
       finalPdfUrl = await uploadToAzure(pdfBuffer, blobName, "application/pdf");
     }
 
-    const q = pool.request().input('p', PermitID).input('s', st);
-    
+    const q = pool.request().input('p', PermitID).input('s', st).input('r', JSON.stringify(renewals));
     if (finalPdfUrl) {
-      // REFERENCE LOGIC APPLIED: JSONs set to NULL upon closure
+      // REFERENCE LOGIC: Set JSONs to NULL on close to save space
       await q.input('url', finalPdfUrl).query("UPDATE Permits SET Status=@s, FullDataJSON=NULL, RenewalsJSON=NULL, FinalPdfUrl=@url WHERE PermitID=@p");
     } else {
-      // STANDARD UPDATE: JSONs preserved
-      await q.input('j', finalJson).input('r', JSON.stringify(renewals)).query("UPDATE Permits SET Status=@s, FullDataJSON=@j, RenewalsJSON=@r WHERE PermitID=@p");
+      await q.input('j', finalJson).query("UPDATE Permits SET Status=@s, FullDataJSON=@j, RenewalsJSON=@r WHERE PermitID=@p");
     }
 
     res.json({ success:true, archived:!!finalPdfUrl });
@@ -1088,7 +1084,7 @@ app.get('/api/download-pdf/:id', authenticateAccess, async (req, res) => {
     if (req.user.role==='Requester' && p.RequesterEmail!==req.user.email)
       return res.status(403).send("Unauthorized");
 
-    // REFERENCE LOGIC: Check Blob Storage for closed permits first
+    // REFERENCE LOGIC: Check Blob Storage for closed permits
     if ((p.Status==='Closed' || p.Status.includes('Closure')) && p.FinalPdfUrl) {
       if (!containerClient) return res.status(500).send("Storage Error");
       try {
