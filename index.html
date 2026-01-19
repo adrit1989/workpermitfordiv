@@ -107,8 +107,19 @@
                  </form>
              </div>
              <button id="btn-add-worker" class="w-full bg-orange-600 text-white py-3 rounded-lg font-bold mb-4 shadow hidden">+ Add New Worker</button>
+             
              <table class="mobile-table w-full text-left text-sm" id="table-workers">
-                 <thead class="hidden md:table-header-group bg-gray-100 text-gray-700"><tr><th>Name</th><th>Father Name</th><th>ID Details</th><th>Address & Contact</th><th>Requestor</th><th>Status</th><th>Action</th></tr></thead>
+                 <thead class="hidden md:table-header-group bg-gray-100 text-gray-700">
+                     <tr>
+                         <th>Name</th>
+                         <th>Father Name</th>
+                         <th>ID Details</th>
+                         <th>Address & Contact</th>
+                         <th>Requestor</th>
+                         <th>Status</th>
+                         <th>Approval Info</th> <th>Action</th>
+                     </tr>
+                 </thead>
                  <tbody class="divide-y divide-gray-200"></tbody>
              </table>
         </div>
@@ -118,15 +129,18 @@
                 <h2 class="text-xl font-bold text-gray-800">Dashboard</h2>
                 <button id="btn-new-permit" class="bg-orange-600 text-white px-4 py-2 rounded-lg font-bold shadow hidden">+ New</button>
             </div>
+            
             <div class="grid grid-cols-3 gap-2 mb-4">
-                <button id="btn-add-user" class="bg-purple-100 text-purple-700 py-2 rounded font-bold text-sm hidden">Users</button>
+                <button id="btn-add-user" class="bg-purple-100 text-purple-700 py-2 rounded font-bold text-sm hidden">Add User</button>
                 <button id="btn-view-map" class="bg-blue-100 text-blue-700 py-2 rounded font-bold text-sm hidden">Map</button>
                 <button id="btn-download-excel" class="bg-green-100 text-green-700 py-2 rounded font-bold text-sm hidden">Excel</button>
             </div>
+
             <div id="charts-container" class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4 hidden">
                 <div class="glass h-64"><canvas id="chartStatus"></canvas></div>
                 <div class="glass h-64"><canvas id="chartType"></canvas></div>
             </div>
+            
             <h3 class="font-bold text-gray-500 uppercase text-xs mb-2 tracking-wide">Action Required</h3>
             <div class="mb-6 overflow-x-auto"><table class="mobile-table w-full text-left text-sm" id="table-pending"><thead class="bg-red-50 text-red-900 border-b-2 border-red-200"><tr><th class="p-3 w-24">ID</th><th class="p-3 w-24">Type</th><th class="p-3">Location</th><th class="p-3 w-32">Status</th><th class="p-3 w-32">Pending With</th><th class="p-3 w-24">Action</th></tr></thead><tbody class="divide-y divide-gray-100"></tbody></table></div>
             <h3 class="font-bold text-gray-500 uppercase text-xs mb-2 tracking-wide">Active Permits</h3>
@@ -369,7 +383,6 @@
                 document.getElementById("view-login").classList.add('hidden'); 
                 document.getElementById("app-container").classList.remove('hidden'); 
                 document.getElementById("user-info").innerText=`${n} (${r})`; 
-                // FIX B: RELOAD USERS AFTER LOGIN TO ENSURE DROPDOWNS POPULATE
                 await loadUsers(); 
                 updateRoleUI(); 
                 loadDashboard(); 
@@ -382,12 +395,13 @@
                 document.getElementById("btn-add-worker").classList.remove('hidden');
             }
             if(currentUser.Role!=='Requester') { 
-                document.getElementById("btn-view-map").classList.remove('hidden'); 
-                document.getElementById("btn-header-map").classList.remove('hidden');
-                document.getElementById("btn-download-excel").classList.remove('hidden');
-                document.getElementById("charts-container").classList.remove('hidden');
+                // Fix for A, C: Unhide common elements for Reviewer/Approver
+                ['btn-view-map', 'btn-header-map', 'btn-download-excel', 'charts-container'].forEach(id => {
+                    document.getElementById(id)?.classList.remove('hidden');
+                });
                 loadStats(); 
-                // FIX E: ENSURE ADD USER IS VISIBLE FOR APPROVERS
+                
+                // Fix for B: Explicitly unhide Add User for Approver
                 if(currentUser.Role==='Approver') document.getElementById("btn-add-user").classList.remove('hidden');
             }
         }
@@ -419,7 +433,6 @@
                 tr.lastElementChild.appendChild(actionBtn);
                 if(p.Status !== 'Closed') tr.addEventListener('click', () => openPermit(p.PermitID));
 
-                // FIX A: STRICTER ACTION LOGIC
                 let isAction = false;
                 if(currentUser.Role === 'Reviewer' && (p.Status === 'Pending Review' || p.Status === 'Renewal Pending Review' || p.Status === 'Closure Pending Review')) isAction = true;
                 if(currentUser.Role === 'Approver' && (p.Status === 'Pending Approval' || p.Status === 'Renewal Pending Approval' || p.Status === 'Closure Pending Approval')) isAction = true;
@@ -475,9 +488,26 @@
             if(dash.classList.contains('hidden')) { dash.classList.remove('hidden'); work.classList.add('hidden'); }
             else { dash.classList.add('hidden'); work.classList.remove('hidden'); loadWorkers('dashboard'); }
         }
-        function openWorkerForm(act) {
-            window.currentWorkerAction = act; document.getElementById('worker-form-container').classList.remove('hidden');
-            if(act === 'create') document.getElementById('worker-form').reset();
+        function openWorkerForm(act, data=null) {
+            window.currentWorkerAction = act; 
+            document.getElementById('worker-form-container').classList.remove('hidden');
+            if(act === 'create') {
+                document.getElementById('worker-form').reset();
+            } else if (act === 'edit_request' && data) {
+                // Populate form for Edit (Fix E)
+                document.getElementById('w-id').value = data.WorkerID;
+                document.getElementById('w-name').value = data.Name;
+                document.getElementById('w-father').value = data.Father;
+                document.getElementById('w-address').value = data.Address;
+                document.getElementById('w-contact').value = data.Contact;
+                document.getElementById('w-idcard').value = data.ID;
+                document.getElementById('w-gender').value = data.Gender;
+                document.getElementById('w-age').value = data.Age;
+                const isStd = ["Voter Card", "PAN Card"].includes(data.IDType);
+                document.getElementById("w-id-type").value = isStd ? data.IDType : "Other";
+                toggleOtherID();
+                if(!isStd) document.getElementById("w-id-type-other").value = data.IDType;
+            }
         }
         async function saveWorker(act) {
             const idTypeRaw = document.getElementById("w-id-type").value;
@@ -498,8 +528,16 @@
                     const row = document.createElement('tr');
                     let actionBtns = '';
                     if(currentUser.Role !== 'Requester' && w.Status.includes('Pending')) actionBtns = `<button class="text-green-600 font-bold border p-1 rounded mr-2 btn-w-app" data-id="${w.WorkerID}">Approve</button><button class="text-red-600 font-bold border p-1 rounded btn-w-rej" data-id="${w.WorkerID}">Reject</button>`;
-                    if(currentUser.Role === 'Requester' && w.Status === 'Approved') actionBtns = `<button class="text-red-600 font-bold btn-w-del" data-id="${w.WorkerID}">Del</button>`;
-                    row.innerHTML = `<td>${escapeHtml(w.Name)}</td><td>${escapeHtml(w.Father)}</td><td>${w.IDType}: ${w.ID}</td><td>${w.Contact}</td><td>${w.RequestorName}</td><td>${w.Status}</td><td>${actionBtns}</td>`;
+                    
+                    // FIX E: Restore Edit Button for Approved workers for Requester
+                    if(currentUser.Role === 'Requester' && w.Status === 'Approved') {
+                        actionBtns = `<button class="text-blue-600 font-bold mr-2" onclick='openWorkerForm("edit_request", ${JSON.stringify(w)})'>Edit</button><button class="text-red-600 font-bold btn-w-del" data-id="${w.WorkerID}">Del</button>`;
+                    }
+                    
+                    // FIX D: Approval Info Column
+                    const approvalInfo = w.ApprovedBy ? `<div class="text-xs text-green-700 font-bold">${w.ApprovedBy}<br>${w.ApprovedAt}</div>` : '-';
+
+                    row.innerHTML = `<td>${escapeHtml(w.Name)}</td><td>${escapeHtml(w.Father)}</td><td>${w.IDType}: ${w.ID}</td><td>${w.Contact}</td><td>${w.RequestorName}</td><td>${w.Status}</td><td>${approvalInfo}</td><td>${actionBtns}</td>`;
                     t.appendChild(row);
                 });
                 document.querySelectorAll('.btn-w-app').forEach(b => b.addEventListener('click', () => workerAction(b.dataset.id, 'approve')));
@@ -613,7 +651,7 @@
              loadWorkers('permit_dropdown');
              document.querySelectorAll('input, textarea, select').forEach(e=>e.disabled=false);
              
-             // FIX C: Ensure this wrapper is visible
+             // FIX C: Make sure renewal wrapper is visible
              document.getElementById("init-renewal-wrapper").classList.remove('hidden');
              document.getElementById("gsr-container").classList.remove('hidden');
              
@@ -622,7 +660,6 @@
              safeSet("Vendor", currentUser.name);
              document.getElementById("Vendor").readOnly = true;
 
-             // Populate Reviewer/Approver Dropdowns
              const rS=document.getElementById("ReviewerEmail"), aS=document.getElementById("ApproverEmail"); 
              rS.innerHTML=""; aS.innerHTML=""; 
              if(usersData){ usersData.Reviewers.forEach(u=>rS.innerHTML+=`<option value="${u.email}">${escapeHtml(u.name)}</option>`); usersData.Approvers.forEach(u=>aS.innerHTML+=`<option value="${u.email}">${escapeHtml(u.name)}</option>`); }
