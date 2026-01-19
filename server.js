@@ -211,14 +211,44 @@ function getOrdinal(n) {
   return n + (s[(v - 20) % 10] || s[v] || s[0]);
 }
 
-async function uploadToAzure(buffer, blobName, mimeType = "image/jpeg") {
+/* =====================================================
+   HELPER FUNCTIONS (SECURE UPLOAD)
+===================================================== */
+
+// ... (keep getNowIST, formatDate, getOrdinal exactly where they are) ...
+
+async function uploadToAzure(buffer, blobName, isSystemPdf = false) {
   if (!containerClient) return null;
   try {
+    // 1. Dynamic Import
+    const { fileTypeFromBuffer } = await import('file-type');
+    
+    // 2. Inspect the Buffer's Magic Numbers
+    const type = await fileTypeFromBuffer(buffer);
+
+    // 3. Define Allowed Types
+    // DEFAULT: Only Images (For User Uploads)
+    let allowedTypes = ['image/jpeg', 'image/png'];
+
+    // EXCEPTION: Allow PDF only if the Server explicitly requested it (for archiving)
+    if (isSystemPdf === 'application/pdf' || isSystemPdf === true) {
+        allowedTypes.push('application/pdf');
+    }
+
+    // 4. Security Check
+    if (!type || !allowedTypes.includes(type.mime)) {
+        console.error(`[SECURITY ALERT] Blocked upload for ${blobName}. Detected: ${type ? type.mime : 'Unknown'}. Allowed: ${allowedTypes.join(', ')}`);
+        return null;
+    }
+
+    // 5. Upload using the VERIFIED Mime Type
     const blockBlobClient = containerClient.getBlockBlobClient(blobName);
     await blockBlobClient.uploadData(buffer, {
-      blobHTTPHeaders: { blobContentType: mimeType }
+      blobHTTPHeaders: { blobContentType: type.mime }
     });
+    
     return blockBlobClient.url;
+
   } catch (err) {
     console.error("Azure upload error:", err.message);
     return null;
