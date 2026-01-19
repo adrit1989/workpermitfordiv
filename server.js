@@ -13,14 +13,14 @@ const { getConnection, sql } = require('./db');
 
 // SECURITY
 const jwt = require('jsonwebtoken');
-const bcrypt = require('bcryptjs'); // Fixed: Use bcryptjs for Azure
+const bcrypt = require('bcryptjs'); // Uses bcryptjs for Azure Linux compatibility
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const crypto = require('crypto');
 
 // APP SETUP
 const app = express();
-app.set('trust proxy', 1); // Fixed: Required for Azure App Service
+app.set('trust proxy', 1); // Required for Azure App Service stability
 app.use(cookieParser());
 
 /* --- NONCE CSP --- */
@@ -212,7 +212,7 @@ async function uploadToAzure(buffer, blobName, mimeType = "image/jpeg") {
 }
 
 /* =====================================================
-   PDF GENERATOR (Fixed for Supervisor Tables)
+   PDF GENERATOR (Crash-Proof)
 ===================================================== */
 
 async function drawPermitPDF(doc, p, d, renewalsList) {
@@ -265,7 +265,6 @@ async function drawPermitPDF(doc, p, d, renewalsList) {
     doc.text(`(iv) Description: ${d.Desc || '-'}`, 30, doc.y, { width: 535 });
     doc.y += 20;
 
-    // Supervisor Table Drawing Function
     const drawSupTable = (title, headers, dataRows) => {
         if (doc.y > 650) { doc.addPage(); drawHeaderOnAll(); doc.y = 135; }
         doc.font('Helvetica-Bold').fontSize(10).text(title, 30, doc.y);
@@ -301,7 +300,6 @@ async function drawPermitPDF(doc, p, d, renewalsList) {
         doc.y = currentY + 15;
     };
 
-    // Prepare IOCL Data
     const ioclSups = d.IOCLSupervisors || [];
     let ioclRows = ioclSups.map(s => {
         let audit = `Add: ${s.added_by || '-'} (${s.added_at || '-'})`;
@@ -314,13 +312,11 @@ async function drawPermitPDF(doc, p, d, renewalsList) {
         [{ t: "Name", w: 130 }, { t: "Designation", w: 130 }, { t: "Contact", w: 100 }, { t: "Audit Trail", w: 175 }], 
         ioclRows);
 
-    // Prepare Contractor Data
     const contRows = [[d.RequesterName || '-', "Site In-Charge", d.EmergencyContact || '-']];
     drawSupTable("Authorized Work Supervisor (Contractor)", 
         [{ t: "Name", w: 180 }, { t: "Designation", w: 180 }, { t: "Contact", w: 175 }], 
         contRows);
 
-    // Prepare Workers Data
     const workers = d.SelectedWorkers || [];
     let workerRows = workers.map(w => [
         w.Name, 
@@ -336,7 +332,6 @@ async function drawPermitPDF(doc, p, d, renewalsList) {
             workerRows);
     }
 
-    // Renewals
     const rens = renewalsList || JSON.parse(p.RenewalsJSON || "[]");
     if (rens.length > 0) {
         doc.font('Helvetica-Bold').text("CLEARANCE RENEWAL", 30, doc.y);
@@ -489,7 +484,7 @@ app.post('/api/logout', async (req, res) => {
    CORE API ROUTES
 ===================================================== */
 
-// Fixed: Removed authenticateAccess to allow login dropdown to populate
+// Fixed: Public route for login dropdown
 app.get('/api/users', async (req, res) => {
   try {
     const pool = await getConnection();
@@ -500,55 +495,6 @@ app.get('/api/users', async (req, res) => {
       Reviewers: r.recordset.filter(u => u.Role === 'Reviewer').map(fmt),
       Approvers: r.recordset.filter(u => u.Role === 'Approver').map(fmt)
     });
-  } catch (err) {
-    res.status(500).json({ error: "Internal Server Error" });
-  }
-});
-
-app.post('/api/change-password', authenticateAccess, async (req, res) => {
-  try {
-    const { currentPassword, newPassword } = req.body;
-    const pool = await getConnection();
-    const r = await pool.request()
-      .input('e', req.user.email).query("SELECT * FROM Users WHERE Email=@e");
-    if (!r.recordset.length) return res.status(404).json({ error: "User not found" });
-
-    const user = r.recordset[0];
-    const valid = await bcrypt.compare(currentPassword, user.Password);
-    if (!valid) return res.status(400).json({ error: "Invalid current password" });
-
-    const hashed = await bcrypt.hash(newPassword, 10);
-    await pool.request()
-      .input('p', hashed)
-      .input('e', req.user.email)
-      .query("UPDATE Users SET Password=@p, LastPasswordChange=GETDATE() WHERE Email=@e");
-
-    res.json({ success: true });
-
-  } catch (err) {
-    res.status(500).json({ error: "Internal Server Error" });
-  }
-});
-
-app.post('/api/add-user', authenticateAccess, async (req, res) => {
-  if (req.user.role !== 'Approver') return res.sendStatus(403);
-  try {
-    const pool = await getConnection();
-    const check = await pool.request()
-      .input('e', req.body.email)
-      .query("SELECT * FROM Users WHERE Email=@e");
-    if (check.recordset.length) return res.status(400).json({ error: "User Exists" });
-
-    const hashed = await bcrypt.hash(req.body.password, 10);
-    await pool.request()
-      .input('n', req.body.name)
-      .input('e', req.body.email)
-      .input('r', req.body.role)
-      .input('p', hashed)
-      .query("INSERT INTO Users (Name,Email,Role,Password) VALUES (@n,@e,@r,@p)");
-
-    res.json({ success: true });
-
   } catch (err) {
     res.status(500).json({ error: "Internal Server Error" });
   }
@@ -708,6 +654,10 @@ app.post('/api/dashboard', authenticateAccess, async (req, res) => {
   }
 });
 
+/* =====================================================
+   SAVE PERMIT (Fixed: CORRECT UPDATE LOGIC)
+===================================================== */
+
 app.post('/api/save-permit', authenticateAccess, upload.any(), async (req, res) => {
   try {
     const requesterEmail = req.user.email;
@@ -736,6 +686,7 @@ app.post('/api/save-permit', authenticateAccess, upload.any(), async (req, res) 
 
     const chk = await pool.request().input('p', sql.NVarChar, pid)
       .query("SELECT Status FROM Permits WHERE PermitID=@p");
+    
     if (chk.recordset.length && chk.recordset[0].Status.includes('Closed'))
       return res.status(400).json({ error: "Permit CLOSED" });
 
@@ -788,7 +739,8 @@ app.post('/api/save-permit', authenticateAccess, upload.any(), async (req, res) 
       .input('ren', sql.NVarChar(sql.MAX), renewalsJsonStr);
 
     if (chk.recordset.length) {
-      await q.query("UPDATE Permits SET FullDataJSON=@j, WorkType=@w, ValidFrom=@vf, ValidTo=@vt, Latitude=@lat, Longitude=@lng WHERE PermitID=@p");
+      // FIX: Added Status, ReviewerEmail, ApproverEmail to UPDATE to prevent stale metadata
+      await q.query("UPDATE Permits SET FullDataJSON=@j, WorkType=@w, ValidFrom=@vf, ValidTo=@vt, Latitude=@lat, Longitude=@lng, Status=@s, ReviewerEmail=@rv, ApproverEmail=@ap WHERE PermitID=@p");
     } else {
       await q.query("INSERT INTO Permits (PermitID, Status, WorkType, RequesterEmail, ReviewerEmail, ApproverEmail, ValidFrom, ValidTo, Latitude, Longitude, FullDataJSON, RenewalsJSON) VALUES (@p,@s,@w,@re,@rv,@ap,@vf,@vt,@lat,@lng,@j,@ren)");
     }
@@ -796,7 +748,7 @@ app.post('/api/save-permit', authenticateAccess, upload.any(), async (req, res) 
     res.json({ success: true, permitId: pid });
 
   } catch (err) {
-    console.error(err);
+    console.error("Save Permit Error:", err);
     res.status(500).json({ error:"Internal Server Error" });
   }
 });
@@ -863,7 +815,6 @@ app.post('/api/update-status', authenticateAccess, async (req, res) => {
     let finalJson = JSON.stringify(d);
 
     if (st === 'Closed') {
-      // Fixed: Promise based PDF generation to prevent crashes
       const pdfRecord = { ...cur.recordset[0], Status:'Closed', PermitID, ValidFrom:cur.recordset[0].ValidFrom, ValidTo:cur.recordset[0].ValidTo };
       const pdfBuffer = await new Promise(async (resolve, reject)=>{
         const doc = new PDFDocument({ margin:30, size:'A4', bufferPages:true });
@@ -1124,7 +1075,6 @@ app.get('/api/download-pdf/:id', authenticateAccess, async (req, res) => {
     const d = p.FullDataJSON ? JSON.parse(p.FullDataJSON) : {};
     const renewals = p.RenewalsJSON ? JSON.parse(p.RenewalsJSON) : [];
 
-    // Fixed: Stream handling to prevent crashes
     const doc = new PDFDocument({ margin:30, size:'A4', bufferPages:true });
     
     res.setHeader('Content-Type','application/pdf');
