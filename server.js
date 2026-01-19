@@ -15,42 +15,41 @@ const jwt = require('jsonwebtoken');
 const bcrypt = require('bcrypt');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
-const crypto = require('crypto'); // REQUIRED FOR NONCE
+const crypto = require('crypto');
 
 const app = express();
 
-// --- 1. NONCE GENERATOR MIDDLEWARE ---
+// --- 1. NONCE GENERATOR ---
 app.use((req, res, next) => {
   res.locals.nonce = crypto.randomBytes(16).toString('base64');
   next();
 });
 
-// --- 2. SECURITY: STRICT CSP WITH NONCE ---
+// --- 2. SECURITY: CSP CONFIGURATION ---
 app.use(
   helmet({
     contentSecurityPolicy: {
-      useDefaults: false, 
+      useDefaults: false,
       directives: {
         defaultSrc: ["'self'"],
         scriptSrc: [
           "'self'",
-          // Javascript stays STRICT: Only run scripts with our random ID
+          // STRICT: Only allow scripts that match the Nonce
           (req, res) => `'nonce-${res.locals.nonce}'`,
-          "https://cdn.tailwindcss.com",
+          "https://cdn.tailwindcss.com", // Keeping this as fallback
           "https://cdn.jsdelivr.net",
           "https://maps.googleapis.com"
         ],
         styleSrc: [
           "'self'",
-          // FIX: Removed Nonce here. Kept unsafe-inline.
-          // This allows Tailwind and inline styles to work without breaking the UI.
+          // LOOSE: Allow inline styles for Tailwind/Maps to render correctly
           "'unsafe-inline'", 
           "https://fonts.googleapis.com"
         ],
         fontSrc: ["'self'", "https://fonts.gstatic.com"],
         imgSrc: ["'self'", "data:", "blob:", "https://maps.gstatic.com", "https://maps.googleapis.com"],
         connectSrc: ["'self'", "https://maps.googleapis.com", "https://cdn.jsdelivr.net"],
-        frameSrc: ["'self'"], 
+        frameSrc: ["'self'"],
         objectSrc: ["'none'"],
         upgradeInsecureRequests: []
       }
@@ -77,10 +76,11 @@ app.use(cors({
 }));
 
 app.use(bodyParser.json({ limit: '50mb' }));
+// Serve the public folder (CSS/Images)
 app.use('/public', express.static(path.join(__dirname, 'public')));
 
 if (!process.env.JWT_SECRET) {
-    console.error("FATAL ERROR: JWT_SECRET is not defined.");
+    console.error("FATAL: JWT_SECRET missing.");
     process.exit(1);
 }
 const JWT_SECRET = process.env.JWT_SECRET;
@@ -123,40 +123,29 @@ async function authenticateToken(req, res, next) {
 }
 
 // --- HELPER FUNCTIONS ---
-function getNowIST() {
-    return new Date().toLocaleString("en-GB", { timeZone: "Asia/Kolkata", day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }).replace(',', '');
-}
-function formatDate(dateStr) {
-    if (!dateStr) return '-';
-    const d = new Date(dateStr);
-    if (isNaN(d.getTime())) return dateStr;
-    return d.toLocaleString("en-GB", { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false }).replace(',', '');
-}
+function getNowIST() { return new Date().toLocaleString("en-GB", { timeZone: "Asia/Kolkata", day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }).replace(',', ''); }
+function formatDate(dateStr) { if (!dateStr) return '-'; const d = new Date(dateStr); if (isNaN(d.getTime())) return dateStr; return d.toLocaleString("en-GB", { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false }).replace(',', ''); }
 function getOrdinal(n) { const s = ["th", "st", "nd", "rd"]; const v = n % 100; return n + (s[(v - 20) % 10] || s[v] || s[0]); }
-
 async function uploadToAzure(buffer, blobName, mimeType = "image/jpeg") {
     if (!containerClient) return null;
     try {
         const blockBlobClient = containerClient.getBlockBlobClient(blobName);
         await blockBlobClient.uploadData(buffer, { blobHTTPHeaders: { blobContentType: mimeType } });
         return blockBlobClient.url;
-    } catch (error) { console.error("Azure Upload Error:", error); return null; }
+    } catch (error) { return null; }
 }
 
-// --- 7. PDF GENERATOR ---
+// --- PDF GENERATOR ---
 async function drawPermitPDF(doc, p, d, renewalsList) {
     const workType = (d.WorkType || "PERMIT").toUpperCase();
     const status = p.Status || "Active";
     let watermarkText = (status === 'Closed' || status.includes('Closure')) ? `CLOSED - ${workType}` : `ACTIVE - ${workType}`;
 
     const drawWatermark = () => {
-        doc.save();
-        doc.translate(doc.page.width / 2, doc.page.height / 2);
-        doc.rotate(-45);
+        doc.save(); doc.translate(doc.page.width/2, doc.page.height/2); doc.rotate(-45);
         doc.font('Helvetica-Bold').fontSize(60).fillColor('#ff0000').opacity(0.15);
         doc.text(watermarkText, -300, -30, { align: 'center', width: 600 });
-        doc.restore();
-        doc.opacity(1);
+        doc.restore(); doc.opacity(1);
     };
 
     const bgColor = d.PdfBgColor || 'White';
@@ -165,77 +154,47 @@ async function drawPermitPDF(doc, p, d, renewalsList) {
     const drawHeader = (doc, bgColor, permitNoStr) => {
         if (bgColor && bgColor !== 'Auto' && bgColor !== 'White') {
             const colorMap = { 'Red': '#fee2e2', 'Green': '#dcfce7', 'Yellow': '#fef9c3' };
-            doc.save();
-            doc.fillColor(colorMap[bgColor] || 'white');
-            doc.rect(0, 0, doc.page.width, doc.page.height).fill();
-            doc.restore();
+            doc.save(); doc.fillColor(colorMap[bgColor] || 'white');
+            doc.rect(0, 0, doc.page.width, doc.page.height).fill(); doc.restore();
         }
-
         drawWatermark();
-
         const startX = 30, startY = 30;
-        doc.lineWidth(1);
-        doc.rect(startX, startY, 535, 95).stroke();
-        doc.rect(startX, startY, 80, 95).stroke(); 
+        doc.lineWidth(1); doc.rect(startX, startY, 535, 95).stroke(); doc.rect(startX, startY, 80, 95).stroke(); 
         
         const logoPath = path.join(__dirname, 'public', 'logo.png');
-        if (fs.existsSync(logoPath)) {
-            try { doc.image(logoPath, startX, startY, { fit: [80, 95], align: 'center', valign: 'center' }); } catch (err) {}
-        }
+        if (fs.existsSync(logoPath)) { try { doc.image(logoPath, startX, startY, { fit: [80, 95], align: 'center', valign: 'center' }); } catch (err) {} }
 
         doc.rect(startX + 80, startY, 320, 95).stroke();
-        doc.font('Helvetica-Bold').fontSize(11).fillColor('black').text('INDIAN OIL CORPORATION LIMITED', startX + 80, startY + 15, { width: 320, align: 'center' });
-        doc.fontSize(9).text('EASTERN REGION PIPELINES', startX + 80, startY + 30, { width: 320, align: 'center' });
-        doc.text('HSE DEPT.', startX + 80, startY + 45, { width: 320, align: 'center' });
-        doc.fontSize(8).text('COMPOSITE WORK/ COLD WORK/HOT WORK/ENTRY TO CONFINED SPACE/VEHICLE ENTRY / EXCAVATION WORK', startX + 80, startY + 65, { width: 320, align: 'center' });
+        doc.font('Helvetica-Bold').fontSize(11).fillColor('black').text('INDIAN OIL CORPORATION LIMITED', startX+80, startY+15, { width: 320, align: 'center' });
+        doc.fontSize(9).text('EASTERN REGION PIPELINES', startX+80, startY+30, { width: 320, align: 'center' });
+        doc.text('HSE DEPT.', startX+80, startY+45, { width: 320, align: 'center' });
+        doc.fontSize(8).text('COMPOSITE WORK/ COLD WORK/HOT WORK/ENTRY TO CONFINED SPACE/VEHICLE ENTRY / EXCAVATION WORK', startX+80, startY+65, { width: 320, align: 'center' });
 
         doc.rect(startX + 400, startY, 135, 95).stroke();
         doc.fontSize(8).font('Helvetica');
-        doc.text('Doc No: ERPL/HS&E/25-26', startX + 405, startY + 60);
-        doc.text('Issue No: 01', startX + 405, startY + 70);
-        doc.text('Date: 01.09.2025', startX + 405, startY + 80);
+        doc.text('Doc No: ERPL/HS&E/25-26', startX+405, startY+60); doc.text('Issue No: 01', startX+405, startY+70); doc.text('Date: 01.09.2025', startX+405, startY+80);
 
-        if (permitNoStr) {
-            doc.font('Helvetica-Bold').fontSize(10).fillColor('red');
-            doc.text(`Permit No: ${permitNoStr}`, startX + 405, startY + 15, { width: 130, align: 'left' });
-            doc.fillColor('black');
-        }
+        if (permitNoStr) { doc.font('Helvetica-Bold').fontSize(10).fillColor('red'); doc.text(`Permit No: ${permitNoStr}`, startX+405, startY+15, { width: 130, align: 'left' }); doc.fillColor('black'); }
     };
 
-    const drawHeaderOnAll = () => { drawHeader(doc, bgColor, compositePermitNo); doc.y = 135; doc.fontSize(9).font('Helvetica'); };
-    drawHeaderOnAll();
+    drawHeader(doc, bgColor, compositePermitNo); doc.y = 135; doc.fontSize(9).font('Helvetica');
 
     const bannerPath = path.join(__dirname, 'public', 'safety_banner.png');
-    if (fs.existsSync(bannerPath)) {
-        try { doc.image(bannerPath, 30, doc.y, { width: 535, height: 100 }); doc.y += 110; } catch (err) {}
-    }
-
-    if (d.GSR_Accepted === 'Y') {
-        doc.rect(30, doc.y, 535, 20).fillColor('#e6fffa').fill();
-        doc.fillColor('black').stroke();
-        doc.rect(30, doc.y, 535, 20).stroke();
-        doc.font('Helvetica-Bold').fontSize(9).fillColor('#047857')
-            .text("✓ I have read, understood and accepted the IOCL Golden Safety Rules terms and penalties.", 35, doc.y + 5);
-        doc.y += 25;
-        doc.fillColor('black');
-    }
+    if (fs.existsSync(bannerPath)) { try { doc.image(bannerPath, 30, doc.y, { width: 535, height: 100 }); doc.y += 110; } catch (err) {} }
 
     doc.font('Helvetica-Bold').fontSize(10).text(`Permit No: ${compositePermitNo}`, 30, doc.y);
-    doc.fontSize(9).font('Helvetica');
-    doc.y += 15;
+    doc.fontSize(9).font('Helvetica'); doc.y += 15;
+    const startY = doc.y;
 
-    doc.text(`(i) Work clearance from: ${formatDate(p.ValidFrom)} to ${formatDate(p.ValidTo)}`, 30, doc.y);
-    doc.y += 15;
-    doc.text(`(ii) Issued to: ${d.IssuedToDept || '-'} / ${d.Vendor || '-'}`, 30, doc.y);
-    doc.y += 15;
-    doc.text(`(iii) Location: ${d.WorkLocationDetail || '-'} [GPS: ${d.ExactLocation || 'No GPS'}]`, 30, doc.y);
-    doc.y += 15;
-    doc.text(`(iv) Description: ${d.Desc || '-'}`, 30, doc.y, { width: 535 });
-    doc.y += 20;
-    doc.text(`(v) Site Contact: ${d.RequesterName} / ${d.EmergencyContact || 'NA'}`, 30, doc.y);
-    doc.y += 15;
+    doc.text(`(i) Work clearance from: ${formatDate(p.ValidFrom)} to ${formatDate(p.ValidTo)}`, 30, doc.y); doc.y += 15;
+    doc.text(`(ii) Issued to: ${d.IssuedToDept || '-'} / ${d.Vendor || '-'}`, 30, doc.y); doc.y += 15;
+    doc.text(`(iii) Location: ${d.WorkLocationDetail || '-'} [GPS: ${d.ExactLocation || 'No GPS'}]`, 30, doc.y); doc.y += 15;
+    doc.text(`(iv) Description: ${d.Desc || '-'}`, 30, doc.y, { width: 535 }); doc.y += 20;
+    doc.text(`(v) Site Contact: ${d.RequesterName} / ${d.EmergencyContact || 'NA'}`, 30, doc.y); doc.y += 15;
     
-    // --- Render Checklists in PDF ---
+    doc.rect(25, startY - 5, 545, doc.y - startY + 5).stroke(); doc.y += 10;
+    
+    // --- Render Checklists ---
     const CHECKLIST_DATA = {
         A: [ "1. Equipment / Work Area inspected.", "2. Surrounding area checked.", "3. Manholes covered.", "4. Hazards considered.", "5. Equipment blinded.", "6. Drained.", "7. Steamed.", "8. Flushed.", "9. Fire Access.", "10. Iron Sulfide.", "11. Electrical Isolation.", "12. Gas Test.", "13. Firefighting.", "14. Cordoned.", "15. CCTV.", "16. Ventilation." ],
         B: [ "1. Exit.", "2. Standby.", "3. Gas trap.", "4. Spark shield.", "5. Grounding.", "6. Standby (Confined).", "7. Communication.", "8. Rescue.", "9. Cooling.", "10. Inert Gas.", "11. ELCB.", "12. Cylinders.", "13. Spark arrestor.", "14. Welding loc.", "15. Height." ],
@@ -244,7 +203,7 @@ async function drawPermitPDF(doc, p, d, renewalsList) {
     };
 
     const drawChecklist = (t, i, pr) => {
-        if (doc.y > 650) { doc.addPage(); drawHeaderOnAll(); doc.y = 135; }
+        if (doc.y > 650) { doc.addPage(); drawHeader(doc, bgColor, compositePermitNo); doc.y = 135; }
         doc.font('Helvetica-Bold').fillColor('black').fontSize(9).text(t, 30, doc.y + 10); doc.y += 25;
         let y = doc.y;
         doc.rect(30, y, 350, 20).stroke().text("Item", 35, y + 5); doc.rect(380, y, 60, 20).stroke().text("Sts", 385, y + 5); doc.rect(440, y, 125, 20).stroke().text("Rem", 445, y + 5); y += 20;
@@ -252,7 +211,7 @@ async function drawPermitPDF(doc, p, d, renewalsList) {
         i.forEach((x, k) => {
             let rowH = 20;
             if (pr === 'A' && k === 11) rowH = 45;
-            if (y + rowH > 750) { doc.addPage(); drawHeaderOnAll(); doc.y = 135; y = 135; }
+            if (y + rowH > 750) { doc.addPage(); drawHeader(doc, bgColor, compositePermitNo); doc.y = 135; y = 135; }
             const st = d[`${pr}_Q${k + 1}`] || 'NA';
             if (d[`${pr}_Q${k + 1}`]) {
                 doc.rect(30, y, 350, rowH).stroke().text(x, 35, y + 5, { width: 340 });
@@ -275,7 +234,7 @@ async function drawPermitPDF(doc, p, d, renewalsList) {
     drawChecklist("SECTION D: EXCAVATION", CHECKLIST_DATA.D, 'D');
 
     // Signatures
-    if (doc.y > 650) { doc.addPage(); drawHeaderOnAll(); doc.y = 135; }
+    if (doc.y > 650) { doc.addPage(); drawHeader(doc, bgColor, compositePermitNo); doc.y = 135; }
     doc.font('Helvetica-Bold').text("SIGNATURES", 30, doc.y);
     doc.y += 15; const sY = doc.y;
     doc.rect(30, sY, 178, 40).stroke().text(`REQ: ${d.RequesterName} on ${d.CreatedDate || '-'}`, 35, sY + 5);
@@ -284,7 +243,7 @@ async function drawPermitPDF(doc, p, d, renewalsList) {
     doc.y = sY + 50;
 
     // Renewals Table in PDF
-    if (doc.y > 650) { doc.addPage(); drawHeaderOnAll(); doc.y = 135; }
+    if (doc.y > 650) { doc.addPage(); drawHeader(doc, bgColor, compositePermitNo); doc.y = 135; }
     doc.font('Helvetica-Bold').text("CLEARANCE RENEWAL", 30, doc.y); doc.y += 15;
     let ry = doc.y;
     doc.rect(30, ry, 45, 25).stroke().text("From", 32, ry + 5);
@@ -300,7 +259,7 @@ async function drawPermitPDF(doc, p, d, renewalsList) {
 
     for (const r of renewalsList || []) {
         const rowHeight = 60;
-        if (ry > 680) { doc.addPage(); drawHeaderOnAll(); doc.y = 135; ry = 135; }
+        if (ry > 680) { doc.addPage(); drawHeader(doc, bgColor, compositePermitNo); doc.y = 135; ry = 135; }
         doc.rect(30, ry, 45, rowHeight).stroke().text(r.valid_from.replace('T', '\n'), 32, ry + 5, { width: 43 });
         doc.rect(75, ry, 45, rowHeight).stroke().text(r.valid_till.replace('T', '\n'), 77, ry + 5, { width: 43 });
         doc.rect(120, ry, 55, rowHeight).stroke().text(`HC: ${r.hc}\nTox: ${r.toxic}\nO2: ${r.oxygen}`, 122, ry + 5, { width: 53 });
@@ -313,13 +272,11 @@ async function drawPermitPDF(doc, p, d, renewalsList) {
         doc.rect(495, ry, 70, rowHeight).stroke().text(r.status, 497, ry + 5, { width: 66 });
         ry += rowHeight;
     }
-
     doc.end();
 }
 
 // --- API ROUTES ---
 
-// 1. SECURE LOGIN
 app.post('/api/login', loginLimiter, async (req, res) => {
     try {
         const pool = await getConnection();
@@ -334,7 +291,7 @@ app.post('/api/login', loginLimiter, async (req, res) => {
     } catch (e) { res.status(500).json({ error: "Server Error" }); }
 });
 
-// 2. PUBLIC ROUTE FOR USERS (No Token Required for Login Dropdown)
+// PUBLIC ROUTE (Fixes session expired loop)
 app.get('/api/users', async (req, res) => {
     try {
         const pool = await getConnection();
@@ -348,175 +305,6 @@ app.get('/api/users', async (req, res) => {
     } catch (e) { res.status(500).json({ error: "Server Error" }) }
 });
 
-// 3. DASHBOARD
-app.post('/api/dashboard', authenticateToken, async (req, res) => {
-    try {
-        const { role, email } = req.user; 
-        const pool = await getConnection();
-        const r = await pool.request().query("SELECT PermitID, Status, ValidFrom, ValidTo, RequesterEmail, ReviewerEmail, ApproverEmail, FullDataJSON, FinalPdfUrl FROM Permits");
-        const p = r.recordset.map(x => {
-            let baseData = {};
-            if (x.FullDataJSON) { try { baseData = JSON.parse(x.FullDataJSON); } catch(e) {} }
-            return { ...baseData, PermitID: x.PermitID, Status: x.Status, ValidFrom: x.ValidFrom, RequesterEmail: x.RequesterEmail, ReviewerEmail: x.ReviewerEmail, ApproverEmail: x.ApproverEmail, FinalPdfUrl: x.FinalPdfUrl };
-        });
-        const f = p.filter(x => (role === 'Requester' ? x.RequesterEmail === email : true));
-        res.json(f.sort((a, b) => b.PermitID.localeCompare(a.PermitID)));
-    } catch (e) { res.status(500).json({ error: "Server Error" }) }
-});
-
-// 4. SAVE PERMIT
-app.post('/api/save-permit', authenticateToken, upload.any(), async (req, res) => {
-    try {
-        const requesterEmail = req.user.email; 
-        let vf, vt;
-        try { vf = new Date(req.body.ValidFrom); vt = new Date(req.body.ValidTo); } catch (err) { return res.status(400).json({ error: "Invalid Date Format" }); }
-        if (vt <= vf) return res.status(400).json({ error: "Date Error" });
-        const pool = await getConnection();
-        let pid = req.body.PermitID;
-        if (!pid) {
-            const idRes = await pool.request().query("SELECT TOP 1 PermitID FROM Permits ORDER BY Id DESC");
-            const lastId = idRes.recordset.length > 0 ? idRes.recordset[0].PermitID : 'WP-1000';
-            pid = `WP-${parseInt(lastId.split('-')[1] || 1000) + 1}`;
-        }
-        let workers = [];
-        try { workers = JSON.parse(req.body.SelectedWorkers); } catch(e) {}
-        let renewalsArr = [];
-        if (req.body.InitRen === 'Y') {
-            let photoUrl = null;
-            const renImageFile = req.files ? req.files.find(f => f.fieldname === 'InitRenImage') : null;
-            if (renImageFile) photoUrl = await uploadToAzure(renImageFile.buffer, `${pid}-1stRenewal.jpg`);
-            renewalsArr.push({
-                status: 'pending_review', valid_from: req.body.InitRenFrom, valid_till: req.body.InitRenTo,
-                hc: req.body.InitRenHC, toxic: req.body.InitRenTox, oxygen: req.body.InitRenO2,
-                precautions: req.body.InitRenPrec, req_name: req.body.RequesterName, req_at: getNowIST(),
-                worker_list: workers.map(w => w.Name), photoUrl: photoUrl
-            });
-        }
-        const permitData = { ...req.body, SelectedWorkers: workers, PermitID: pid, CreatedDate: getNowIST(), GSR_Accepted: 'Y' };
-        const q = pool.request()
-            .input('p', sql.NVarChar, pid).input('s', sql.NVarChar, 'Pending Review').input('w', sql.NVarChar, req.body.WorkType)
-            .input('re', sql.NVarChar, requesterEmail).input('rv', sql.NVarChar, req.body.ReviewerEmail).input('ap', sql.NVarChar, req.body.ApproverEmail)
-            .input('vf', sql.DateTime, vf).input('vt', sql.DateTime, vt)
-            .input('lat', sql.NVarChar, req.body.Latitude || null).input('lng', sql.NVarChar, req.body.Longitude || null)
-            .input('j', sql.NVarChar(sql.MAX), JSON.stringify(permitData)).input('ren', sql.NVarChar(sql.MAX), JSON.stringify(renewalsArr));
-        const chk = await pool.request().input('p', pid).query("SELECT Status FROM Permits WHERE PermitID=@p");
-        if (chk.recordset.length > 0) { await q.query("UPDATE Permits SET FullDataJSON=@j, WorkType=@w, ValidFrom=@vf, ValidTo=@vt, Latitude=@lat, Longitude=@lng, RenewalsJSON=@ren WHERE PermitID=@p"); } 
-        else { await q.query("INSERT INTO Permits (PermitID, Status, WorkType, RequesterEmail, ReviewerEmail, ApproverEmail, ValidFrom, ValidTo, Latitude, Longitude, FullDataJSON, RenewalsJSON) VALUES (@p, @s, @w, @re, @rv, @ap, @vf, @vt, @lat, @lng, @j, @ren)"); }
-        res.json({ success: true, permitId: pid });
-    } catch (e) { console.error(e); res.status(500).json({ error: "Server Error" }); }
-});
-
-// 5. UPDATE STATUS
-app.post('/api/update-status', authenticateToken, async (req, res) => {
-    try {
-        const { PermitID, action, ...extras } = req.body;
-        const role = req.user.role; const user = req.user.name; 
-        const pool = await getConnection();
-        const cur = await pool.request().input('p', PermitID).query("SELECT * FROM Permits WHERE PermitID=@p");
-        if (cur.recordset.length === 0) return res.json({ error: "Not found" });
-
-        let st = cur.recordset[0].Status;
-        let d = JSON.parse(cur.recordset[0].FullDataJSON);
-        let renewals = JSON.parse(cur.recordset[0].RenewalsJSON || "[]");
-        const now = getNowIST();
-        Object.assign(d, extras);
-
-        if (renewals.length === 1) {
-            const r1 = renewals[0];
-            if (r1.status === 'pending_review' || r1.status === 'pending_approval') {
-                if (action === 'reject') { r1.status = 'rejected'; r1.rej_by = user; r1.rej_reason = "Rejected"; } 
-                else if (role === 'Reviewer' && action === 'review') { r1.status = 'pending_approval'; r1.rev_name = user; r1.rev_at = now; } 
-                else if (role === 'Approver' && action === 'approve') { r1.status = 'approved'; r1.app_name = user; r1.app_at = now; }
-            }
-        }
-        if (action === 'reject_closure') st = 'Active';
-        else if (role === 'Reviewer' && action === 'approve_closure') { st = 'Closure Pending Approval'; d.Closure_Reviewer_Sig = `${user} on ${now}`; d.Closure_Reviewer_Date = now; }
-        else if (role === 'Approver' && action === 'approve' && st.includes('Closure')) { st = 'Closed'; d.Closure_Issuer_Sig = `${user} on ${now}`; d.Closure_Approver_Date = now; d.Closure_Approver_Sig = `${user} on ${now}`; }
-        else if (action === 'approve' && role === 'Approver') { st = 'Active'; d.Approver_Sig = `${user} on ${now}`; }
-        else if (action === 'initiate_closure') { st = 'Closure Pending Review'; d.Closure_Requestor_Date = now; d.Closure_Receiver_Sig = `${user} on ${now}`; }
-        else if (action === 'reject') st = 'Rejected';
-        else if (role === 'Reviewer' && action === 'review') { st = 'Pending Approval'; d.Reviewer_Sig = `${user} on ${now}`; }
-
-        let finalPdfUrl = null;
-        let finalJson = JSON.stringify(d);
-        if (st === 'Closed') {
-             const pdfRecord = { ...cur.recordset[0], Status: 'Closed', PermitID: PermitID, ValidFrom: cur.recordset[0].ValidFrom, ValidTo: cur.recordset[0].ValidTo };
-             const pdfBuffer = await new Promise(async (resolve, reject) => {
-                const doc = new PDFDocument({ margin: 30, size: 'A4', bufferPages: true });
-                const buffers = []; doc.on('data', buffers.push.bind(buffers)); doc.on('end', () => resolve(Buffer.concat(buffers))); doc.on('error', reject);
-                try { await drawPermitPDF(doc, pdfRecord, d, renewals); doc.end(); } catch(e) { doc.end(); reject(e); }
-             });
-             finalPdfUrl = await uploadToAzure(pdfBuffer, `closed-permits/${PermitID}_FINAL.pdf`, "application/pdf");
-             if(finalPdfUrl) finalJson = null;
-        }
-
-        const q = pool.request().input('p', PermitID).input('s', st).input('r', JSON.stringify(renewals));
-        if (finalPdfUrl) { await q.input('url', finalPdfUrl).query("UPDATE Permits SET Status=@s, FullDataJSON=NULL, RenewalsJSON=NULL, FinalPdfUrl=@url WHERE PermitID=@p"); } 
-        else { await q.input('j', finalJson).query("UPDATE Permits SET Status=@s, FullDataJSON=@j, RenewalsJSON=@r WHERE PermitID=@p"); }
-        res.json({ success: true, archived: !!finalPdfUrl });
-    } catch (e) { res.status(500).json({ error: "Server Error" }); }
-});
-
-// 6. RENEWAL
-app.post('/api/renewal', authenticateToken, upload.any(), async (req, res) => {
-    try {
-        const { PermitID, action, rejectionReason, renewalWorkers, oddHourReq, ...renFields } = req.body;
-        const userRole = req.user.role; const userName = req.user.name;
-        const pool = await getConnection();
-        const cur = await pool.request().input('p', PermitID).query("SELECT RenewalsJSON, Status, ValidFrom, ValidTo FROM Permits WHERE PermitID=@p");
-        if (cur.recordset[0].Status === 'Closed') return res.status(400).json({ error: "Permit is CLOSED." });
-
-        let r = JSON.parse(cur.recordset[0].RenewalsJSON || "[]");
-        const now = getNowIST();
-
-        if (userRole === 'Requester') {
-            const rs = new Date(renFields.RenewalValidFrom); const re = new Date(renFields.RenewalValidTo);
-            if (re <= rs) return res.status(400).json({ error: "End time error" });
-            if ((re - rs) > 8 * 60 * 60 * 1000) return res.status(400).json({ error: "Max 8 Hours" });
-            const photoFile = req.files ? req.files.find(f => f.fieldname === 'RenewalImage') : null;
-            let photoUrl = photoFile ? await uploadToAzure(photoFile.buffer, `${PermitID}-${getOrdinal(r.length+1)}Renewal.jpg`) : null;
-            r.push({
-                status: 'pending_review', valid_from: renFields.RenewalValidFrom, valid_till: renFields.RenewalValidTo,
-                hc: renFields.hc, toxic: renFields.toxic, oxygen: renFields.oxygen, precautions: renFields.precautions,
-                req_name: userName, req_at: now, worker_list: JSON.parse(renewalWorkers || "[]"), photoUrl: photoUrl, odd_hour_req: (oddHourReq === 'Y')
-            });
-        } else {
-            const last = r[r.length-1];
-            if (action === 'reject') { last.status = 'rejected'; last.rej_by = userName; last.rej_reason = rejectionReason; }
-            else {
-                last.status = userRole === 'Reviewer' ? 'pending_approval' : 'approved';
-                if(userRole === 'Reviewer') { last.rev_name = userName; last.rev_at = now; }
-                if(userRole === 'Approver') { last.app_name = userName; last.app_at = now; }
-            }
-        }
-        let newStatus = r[r.length - 1].status === 'approved' ? 'Active' : (r[r.length - 1].status === 'rejected' ? 'Active' : 'Renewal Pending ' + (userRole === 'Requester' ? 'Review' : 'Approval'));
-        await pool.request().input('p', PermitID).input('r', JSON.stringify(r)).input('s', newStatus).query("UPDATE Permits SET RenewalsJSON=@r, Status=@s WHERE PermitID=@p");
-        res.json({ success: true });
-    } catch (e) { res.status(500).json({ error: "Server Error" }); }
-});
-
-// 7. GET WORKERS
-app.post('/api/get-workers', authenticateToken, async (req, res) => {
-    try {
-        const pool = await getConnection();
-        const r = await pool.request().query("SELECT * FROM Workers");
-        const list = r.recordset.map(w => {
-            const d = JSON.parse(w.DataJSON);
-            const details = d.Pending || d.Current || {};
-            details.IDType = w.IDType || details.IDType;
-            details.ApprovedBy = w.ApprovedBy || details.ApprovedBy;
-            details.ApprovedAt = w.ApprovedOn || details.ApprovedAt;
-            return { ...details, WorkerID: w.WorkerID, Status: w.Status, RequestorEmail: w.RequestorEmail, IsEdit: w.Status.includes('Edit') };
-        });
-        if (req.body.context === 'permit_dropdown') res.json(list.filter(w => w.Status === 'Approved'));
-        else {
-            if (req.user.role === 'Requester') res.json(list.filter(w => w.RequestorEmail === req.user.email || w.Status === 'Approved'));
-            else res.json(list);
-        }
-    } catch (e) { res.status(500).json({ error: "Internal Server Error" }); }
-});
-
-// 8. ADD USER
 app.post('/api/add-user', authenticateToken, async (req, res) => {
     if (req.user.role !== 'Approver') return res.sendStatus(403);
     try {
@@ -529,7 +317,6 @@ app.post('/api/add-user', authenticateToken, async (req, res) => {
     } catch (e) { res.status(500).json({ error: "Internal Server Error" }); }
 });
 
-// 9. CHANGE PASSWORD
 app.post('/api/change-password', authenticateToken, async (req, res) => {
     try {
         const { currentPassword, newPassword } = req.body;
@@ -544,7 +331,6 @@ app.post('/api/change-password', authenticateToken, async (req, res) => {
     } catch(e) { res.status(500).json({error: "Internal Server Error"}); }
 });
 
-// 10. SAVE WORKER
 app.post('/api/save-worker', authenticateToken, async (req, res) => {
     try {
         const { WorkerID, Action, Role, Details, RequestorEmail, RequestorName } = req.body; 
@@ -601,7 +387,184 @@ app.post('/api/save-worker', authenticateToken, async (req, res) => {
     } catch (e) { res.status(500).json({ error: "Internal Server Error" }); }
 });
 
-// 11. PERMIT DATA
+app.post('/api/get-workers', authenticateToken, async (req, res) => {
+    try {
+        const pool = await getConnection();
+        const r = await pool.request().query("SELECT * FROM Workers");
+        const list = r.recordset.map(w => {
+            const d = JSON.parse(w.DataJSON);
+            const details = d.Pending || d.Current || {};
+            details.IDType = w.IDType || details.IDType;
+            details.ApprovedBy = w.ApprovedBy || details.ApprovedBy;
+            details.ApprovedAt = w.ApprovedOn || details.ApprovedAt;
+            return { ...details, WorkerID: w.WorkerID, Status: w.Status, RequestorEmail: w.RequestorEmail, IsEdit: w.Status.includes('Edit') };
+        });
+        if (req.body.context === 'permit_dropdown') res.json(list.filter(w => w.Status === 'Approved'));
+        else {
+            if (req.user.role === 'Requester') res.json(list.filter(w => w.RequestorEmail === req.user.email || w.Status === 'Approved'));
+            else res.json(list);
+        }
+    } catch (e) { res.status(500).json({ error: "Internal Server Error" }); }
+});
+
+app.post('/api/dashboard', authenticateToken, async (req, res) => {
+    try {
+        const { role, email } = req.user; 
+        const pool = await getConnection();
+        const r = await pool.request().query("SELECT PermitID, Status, ValidFrom, ValidTo, RequesterEmail, ReviewerEmail, ApproverEmail, FullDataJSON, FinalPdfUrl FROM Permits");
+        const p = r.recordset.map(x => {
+            let baseData = {};
+            if (x.FullDataJSON) { try { baseData = JSON.parse(x.FullDataJSON); } catch(e) {} }
+            return { ...baseData, PermitID: x.PermitID, Status: x.Status, ValidFrom: x.ValidFrom, RequesterEmail: x.RequesterEmail, ReviewerEmail: x.ReviewerEmail, ApproverEmail: x.ApproverEmail, FinalPdfUrl: x.FinalPdfUrl };
+        });
+        const f = p.filter(x => (role === 'Requester' ? x.RequesterEmail === email : true));
+        res.json(f.sort((a, b) => b.PermitID.localeCompare(a.PermitID)));
+    } catch (e) { res.status(500).json({ error: "Server Error" }) }
+});
+
+app.post('/api/save-permit', authenticateToken, upload.any(), async (req, res) => {
+    try {
+        const requesterEmail = req.user.email; 
+        let vf, vt;
+        try { vf = new Date(req.body.ValidFrom); vt = new Date(req.body.ValidTo); } catch (err) { return res.status(400).json({ error: "Invalid Date" }); }
+        if (vt <= vf) return res.status(400).json({ error: "Date Error" });
+
+        const pool = await getConnection();
+        let pid = req.body.PermitID;
+        if (!pid) {
+            const idRes = await pool.request().query("SELECT TOP 1 PermitID FROM Permits ORDER BY Id DESC");
+            const lastId = idRes.recordset.length > 0 ? idRes.recordset[0].PermitID : 'WP-1000';
+            pid = `WP-${parseInt(lastId.split('-')[1] || 1000) + 1}`;
+        }
+
+        let workers = [];
+        try { workers = JSON.parse(req.body.SelectedWorkers); } catch(e) {}
+
+        let renewalsArr = [];
+        if (req.body.InitRen === 'Y') {
+            let photoUrl = null;
+            const renImageFile = req.files ? req.files.find(f => f.fieldname === 'InitRenImage') : null;
+            if (renImageFile) photoUrl = await uploadToAzure(renImageFile.buffer, `${pid}-1stRenewal.jpg`);
+            renewalsArr.push({
+                status: 'pending_review',
+                valid_from: req.body.InitRenFrom,
+                valid_till: req.body.InitRenTo,
+                hc: req.body.InitRenHC, toxic: req.body.InitRenTox, oxygen: req.body.InitRenO2,
+                precautions: req.body.InitRenPrec,
+                req_name: req.body.RequesterName,
+                req_at: getNowIST(),
+                worker_list: workers.map(w => w.Name),
+                photoUrl: photoUrl
+            });
+        }
+        
+        // RENAMED TO FIX CRASH
+        const permitPayload = { ...req.body, SelectedWorkers: workers, PermitID: pid, CreatedDate: getNowIST(), GSR_Accepted: 'Y' };
+        
+        const q = pool.request()
+            .input('p', sql.NVarChar, pid).input('s', sql.NVarChar, 'Pending Review').input('w', sql.NVarChar, req.body.WorkType)
+            .input('re', sql.NVarChar, requesterEmail).input('rv', sql.NVarChar, req.body.ReviewerEmail).input('ap', sql.NVarChar, req.body.ApproverEmail)
+            .input('vf', sql.DateTime, vf).input('vt', sql.DateTime, vt)
+            .input('lat', sql.NVarChar, req.body.Latitude || null).input('lng', sql.NVarChar, req.body.Longitude || null)
+            .input('j', sql.NVarChar(sql.MAX), JSON.stringify(permitPayload)).input('ren', sql.NVarChar(sql.MAX), JSON.stringify(renewalsArr));
+
+        const chk = await pool.request().input('p', pid).query("SELECT Status FROM Permits WHERE PermitID=@p");
+        if (chk.recordset.length > 0) { await q.query("UPDATE Permits SET FullDataJSON=@j, WorkType=@w, ValidFrom=@vf, ValidTo=@vt, Latitude=@lat, Longitude=@lng, RenewalsJSON=@ren WHERE PermitID=@p"); } 
+        else { await q.query("INSERT INTO Permits (PermitID, Status, WorkType, RequesterEmail, ReviewerEmail, ApproverEmail, ValidFrom, ValidTo, Latitude, Longitude, FullDataJSON, RenewalsJSON) VALUES (@p, @s, @w, @re, @rv, @ap, @vf, @vt, @lat, @lng, @j, @ren)"); }
+        res.json({ success: true, permitId: pid });
+    } catch (e) { console.error(e); res.status(500).json({ error: "Server Error" }); }
+});
+
+app.post('/api/update-status', authenticateToken, async (req, res) => {
+    try {
+        const { PermitID, action, ...extras } = req.body;
+        const role = req.user.role; const user = req.user.name; 
+        const pool = await getConnection();
+        const cur = await pool.request().input('p', PermitID).query("SELECT * FROM Permits WHERE PermitID=@p");
+        if (cur.recordset.length === 0) return res.json({ error: "Not found" });
+
+        let st = cur.recordset[0].Status;
+        let d = JSON.parse(cur.recordset[0].FullDataJSON);
+        let renewals = JSON.parse(cur.recordset[0].RenewalsJSON || "[]");
+        const now = getNowIST();
+        Object.assign(d, extras);
+
+        if (renewals.length === 1) {
+            const r1 = renewals[0];
+            if (r1.status === 'pending_review' || r1.status === 'pending_approval') {
+                if (action === 'reject') { r1.status = 'rejected'; r1.rej_by = user; r1.rej_reason = "Rejected"; } 
+                else if (role === 'Reviewer' && action === 'review') { r1.status = 'pending_approval'; r1.rev_name = user; r1.rev_at = now; } 
+                else if (role === 'Approver' && action === 'approve') { r1.status = 'approved'; r1.app_name = user; r1.app_at = now; }
+            }
+        }
+        
+        if (action === 'reject_closure') st = 'Active';
+        else if (role === 'Reviewer' && action === 'approve_closure') { st = 'Closure Pending Approval'; d.Closure_Reviewer_Sig = `${user} on ${now}`; d.Closure_Reviewer_Date = now; }
+        else if (role === 'Approver' && action === 'approve' && st.includes('Closure')) { st = 'Closed'; d.Closure_Issuer_Sig = `${user} on ${now}`; d.Closure_Approver_Date = now; d.Closure_Approver_Sig = `${user} on ${now}`; }
+        else if (action === 'approve' && role === 'Approver') { st = 'Active'; d.Approver_Sig = `${user} on ${now}`; }
+        else if (action === 'initiate_closure') { st = 'Closure Pending Review'; d.Closure_Requestor_Date = now; d.Closure_Receiver_Sig = `${user} on ${now}`; }
+        else if (action === 'reject') st = 'Rejected';
+        else if (role === 'Reviewer' && action === 'review') { st = 'Pending Approval'; d.Reviewer_Sig = `${user} on ${now}`; }
+
+        let finalPdfUrl = null;
+        let finalJson = JSON.stringify(d);
+        if (st === 'Closed') {
+             const pdfRecord = { ...cur.recordset[0], Status: 'Closed', PermitID: PermitID, ValidFrom: cur.recordset[0].ValidFrom, ValidTo: cur.recordset[0].ValidTo };
+             const pdfBuffer = await new Promise(async (resolve, reject) => {
+                const doc = new PDFDocument({ margin: 30, size: 'A4', bufferPages: true });
+                const buffers = []; doc.on('data', buffers.push.bind(buffers)); doc.on('end', () => resolve(Buffer.concat(buffers))); doc.on('error', reject);
+                try { await drawPermitPDF(doc, pdfRecord, d, renewals); doc.end(); } catch(e) { doc.end(); reject(e); }
+             });
+             finalPdfUrl = await uploadToAzure(pdfBuffer, `closed-permits/${PermitID}_FINAL.pdf`, "application/pdf");
+             if(finalPdfUrl) finalJson = null;
+        }
+
+        const q = pool.request().input('p', PermitID).input('s', st).input('r', JSON.stringify(renewals));
+        if (finalPdfUrl) { await q.input('url', finalPdfUrl).query("UPDATE Permits SET Status=@s, FullDataJSON=NULL, RenewalsJSON=NULL, FinalPdfUrl=@url WHERE PermitID=@p"); } 
+        else { await q.input('j', finalJson).query("UPDATE Permits SET Status=@s, FullDataJSON=@j, RenewalsJSON=@r WHERE PermitID=@p"); }
+        res.json({ success: true, archived: !!finalPdfUrl });
+    } catch (e) { res.status(500).json({ error: "Server Error" }); }
+});
+
+app.post('/api/renewal', authenticateToken, upload.any(), async (req, res) => {
+    try {
+        const { PermitID, action, rejectionReason, renewalWorkers, oddHourReq, ...renFields } = req.body;
+        const userRole = req.user.role; const userName = req.user.name;
+        const pool = await getConnection();
+        const cur = await pool.request().input('p', PermitID).query("SELECT RenewalsJSON, Status, ValidFrom, ValidTo FROM Permits WHERE PermitID=@p");
+        if (cur.recordset[0].Status === 'Closed') return res.status(400).json({ error: "Permit is CLOSED." });
+
+        let r = JSON.parse(cur.recordset[0].RenewalsJSON || "[]");
+        const now = getNowIST();
+
+        if (userRole === 'Requester') {
+            const rs = new Date(renFields.RenewalValidFrom); const re = new Date(renFields.RenewalValidTo);
+            if (re <= rs) return res.status(400).json({ error: "End time error" });
+            if ((re - rs) > 8 * 60 * 60 * 1000) return res.status(400).json({ error: "Max 8 Hours" });
+
+            const photoFile = req.files ? req.files.find(f => f.fieldname === 'RenewalImage') : null;
+            let photoUrl = photoFile ? await uploadToAzure(photoFile.buffer, `${PermitID}-${getOrdinal(r.length+1)}Renewal.jpg`) : null;
+
+            r.push({
+                status: 'pending_review', valid_from: renFields.RenewalValidFrom, valid_till: renFields.RenewalValidTo,
+                hc: renFields.hc, toxic: renFields.toxic, oxygen: renFields.oxygen, precautions: renFields.precautions,
+                req_name: userName, req_at: now, worker_list: JSON.parse(renewalWorkers || "[]"), photoUrl: photoUrl, odd_hour_req: (oddHourReq === 'Y')
+            });
+        } else {
+            const last = r[r.length-1];
+            if (action === 'reject') { last.status = 'rejected'; last.rej_by = userName; last.rej_reason = rejectionReason; }
+            else {
+                last.status = userRole === 'Reviewer' ? 'pending_approval' : 'approved';
+                if(userRole === 'Reviewer') { last.rev_name = userName; last.rev_at = now; }
+                if(userRole === 'Approver') { last.app_name = userName; last.app_at = now; }
+            }
+        }
+        let newStatus = r[r.length - 1].status === 'approved' ? 'Active' : (r[r.length - 1].status === 'rejected' ? 'Active' : 'Renewal Pending ' + (userRole === 'Requester' ? 'Review' : 'Approval'));
+        await pool.request().input('p', PermitID).input('r', JSON.stringify(r)).input('s', newStatus).query("UPDATE Permits SET RenewalsJSON=@r, Status=@s WHERE PermitID=@p");
+        res.json({ success: true });
+    } catch (e) { res.status(500).json({ error: "Server Error" }); }
+});
+
 app.post('/api/permit-data', authenticateToken, async (req, res) => { 
     try { 
         const pool = await getConnection(); 
@@ -614,7 +577,6 @@ app.post('/api/permit-data', authenticateToken, async (req, res) => {
     } catch (e) { res.status(500).json({ error: "Internal Server Error" }) } 
 });
 
-// 12. MAP DATA
 app.post('/api/map-data', authenticateToken, async (req, res) => {
     try {
         const pool = await getConnection();
@@ -623,7 +585,6 @@ app.post('/api/map-data', authenticateToken, async (req, res) => {
     } catch (e) { res.status(500).json({ error: "Internal Server Error" }) }
 });
 
-// 13. STATS
 app.post('/api/stats', authenticateToken, async (req, res) => {
     try {
         const pool = await getConnection();
@@ -634,7 +595,6 @@ app.post('/api/stats', authenticateToken, async (req, res) => {
     } catch (e) { res.status(500).json({ error: "Internal Server Error" }) }
 });
 
-// 14. EXCEL
 app.get('/api/download-excel', authenticateToken, async (req, res) => {
     try {
         const pool = await getConnection();
@@ -655,7 +615,6 @@ app.get('/api/download-excel', authenticateToken, async (req, res) => {
     } catch (e) { res.status(500).send("Internal Server Error"); }
 });
 
-// 15. PDF
 app.get('/api/download-pdf/:id', authenticateToken, async (req, res) => {
     try {
         const pool = await getConnection();
@@ -687,7 +646,6 @@ app.get('/api/download-pdf/:id', authenticateToken, async (req, res) => {
     } catch (e) { console.error(e); if (!res.headersSent) res.status(500).send("Internal Server Error"); }
 });
 
-// 16. PHOTO
 app.get('/api/view-photo/:filename', authenticateToken, async (req, res) => {
     try {
         const filename = req.params.filename;
@@ -706,11 +664,11 @@ app.get('/api/view-photo/:filename', authenticateToken, async (req, res) => {
     } catch (e) { console.error("Photo retrieval error:", e.message); res.status(500).send("Error retrieving photo"); }
 });
 
-// --- 8. SERVE FRONTEND (WITH NONCE INJECTION) ---
+// --- 8. SERVE FRONTEND (WITH NONCE) ---
 app.get('/', (req, res) => {
     const indexPath = path.join(__dirname, 'index.html');
     fs.readFile(indexPath, 'utf8', (err, htmlData) => {
-        if (err) return res.status(500).send('Error');
+        if (err) return res.status(500).send('Error loading page');
         const finalHtml = htmlData.replace(/NONCE_PLACEHOLDER/g, res.locals.nonce);
         res.send(finalHtml);
     });
