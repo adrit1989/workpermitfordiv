@@ -279,7 +279,10 @@
                         <button type="button" id="btn-add-app-sup" class="mt-2 text-xs bg-gray-200 px-2 py-1 rounded hover:bg-gray-300 font-bold">+ Add Supervisor</button>
                     </div>
                     <textarea name="Approver_Remarks" id="Approver_Remarks" placeholder="Approver Remarks" class="w-full mb-2"></textarea>
-                    <label class="flex items-center gap-2 mb-2 p-2 bg-green-50 border border-green-200 rounded cursor-pointer"><input type="checkbox" name="RequireRenewalPhotos" id="RequireRenewalPhotos" value="Y" class="w-5 h-5 accent-green-600"><span class="text-sm font-bold text-green-800">Require Photos for Renewals (Starting 2nd)</span></label>
+                    <label class="flex items-center gap-2 mb-2 p-2 bg-green-50 border border-green-200 rounded cursor-pointer">
+                        <input type="checkbox" name="RequireRenewalPhotos" id="RequireRenewalPhotos" value="Y" class="w-5 h-5 accent-green-600">
+                        <span class="text-sm font-bold text-green-800">Require Photos for Renewals (Starting 2nd)</span>
+                    </label>
                     <div id="pdf-color-select" class="mt-2 hidden"><label>PDF Background:</label><select id="PdfBgColor"><option>White</option><option>Red</option><option>Green</option><option>Yellow</option><option>Auto</option></select></div>
                 </div>
                 
@@ -335,35 +338,16 @@
 
     <script nonce="NONCE_PLACEHOLDER">
         const API = "/api";
-        let authToken = null;
-        let currentUser = null;
-        let usersData = {};
-        let mapInstance = null;
-        let chartS = null; 
-        let chartT = null;
-        let currentPermitId = null;
-        let currentPermitWorkers = [];
-        let currentRenewalCount = 0;
-        let permitRequirePhoto = false;
-        let currentPermitIOCLData = [];
-
-        const CL_DATA = { 
-            A: ["1. Equipment / Work Area inspected.", "2. Surrounding area checked.", "3. Manholes covered.", "4. Hazards considered.", "5. Equipment blinded.", "6. Drained.", "7. Steamed.", "8. Flushed.", "9. Fire Access.", "10. Iron Sulfide.", "11. Electrical Isolation.", "12. Gas Test.", "13. Firefighting.", "14. Cordoned.", "15. CCTV.", "16. Ventilation."], 
-            B: ["1. Exit.", "2. Standby.", "3. Gas trap.", "4. Spark shield.", "5. Grounding.", "6. Standby (Confined).", "7. Communication.", "8. Rescue.", "9. Cooling.", "10. Inert Gas.", "11. ELCB.", "12. Cylinders.", "13. Spark arrestor.", "14. Welding loc.", "15. Height."], 
-            C: ["1. PESO spark elimination."], 
-            D: ["1. Shoring.", "2. Soil distance.", "3. Access.", "4. Vehicle ban."] 
-        };
+        let authToken = null, currentUser = null, usersData = {}, mapInstance = null, chartS = null, chartT = null;
+        let currentPermitId = null, currentPermitWorkers = [], currentRenewalCount = 0, permitRequirePhoto = false, currentPermitIOCLData = [];
+        const CL_DATA = { A: ["1. Equipment / Work Area inspected.", "2. Surrounding area checked.", "3. Manholes covered.", "4. Hazards considered.", "5. Equipment blinded.", "6. Drained.", "7. Steamed.", "8. Flushed.", "9. Fire Access.", "10. Iron Sulfide.", "11. Electrical Isolation.", "12. Gas Test.", "13. Firefighting.", "14. Cordoned.", "15. CCTV.", "16. Ventilation."], B: ["1. Exit.", "2. Standby.", "3. Gas trap.", "4. Spark shield.", "5. Grounding.", "6. Standby (Confined).", "7. Communication.", "8. Rescue.", "9. Cooling.", "10. Inert Gas.", "11. ELCB.", "12. Cylinders.", "13. Spark arrestor.", "14. Welding loc.", "15. Height."], C: ["1. PESO spark elimination."], D: ["1. Shoring.", "2. Soil distance.", "3. Access.", "4. Vehicle ban."] };
         const HAZARDS = ["Lack of Oxygen", "H2S", "Toxic Gases", "Combustible gases", "Pyrophoric Iron", "Corrosive Chemicals", "cave in formation", "Others"];
         const PPE = ["Helmet", "Safety Shoes", "Hand gloves", "Boiler suit", "Face Shield", "Apron", "Goggles", "Dust Respirator", "Fresh Air Mask", "Lifeline", "Safety Harness", "Airline", "Earmuff", "IFR"];
 
         document.addEventListener('DOMContentLoaded', () => {
-            loadUsers();
-            renderUI();
-            
-            // Event Listeners
+            loadUsers(); renderUI();
             document.getElementById('login-form')?.addEventListener('submit', (e) => { e.preventDefault(); handleLogin(); });
             document.getElementById('login-role')?.addEventListener('change', loadUserNames);
-            
             document.getElementById('btn-nav-worker')?.addEventListener('click', toggleWorkerMode);
             document.getElementById('btn-nav-map')?.addEventListener('click', showMap);
             document.getElementById('btn-nav-logout')?.addEventListener('click', () => location.reload());
@@ -371,36 +355,28 @@
             document.getElementById('btn-back-map')?.addEventListener('click', showDashboard);
             document.getElementById('btn-new-permit')?.addEventListener('click', showNewPermit);
             document.getElementById('btn-get-geo')?.addEventListener('click', getGeo);
-            
             document.getElementById('btn-back-worker')?.addEventListener('click', toggleWorkerMode);
             document.getElementById('btn-add-worker')?.addEventListener('click', () => openWorkerForm('create'));
             document.getElementById('worker-form')?.addEventListener('submit', (e) => { e.preventDefault(); saveWorker(window.currentWorkerAction); });
             document.getElementById('w-id-type')?.addEventListener('change', toggleOtherID);
-
             document.getElementById('btn-view-map')?.addEventListener('click', showMap);
             document.getElementById('btn-add-user')?.addEventListener('click', showAddUser);
             document.getElementById('btn-download-excel')?.addEventListener('click', downloadSecureExcel);
             document.getElementById('btn-close-adduser')?.addEventListener('click', () => document.getElementById('view-add-user').classList.add('hidden'));
             document.getElementById('adduser-form')?.addEventListener('submit', (e) => { e.preventDefault(); submitNewUser(); });
-            
             document.getElementById('chk-init-renewal')?.addEventListener('change', (e) => document.getElementById('div-init-renewal').classList.toggle('hidden', !e.target.checked));
             document.getElementById('RenewalValidFrom')?.addEventListener('change', checkRenewalTime);
             document.getElementById('RenewalValidTo')?.addEventListener('change', checkRenewalTime);
             document.getElementById('odd-hour-allow-check')?.addEventListener('change', toggleRenewalApproveBtn);
-            
             document.getElementById('btn-submit-renewal')?.addEventListener('click', () => submitRenewal('approve'));
             document.getElementById('btn-approve-renewal')?.addEventListener('click', () => submitRenewal('approve'));
             document.getElementById('btn-reject-renewal')?.addEventListener('click', () => submitRenewal('reject'));
-
-            // Supervisor Buttons
             document.getElementById('btn-add-rev-sup')?.addEventListener('click', () => addIOCLRow('iocl-sup-container-rev'));
             document.getElementById('btn-add-app-sup')?.addEventListener('click', () => addIOCLRow('iocl-sup-container-app'));
-            
             document.getElementById('ValidFrom')?.addEventListener('change', checkDate);
             document.getElementById('ValidTo')?.addEventListener('change', checkDate);
         });
 
-        // --- HELPERS ---
         function escapeHtml(text) { if (!text) return text; return String(text).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
         function getVal(id) { const el = document.getElementById(id); return el ? el.value : ''; }
         function setText(id, val) { const el = document.getElementById(id); if(el) el.innerText = val; }
@@ -415,290 +391,144 @@
                 const opts={method:meth, headers:headers};
                 if(body)opts.body=JSON.stringify(body);
                 const res = await fetch(API+ep,opts); 
-                if (res.status === 401 || res.status === 403) {
-                    if(authToken) { alert("Session expired."); location.reload(); }
-                    return { error: "Auth" };
-                }
+                if (res.status === 401 || res.status === 403) { if(authToken) { alert("Session expired."); location.reload(); } return { error: "Auth" }; }
                 return await res.json();
             } finally { document.getElementById('loader').style.display = 'none'; }
         }
-
-        async function loadUsers() {
-            try { const u = await apiCall('/users'); usersData = u; loadUserNames(); } catch(e){}
-        }
-
+        async function loadUsers() { try { const u = await apiCall('/users'); usersData = u; loadUserNames(); } catch(e){} }
         function loadUserNames() {
-            const role = document.getElementById("login-role").value; 
-            const names = usersData[role+'s'] || []; 
-            const sel = document.getElementById("login-name"); 
-            sel.innerHTML = names.map(u => `<option value="${u.email}">${escapeHtml(u.name)}</option>`).join(''); 
-            sel.disabled = false; 
+            const role = document.getElementById("login-role").value; const names = usersData[role+'s'] || []; 
+            const sel = document.getElementById("login-name"); sel.innerHTML = names.map(u => `<option value="${u.email}">${escapeHtml(u.name)}</option>`).join(''); sel.disabled = false; 
         }
-
         async function handleLogin() {
-            const r=document.getElementById("login-role").value; 
-            const n=document.getElementById("login-name").options[document.getElementById("login-name").selectedIndex].text; 
-            const e=document.getElementById("login-name").value; 
-            const p=document.getElementById("login-password").value; 
-            
+            const r=document.getElementById("login-role").value; const n=document.getElementById("login-name").options[document.getElementById("login-name").selectedIndex].text; 
+            const e=document.getElementById("login-name").value; const p=document.getElementById("login-password").value; 
             const res = await apiCall('/login','POST',{role:r,name:e,password:p}); 
-            if(res.success){ 
-                currentUser={...res.user, name:n}; 
-                authToken = res.token; 
-                document.getElementById("view-login").classList.add('hidden'); 
-                document.getElementById("app-container").classList.remove('hidden'); 
-                document.getElementById("user-info").innerText=`${n} (${r})`; 
-                await loadUsers(); 
-                updateRoleUI(); 
-                loadDashboard(); 
-            } else alert("Invalid Login"); 
+            if(res.success){ currentUser={...res.user, name:n}; authToken = res.token; document.getElementById("view-login").classList.add('hidden'); document.getElementById("app-container").classList.remove('hidden'); document.getElementById("user-info").innerText=`${n} (${r})`; await loadUsers(); updateRoleUI(); loadDashboard(); } else alert("Invalid Login"); 
         }
-
         function updateRoleUI() {
-            if(currentUser.Role==='Requester') { 
-                document.getElementById("btn-new-permit").classList.remove('hidden');
-                document.getElementById("btn-add-worker").classList.remove('hidden');
-            }
+            if(currentUser.Role==='Requester') { document.getElementById("btn-new-permit").classList.remove('hidden'); document.getElementById("btn-add-worker").classList.remove('hidden'); }
             if(currentUser.Role!=='Requester') { 
-                ['btn-view-map', 'btn-header-map', 'btn-download-excel', 'charts-container'].forEach(id => {
-                    document.getElementById(id)?.classList.remove('hidden');
-                });
+                ['btn-view-map', 'btn-header-map', 'btn-download-excel', 'charts-container'].forEach(id => { document.getElementById(id)?.classList.remove('hidden'); });
                 loadStats(); 
                 if(currentUser.Role==='Approver') document.getElementById("btn-add-user").classList.remove('hidden');
             }
         }
-
         async function loadDashboard() {
             const res = await apiCall('/dashboard', 'POST', {role:currentUser.Role, email:currentUser.Email});
-            const tP = document.querySelector('#table-pending tbody');
-            const tA = document.querySelector('#table-active tbody');
-            const tO = document.querySelector('#table-other tbody');
+            const tP = document.querySelector('#table-pending tbody'); const tA = document.querySelector('#table-active tbody'); const tO = document.querySelector('#table-other tbody');
             tP.innerHTML=""; tA.innerHTML=""; tO.innerHTML="";
-
             res.forEach(p => {
-                const tr = document.createElement('tr');
-                tr.className = "cursor-pointer hover:bg-orange-50 transition border-b";
+                const tr = document.createElement('tr'); tr.className = "cursor-pointer hover:bg-orange-50 transition border-b";
                 
-                let actionBtn = document.createElement('span');
-                actionBtn.className = "bg-blue-50 text-blue-600 px-3 py-1 rounded-full text-xs font-bold";
-                actionBtn.innerText = "OPEN";
+                // FIX E: PDF Button Logic
+                let actionBtn = document.createElement('span'); actionBtn.className = "bg-blue-50 text-blue-600 px-3 py-1 rounded-full text-xs font-bold"; actionBtn.innerText = "OPEN";
                 if (p.Status === 'Closed') {
-                    actionBtn = document.createElement('button');
-                    actionBtn.className = "btn-pdf";
-                    actionBtn.innerText = "Download PDF";
-                    actionBtn.onclick = (e) => { e.stopPropagation(); downloadSecurePDF(p.PermitID); };
+                    actionBtn = document.createElement('button'); actionBtn.className = "btn-pdf"; actionBtn.innerText = "Download PDF"; actionBtn.type="button"; actionBtn.onclick = (e) => { e.stopPropagation(); downloadSecurePDF(p.PermitID); };
+                } else if (p.Status === 'Active' && !p.Status.includes('Renewal')) {
+                    actionBtn = document.createElement('button'); actionBtn.className = "btn-pdf"; actionBtn.innerText = "Download PDF"; actionBtn.type="button"; actionBtn.onclick = (e) => { e.stopPropagation(); downloadSecurePDF(p.PermitID); };
                 }
 
                 let statusClass = p.Status.includes('Pending') ? 'text-red-600' : (p.Status==='Active' ? 'text-green-600' : 'text-gray-600');
-                
                 tr.innerHTML = `<td class="font-bold text-blue-600 text-lg">${p.PermitID}</td><td class="font-medium">${escapeHtml(p.WorkType||'-')}</td><td class="text-gray-600">${escapeHtml(p.LocationUnit||'-')}</td><td class="font-bold ${statusClass}">${p.Status}</td><td class="text-sm text-gray-500">${escapeHtml(p.ReviewerEmail || p.ApproverEmail || '-')}</td><td></td>`;
                 tr.lastElementChild.appendChild(actionBtn);
                 if(p.Status !== 'Closed') tr.addEventListener('click', () => openPermit(p.PermitID));
-
                 let isAction = false;
                 if(currentUser.Role === 'Reviewer' && (p.Status === 'Pending Review' || p.Status === 'Renewal Pending Review' || p.Status === 'Closure Pending Review')) isAction = true;
                 if(currentUser.Role === 'Approver' && (p.Status === 'Pending Approval' || p.Status === 'Renewal Pending Approval' || p.Status === 'Closure Pending Approval')) isAction = true;
                 if(currentUser.Role === 'Requester' && (p.Status.includes('Pending') || p.Status === 'New')) isAction = true;
-
-                if(isAction) tP.appendChild(tr);
-                else if(p.Status === 'Active' || p.Status.includes('Renewal')) tA.appendChild(tr);
-                else tO.appendChild(tr);
+                if(isAction) tP.appendChild(tr); else if(p.Status === 'Active' || p.Status.includes('Renewal')) tA.appendChild(tr); else tO.appendChild(tr);
             });
         }
-
         function renderUI() {
-            let h = '';
-            ['A','B','C','D'].forEach(sec => {
-                h += `<div class="glass p-3"><div class="flex justify-between items-center border-b pb-1 mb-2"><div class="font-bold text-orange-700">SECTION ${sec}</div><div class="flex gap-2 text-xs items-center bg-orange-50 p-1 rounded"><span class="font-bold text-gray-600">Applicability:</span><label class="cursor-pointer"><input type="radio" name="Master_${sec}" value="Yes" checked class="sec-toggle" data-sec="${sec}"> Yes</label><label class="cursor-pointer"><input type="radio" name="Master_${sec}" value="NA" class="sec-toggle" data-sec="${sec}"> NA</label><label class="cursor-pointer"><input type="radio" name="Master_${sec}" value="No" class="sec-toggle" data-sec="${sec}"> No</label></div></div>`;
-                h += CL_DATA[sec].map((t, i) => {
-                    return `<div class="mb-4 pb-2 border-b border-gray-100"><div class="text-sm font-medium mb-2">${t}</div><div class="flex gap-4 bg-gray-50 p-2 rounded"><label><input type="radio" name="${sec}_Q${i+1}" value="Yes" checked> Yes</label><label><input type="radio" name="${sec}_Q${i+1}" value="NA"> NA</label><label><input type="radio" name="${sec}_Q${i+1}" value="No"> No</label></div>${(sec==='A' && i===11) ? `<div class="flex gap-1 mt-2"><input name="GP_Q12_HC" placeholder="HC%"><input name="GP_Q12_ToxicGas" placeholder="Tox"><input name="GP_Q12_Oxygen" placeholder="O2%"></div>` : `<input name="${sec}_Q${i+1}_Detail" placeholder="Remarks" class="text-sm mt-2 w-full">`}</div>`;
-                }).join('');
-                h += `</div>`;
-            });
+            let h = ''; ['A','B','C','D'].forEach(sec => { h += `<div class="glass p-3"><div class="flex justify-between items-center border-b pb-1 mb-2"><div class="font-bold text-orange-700">SECTION ${sec}</div><div class="flex gap-2 text-xs items-center bg-orange-50 p-1 rounded"><span class="font-bold text-gray-600">Applicability:</span><label class="cursor-pointer"><input type="radio" name="Master_${sec}" value="Yes" checked class="sec-toggle" data-sec="${sec}"> Yes</label><label class="cursor-pointer"><input type="radio" name="Master_${sec}" value="NA" class="sec-toggle" data-sec="${sec}"> NA</label><label class="cursor-pointer"><input type="radio" name="Master_${sec}" value="No" class="sec-toggle" data-sec="${sec}"> No</label></div></div>`; h += CL_DATA[sec].map((t, i) => { return `<div class="mb-4 pb-2 border-b border-gray-100"><div class="text-sm font-medium mb-2">${t}</div><div class="flex gap-4 bg-gray-50 p-2 rounded"><label><input type="radio" name="${sec}_Q${i+1}" value="Yes" checked> Yes</label><label><input type="radio" name="${sec}_Q${i+1}" value="NA"> NA</label><label><input type="radio" name="${sec}_Q${i+1}" value="No"> No</label></div>${(sec==='A' && i===11) ? `<div class="flex gap-1 mt-2"><input name="GP_Q12_HC" placeholder="HC%"><input name="GP_Q12_ToxicGas" placeholder="Tox"><input name="GP_Q12_Oxygen" placeholder="O2%"></div>` : `<input name="${sec}_Q${i+1}_Detail" placeholder="Remarks" class="text-sm mt-2 w-full">`}</div>`; }).join(''); h += `</div>`; });
             document.getElementById('checklists-wrapper').innerHTML = h;
-            document.querySelectorAll('.sec-toggle').forEach(r => r.addEventListener('change', (e) => {
-                const val = e.target.value; const sec = e.target.dataset.sec;
-                document.querySelectorAll(`input[name^="${sec}_Q"][value="${val}"]`).forEach(rn => rn.checked = true);
-            }));
+            document.querySelectorAll('.sec-toggle').forEach(r => r.addEventListener('change', (e) => { const val = e.target.value; const sec = e.target.dataset.sec; document.querySelectorAll(`input[name^="${sec}_Q"][value="${val}"]`).forEach(rn => rn.checked = true); }));
             document.getElementById('hazards-container').innerHTML = HAZARDS.map(z => `<label class="flex items-center gap-2 border p-3 rounded-lg bg-gray-50"><input type="checkbox" name="H_${z.replace(/ /g,'')}" value="Y" ${z==='Others'?'id="chk-haz-others"':''} class="w-5 h-5 text-orange-600"> <span class="text-sm font-medium">${z}</span></label>`).join('');
             document.getElementById('chk-haz-others')?.addEventListener('change', (e) => document.getElementById('other-hazard-div').classList.toggle('hidden', !e.target.checked));
             document.getElementById('ppe-container').innerHTML = PPE.map(p => `<label class="flex items-center gap-2 border p-3 rounded-lg bg-gray-50 hover:bg-blue-50 transition"><input type="checkbox" name="P_${p.replace(/ /g,'')}" value="Y" class="w-5 h-5 text-blue-600"> <span class="text-sm font-medium">${p}</span></label>`).join('');
         }
-
         function getGeo() {
             if (!navigator.geolocation) return alert("Geolocation not supported");
             const btn = document.getElementById("btn-get-geo"); btn.innerText = "Locating...";
-            navigator.geolocation.getCurrentPosition(
-                (p) => { safeSet("ExactLocation", `${p.coords.latitude.toFixed(6)}, ${p.coords.longitude.toFixed(6)}`); safeSet("Latitude", p.coords.latitude); safeSet("Longitude", p.coords.longitude); btn.innerText = "📍 GPS Set"; },
-                () => { btn.innerText = "📍 Retry"; alert("GPS Failed"); }
-            );
+            navigator.geolocation.getCurrentPosition((p) => { safeSet("ExactLocation", `${p.coords.latitude.toFixed(6)}, ${p.coords.longitude.toFixed(6)}`); safeSet("Latitude", p.coords.latitude); safeSet("Longitude", p.coords.longitude); btn.innerText = "📍 GPS Set"; }, () => { btn.innerText = "📍 Retry"; alert("GPS Failed"); });
         }
         async function loadMapData() { 
             const p = await apiCall('/map-data', 'POST'); 
             if(!mapInstance) mapInstance=new google.maps.Map(document.getElementById("map"),{center:{lat:22.57,lng:88.36},zoom:5}); 
             const listEl = document.getElementById("map-list-content"); listEl.innerHTML = ""; const infoWindow = new google.maps.InfoWindow(); 
-            p.forEach(x => { 
-                const marker = new google.maps.Marker({position:{lat:x.lat,lng:x.lng}, map:mapInstance}); 
-                const item = document.createElement("div"); item.className = "p-3 border-b cursor-pointer hover:bg-orange-50 text-sm"; item.innerText = `${x.PermitID} - ${x.WorkType}`; 
-                item.addEventListener('click', () => { mapInstance.setCenter({lat:x.lat,lng:x.lng}); mapInstance.setZoom(12); }); listEl.appendChild(item); 
-            }); 
+            p.forEach(x => { const marker = new google.maps.Marker({position:{lat:x.lat,lng:x.lng}, map:mapInstance}); const item = document.createElement("div"); item.className = "p-3 border-b cursor-pointer hover:bg-orange-50 text-sm"; item.innerText = `${x.PermitID} - ${x.WorkType}`; item.addEventListener('click', () => { mapInstance.setCenter({lat:x.lat,lng:x.lng}); mapInstance.setZoom(12); }); listEl.appendChild(item); }); 
         }
         function showMap() { document.getElementById("view-dashboard").classList.add('hidden'); document.getElementById("view-map").classList.remove('hidden'); loadMapData(); }
-        
-        function toggleWorkerMode() {
-            const dash = document.getElementById("view-dashboard"); const work = document.getElementById("view-worker-management");
-            if(dash.classList.contains('hidden')) { dash.classList.remove('hidden'); work.classList.add('hidden'); }
-            else { dash.classList.add('hidden'); work.classList.remove('hidden'); loadWorkers('dashboard'); }
-        }
+        function toggleWorkerMode() { const dash = document.getElementById("view-dashboard"); const work = document.getElementById("view-worker-management"); if(dash.classList.contains('hidden')) { dash.classList.remove('hidden'); work.classList.add('hidden'); } else { dash.classList.add('hidden'); work.classList.remove('hidden'); loadWorkers('dashboard'); } }
         function openWorkerForm(act, data=null) {
-            window.currentWorkerAction = act; 
-            document.getElementById('worker-form-container').classList.remove('hidden');
-            if(act === 'create') {
-                document.getElementById('worker-form').reset();
-            } else if (act === 'edit_request' && data) {
-                document.getElementById('w-id').value = data.WorkerID;
-                document.getElementById('w-name').value = data.Name;
-                document.getElementById('w-father').value = data.Father;
-                document.getElementById('w-address').value = data.Address;
-                document.getElementById('w-contact').value = data.Contact;
-                document.getElementById('w-idcard').value = data.ID;
-                document.getElementById('w-gender').value = data.Gender;
-                document.getElementById('w-age').value = data.Age;
-                const isStd = ["Voter Card", "PAN Card"].includes(data.IDType);
-                document.getElementById("w-id-type").value = isStd ? data.IDType : "Other";
-                toggleOtherID();
-                if(!isStd) document.getElementById("w-id-type-other").value = data.IDType;
+            window.currentWorkerAction = act; document.getElementById('worker-form-container').classList.remove('hidden');
+            if(act === 'create') { document.getElementById('worker-form').reset(); } 
+            else if (act === 'edit_request' && data) {
+                document.getElementById('w-id').value = data.WorkerID; document.getElementById('w-name').value = data.Name; document.getElementById('w-father').value = data.Father; document.getElementById('w-address').value = data.Address; document.getElementById('w-contact').value = data.Contact; document.getElementById('w-idcard').value = data.ID; document.getElementById('w-gender').value = data.Gender; document.getElementById('w-age').value = data.Age;
+                const isStd = ["Voter Card", "PAN Card"].includes(data.IDType); document.getElementById("w-id-type").value = isStd ? data.IDType : "Other"; toggleOtherID(); if(!isStd) document.getElementById("w-id-type-other").value = data.IDType;
             }
         }
         async function saveWorker(act) {
-            const idTypeRaw = document.getElementById("w-id-type").value;
-            const idTypeFinal = idTypeRaw === "Other" ? document.getElementById("w-id-type-other").value : idTypeRaw;
+            const idTypeRaw = document.getElementById("w-id-type").value; const idTypeFinal = idTypeRaw === "Other" ? document.getElementById("w-id-type-other").value : idTypeRaw;
             const body = { Action: act, Role: currentUser.Role, RequestorEmail: currentUser.Email, WorkerID: document.getElementById('w-id').value, RequestorName: currentUser.name, Details: { Name: document.getElementById("w-name").value, Age: document.getElementById("w-age").value, Father: document.getElementById("w-father").value, Address: document.getElementById("w-address").value, Contact: document.getElementById("w-contact").value, ID: document.getElementById("w-idcard").value, Gender: document.getElementById("w-gender").value, IDType: idTypeFinal } };
             const res = await apiCall('/save-worker', 'POST', body);
             if(res.success) { alert("Saved"); loadWorkers('dashboard'); document.getElementById('worker-form-container').classList.add('hidden'); }
         }
-        
         async function loadWorkers(context) { 
             const res = await apiCall('/get-workers', 'POST', {role:currentUser.Role, email:currentUser.Email, context:context}); 
             if(context === 'permit_dropdown') { 
-                const con = document.getElementById('worker-checkboxes'); 
-                con.innerHTML = res.map(w => `<label class="flex items-center gap-2 border p-3 rounded-lg bg-gray-50"><input type="checkbox" name="Worker_${w.WorkerID}" value='${JSON.stringify(w)}' class="w-5 h-5"> <span class="font-bold">${escapeHtml(w.Name)}</span></label>`).join(''); 
+                const con = document.getElementById('worker-checkboxes'); con.innerHTML = res.map(w => `<label class="flex items-center gap-2 border p-3 rounded-lg bg-gray-50"><input type="checkbox" name="Worker_${w.WorkerID}" value='${JSON.stringify(w)}' class="w-5 h-5"> <span class="font-bold">${escapeHtml(w.Name)}</span></label>`).join(''); 
             } else { 
-                const t = document.querySelector('#table-workers tbody'); 
-                t.innerHTML = "";
+                const t = document.querySelector('#table-workers tbody'); t.innerHTML = "";
                 res.forEach(w => {
-                    const row = document.createElement('tr');
-                    
-                    const approvalInfo = w.ApprovedBy ? `<div class="text-xs text-green-700 font-bold">${escapeHtml(w.ApprovedBy)}<br>${w.ApprovedAt}</div>` : '-';
-
-                    row.innerHTML = `<td>${escapeHtml(w.Name)}</td><td>${escapeHtml(w.Father)}</td><td>${w.IDType}: ${w.ID}</td><td>${w.Contact}</td><td>${w.RequestorName}</td><td>${w.Status}</td><td>${approvalInfo}</td><td></td>`;
-                    
-                    const actionCell = row.lastElementChild;
-
+                    const row = document.createElement('tr'); const approvalInfo = w.ApprovedBy ? `<div class="text-xs text-green-700 font-bold">${escapeHtml(w.ApprovedBy)}<br>${w.ApprovedAt}</div>` : '-';
+                    const actionCell = document.createElement('td');
                     if(currentUser.Role !== 'Requester' && w.Status.includes('Pending')) {
-                        const btnApp = document.createElement('button');
-                        btnApp.className = "text-green-600 font-bold border p-1 rounded mr-2";
-                        btnApp.textContent = "Approve";
-                        btnApp.onclick = () => workerAction(w.WorkerID, 'approve');
-                        
-                        const btnRej = document.createElement('button');
-                        btnRej.className = "text-red-600 font-bold border p-1 rounded";
-                        btnRej.textContent = "Reject";
-                        btnRej.onclick = () => workerAction(w.WorkerID, 'reject');
-                        
-                        actionCell.appendChild(btnApp);
-                        actionCell.appendChild(btnRej);
+                        const btnApp = document.createElement('button'); btnApp.className = "text-green-600 font-bold border p-1 rounded mr-2"; btnApp.textContent = "Approve"; btnApp.onclick = () => workerAction(w.WorkerID, 'approve');
+                        const btnRej = document.createElement('button'); btnRej.className = "text-red-600 font-bold border p-1 rounded"; btnRej.textContent = "Reject"; btnRej.onclick = () => workerAction(w.WorkerID, 'reject');
+                        actionCell.appendChild(btnApp); actionCell.appendChild(btnRej);
                     }
-                    
                     if(currentUser.Role === 'Requester' && w.Status === 'Approved') {
-                        const btnEdit = document.createElement('button');
-                        btnEdit.className = "text-blue-600 font-bold mr-2";
-                        btnEdit.textContent = "Edit";
-                        btnEdit.onclick = () => openWorkerForm("edit_request", w);
-                        
-                        const btnDel = document.createElement('button');
-                        btnDel.className = "text-red-600 font-bold";
-                        btnDel.textContent = "Del";
-                        btnDel.onclick = () => workerAction(w.WorkerID, 'delete');
-                        
-                        actionCell.appendChild(btnEdit);
-                        actionCell.appendChild(btnDel);
+                        const btnEdit = document.createElement('button'); btnEdit.className = "text-blue-600 font-bold mr-2"; btnEdit.textContent = "Edit"; btnEdit.onclick = () => openWorkerForm("edit_request", w);
+                        const btnDel = document.createElement('button'); btnDel.className = "text-red-600 font-bold"; btnDel.textContent = "Del"; btnDel.onclick = () => workerAction(w.WorkerID, 'delete');
+                        actionCell.appendChild(btnEdit); actionCell.appendChild(btnDel);
                     }
-                    
-                    t.appendChild(row);
+                    row.innerHTML = `<td>${escapeHtml(w.Name)}</td><td>${escapeHtml(w.Father)}</td><td>${w.IDType}: ${w.ID}</td><td>${w.Contact}</td><td>${w.RequestorName}</td><td>${w.Status}</td><td>${approvalInfo}</td>`; row.appendChild(actionCell); t.appendChild(row);
                 });
             } 
         }
         async function workerAction(id, act) { await apiCall('/save-worker', 'POST', {WorkerID:id, Action:act, Role:currentUser.Role, ApproverName: currentUser.name}); loadWorkers('dashboard'); }
         function toggleOtherID() { const val = document.getElementById("w-id-type").value; document.getElementById("w-id-type-other").classList.toggle("hidden", val !== "Other"); }
 
-        // --- SUPERVISOR LOGIC RESTORED (AUDIT TRAIL) ---
         function addIOCLRow(containerId, data = null) {
             if(data && data.is_deleted) return; 
-            const div = document.createElement('div'); 
-            div.className = "flex gap-1 iocl-row items-center mb-1";
-            
-            const addedBy = data ? data.added_by : currentUser.name;
-            const addedAt = data ? data.added_at : getNow();
-            
+            const div = document.createElement('div'); div.className = "flex gap-1 iocl-row items-center mb-1";
+            const addedBy = data ? data.added_by : currentUser.name; const addedAt = data ? data.added_at : getNow();
             const hiddenFields = `<input type="hidden" class="iocl-added-by" value="${addedBy}"><input type="hidden" class="iocl-added-at" value="${addedAt}">`;
-            
             div.innerHTML = `${hiddenFields}<input class="iocl-name border p-1 w-1/3" placeholder="Name" value="${data?data.name:''}"><input class="iocl-desig border p-1 w-1/3" placeholder="Desig" value="${data?data.desig:''}"><input class="iocl-contact border p-1 w-1/3" placeholder="Contact" value="${data?data.contact:''}"><button type="button" class="text-red-500 font-bold px-2 btn-del-iocl">x</button>`;
-            
             div.querySelector('.btn-del-iocl').onclick = () => markIOCLDeleted(div);
             document.getElementById(containerId).appendChild(div);
         }
-
-        function markIOCLDeleted(rowElement) {
-            rowElement.classList.add('hidden', 'marked-deleted');
-        }
-
+        function markIOCLDeleted(rowElement) { rowElement.classList.add('hidden', 'marked-deleted'); }
         function getIOCLData(containerId) {
-            const rows = document.querySelectorAll(`#${containerId} .iocl-row`);
-            const results = [];
-            
-            // Preserve pre-existing deleted records
-            if(currentPermitIOCLData) {
-                currentPermitIOCLData.filter(d => d.is_deleted).forEach(d => results.push(d));
-            }
-            
+            const rows = document.querySelectorAll(`#${containerId} .iocl-row`); const results = [];
+            if(currentPermitIOCLData) { currentPermitIOCLData.filter(d => d.is_deleted).forEach(d => results.push(d)); }
             rows.forEach(r => {
-                const nameVal = r.querySelector('.iocl-name').value;
-                if(!nameVal) return;
-                
+                const nameVal = r.querySelector('.iocl-name').value; if(!nameVal) return;
                 const isDel = r.classList.contains('marked-deleted');
-                // Avoid duplication if already pushed from deleted history (simple check based on object equality is hard, so we rely on current edit session state)
-                // Actually, 'results' contains pre-existing deleted. The loop iterates currently editable DOM rows.
-                // Editable rows are by definition NOT in the 'pre-existing deleted' set.
-                
-                const obj = {
-                    name: nameVal,
-                    desig: r.querySelector('.iocl-desig').value,
-                    contact: r.querySelector('.iocl-contact').value,
-                    added_by: r.querySelector('.iocl-added-by').value,
-                    added_at: r.querySelector('.iocl-added-at').value,
-                    is_deleted: isDel
-                };
-                
-                if(isDel) {
-                    obj.deleted_by = currentUser.name;
-                    obj.deleted_at = getNow();
-                }
+                const obj = { name: nameVal, desig: r.querySelector('.iocl-desig').value, contact: r.querySelector('.iocl-contact').value, added_by: r.querySelector('.iocl-added-by').value, added_at: r.querySelector('.iocl-added-at').value, is_deleted: isDel };
+                if(isDel) { obj.deleted_by = currentUser.name; obj.deleted_at = getNow(); }
                 results.push(obj);
             });
             return results;
         }
-
         function renderIOCLTable() {
-            const t = document.querySelector('#table-iocl-display tbody');
-            let h = '';
-            if(!currentPermitIOCLData || currentPermitIOCLData.length === 0) {
-                h = '<tr><td colspan="4" class="text-gray-400">No Supervisors</td></tr>';
-            } else {
-                h = currentPermitIOCLData.map(x => {
-                    const rowClass = x.is_deleted ? 'marked-deleted' : '';
-                    let audit = `Add: ${x.added_by} (${x.added_at})`;
-                    if(x.is_deleted) audit += `<br><span class="audit-del">Del: ${x.deleted_by} (${x.deleted_at})</span>`;
+            const t = document.querySelector('#table-iocl-display tbody'); let h = '';
+            // FIX D: Correctly map Desig and Contact for Read-Only Table
+            if(!currentPermitIOCLData || currentPermitIOCLData.length === 0) { h = '<tr><td colspan="4" class="text-gray-400">No Supervisors</td></tr>'; } 
+            else { h = currentPermitIOCLData.map(x => {
+                    const rowClass = x.is_deleted ? 'marked-deleted' : ''; let audit = `Add: ${x.added_by} (${x.added_at})`; if(x.is_deleted) audit += `<br><span class="audit-del">Del: ${x.deleted_by} (${x.deleted_at})</span>`;
                     return `<tr class="${rowClass}"><td>${escapeHtml(x.name)}</td><td>${escapeHtml(x.desig)}</td><td>${escapeHtml(x.contact)}</td><td class="audit-text">${audit}</td></tr>`;
                 }).join('');
             }
@@ -726,57 +556,42 @@
 
              await loadWorkers('permit_dropdown'); 
              currentPermitWorkers = p.SelectedWorkers;
+             
+             // FIX C: Worker Visibility Logic
+             const wDiv = document.getElementById('worker-checkboxes');
+             const wTable = document.getElementById('worker-readonly-table');
+             if(currentUser.Role === 'Requester' && (p.Status === 'New' || p.Status.includes('Pending Review'))) {
+                 wDiv.classList.remove('hidden'); wTable.classList.add('hidden');
+             } else {
+                 wDiv.classList.add('hidden'); wTable.classList.remove('hidden');
+                 wTable.querySelector('tbody').innerHTML = currentPermitWorkers.map(w => `<tr><td>${w.Name}</td><td>${w.Gender}</td><td>${w.Age}</td><td>${p.RequesterName}</td></tr>`).join('');
+             }
+
              const rens = JSON.parse(p.RenewalsJSON || "[]");
              currentRenewalCount = rens.length;
-             
              document.querySelector("#table-renewals tbody").innerHTML = rens.map(r => {
                  const photoHtml = r.photoUrl ? `<button type="button" class="text-blue-600 font-bold underline text-xs btn-view-photo" data-url="${r.photoUrl}">View Photo</button>` : 'N/A';
-                 return `<tr>
-                    <td>Start: ${r.valid_from}<br>End: ${r.valid_till}</td>
-                    <td>${r.hc}/${r.toxic}/${r.oxygen}<br><span class="text-[10px] text-gray-500">${r.precautions||'-'}</span></td>
-                    <td>${r.worker_list||'-'}</td>
-                    <td>${photoHtml}</td>
-                    <td>${escapeHtml(r.req_name)}<br><span class="text-[10px] text-gray-500">${r.req_at}</span></td>
-                    <td>${escapeHtml(r.rev_name||'-')}<br><span class="text-[10px] text-gray-500">${r.rev_at||''}</span></td>
-                    <td>${escapeHtml(r.app_name||'-')}<br><span class="text-[10px] text-gray-500">${r.app_at||''}</span></td>
-                    <td><span class="font-bold ${r.status==='rejected'?'text-red-600':'text-green-600'}">${r.status}</span></td>
-                 </tr>`;
+                 return `<tr><td>Start: ${r.valid_from}</td><td>${r.hc}/${r.toxic}/${r.oxygen}</td><td>${r.worker_list||'-'}</td><td>${photoHtml}</td><td>${r.req_name}</td><td>${r.rev_name||'-'}</td><td>${r.app_name||'-'}</td><td>${r.status}</td></tr>`;
              }).join('');
-             
              document.querySelectorAll('.btn-view-photo').forEach(b => b.addEventListener('click', (e) => viewSecurePhoto(e.target.dataset.url)));
 
              if(rens.length > 0) document.getElementById("renewals-section").classList.remove('hidden');
              
-             // Reset UI Areas
              ['iocl-sup-container-rev', 'iocl-sup-container-app'].forEach(id => document.getElementById(id).innerHTML = '');
              ['fs-reviewer-section', 'fs-approver-section', 'closure-section', 'iocl-reviewer-wrapper', 'iocl-approver-wrapper'].forEach(id => document.getElementById(id).classList.add('hidden'));
 
-             renderIOCLTable(); // Show Read-only view by default
+             renderIOCLTable();
 
              const actionsDiv = document.getElementById("actions"); actionsDiv.innerHTML = "";
              
-             // FIX C: 1st Renewal Approval Window Visibility
-             document.getElementById("first-renewal-decision").classList.add('hidden');
-             if(rens.length === 1) {
-                 if(currentUser.Role === 'Reviewer' && p.Status === 'Pending Review' && rens[0].status === 'pending_review') {
-                     document.getElementById("first-renewal-decision").classList.remove('hidden');
-                 }
-                 if(currentUser.Role === 'Approver' && p.Status === 'Pending Approval' && rens[0].status === 'pending_approval') {
-                     document.getElementById("first-renewal-decision").classList.remove('hidden');
-                 }
-             }
-
              if(currentUser.Role === 'Requester' && p.Status === 'New') {
                   const btn = document.createElement("button"); btn.className = "w-full bg-blue-600 text-white px-6 py-3 rounded-lg font-bold shadow-lg"; btn.innerText = "Submit Permit"; btn.type = "button"; btn.addEventListener('click', savePermit); actionsDiv.appendChild(btn);
                   document.querySelectorAll('input, textarea, select').forEach(e=>e.disabled=false);
              }
              if(currentUser.Role === 'Reviewer' && p.Status === 'Pending Review') {
                  document.getElementById("fs-reviewer-section").classList.remove('hidden');
-                 
-                 // Show Reviewer IOCL Edit
                  document.getElementById("iocl-reviewer-wrapper").classList.remove('hidden');
                  currentPermitIOCLData.forEach(d => addIOCLRow('iocl-sup-container-rev', d));
-                 
                  document.querySelectorAll('#fs-reviewer-section *, #hazards-section input').forEach(e=>e.disabled=false);
                  const b1 = document.createElement("button"); b1.className = "bg-red-600 text-white px-4 py-3 rounded-lg font-bold flex-1"; b1.innerText = "Reject"; b1.type="button"; b1.addEventListener('click', () => upd('reject'));
                  const b2 = document.createElement("button"); b2.className = "bg-green-600 text-white px-4 py-3 rounded-lg font-bold flex-1 ml-2"; b2.innerText = "Review"; b2.type="button"; b2.addEventListener('click', () => upd('review'));
@@ -784,20 +599,17 @@
              }
              if(currentUser.Role === 'Approver' && (p.Status === 'Pending Approval' || p.Status === 'Active')) {
                  document.getElementById("fs-approver-section").classList.remove('hidden');
-                 
-                 // Show Approver IOCL Edit
                  document.getElementById("iocl-approver-wrapper").classList.remove('hidden');
                  currentPermitIOCLData.forEach(d => addIOCLRow('iocl-sup-container-app', d));
-                 
                  if(p.Status === 'Pending Approval') {
                      document.getElementById("Approver_Remarks").disabled=false; 
+                     // FIX B: Enable Photo Requirement
+                     document.getElementById("RequireRenewalPhotos").disabled = false;
                      const b1 = document.createElement("button"); b1.className = "bg-red-600 text-white px-4 py-3 rounded-lg font-bold flex-1"; b1.innerText = "Reject"; b1.type="button"; b1.addEventListener('click', () => upd('reject'));
                      const b2 = document.createElement("button"); b2.className = "bg-green-600 text-white px-4 py-3 rounded-lg font-bold flex-1 ml-2"; b2.innerText = "Approve"; b2.type="button"; b2.addEventListener('click', () => upd('approve'));
                      actionsDiv.append(b1, b2);
                  } else if (p.Status === 'Active') {
-                     // Approver ACTIVE mode edit
-                     const btnUpd = document.createElement("button"); btnUpd.className = "bg-blue-600 text-white px-6 py-3 rounded-lg font-bold shadow flex-1"; btnUpd.innerText = "Update Supervisors"; btnUpd.type="button"; btnUpd.onclick = () => upd('approve');
-                     actionsDiv.appendChild(btnUpd);
+                     const btnUpd = document.createElement("button"); btnUpd.className = "bg-blue-600 text-white px-6 py-3 rounded-lg font-bold shadow flex-1"; btnUpd.innerText = "Update Supervisors"; btnUpd.type="button"; btnUpd.onclick = () => upd('approve'); actionsDiv.appendChild(btnUpd);
                  }
              }
              if(currentUser.Role === 'Reviewer' && p.Status === 'Closure Pending Review') {
@@ -829,6 +641,12 @@
              document.getElementById("signature-history").classList.remove('hidden');
              setText("sig-app", p.Approver_Sig || 'Pending'); setText("sig-clos", p.Closure_Approver_Sig || 'Pending');
              document.getElementById("view-dashboard").classList.add('hidden'); document.getElementById("view-form").classList.remove('hidden');
+             
+             // FIX A: Enable 1st Renewal Action
+             if (rens.length === 1 && (p.Status.includes('Pending Review') || p.Status.includes('Pending Approval'))) {
+                 const rRadios = document.getElementsByName('FirstRenewalAction');
+                 for(const r of rRadios) r.disabled = false;
+             }
         }
 
         async function savePermit() {
@@ -873,14 +691,12 @@
         
         async function upd(act) {
             if(act === 'initiate_closure') { if(!document.getElementById("Site_Restored_Check").checked) return alert("Confirm Site Restored"); }
-            
             let ioclData = [];
             const isReviewerEditing = (currentUser.Role === 'Reviewer' && !document.getElementById('iocl-reviewer-wrapper').classList.contains('hidden'));
             const isApproverEditing = (currentUser.Role === 'Approver' && !document.getElementById('iocl-approver-wrapper').classList.contains('hidden'));
-            
             if (isReviewerEditing) ioclData = getIOCLData('iocl-sup-container-rev');
             else if (isApproverEditing) ioclData = getIOCLData('iocl-sup-container-app');
-            else ioclData = currentPermitIOCLData || []; // Pass existing if not editing
+            else ioclData = currentPermitIOCLData || [];
 
             const body = { 
                 PermitID: currentPermitId, action: act, role: currentUser.Role, user: currentUser.name,
