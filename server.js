@@ -41,11 +41,11 @@ app.use(
           "https://maps.googleapis.com"
         ],
         styleSrc: [
-  "'self'",
-  (req, res) => `'nonce-${res.locals.nonce}'`,
-  "https://fonts.googleapis.com",
-  "'unsafe-inline'"
-]
+          "'self'",
+          (req, res) => `'nonce-${res.locals.nonce}'`,
+          "https://fonts.googleapis.com",
+          "'unsafe-inline'"
+        ], // <--- COMMA ADDED HERE (This was the error)
         fontSrc: ["'self'", "https://fonts.gstatic.com"],
         imgSrc: ["'self'", "data:", "blob:", "https://maps.gstatic.com", "https://maps.googleapis.com"],
         connectSrc: ["'self'", "https://maps.googleapis.com", "https://cdn.jsdelivr.net"]
@@ -505,7 +505,7 @@ async function drawPermitPDF(doc, p, d, renewalsList) {
 
         doc.rect(30, cY, 535, 25).fillColor(boxColor).fill().stroke();
         doc.fillColor('black');
-        doc.text(`Site Restored, Materials Removed & Housekeeping Done?  [ ${checkMark} ]`, 35, cY + 8);
+        doc.text(`Site Restored, Materials Removed & Housekeeping Done?  [ ${checkMark} ]`, 35, cY + 8);
         doc.y += 35;
 
         const closureY = doc.y;
@@ -520,666 +520,854 @@ async function drawPermitPDF(doc, p, d, renewalsList) {
 
 // 1. SECURE LOGIN
 app.post('/api/login', loginLimiter, async (req, res) => {
-    try {
-        const pool = await getConnection();
-        const r = await pool.request().input('e', sql.NVarChar, req.body.name).query('SELECT * FROM Users WHERE Email=@e');
-        
-        if (r.recordset.length === 0) return res.json({ success: false });
+    try {
+        const pool = await getConnection();
+        const r = await pool.request().input('e', sql.NVarChar, req.body.name).query('SELECT * FROM Users WHERE Email=@e');
+        
+        if (r.recordset.length === 0) return res.json({ success: false });
 
-        const user = r.recordset[0];
-        
-        const validPassword = await bcrypt.compare(req.body.password, user.Password);
-        if (!validPassword) return res.json({ success: false });
+        const user = r.recordset[0];
+        
+        const validPassword = await bcrypt.compare(req.body.password, user.Password);
+        if (!validPassword) return res.json({ success: false });
 
-        if (user.Role !== req.body.role) return res.json({ success: false });
+        if (user.Role !== req.body.role) return res.json({ success: false });
 
-        // TOKEN LOGIC WITH INVALIDATION
-        const lastPwdTime = user.LastPasswordChange 
-            ? Math.floor(new Date(user.LastPasswordChange).getTime() / 1000) 
-            : 0;
+        // TOKEN LOGIC WITH INVALIDATION
+        const lastPwdTime = user.LastPasswordChange 
+            ? Math.floor(new Date(user.LastPasswordChange).getTime() / 1000) 
+            : 0;
 
-        const token = jwt.sign(
-            { name: user.Name, email: user.Email, role: user.Role, lastPwd: lastPwdTime }, 
-            JWT_SECRET, 
-            { expiresIn: '8h' }
-        );
+        const token = jwt.sign(
+            { name: user.Name, email: user.Email, role: user.Role, lastPwd: lastPwdTime }, 
+            JWT_SECRET, 
+            { expiresIn: '8h' }
+        );
 
-        res.json({ 
-            success: true, 
-            token: token, 
-            user: { Name: user.Name, Email: user.Email, Role: user.Role } 
-        });
+        res.json({ 
+            success: true, 
+            token: token, 
+            user: { Name: user.Name, Email: user.Email, Role: user.Role } 
+        });
 
-    } catch (e) { 
-        console.error(e); // Keep server logs detailed
-        res.status(500).json({ error: "Internal Server Error" }); // Send generic error to client
-    }
+    } catch (e) { 
+        console.error(e); // Keep server logs detailed
+        res.status(500).json({ error: "Internal Server Error" }); // Send generic error to client
+    }
 });
 
 // 2. SECURE PASSWORD CHANGE (NEW)
 app.post('/api/change-password', authenticateToken, async (req, res) => {
-    try {
-        const { currentPassword, newPassword } = req.body;
-        const pool = await getConnection();
-        
-        const r = await pool.request().input('e', req.user.email).query("SELECT * FROM Users WHERE Email=@e");
-        if (!r.recordset.length) return res.status(404).json({error: "User not found"});
-        
-        const user = r.recordset[0];
-        const valid = await bcrypt.compare(currentPassword, user.Password);
-        if (!valid) return res.status(400).json({error: "Invalid current password"});
-        
-        const hashedPassword = await bcrypt.hash(newPassword, 10);
-        
-        // Updates password AND timestamp (invalidating all old tokens)
-        await pool.request()
-            .input('p', hashedPassword)
-            .input('e', req.user.email)
-            .query("UPDATE Users SET Password=@p, LastPasswordChange=GETDATE() WHERE Email=@e");
-            
-        res.json({success: true});
-    } catch(e) {
-        console.error(e);
-        res.status(500).json({error: "Internal Server Error"});
-    }
+    try {
+        const { currentPassword, newPassword } = req.body;
+        const pool = await getConnection();
+        
+        const r = await pool.request().input('e', req.user.email).query("SELECT * FROM Users WHERE Email=@e");
+        if (!r.recordset.length) return res.status(404).json({error: "User not found"});
+        
+        const user = r.recordset[0];
+        const valid = await bcrypt.compare(currentPassword, user.Password);
+        if (!valid) return res.status(400).json({error: "Invalid current password"});
+        
+        const hashedPassword = await bcrypt.hash(newPassword, 10);
+        
+        // Updates password AND timestamp (invalidating all old tokens)
+        await pool.request()
+            .input('p', hashedPassword)
+            .input('e', req.user.email)
+            .query("UPDATE Users SET Password=@p, LastPasswordChange=GETDATE() WHERE Email=@e");
+            
+        res.json({success: true});
+    } catch(e) {
+        console.error(e);
+        res.status(500).json({error: "Internal Server Error"});
+    }
 });
 
 // 3. SECURE ADD USER
 app.post('/api/add-user', authenticateToken, async (req, res) => {
-    if (req.user.role !== 'Approver') return res.sendStatus(403);
-    try {
-        const pool = await getConnection();
-        const check = await pool.request().input('e', req.body.email).query("SELECT * FROM Users WHERE Email=@e");
-        if (check.recordset.length) return res.status(400).json({ error: "User Exists" });
+    if (req.user.role !== 'Approver') return res.sendStatus(403);
+    try {
+        const pool = await getConnection();
+        const check = await pool.request().input('e', req.body.email).query("SELECT * FROM Users WHERE Email=@e");
+        if (check.recordset.length) return res.status(400).json({ error: "User Exists" });
 
-        const hashedPassword = await bcrypt.hash(req.body.password, 10);
+        const hashedPassword = await bcrypt.hash(req.body.password, 10);
 
-        await pool.request()
-            .input('n', req.body.name)
-            .input('e', req.body.email)
-            .input('r', req.body.role)
-            .input('p', hashedPassword)
-            .query("INSERT INTO Users (Name,Email,Role,Password) VALUES (@n,@e,@r,@p)");
-        
-        res.json({ success: true });
-    } catch (e) { 
-        res.status(500).json({ error: "Internal Server Error" });
-    }
+        await pool.request()
+            .input('n', req.body.name)
+            .input('e', req.body.email)
+            .input('r', req.body.role)
+            .input('p', hashedPassword)
+            .query("INSERT INTO Users (Name,Email,Role,Password) VALUES (@n,@e,@r,@p)");
+        
+        res.json({ success: true });
+    } catch (e) { 
+        res.status(500).json({ error: "Internal Server Error" });
+    }
 });
 
 // --- WORKER MANAGEMENT ---
 app.post('/api/save-worker', authenticateToken, async (req, res) => {
-    try {
-        const { WorkerID, Action, Role, Details, RequestorEmail, RequestorName } = req.body; 
-        const pool = await getConnection();
-        if ((Action === 'create' || Action === 'edit_request') && Details && parseInt(Details.Age) < 18) return res.status(400).json({ error: "Worker must be 18+" });
+    try {
+        const { WorkerID, Action, Role, Details, RequestorEmail, RequestorName } = req.body; 
+        const pool = await getConnection();
+        if ((Action === 'create' || Action === 'edit_request') && Details && parseInt(Details.Age) < 18) return res.status(400).json({ error: "Worker must be 18+" });
 
-        if (Action === 'create') {
-            const idRes = await pool.request().query("SELECT TOP 1 WorkerID FROM Workers ORDER BY WorkerID DESC");
-            const wid = `W-${parseInt(idRes.recordset.length > 0 ? idRes.recordset[0].WorkerID.split('-')[1] : 1000) + 1}`;
-            const dataObj = { Current: {}, Pending: { ...Details, RequestorName: RequestorName } };
+        if (Action === 'create') {
+            const idRes = await pool.request().query("SELECT TOP 1 WorkerID FROM Workers ORDER BY WorkerID DESC");
+            const wid = `W-${parseInt(idRes.recordset.length > 0 ? idRes.recordset[0].WorkerID.split('-')[1] : 1000) + 1}`;
+            const dataObj = { Current: {}, Pending: { ...Details, RequestorName: RequestorName } };
 
-            await pool.request()
-                .input('w', wid).input('s', 'Pending Review').input('r', RequestorEmail)
-                .input('j', JSON.stringify(dataObj))
-                .input('idt', sql.NVarChar, Details.IDType)
-                .query("INSERT INTO Workers (WorkerID, Status, RequestorEmail, DataJSON, IDType) VALUES (@w, @s, @r, @j, @idt)");
-            res.json({ success: true });
-        }
-        else if (Action === 'edit_request') {
-            const cur = await pool.request().input('w', WorkerID).query("SELECT DataJSON FROM Workers WHERE WorkerID=@w");
-            if (cur.recordset.length === 0) return res.status(404).json({ error: "Worker not found" });
-            let dataObj = JSON.parse(cur.recordset[0].DataJSON);
-            dataObj.Pending = { ...dataObj.Current, ...Details, RequestorName: RequestorName || dataObj.Current.RequestorName };
+            await pool.request()
+                .input('w', wid).input('s', 'Pending Review').input('r', RequestorEmail)
+                .input('j', JSON.stringify(dataObj))
+                .input('idt', sql.NVarChar, Details.IDType)
+                .query("INSERT INTO Workers (WorkerID, Status, RequestorEmail, DataJSON, IDType) VALUES (@w, @s, @r, @j, @idt)");
+            res.json({ success: true });
+        }
+        else if (Action === 'edit_request') {
+            const cur = await pool.request().input('w', WorkerID).query("SELECT DataJSON FROM Workers WHERE WorkerID=@w");
+            if (cur.recordset.length === 0) return res.status(404).json({ error: "Worker not found" });
+            let dataObj = JSON.parse(cur.recordset[0].DataJSON);
+            dataObj.Pending = { ...dataObj.Current, ...Details, RequestorName: RequestorName || dataObj.Current.RequestorName };
 
-            await pool.request()
-                .input('w', WorkerID).input('s', 'Edit Pending Review').input('j', JSON.stringify(dataObj))
-                .input('idt', sql.NVarChar, Details.IDType)
-                .query("UPDATE Workers SET Status=@s, DataJSON=@j, IDType=@idt WHERE WorkerID=@w");
-            res.json({ success: true });
-        }
-        else if (Action === 'delete') {
-            if (req.user.role === 'Requester') {
-                const check = await pool.request()
-                    .input('w', WorkerID)
-                    .query("SELECT RequestorEmail FROM Workers WHERE WorkerID=@w");
-                
-                if (check.recordset.length === 0) return res.status(404).json({ error: "Not found" });
-                
-                if (check.recordset[0].RequestorEmail !== req.user.email) {
-                    return res.status(403).json({ error: "Unauthorized: You can only delete your own workers." });
-                }
-            }
-            await pool.request().input('w', WorkerID).query("DELETE FROM Workers WHERE WorkerID=@w");
-            res.json({ success: true });
-        }
-        else {
-            const cur = await pool.request().input('w', WorkerID).query("SELECT Status, DataJSON FROM Workers WHERE WorkerID=@w");
-            if (cur.recordset.length === 0) return res.status(404).json({ error: "Worker not found" });
-            let st = cur.recordset[0].Status;
-            let dataObj = JSON.parse(cur.recordset[0].DataJSON);
+            await pool.request()
+                .input('w', WorkerID).input('s', 'Edit Pending Review').input('j', JSON.stringify(dataObj))
+                .input('idt', sql.NVarChar, Details.IDType)
+                .query("UPDATE Workers SET Status=@s, DataJSON=@j, IDType=@idt WHERE WorkerID=@w");
+            res.json({ success: true });
+        }
+        else if (Action === 'delete') {
+            if (req.user.role === 'Requester') {
+                const check = await pool.request()
+                    .input('w', WorkerID)
+                    .query("SELECT RequestorEmail FROM Workers WHERE WorkerID=@w");
+                
+                if (check.recordset.length === 0) return res.status(404).json({ error: "Not found" });
+                
+                if (check.recordset[0].RequestorEmail !== req.user.email) {
+                    return res.status(403).json({ error: "Unauthorized: You can only delete your own workers." });
+                }
+            }
+            await pool.request().input('w', WorkerID).query("DELETE FROM Workers WHERE WorkerID=@w");
+            res.json({ success: true });
+        }
+        else {
+            const cur = await pool.request().input('w', WorkerID).query("SELECT Status, DataJSON FROM Workers WHERE WorkerID=@w");
+            if (cur.recordset.length === 0) return res.status(404).json({ error: "Worker not found" });
+            let st = cur.recordset[0].Status;
+            let dataObj = JSON.parse(cur.recordset[0].DataJSON);
 
-            let appBy = null; let appOn = null;
+            let appBy = null; let appOn = null;
 
-            if (Action === 'approve') {
-                if (req.user.role === 'Requester') return res.status(403).json({ error: "Unauthorized" });
+            if (Action === 'approve') {
+                if (req.user.role === 'Requester') return res.status(403).json({ error: "Unauthorized" });
 
-                if (st.includes('Pending Review')) st = st.replace('Review', 'Approval');
-                else if (st.includes('Pending Approval')) {
-                    st = 'Approved';
-                    appBy = req.user.name; 
-                    appOn = getNowIST();
-                    dataObj.Current = { ...dataObj.Pending, ApprovedBy: appBy, ApprovedAt: appOn };
-                    dataObj.Pending = null;
-                }
-            } else if (Action === 'reject') { st = 'Rejected'; dataObj.Pending = null; }
+                if (st.includes('Pending Review')) st = st.replace('Review', 'Approval');
+                else if (st.includes('Pending Approval')) {
+                    st = 'Approved';
+                    appBy = req.user.name; 
+                    appOn = getNowIST();
+                    dataObj.Current = { ...dataObj.Pending, ApprovedBy: appBy, ApprovedAt: appOn };
+                    dataObj.Pending = null;
+                }
+            } else if (Action === 'reject') { st = 'Rejected'; dataObj.Pending = null; }
 
-            await pool.request()
-                .input('w', WorkerID).input('s', st).input('j', JSON.stringify(dataObj))
-                .input('aby', sql.NVarChar, appBy).input('aon', sql.NVarChar, appOn)
-                .query("UPDATE Workers SET Status=@s, DataJSON=@j, ApprovedBy=@aby, ApprovedOn=@aon WHERE WorkerID=@w");
-            res.json({ success: true });
-        }
-    } catch (e) { 
-        res.status(500).json({ error: "Internal Server Error" }); 
-    }
+            await pool.request()
+                .input('w', WorkerID).input('s', st).input('j', JSON.stringify(dataObj))
+                .input('aby', sql.NVarChar, appBy).input('aon', sql.NVarChar, appOn)
+                .query("UPDATE Workers SET Status=@s, DataJSON=@j, ApprovedBy=@aby, ApprovedOn=@aon WHERE WorkerID=@w");
+            res.json({ success: true });
+        }
+    } catch (e) { 
+        res.status(500).json({ error: "Internal Server Error" }); 
+    }
 });
 
 app.post('/api/get-workers', authenticateToken, async (req, res) => {
-    try {
-        const pool = await getConnection();
-        const r = await pool.request().query("SELECT * FROM Workers");
-        const list = r.recordset.map(w => {
-            const d = JSON.parse(w.DataJSON);
-            const details = d.Pending || d.Current || {};
-            details.IDType = w.IDType || details.IDType;
-            details.ApprovedBy = w.ApprovedBy || details.ApprovedBy;
-            details.ApprovedAt = w.ApprovedOn || details.ApprovedAt;
-            return { ...details, WorkerID: w.WorkerID, Status: w.Status, RequestorEmail: w.RequestorEmail, IsEdit: w.Status.includes('Edit') };
-        });
-        if (req.body.context === 'permit_dropdown') res.json(list.filter(w => w.Status === 'Approved'));
-        else {
-            if (req.user.role === 'Requester') res.json(list.filter(w => w.RequestorEmail === req.user.email || w.Status === 'Approved'));
-            else res.json(list);
-        }
-    } catch (e) { res.status(500).json({ error: "Internal Server Error" }); }
+    try {
+        const pool = await getConnection();
+        const r = await pool.request().query("SELECT * FROM Workers");
+        const list = r.recordset.map(w => {
+            const d = JSON.parse(w.DataJSON);
+            const details = d.Pending || d.Current || {};
+            details.IDType = w.IDType || details.IDType;
+            details.ApprovedBy = w.ApprovedBy || details.ApprovedBy;
+            details.ApprovedAt = w.ApprovedOn || details.ApprovedAt;
+            return { ...details, WorkerID: w.WorkerID, Status: w.Status, RequestorEmail: w.RequestorEmail, IsEdit: w.Status.includes('Edit') };
+        });
+        if (req.body.context === 'permit_dropdown') res.json(list.filter(w => w.Status === 'Approved'));
+        else {
+            if (req.user.role === 'Requester') res.json(list.filter(w => w.RequestorEmail === req.user.email || w.Status === 'Approved'));
+            else res.json(list);
+        }
+    } catch (e) { res.status(500).json({ error: "Internal Server Error" }); }
 });
 
 // PROTECTED ROUTES
 
-app.get('/api/users', async (req, res) => {
-    try {
-        const pool = await getConnection();
-        const r = await pool.request().query('SELECT Name, Email, Role FROM Users');
-        const mapU = u => ({ name: u.Name, email: u.Email, role: u.Role });
-        res.json({
-            Requesters: r.recordset.filter(u => u.Role === 'Requester').map(mapU),
-            Reviewers: r.recordset.filter(u => u.Role === 'Reviewer').map(mapU),
-            Approvers: r.recordset.filter(u => u.Role === 'Approver').map(mapU)
-        });
-    } catch (e) { res.status(500).json({ error: "Internal Server Error" }) }
+app.get('/api/users', authenticateToken, async (req, res) => {
+    try {
+        const pool = await getConnection();
+        const r = await pool.request().query('SELECT Name, Email, Role FROM Users');
+        const mapU = u => ({ name: u.Name, email: u.Email, role: u.Role });
+        res.json({
+            Requesters: r.recordset.filter(u => u.Role === 'Requester').map(mapU),
+            Reviewers: r.recordset.filter(u => u.Role === 'Reviewer').map(mapU),
+            Approvers: r.recordset.filter(u => u.Role === 'Approver').map(mapU)
+        });
+    } catch (e) { res.status(500).json({ error: "Internal Server Error" }) }
 });
 
 app.post('/api/dashboard', authenticateToken, async (req, res) => {
-    try {
-        const { role, email } = req.user; 
-        const pool = await getConnection();
-        const r = await pool.request().query("SELECT PermitID, Status, ValidFrom, ValidTo, RequesterEmail, ReviewerEmail, ApproverEmail, FullDataJSON, FinalPdfUrl FROM Permits");
-        
-        const p = r.recordset.map(x => {
-            let baseData = {};
-            if (x.FullDataJSON) { try { baseData = JSON.parse(x.FullDataJSON); } catch(e) {} }
-            return { ...baseData, PermitID: x.PermitID, Status: x.Status, ValidFrom: x.ValidFrom, RequesterEmail: x.RequesterEmail, ReviewerEmail: x.ReviewerEmail, ApproverEmail: x.ApproverEmail, FinalPdfUrl: x.FinalPdfUrl };
-        });
-        
-        const f = p.filter(x => (role === 'Requester' ? x.RequesterEmail === email : true));
-        res.json(f.sort((a, b) => b.PermitID.localeCompare(a.PermitID)));
-    } catch (e) { res.status(500).json({ error: "Internal Server Error" }) }
+    try {
+        const { role, email } = req.user; 
+        const pool = await getConnection();
+        const r = await pool.request().query("SELECT PermitID, Status, ValidFrom, ValidTo, RequesterEmail, ReviewerEmail, ApproverEmail, FullDataJSON, FinalPdfUrl FROM Permits");
+        
+        const p = r.recordset.map(x => {
+            let baseData = {};
+            if (x.FullDataJSON) { try { baseData = JSON.parse(x.FullDataJSON); } catch(e) {} }
+            return { ...baseData, PermitID: x.PermitID, Status: x.Status, ValidFrom: x.ValidFrom, RequesterEmail: x.RequesterEmail, ReviewerEmail: x.ReviewerEmail, ApproverEmail: x.ApproverEmail, FinalPdfUrl: x.FinalPdfUrl };
+        });
+        
+        const f = p.filter(x => (role === 'Requester' ? x.RequesterEmail === email : true));
+        res.json(f.sort((a, b) => b.PermitID.localeCompare(a.PermitID)));
+    } catch (e) { res.status(500).json({ error: "Internal Server Error" }) }
 });
 
 app.post('/api/save-permit', authenticateToken, upload.any(), async (req, res) => {
-    try {
-        const requesterEmail = req.user.email; // Secure user ID
+    try {
+        const requesterEmail = req.user.email; // Secure user ID
 
-        let vf, vt;
-        try {
-            vf = req.body.ValidFrom ? new Date(req.body.ValidFrom) : null;
-            vt = req.body.ValidTo ? new Date(req.body.ValidTo) : null;
-        } catch (err) { return res.status(400).json({ error: "Invalid Date Format" }); }
+        let vf, vt;
+        try {
+            vf = req.body.ValidFrom ? new Date(req.body.ValidFrom) : null;
+            vt = req.body.ValidTo ? new Date(req.body.ValidTo) : null;
+        } catch (err) { return res.status(400).json({ error: "Invalid Date Format" }); }
 
-        if (!vf || !vt) return res.status(400).json({ error: "Start and End dates are required" });
-        if (vt <= vf) return res.status(400).json({ error: "End date must be after Start date" });
-        if (req.body.Desc && req.body.Desc.length > 500) {
-            return res.status(400).json({ error: "Description too long (max 500 chars)" });
-        }
-        const pool = await getConnection();
-        let pid = req.body.PermitID;
-        if (!pid || pid === 'undefined' || pid === 'null' || pid === '') {
-            const idRes = await pool.request().query("SELECT TOP 1 PermitID FROM Permits ORDER BY Id DESC");
-            const lastId = idRes.recordset.length > 0 ? idRes.recordset[0].PermitID : 'WP-1000';
-            const numPart = parseInt(lastId.split('-')[1] || 1000);
-            pid = `WP-${numPart + 1}`;
-        }
+        if (!vf || !vt) return res.status(400).json({ error: "Start and End dates are required" });
+        if (vt <= vf) return res.status(400).json({ error: "End date must be after Start date" });
+        if (req.body.Desc && req.body.Desc.length > 500) {
+            return res.status(400).json({ error: "Description too long (max 500 chars)" });
+        }
+        const pool = await getConnection();
+        let pid = req.body.PermitID;
+        if (!pid || pid === 'undefined' || pid === 'null' || pid === '') {
+            const idRes = await pool.request().query("SELECT TOP 1 PermitID FROM Permits ORDER BY Id DESC");
+            const lastId = idRes.recordset.length > 0 ? idRes.recordset[0].PermitID : 'WP-1000';
+            const numPart = parseInt(lastId.split('-')[1] || 1000);
+            pid = `WP-${numPart + 1}`;
+        }
 
-        const chk = await pool.request().input('p', sql.NVarChar, pid).query("SELECT Status FROM Permits WHERE PermitID=@p");
-        if (chk.recordset.length > 0) {
-            if (chk.recordset[0].Status.includes('Closed')) return res.status(400).json({ error: "Permit is CLOSED." });
-        }
+        const chk = await pool.request().input('p', sql.NVarChar, pid).query("SELECT Status FROM Permits WHERE PermitID=@p");
+        if (chk.recordset.length > 0) {
+            if (chk.recordset[0].Status.includes('Closed')) return res.status(400).json({ error: "Permit is CLOSED." });
+        }
 
-        let workers = req.body.SelectedWorkers;
-        if (typeof workers === 'string') { try { workers = JSON.parse(workers); } catch (e) { workers = []; } }
+        let workers = req.body.SelectedWorkers;
+        if (typeof workers === 'string') { try { workers = JSON.parse(workers); } catch (e) { workers = []; } }
 
-        let renewalsArr = [];
-        if (req.body.InitRen === 'Y') {
-            let photoUrl = null;
-            const renImageFile = req.files ? req.files.find(f => f.fieldname === 'InitRenImage') : null;
-            if (renImageFile) {
-                const blobName = `${pid}-1stRenewal.jpg`;
-                photoUrl = await uploadToAzure(renImageFile.buffer, blobName);
-            }
-            renewalsArr.push({
-                status: 'pending_review',
-                valid_from: req.body.InitRenFrom,
-                valid_till: req.body.InitRenTo,
-                hc: req.body.InitRenHC, toxic: req.body.InitRenTox, oxygen: req.body.InitRenO2,
-                precautions: req.body.InitRenPrec,
-                req_name: req.body.RequesterName,
-                req_at: getNowIST(),
-                worker_list: workers.map(w => w.Name),
-                photoUrl: photoUrl
-            });
-        }
-        const renewalsJsonStr = JSON.stringify(renewalsArr);
-        const data = { ...req.body, SelectedWorkers: workers, PermitID: pid, CreatedDate: getNowIST(), GSR_Accepted: 'Y' };
-        
-        const safeLat = (req.body.Latitude && req.body.Latitude !== 'undefined') ? String(req.body.Latitude) : null;
-        const safeLng = (req.body.Longitude && req.body.Longitude !== 'undefined') ? String(req.body.Longitude) : null;
+        let renewalsArr = [];
+        if (req.body.InitRen === 'Y') {
+            let photoUrl = null;
+            const renImageFile = req.files ? req.files.find(f => f.fieldname === 'InitRenImage') : null;
+            if (renImageFile) {
+                const blobName = `${pid}-1stRenewal.jpg`;
+                photoUrl = await uploadToAzure(renImageFile.buffer, blobName);
+            }
+            renewalsArr.push({
+                status: 'pending_review',
+                valid_from: req.body.InitRenFrom,
+                valid_till: req.body.InitRenTo,
+                hc: req.body.InitRenHC, toxic: req.body.InitRenTox, oxygen: req.body.InitRenO2,
+                precautions: req.body.InitRenPrec,
+                req_name: req.body.RequesterName,
+                req_at: getNowIST(),
+                worker_list: workers.map(w => w.Name),
+                photoUrl: photoUrl
+            });
+        }
+        const renewalsJsonStr = JSON.stringify(renewalsArr);
+        const data = { ...req.body, SelectedWorkers: workers, PermitID: pid, CreatedDate: getNowIST(), GSR_Accepted: 'Y' };
+        
+        const safeLat = (req.body.Latitude && req.body.Latitude !== 'undefined') ? String(req.body.Latitude) : null;
+        const safeLng = (req.body.Longitude && req.body.Longitude !== 'undefined') ? String(req.body.Longitude) : null;
 
-        const q = pool.request()
-            .input('p', sql.NVarChar, pid)
-            .input('s', sql.NVarChar, 'Pending Review')
-            .input('w', sql.NVarChar, req.body.WorkType)
-            .input('re', sql.NVarChar, requesterEmail)
-            .input('rv', sql.NVarChar, req.body.ReviewerEmail)
-            .input('ap', sql.NVarChar, req.body.ApproverEmail)
-            .input('vf', sql.DateTime, vf).input('vt', sql.DateTime, vt)
-            .input('lat', sql.NVarChar, safeLat) 
-            .input('lng', sql.NVarChar, safeLng) 
-            .input('j', sql.NVarChar(sql.MAX), JSON.stringify(data))
-            .input('ren', sql.NVarChar(sql.MAX), renewalsJsonStr);
+        const q = pool.request()
+            .input('p', sql.NVarChar, pid)
+            .input('s', sql.NVarChar, 'Pending Review')
+            .input('w', sql.NVarChar, req.body.WorkType)
+            .input('re', sql.NVarChar, requesterEmail)
+            .input('rv', sql.NVarChar, req.body.ReviewerEmail)
+            .input('ap', sql.NVarChar, req.body.ApproverEmail)
+            .input('vf', sql.DateTime, vf).input('vt', sql.DateTime, vt)
+            .input('lat', sql.NVarChar, safeLat) 
+            .input('lng', sql.NVarChar, safeLng) 
+            .input('j', sql.NVarChar(sql.MAX), JSON.stringify(data))
+            .input('ren', sql.NVarChar(sql.MAX), renewalsJsonStr);
 
-        if (chk.recordset.length > 0) {
-            await q.query("UPDATE Permits SET FullDataJSON=@j, WorkType=@w, ValidFrom=@vf, ValidTo=@vt, Latitude=@lat, Longitude=@lng WHERE PermitID=@p");
-        } else {
-            await q.query("INSERT INTO Permits (PermitID, Status, WorkType, RequesterEmail, ReviewerEmail, ApproverEmail, ValidFrom, ValidTo, Latitude, Longitude, FullDataJSON, RenewalsJSON) VALUES (@p, @s, @w, @re, @rv, @ap, @vf, @vt, @lat, @lng, @j, @ren)");
-        }
-        res.json({ success: true, permitId: pid });
-    } catch (e) {
-        console.error(e);
-        res.status(500).json({ error: "Internal Server Error" });
-    }
+        if (chk.recordset.length > 0) {
+            await q.query("UPDATE Permits SET FullDataJSON=@j, WorkType=@w, ValidFrom=@vf, ValidTo=@vt, Latitude=@lat, Longitude=@lng WHERE PermitID=@p");
+        } else {
+            await q.query("INSERT INTO Permits (PermitID, Status, WorkType, RequesterEmail, ReviewerEmail, ApproverEmail, ValidFrom, ValidTo, Latitude, Longitude, FullDataJSON, RenewalsJSON) VALUES (@p, @s, @w, @re, @rv, @ap, @vf, @vt, @lat, @lng, @j, @ren)");
+        }
+        res.json({ success: true, permitId: pid });
+    } catch (e) {
+        console.error(e);
+        res.status(500).json({ error: "Internal Server Error" });
+    }
 });
 
 app.post('/api/update-status', authenticateToken, async (req, res) => {
-    try {
-        const { PermitID, action, ...extras } = req.body;
-        const role = req.user.role; 
-        const user = req.user.name; 
+    try {
+        const { PermitID, action, ...extras } = req.body;
+        const role = req.user.role; 
+        const user = req.user.name; 
 
-        const pool = await getConnection();
-        const cur = await pool.request().input('p', PermitID).query("SELECT * FROM Permits WHERE PermitID=@p");
-        if (cur.recordset.length === 0) return res.json({ error: "Not found" });
+        const pool = await getConnection();
+        const cur = await pool.request().input('p', PermitID).query("SELECT * FROM Permits WHERE PermitID=@p");
+        if (cur.recordset.length === 0) return res.json({ error: "Not found" });
 
-        let st = cur.recordset[0].Status;
-        let d = JSON.parse(cur.recordset[0].FullDataJSON);
-        let renewals = JSON.parse(cur.recordset[0].RenewalsJSON || "[]");
-        const now = getNowIST();
+        let st = cur.recordset[0].Status;
+        let d = JSON.parse(cur.recordset[0].FullDataJSON);
+        let renewals = JSON.parse(cur.recordset[0].RenewalsJSON || "[]");
+        const now = getNowIST();
 
-        Object.assign(d, extras);
+        Object.assign(d, extras);
 
-        if (renewals.length === 1) {
-            const r1 = renewals[0];
-            if (r1.status === 'pending_review' || r1.status === 'pending_approval') {
-                if (action === 'reject') {
-                    r1.status = 'rejected';
-                    r1.rej_by = user;
-                    r1.rej_reason = "Rejected along with Main Permit";
-                } 
-                else if (role === 'Reviewer' && action === 'review') {
-                    r1.status = 'pending_approval';
-                    r1.rev_name = user;
-                    r1.rev_at = now;
-                } 
-                else if (role === 'Approver' && action === 'approve') {
-                    r1.status = 'approved';
-                    r1.app_name = user;
-                    r1.app_at = now;
-                }
-            }
-        }
-        
-        if (action === 'reject_closure') { st = 'Active'; }
-        else if (action === 'approve_closure' && role === 'Reviewer') {
-            st = 'Closure Pending Approval';
-            d.Closure_Reviewer_Sig = `${user} on ${now}`;
-            d.Closure_Reviewer_Date = now;
-        }
-        else if (action === 'approve' && role === 'Approver') {
-            if (st.includes('Closure Pending Approval')) {
-                st = 'Closed';
-                d.Closure_Issuer_Sig = `${user} on ${now}`;
-                d.Closure_Approver_Date = now;
-                d.Closure_Approver_Sig = `${user} on ${now}`;
-            } else {
-                st = 'Active';
-                d.Approver_Sig = `${user} on ${now}`;
-            }
-        }
-        else if (action === 'initiate_closure') {
-            st = 'Closure Pending Review';
-            d.Closure_Requestor_Date = now;
-            d.Closure_Receiver_Sig = `${user} on ${now}`;
-        }
-        else if (action === 'reject') { st = 'Rejected'; }
-        else if (role === 'Reviewer' && action === 'review') {
-            st = 'Pending Approval';
-            d.Reviewer_Sig = `${user} on ${now}`;
-        }
+        if (renewals.length === 1) {
+            const r1 = renewals[0];
+            if (r1.status === 'pending_review' || r1.status === 'pending_approval') {
+                if (action === 'reject') {
+                    r1.status = 'rejected';
+                    r1.rej_by = user;
+                    r1.rej_reason = "Rejected along with Main Permit";
+                } 
+                else if (role === 'Reviewer' && action === 'review') {
+                    r1.status = 'pending_approval';
+                    r1.rev_name = user;
+                    r1.rev_at = now;
+                } 
+                else if (role === 'Approver' && action === 'approve') {
+                    r1.status = 'approved';
+                    r1.app_name = user;
+                    r1.app_at = now;
+                }
+            }
+        }
+        
+        if (action === 'reject_closure') { st = 'Active'; }
+        else if (action === 'approve_closure' && role === 'Reviewer') {
+            st = 'Closure Pending Approval';
+            d.Closure_Reviewer_Sig = `${user} on ${now}`;
+            d.Closure_Reviewer_Date = now;
+        }
+        else if (action === 'approve' && role === 'Approver') {
+            if (st.includes('Closure Pending Approval')) {
+                st = 'Closed';
+                d.Closure_Issuer_Sig = `${user} on ${now}`;
+                d.Closure_Approver_Date = now;
+                d.Closure_Approver_Sig = `${user} on ${now}`;
+            } else {
+                st = 'Active';
+                d.Approver_Sig = `${user} on ${now}`;
+            }
+        }
+        else if (action === 'initiate_closure') {
+            st = 'Closure Pending Review';
+            d.Closure_Requestor_Date = now;
+            d.Closure_Receiver_Sig = `${user} on ${now}`;
+        }
+        else if (action === 'reject') { st = 'Rejected'; }
+        else if (role === 'Reviewer' && action === 'review') {
+            st = 'Pending Approval';
+            d.Reviewer_Sig = `${user} on ${now}`;
+        }
 
-        let finalPdfUrl = null;
-        let finalJson = JSON.stringify(d);
+        let finalPdfUrl = null;
+        let finalJson = JSON.stringify(d);
 
-        if (st === 'Closed') {
-             const pdfRecord = { ...cur.recordset[0], Status: 'Closed', PermitID: PermitID, ValidFrom: cur.recordset[0].ValidFrom, ValidTo: cur.recordset[0].ValidTo };
-             
-             const pdfBuffer = await new Promise(async (resolve, reject) => {
-                const doc = new PDFDocument({ margin: 30, size: 'A4', bufferPages: true });
-                const buffers = [];
-                doc.on('data', buffers.push.bind(buffers));
-                doc.on('end', () => resolve(Buffer.concat(buffers)));
-                doc.on('error', reject);
-                
-                try {
-                    await drawPermitPDF(doc, pdfRecord, d, renewals);
-                    doc.end();
-                } catch(e) { doc.end(); reject(e); }
-             });
-             
-             const blobName = `closed-permits/${PermitID}_FINAL.pdf`;
-             finalPdfUrl = await uploadToAzure(pdfBuffer, blobName, "application/pdf");
-             if(finalPdfUrl) finalJson = null;
-        }
+        if (st === 'Closed') {
+             const pdfRecord = { ...cur.recordset[0], Status: 'Closed', PermitID: PermitID, ValidFrom: cur.recordset[0].ValidFrom, ValidTo: cur.recordset[0].ValidTo };
+             
+             const pdfBuffer = await new Promise(async (resolve, reject) => {
+                const doc = new PDFDocument({ margin: 30, size: 'A4', bufferPages: true });
+                const buffers = [];
+                doc.on('data', buffers.push.bind(buffers));
+                doc.on('end', () => resolve(Buffer.concat(buffers)));
+                doc.on('error', reject);
+                
+                try {
+                    await drawPermitPDF(doc, pdfRecord, d, renewals);
+                    doc.end();
+                } catch(e) { doc.end(); reject(e); }
+             });
+             
+             const blobName = `closed-permits/${PermitID}_FINAL.pdf`;
+             finalPdfUrl = await uploadToAzure(pdfBuffer, blobName, "application/pdf");
+             if(finalPdfUrl) finalJson = null;
+        }
 
-        const q = pool.request().input('p', PermitID).input('s', st).input('r', JSON.stringify(renewals));
-        if (finalPdfUrl) {
-             await q.input('url', finalPdfUrl).query("UPDATE Permits SET Status=@s, FullDataJSON=NULL, RenewalsJSON=NULL, FinalPdfUrl=@url WHERE PermitID=@p");
-        } else {
-             await q.input('j', finalJson).query("UPDATE Permits SET Status=@s, FullDataJSON=@j, RenewalsJSON=@r WHERE PermitID=@p");
-        }
-        res.json({ success: true, archived: !!finalPdfUrl });
+        const q = pool.request().input('p', PermitID).input('s', st).input('r', JSON.stringify(renewals));
+        if (finalPdfUrl) {
+             await q.input('url', finalPdfUrl).query("UPDATE Permits SET Status=@s, FullDataJSON=NULL, RenewalsJSON=NULL, FinalPdfUrl=@url WHERE PermitID=@p");
+        } else {
+             await q.input('j', finalJson).query("UPDATE Permits SET Status=@s, FullDataJSON=@j, RenewalsJSON=@r WHERE PermitID=@p");
+        }
+        res.json({ success: true, archived: !!finalPdfUrl });
 
-    } catch (e) { res.status(500).json({ error: "Internal Server Error" }); }
+    } catch (e) { res.status(500).json({ error: "Internal Server Error" }); }
 });
 
 app.post('/api/renewal', authenticateToken, upload.any(), async (req, res) => {
-    try {
-        const { PermitID, action, rejectionReason, renewalWorkers, oddHourReq, ...data } = req.body;
-        const userRole = req.user.role; 
-        const userName = req.user.name;
+    try {
+        const { PermitID, action, rejectionReason, renewalWorkers, oddHourReq, ...data } = req.body;
+        const userRole = req.user.role; 
+        const userName = req.user.name;
 
-        const pool = await getConnection();
-        const cur = await pool.request().input('p', PermitID).query("SELECT RenewalsJSON, Status, ValidFrom, ValidTo FROM Permits WHERE PermitID=@p");
-        if (cur.recordset[0].Status === 'Closed') return res.status(400).json({ error: "Permit is CLOSED." });
+        const pool = await getConnection();
+        const cur = await pool.request().input('p', PermitID).query("SELECT RenewalsJSON, Status, ValidFrom, ValidTo FROM Permits WHERE PermitID=@p");
+        if (cur.recordset[0].Status === 'Closed') return res.status(400).json({ error: "Permit is CLOSED." });
 
-        let r = JSON.parse(cur.recordset[0].RenewalsJSON || "[]");
-        const now = getNowIST();
+        let r = JSON.parse(cur.recordset[0].RenewalsJSON || "[]");
+        const now = getNowIST();
 
-        if (userRole === 'Requester') {
-            const rs = new Date(data.RenewalValidFrom);
-            const re = new Date(data.RenewalValidTo);
+        if (userRole === 'Requester') {
+            const rs = new Date(data.RenewalValidFrom);
+            const re = new Date(data.RenewalValidTo);
 
-            if (re <= rs) return res.status(400).json({ error: "End time must be after Start time" });
-            const pStart = new Date(cur.recordset[0].ValidFrom);
-            const pEnd = new Date(cur.recordset[0].ValidTo);
+            if (re <= rs) return res.status(400).json({ error: "End time must be after Start time" });
+            const pStart = new Date(cur.recordset[0].ValidFrom);
+            const pEnd = new Date(cur.recordset[0].ValidTo);
 
-            if (rs < pStart || re > pEnd) {
-                return res.status(400).json({ error: "Renewal cannot be outside the Main Permit validity period." });
-            }
-            
-            const diffMs = re - rs;
-            if (diffMs > 8 * 60 * 60 * 1000) {
-                return res.status(400).json({ error: "Renewal duration cannot exceed 8 hours." });
-            }
+            if (rs < pStart || re > pEnd) {
+                return res.status(400).json({ error: "Renewal cannot be outside the Main Permit validity period." });
+            }
+            
+            const diffMs = re - rs;
+            if (diffMs > 8 * 60 * 60 * 1000) {
+                return res.status(400).json({ error: "Renewal duration cannot exceed 8 hours." });
+            }
 
-            if (r.length > 0) {
-                const last = r[r.length - 1];
-                if (last.status !== 'rejected') {
-                    const lastEnd = new Date(last.valid_till);
-                    if (rs < lastEnd) {
-                        return res.status(400).json({ error: "Overlap Error: New renewal cannot start before the previous one ends." });
-                    }
-                }
-            }
+            if (r.length > 0) {
+                const last = r[r.length - 1];
+                if (last.status !== 'rejected') {
+                    const lastEnd = new Date(last.valid_till);
+                    if (rs < lastEnd) {
+                        return res.status(400).json({ error: "Overlap Error: New renewal cannot start before the previous one ends." });
+                    }
+                }
+            }
 
-            const photoFile = req.files ? req.files.find(f => f.fieldname === 'RenewalImage') : null;
-            let photoUrl = null;
-            if(photoFile) {
-                 const blobName = `${PermitID}-${getOrdinal(r.length+1)}Renewal.jpg`;
-                 photoUrl = await uploadToAzure(photoFile.buffer, blobName);
-            }
+            const photoFile = req.files ? req.files.find(f => f.fieldname === 'RenewalImage') : null;
+            let photoUrl = null;
+            if(photoFile) {
+                 const blobName = `${PermitID}-${getOrdinal(r.length+1)}Renewal.jpg`;
+                 photoUrl = await uploadToAzure(photoFile.buffer, blobName);
+            }
 
-            r.push({
-                status: 'pending_review',
-                valid_from: data.RenewalValidFrom, valid_till: data.RenewalValidTo,
-                hc: data.hc, toxic: data.toxic, oxygen: data.oxygen, precautions: data.precautions,
-                req_name: userName, req_at: now,
-                worker_list: JSON.parse(renewalWorkers || "[]"),
-                photoUrl: photoUrl,
-                odd_hour_req: (oddHourReq === 'Y')
-            });
-        } else {
-            const last = r[r.length-1];
-            if (action === 'reject') {
-                last.status = 'rejected'; last.rej_by = userName; last.rej_reason = rejectionReason;
-            } else {
-                last.status = userRole === 'Reviewer' ? 'pending_approval' : 'approved';
-                if(userRole === 'Reviewer') { last.rev_name = userName; last.rev_at = now; }
-                if(userRole === 'Approver') { last.app_name = userName; last.app_at = now; }
-            }
-        }
-        
-        let newStatus = r[r.length - 1].status === 'approved' ? 'Active' : (r[r.length - 1].status === 'rejected' ? 'Active' : 'Renewal Pending ' + (userRole === 'Requester' ? 'Review' : 'Approval'));
-        await pool.request().input('p', PermitID).input('r', JSON.stringify(r)).input('s', newStatus).query("UPDATE Permits SET RenewalsJSON=@r, Status=@s WHERE PermitID=@p");
-        res.json({ success: true });
-    } catch (e) { res.status(500).json({ error: "Internal Server Error" }); }
+            r.push({
+                status: 'pending_review',
+                valid_from: data.RenewalValidFrom, valid_till: data.RenewalValidTo,
+                hc: data.hc, toxic: data.toxic, oxygen: data.oxygen, precautions: data.precautions,
+                req_name: userName, req_at: now,
+                worker_list: workers.map(w => w.Name),
+                photoUrl: photoUrl
+            });
+        }
+        const renewalsJsonStr = JSON.stringify(renewalsArr);
+        const data = { ...req.body, SelectedWorkers: workers, PermitID: pid, CreatedDate: getNowIST(), GSR_Accepted: 'Y' };
+        
+        const safeLat = (req.body.Latitude && req.body.Latitude !== 'undefined') ? String(req.body.Latitude) : null;
+        const safeLng = (req.body.Longitude && req.body.Longitude !== 'undefined') ? String(req.body.Longitude) : null;
+
+        const q = pool.request()
+            .input('p', sql.NVarChar, pid)
+            .input('s', sql.NVarChar, 'Pending Review')
+            .input('w', sql.NVarChar, req.body.WorkType)
+            .input('re', sql.NVarChar, requesterEmail)
+            .input('rv', sql.NVarChar, req.body.ReviewerEmail)
+            .input('ap', sql.NVarChar, req.body.ApproverEmail)
+            .input('vf', sql.DateTime, vf).input('vt', sql.DateTime, vt)
+            .input('lat', sql.NVarChar, safeLat) 
+            .input('lng', sql.NVarChar, safeLng) 
+            .input('j', sql.NVarChar(sql.MAX), JSON.stringify(data))
+            .input('ren', sql.NVarChar(sql.MAX), renewalsJsonStr);
+
+        if (chk.recordset.length > 0) {
+            await q.query("UPDATE Permits SET FullDataJSON=@j, WorkType=@w, ValidFrom=@vf, ValidTo=@vt, Latitude=@lat, Longitude=@lng WHERE PermitID=@p");
+        } else {
+            await q.query("INSERT INTO Permits (PermitID, Status, WorkType, RequesterEmail, ReviewerEmail, ApproverEmail, ValidFrom, ValidTo, Latitude, Longitude, FullDataJSON, RenewalsJSON) VALUES (@p, @s, @w, @re, @rv, @ap, @vf, @vt, @lat, @lng, @j, @ren)");
+        }
+        res.json({ success: true, permitId: pid });
+    } catch (e) {
+        console.error(e);
+        res.status(500).json({ error: "Internal Server Error" });
+    }
 });
 
-app.post('/api/permit-data', authenticateToken, async (req, res) => { 
-    try { 
-        const pool = await getConnection(); 
-        const r = await pool.request().input('p', sql.NVarChar, req.body.permitId).query("SELECT * FROM Permits WHERE PermitID=@p"); 
-        if (r.recordset.length) {
-            const jsonStr = r.recordset[0].FullDataJSON;
-            const data = jsonStr ? JSON.parse(jsonStr) : {};
-            res.json({ 
-                ...data, 
-                Status: r.recordset[0].Status, 
-                RenewalsJSON: r.recordset[0].RenewalsJSON, 
-                RequireRenewalPhotos: data.RequireRenewalPhotos || 'N',
-                FullDataJSON: null 
-            }); 
-        } else res.json({ error: "404" }); 
-    } catch (e) { res.status(500).json({ error: "Internal Server Error" }) } 
+app.post('/api/update-status', authenticateToken, async (req, res) => {
+    try {
+        const { PermitID, action, ...extras } = req.body;
+        const role = req.user.role; 
+        const user = req.user.name; 
+
+        const pool = await getConnection();
+        const cur = await pool.request().input('p', PermitID).query("SELECT * FROM Permits WHERE PermitID=@p");
+        if (cur.recordset.length === 0) return res.json({ error: "Not found" });
+
+        let st = cur.recordset[0].Status;
+        let d = JSON.parse(cur.recordset[0].FullDataJSON);
+        let renewals = JSON.parse(cur.recordset[0].RenewalsJSON || "[]");
+        const now = getNowIST();
+
+        Object.assign(d, extras);
+
+        if (renewals.length === 1) {
+            const r1 = renewals[0];
+            if (r1.status === 'pending_review' || r1.status === 'pending_approval') {
+                if (action === 'reject') {
+                    r1.status = 'rejected';
+                    r1.rej_by = user;
+                    r1.rej_reason = "Rejected along with Main Permit";
+                } 
+                else if (role === 'Reviewer' && action === 'review') {
+                    r1.status = 'pending_approval';
+                    r1.rev_name = user;
+                    r1.rev_at = now;
+                } 
+                else if (role === 'Approver' && action === 'approve') {
+                    r1.status = 'approved';
+                    r1.app_name = user;
+                    r1.app_at = now;
+                }
+            }
+        }
+        
+        if (action === 'reject_closure') { st = 'Active'; }
+        else if (action === 'approve_closure' && role === 'Reviewer') {
+            st = 'Closure Pending Approval';
+            d.Closure_Reviewer_Sig = `${user} on ${now}`;
+            d.Closure_Reviewer_Date = now;
+        }
+        else if (action === 'approve' && role === 'Approver') {
+            if (st.includes('Closure Pending Approval')) {
+                st = 'Closed';
+                d.Closure_Issuer_Sig = `${user} on ${now}`;
+                d.Closure_Approver_Date = now;
+                d.Closure_Approver_Sig = `${user} on ${now}`;
+            } else {
+                st = 'Active';
+                d.Approver_Sig = `${user} on ${now}`;
+            }
+        }
+        else if (action === 'initiate_closure') {
+            st = 'Closure Pending Review';
+            d.Closure_Requestor_Date = now;
+            d.Closure_Receiver_Sig = `${user} on ${now}`;
+        }
+        else if (action === 'reject') { st = 'Rejected'; }
+        else if (role === 'Reviewer' && action === 'review') {
+            st = 'Pending Approval';
+            d.Reviewer_Sig = `${user} on ${now}`;
+        }
+
+        let finalPdfUrl = null;
+        let finalJson = JSON.stringify(d);
+
+        if (st === 'Closed') {
+             const pdfRecord = { ...cur.recordset[0], Status: 'Closed', PermitID: PermitID, ValidFrom: cur.recordset[0].ValidFrom, ValidTo: cur.recordset[0].ValidTo };
+             
+             const pdfBuffer = await new Promise(async (resolve, reject) => {
+                const doc = new PDFDocument({ margin: 30, size: 'A4', bufferPages: true });
+                const buffers = [];
+                doc.on('data', buffers.push.bind(buffers));
+                doc.on('end', () => resolve(Buffer.concat(buffers)));
+                doc.on('error', reject);
+                
+                try {
+                    await drawPermitPDF(doc, pdfRecord, d, renewals);
+                    doc.end();
+                } catch(e) { doc.end(); reject(e); }
+             });
+             
+             const blobName = `closed-permits/${PermitID}_FINAL.pdf`;
+             finalPdfUrl = await uploadToAzure(pdfBuffer, blobName, "application/pdf");
+             if(finalPdfUrl) finalJson = null;
+        }
+
+        const q = pool.request().input('p', PermitID).input('s', st).input('r', JSON.stringify(renewals));
+        if (finalPdfUrl) {
+             await q.input('url', finalPdfUrl).query("UPDATE Permits SET Status=@s, FullDataJSON=NULL, RenewalsJSON=NULL, FinalPdfUrl=@url WHERE PermitID=@p");
+        } else {
+             await q.input('j', finalJson).query("UPDATE Permits SET Status=@s, FullDataJSON=@j, RenewalsJSON=@r WHERE PermitID=@p");
+        }
+        res.json({ success: true, archived: !!finalPdfUrl });
+
+    } catch (e) { res.status(500).json({ error: "Internal Server Error" }); }
+});
+
+app.post('/api/renewal', authenticateToken, upload.any(), async (req, res) => {
+    try {
+        const { PermitID, action, rejectionReason, renewalWorkers, oddHourReq, ...data } = req.body;
+        const userRole = req.user.role; 
+        const userName = req.user.name;
+
+        const pool = await getConnection();
+        const cur = await pool.request().input('p', PermitID).query("SELECT RenewalsJSON, Status, ValidFrom, ValidTo FROM Permits WHERE PermitID=@p");
+        if (cur.recordset[0].Status === 'Closed') return res.status(400).json({ error: "Permit is CLOSED." });
+
+        let r = JSON.parse(cur.recordset[0].RenewalsJSON || "[]");
+        const now = getNowIST();
+
+        if (userRole === 'Requester') {
+            const rs = new Date(data.RenewalValidFrom);
+            const re = new Date(data.RenewalValidTo);
+
+            if (re <= rs) return res.status(400).json({ error: "End time must be after Start time" });
+            const pStart = new Date(cur.recordset[0].ValidFrom);
+            const pEnd = new Date(cur.recordset[0].ValidTo);
+
+            if (rs < pStart || re > pEnd) {
+                return res.status(400).json({ error: "Renewal cannot be outside the Main Permit validity period." });
+            }
+            
+            const diffMs = re - rs;
+            if (diffMs > 8 * 60 * 60 * 1000) {
+                return res.status(400).json({ error: "Renewal duration cannot exceed 8 hours." });
+            }
+
+            if (r.length > 0) {
+                const last = r[r.length - 1];
+                if (last.status !== 'rejected') {
+                    const lastEnd = new Date(last.valid_till);
+                    if (rs < lastEnd) {
+                        return res.status(400).json({ error: "Overlap Error: New renewal cannot start before the previous one ends." });
+                    }
+                }
+            }
+
+            const photoFile = req.files ? req.files.find(f => f.fieldname === 'RenewalImage') : null;
+            let photoUrl = null;
+            if(photoFile) {
+                 const blobName = `${PermitID}-${getOrdinal(r.length+1)}Renewal.jpg`;
+                 photoUrl = await uploadToAzure(photoFile.buffer, blobName);
+            }
+
+            r.push({
+                status: 'pending_review',
+                valid_from: data.RenewalValidFrom, valid_till: data.RenewalValidTo,
+                hc: data.hc, toxic: data.toxic, oxygen: data.oxygen, precautions: data.precautions,
+                req_name: userName, req_at: now,
+                worker_list: JSON.parse(renewalWorkers || "[]"),
+                photoUrl: photoUrl,
+                odd_hour_req: (oddHourReq === 'Y')
+            });
+        } else {
+            const last = r[r.length-1];
+            if (action === 'reject') {
+                last.status = 'rejected'; last.rej_by = userName; last.rej_reason = rejectionReason;
+            } else {
+                last.status = userRole === 'Reviewer' ? 'pending_approval' : 'approved';
+                if(userRole === 'Reviewer') { last.rev_name = userName; last.rev_at = now; }
+                if(userRole === 'Approver') { last.app_name = userName; last.app_at = now; }
+            }
+        }
+        
+        let newStatus = r[r.length - 1].status === 'approved' ? 'Active' : (r[r.length - 1].status === 'rejected' ? 'Active' : 'Renewal Pending ' + (userRole === 'Requester' ? 'Review' : 'Approval'));
+        await pool.request().input('p', PermitID).input('r', JSON.stringify(r)).input('s', newStatus).query("UPDATE Permits SET RenewalsJSON=@r, Status=@s WHERE PermitID=@p");
+        res.json({ success: true });
+    } catch (e) { res.status(500).json({ error: "Internal Server Error" }); }
+});
+
+app.post('/api/permit-data', authenticateToken, async (req, res) => { 
+    try { 
+        const pool = await getConnection(); 
+        const r = await pool.request().input('p', sql.NVarChar, req.body.permitId).query("SELECT * FROM Permits WHERE PermitID=@p"); 
+        if (r.recordset.length) {
+            const jsonStr = r.recordset[0].FullDataJSON;
+            const data = jsonStr ? JSON.parse(jsonStr) : {};
+            res.json({ 
+                ...data, 
+                Status: r.recordset[0].Status, 
+                RenewalsJSON: r.recordset[0].RenewalsJSON, 
+                RequireRenewalPhotos: data.RequireRenewalPhotos || 'N',
+                FullDataJSON: null 
+            }); 
+        } else res.json({ error: "404" }); 
+    } catch (e) { res.status(500).json({ error: "Internal Server Error" }) } 
 });
 
 app.post('/api/map-data', authenticateToken, async (req, res) => {
-    try {
-        const pool = await getConnection();
-        const r = await pool.request().query("SELECT PermitID, FullDataJSON, Latitude, Longitude FROM Permits WHERE Status='Active'");
-        res.json(r.recordset.map(x => ({
-            PermitID: x.PermitID,
-            lat: parseFloat(x.Latitude),
-            lng: parseFloat(x.Longitude),
-            ...JSON.parse(x.FullDataJSON)
-        })));
-    } catch (e) {
-        res.status(500).json({ error: "Internal Server Error" })
-    }
+    try {
+        const pool = await getConnection();
+        const r = await pool.request().query("SELECT PermitID, FullDataJSON, Latitude, Longitude FROM Permits WHERE Status='Active'");
+        res.json(r.recordset.map(x => ({
+            PermitID: x.PermitID,
+            lat: parseFloat(x.Latitude),
+            lng: parseFloat(x.Longitude),
+            ...JSON.parse(x.FullDataJSON)
+        })));
+    } catch (e) {
+        res.status(500).json({ error: "Internal Server Error" })
+    }
 });
 
 app.post('/api/stats', authenticateToken, async (req, res) => {
-    try {
-        const pool = await getConnection();
-        const r = await pool.request().query("SELECT Status, WorkType FROM Permits");
-        const s = {}, t = {};
-        r.recordset.forEach(x => {
-            s[x.Status] = (s[x.Status] || 0) + 1;
-            t[x.WorkType] = (t[x.WorkType] || 0) + 1;
-        });
-        res.json({ success: true, statusCounts: s, typeCounts: t });
-    } catch (e) {
-        res.status(500).json({ error: "Internal Server Error" })
-    }
+    try {
+        const pool = await getConnection();
+        const r = await pool.request().query("SELECT Status, WorkType FROM Permits");
+        const s = {}, t = {};
+        r.recordset.forEach(x => {
+            s[x.Status] = (s[x.Status] || 0) + 1;
+            t[x.WorkType] = (t[x.WorkType] || 0) + 1;
+        });
+        res.json({ success: true, statusCounts: s, typeCounts: t });
+    } catch (e) {
+        res.status(500).json({ error: "Internal Server Error" })
+    }
 });
 
 app.get('/api/download-excel', authenticateToken, async (req, res) => {
-    try {
-        const pool = await getConnection();
-        const result = await pool.request().query("SELECT * FROM Permits ORDER BY Id DESC");
-        const workbook = new ExcelJS.Workbook();
-        const sheet = workbook.addWorksheet('Permits');
-        sheet.columns = [
-            { header: 'Permit ID', key: 'id', width: 15 },
-            { header: 'Status', key: 'status', width: 20 },
-            { header: 'Work', key: 'wt', width: 25 },
-            { header: 'Requester', key: 'req', width: 25 },
-            { header: 'Location', key: 'loc', width: 30 },
-            { header: 'Vendor', key: 'ven', width: 20 },
-            { header: 'Valid From', key: 'vf', width: 20 },
-            { header: 'Valid To', key: 'vt', width: 20 }
-        ];
-        sheet.getRow(1).font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 12 };
-        sheet.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFED7D31' } };
-        result.recordset.forEach(r => {
-            const d = r.FullDataJSON ? JSON.parse(r.FullDataJSON) : {};
-            sheet.addRow({
-                id: r.PermitID,
-                status: r.Status,
-                wt: d.WorkType || '-',
-                req: d.RequesterName || '-',
-                loc: d.ExactLocation || '-',
-                ven: d.Vendor || '-',
-                vf: formatDate(r.ValidFrom),
-                vt: formatDate(r.ValidTo)
-            });
-        });
-        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-        res.setHeader('Content-Disposition', 'attachment; filename=IndianOil_Permits.xlsx');
-        await workbook.xlsx.write(res);
-        res.end();
-    } catch (e) {
-        res.status(500).send("Internal Server Error");
-    }
+    try {
+        const pool = await getConnection();
+        const result = await pool.request().query("SELECT * FROM Permits ORDER BY Id DESC");
+        const workbook = new ExcelJS.Workbook();
+        const sheet = workbook.addWorksheet('Permits');
+        sheet.columns = [
+            { header: 'Permit ID', key: 'id', width: 15 },
+            { header: 'Status', key: 'status', width: 20 },
+            { header: 'Work', key: 'wt', width: 25 },
+            { header: 'Requester', key: 'req', width: 25 },
+            { header: 'Location', key: 'loc', width: 30 },
+            { header: 'Vendor', key: 'ven', width: 20 },
+            { header: 'Valid From', key: 'vf', width: 20 },
+            { header: 'Valid To', key: 'vt', width: 20 }
+        ];
+        sheet.getRow(1).font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 12 };
+        sheet.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFED7D31' } };
+        result.recordset.forEach(r => {
+            const d = r.FullDataJSON ? JSON.parse(r.FullDataJSON) : {};
+            sheet.addRow({
+                id: r.PermitID,
+                status: r.Status,
+                wt: d.WorkType || '-',
+                req: d.RequesterName || '-',
+                loc: d.ExactLocation || '-',
+                ven: d.Vendor || '-',
+                vf: formatDate(r.ValidFrom),
+                vt: formatDate(r.ValidTo)
+            });
+        });
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        res.setHeader('Content-Disposition', 'attachment; filename=IndianOil_Permits.xlsx');
+        await workbook.xlsx.write(res);
+        res.end();
+    } catch (e) {
+        res.status(500).send("Internal Server Error");
+    }
 });
 
 app.get('/api/download-pdf/:id', authenticateToken, async (req, res) => {
-    try {
-        const pool = await getConnection();
-        const result = await pool.request().input('p', req.params.id).query("SELECT * FROM Permits WHERE PermitID = @p");
-        if (!result.recordset.length) return res.status(404).send('Not Found');
-        
-        const p = result.recordset[0];
+    try {
+        const pool = await getConnection();
+        const result = await pool.request().input('p', req.params.id).query("SELECT * FROM Permits WHERE PermitID = @p");
+        if (!result.recordset.length) return res.status(404).send('Not Found');
+        
+        const p = result.recordset[0];
 
-        if (req.user.role === 'Requester' && p.RequesterEmail !== req.user.email) {
-            return res.status(403).send("Unauthorized: You cannot access this permit.");
-        }
+        if (req.user.role === 'Requester' && p.RequesterEmail !== req.user.email) {
+            return res.status(403).send("Unauthorized: You cannot access this permit.");
+        }
 
-        if ((p.Status === 'Closed' || p.Status.includes('Closure')) && p.FinalPdfUrl) {
-            if (!containerClient) {
-                console.error("Azure Container Client not initialized");
-                return res.status(500).send("Storage Error");
-            }
-            try {
-                const blobName = `closed-permits/${p.PermitID}_FINAL.pdf`;
-                const blockBlobClient = containerClient.getBlockBlobClient(blobName);
+        if ((p.Status === 'Closed' || p.Status.includes('Closure')) && p.FinalPdfUrl) {
+            if (!containerClient) {
+                console.error("Azure Container Client not initialized");
+                return res.status(500).send("Storage Error");
+            }
+            try {
+                const blobName = `closed-permits/${p.PermitID}_FINAL.pdf`;
+                const blockBlobClient = containerClient.getBlockBlobClient(blobName);
 
-                const exists = await blockBlobClient.exists();
-                if (!exists) {
-                    return res.status(404).send("Archived PDF not found.");
-                }
+                const exists = await blockBlobClient.exists();
+                if (!exists) {
+                    return res.status(404).send("Archived PDF not found.");
+                }
 
-                const downloadBlockBlobResponse = await blockBlobClient.download(0);
-                
-                res.setHeader('Content-Type', 'application/pdf');
-                res.setHeader('Content-Disposition', `attachment; filename=${p.PermitID}.pdf`);
-                
-                downloadBlockBlobResponse.readableStreamBody.pipe(res);
-                return;
+                const downloadBlockBlobResponse = await blockBlobClient.download(0);
+                
+                res.setHeader('Content-Type', 'application/pdf');
+                res.setHeader('Content-Disposition', `attachment; filename=${p.PermitID}.pdf`);
+                
+                downloadBlockBlobResponse.readableStreamBody.pipe(res);
+                return;
 
-            } catch (azureError) {
-                console.error("Azure Download Error:", azureError.message);
-                return res.status(500).send("Error retrieving file from storage.");
-            }
-        }
+            } catch (azureError) {
+                console.error("Azure Download Error:", azureError.message);
+                return res.status(500).send("Error retrieving file from storage.");
+            }
+        }
 
-        const d = p.FullDataJSON ? JSON.parse(p.FullDataJSON) : {};
-        const renewals = p.RenewalsJSON ? JSON.parse(p.RenewalsJSON) : [];
-        
-        const doc = new PDFDocument({ margin: 30, size: 'A4', bufferPages: true });
-        res.setHeader('Content-Type', 'application/pdf');
-        res.setHeader('Content-Disposition', `attachment; filename=${p.PermitID}.pdf`);
-        
-        doc.pipe(res);
-        await drawPermitPDF(doc, p, d, renewals);
-        doc.end();
+        const d = p.FullDataJSON ? JSON.parse(p.FullDataJSON) : {};
+        const renewals = p.RenewalsJSON ? JSON.parse(p.RenewalsJSON) : [];
+        
+        const doc = new PDFDocument({ margin: 30, size: 'A4', bufferPages: true });
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `attachment; filename=${p.PermitID}.pdf`);
+        
+        doc.pipe(res);
+        await drawPermitPDF(doc, p, d, renewals);
+        doc.end();
 
-    } catch (e) {
-        console.error(e);
-        if (!res.headersSent) res.status(500).send("Internal Server Error");
-    }
+    } catch (e) {
+        console.error(e);
+        if (!res.headersSent) res.status(500).send("Internal Server Error");
+    }
 });
 
 app.get('/api/view-photo/:filename', authenticateToken, async (req, res) => {
-    try {
-        const filename = req.params.filename;
-        const permitId = filename.split('-')[0] + '-' + filename.split('-')[1];
+    try {
+        const filename = req.params.filename;
+        const permitId = filename.split('-')[0] + '-' + filename.split('-')[1];
 
-        if (!containerClient) return res.status(500).send("Storage not configured");
+        if (!containerClient) return res.status(500).send("Storage not configured");
 
-        if (req.user.role === 'Requester') {
-             const pool = await getConnection();
-             const r = await pool.request().input('p', sql.NVarChar, permitId).query("SELECT RequesterEmail FROM Permits WHERE PermitID=@p");
-             if (r.recordset.length === 0 || r.recordset[0].RequesterEmail !== req.user.email) {
-                 return res.status(403).send("Unauthorized: You do not have permission to view this photo.");
-             }
-        }
+        if (req.user.role === 'Requester') {
+             const pool = await getConnection();
+             const r = await pool.request().input('p', sql.NVarChar, permitId).query("SELECT RequesterEmail FROM Permits WHERE PermitID=@p");
+             if (r.recordset.length === 0 || r.recordset[0].RequesterEmail !== req.user.email) {
+                 return res.status(403).send("Unauthorized: You do not have permission to view this photo.");
+             }
+        }
 
-        const blockBlobClient = containerClient.getBlockBlobClient(filename);
-        const exists = await blockBlobClient.exists();
-        if (!exists) return res.status(404).send("Photo not found");
+        const blockBlobClient = containerClient.getBlockBlobClient(filename);
+        const exists = await blockBlobClient.exists();
+        if (!exists) return res.status(404).send("Photo not found");
 
-        const downloadBlockBlobResponse = await blockBlobClient.download(0);
-        res.setHeader('Content-Type', downloadBlockBlobResponse.contentType || 'image/jpeg');
-        downloadBlockBlobResponse.readableStreamBody.pipe(res);
+        const downloadBlockBlobResponse = await blockBlobClient.download(0);
+        res.setHeader('Content-Type', downloadBlockBlobResponse.contentType || 'image/jpeg');
+        downloadBlockBlobResponse.readableStreamBody.pipe(res);
 
-    } catch (e) {
-        console.error("Photo retrieval error:", e.message);
-        res.status(500).send("Error retrieving photo");
-    }
+    } catch (e) {
+        console.error("Photo retrieval error:", e.message);
+        res.status(500).send("Error retrieving photo");
+    }
 });
 
 // --- SERVE THE FRONTEND WITH NONCE INJECTION ---
 app.get('/', (req, res) => {
-    const indexPath = path.join(__dirname, 'index.html');
-    fs.readFile(indexPath, 'utf8', (err, htmlData) => {
-        if (err) {
-            console.error('Error reading index.html', err);
-            return res.status(500).send('Error loading page');
-        }
-        // Inject the secure random ID into the HTML
-        const finalHtml = htmlData.replace(/NONCE_PLACEHOLDER/g, res.locals.nonce);
-        res.send(finalHtml);
-    });
+    const indexPath = path.join(__dirname, 'index.html');
+    fs.readFile(indexPath, 'utf8', (err, htmlData) => {
+        if (err) {
+            console.error('Error reading index.html', err);
+            return res.status(500).send('Error loading page');
+        }
+        // Inject the secure random ID into the HTML
+        const finalHtml = htmlData.replace(/NONCE_PLACEHOLDER/g, res.locals.nonce);
+        res.send(finalHtml);
+    });
 });
 
 const PORT = process.env.PORT || 8080;
