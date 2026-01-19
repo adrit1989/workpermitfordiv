@@ -279,10 +279,12 @@
                         <button type="button" id="btn-add-app-sup" class="mt-2 text-xs bg-gray-200 px-2 py-1 rounded hover:bg-gray-300 font-bold">+ Add Supervisor</button>
                     </div>
                     <textarea name="Approver_Remarks" id="Approver_Remarks" placeholder="Approver Remarks" class="w-full mb-2"></textarea>
+                    
                     <label class="flex items-center gap-2 mb-2 p-2 bg-green-50 border border-green-200 rounded cursor-pointer">
                         <input type="checkbox" name="RequireRenewalPhotos" id="RequireRenewalPhotos" value="Y" class="w-5 h-5 accent-green-600">
                         <span class="text-sm font-bold text-green-800">Require Photos for Renewals (Starting 2nd)</span>
                     </label>
+
                     <div id="pdf-color-select" class="mt-2 hidden"><label>PDF Background:</label><select id="PdfBgColor"><option>White</option><option>Red</option><option>Green</option><option>Yellow</option><option>Auto</option></select></div>
                 </div>
                 
@@ -421,7 +423,6 @@
             res.forEach(p => {
                 const tr = document.createElement('tr'); tr.className = "cursor-pointer hover:bg-orange-50 transition border-b";
                 
-                // FIX E: PDF Button Logic
                 let actionBtn = document.createElement('span'); actionBtn.className = "bg-blue-50 text-blue-600 px-3 py-1 rounded-full text-xs font-bold"; actionBtn.innerText = "OPEN";
                 if (p.Status === 'Closed') {
                     actionBtn = document.createElement('button'); actionBtn.className = "btn-pdf"; actionBtn.innerText = "Download PDF"; actionBtn.type="button"; actionBtn.onclick = (e) => { e.stopPropagation(); downloadSecurePDF(p.PermitID); };
@@ -525,7 +526,6 @@
         }
         function renderIOCLTable() {
             const t = document.querySelector('#table-iocl-display tbody'); let h = '';
-            // FIX D: Correctly map Desig and Contact for Read-Only Table
             if(!currentPermitIOCLData || currentPermitIOCLData.length === 0) { h = '<tr><td colspan="4" class="text-gray-400">No Supervisors</td></tr>'; } 
             else { h = currentPermitIOCLData.map(x => {
                     const rowClass = x.is_deleted ? 'marked-deleted' : ''; let audit = `Add: ${x.added_by} (${x.added_at})`; if(x.is_deleted) audit += `<br><span class="audit-del">Del: ${x.deleted_by} (${x.deleted_at})</span>`;
@@ -556,17 +556,6 @@
 
              await loadWorkers('permit_dropdown'); 
              currentPermitWorkers = p.SelectedWorkers;
-             
-             // FIX C: Worker Visibility Logic
-             const wDiv = document.getElementById('worker-checkboxes');
-             const wTable = document.getElementById('worker-readonly-table');
-             if(currentUser.Role === 'Requester' && (p.Status === 'New' || p.Status.includes('Pending Review'))) {
-                 wDiv.classList.remove('hidden'); wTable.classList.add('hidden');
-             } else {
-                 wDiv.classList.add('hidden'); wTable.classList.remove('hidden');
-                 wTable.querySelector('tbody').innerHTML = currentPermitWorkers.map(w => `<tr><td>${w.Name}</td><td>${w.Gender}</td><td>${w.Age}</td><td>${p.RequesterName}</td></tr>`).join('');
-             }
-
              const rens = JSON.parse(p.RenewalsJSON || "[]");
              currentRenewalCount = rens.length;
              document.querySelector("#table-renewals tbody").innerHTML = rens.map(r => {
@@ -587,7 +576,17 @@
              if(currentUser.Role === 'Requester' && p.Status === 'New') {
                   const btn = document.createElement("button"); btn.className = "w-full bg-blue-600 text-white px-6 py-3 rounded-lg font-bold shadow-lg"; btn.innerText = "Submit Permit"; btn.type = "button"; btn.addEventListener('click', savePermit); actionsDiv.appendChild(btn);
                   document.querySelectorAll('input, textarea, select').forEach(e=>e.disabled=false);
+                  
+                  // Worker Section Visible and Checkboxes Enabled for Requester
+                  document.getElementById('worker-checkboxes').classList.remove('hidden');
+                  document.getElementById('worker-readonly-table').classList.add('hidden');
+             } else {
+                  // Lock Workers for Everyone Else
+                  document.getElementById('worker-checkboxes').classList.add('hidden');
+                  document.getElementById('worker-readonly-table').classList.remove('hidden');
+                  document.querySelector('#worker-readonly-table tbody').innerHTML = p.SelectedWorkers.map(w => `<tr><td>${w.Name}</td><td>${w.Gender}</td><td>${w.Age}</td><td>${p.RequesterName}</td></tr>`).join('');
              }
+             
              if(currentUser.Role === 'Reviewer' && p.Status === 'Pending Review') {
                  document.getElementById("fs-reviewer-section").classList.remove('hidden');
                  document.getElementById("iocl-reviewer-wrapper").classList.remove('hidden');
@@ -603,7 +602,6 @@
                  currentPermitIOCLData.forEach(d => addIOCLRow('iocl-sup-container-app', d));
                  if(p.Status === 'Pending Approval') {
                      document.getElementById("Approver_Remarks").disabled=false; 
-                     // FIX B: Enable Photo Requirement
                      document.getElementById("RequireRenewalPhotos").disabled = false;
                      const b1 = document.createElement("button"); b1.className = "bg-red-600 text-white px-4 py-3 rounded-lg font-bold flex-1"; b1.innerText = "Reject"; b1.type="button"; b1.addEventListener('click', () => upd('reject'));
                      const b2 = document.createElement("button"); b2.className = "bg-green-600 text-white px-4 py-3 rounded-lg font-bold flex-1 ml-2"; b2.innerText = "Approve"; b2.type="button"; b2.addEventListener('click', () => upd('approve'));
@@ -681,6 +679,10 @@
              const rS=document.getElementById("ReviewerEmail"), aS=document.getElementById("ApproverEmail"); 
              rS.innerHTML=""; aS.innerHTML=""; 
              if(usersData){ usersData.Reviewers.forEach(u=>rS.innerHTML+=`<option value="${u.email}">${escapeHtml(u.name)}</option>`); usersData.Approvers.forEach(u=>aS.innerHTML+=`<option value="${u.email}">${escapeHtml(u.name)}</option>`); }
+
+             // Enable Worker Checkboxes
+             document.getElementById('worker-checkboxes').classList.remove('hidden');
+             document.getElementById('worker-readonly-table').classList.add('hidden');
 
              const actionsDiv = document.getElementById("actions"); actionsDiv.innerHTML = "";
              const btn = document.createElement("button");
