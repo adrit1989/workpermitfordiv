@@ -13,13 +13,14 @@ const { getConnection, sql } = require('./db');
 
 // SECURITY
 const jwt = require('jsonwebtoken');
-const bcrypt = require('bcryptjs');
+const bcrypt = require('bcryptjs'); // Fixed: Use bcryptjs for Azure
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const crypto = require('crypto');
 
-// APP
+// APP SETUP
 const app = express();
+app.set('trust proxy', 1); // Fixed: Required for Azure App Service
 app.use(cookieParser());
 
 /* --- NONCE CSP --- */
@@ -76,7 +77,7 @@ const AZURE_CONN_STR = process.env.AZURE_STORAGE_CONNECTION_STRING;
 app.use('/api/', rateLimit({ windowMs: 10 * 1000, max: 50 }));
 const loginLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 100 });
 
-/* --- MULTER + FILE MIME VALIDATION --- */
+/* --- MULTER SETUP --- */
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 10 * 1024 * 1024 },
@@ -102,7 +103,7 @@ if (AZURE_CONN_STR) {
 }
 
 /* =====================================================
-   TOKEN & AUTH FUNCTIONS (ACCESS + REFRESH)
+   TOKEN & AUTH FUNCTIONS
 ===================================================== */
 
 function createAccessToken(user) {
@@ -139,7 +140,7 @@ async function isRefreshValid(token) {
   return new Date(r.recordset[0].ExpiresAt) > new Date();
 }
 
-/* --- MIDDLEWARE: AUTH ACCESS TOKEN --- */
+/* --- AUTH MIDDLEWARE --- */
 async function authenticateAccess(req, res, next) {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(" ")[1];
@@ -168,7 +169,221 @@ async function authenticateAccess(req, res, next) {
 }
 
 /* =====================================================
-   AUTH ROUTES: LOGIN / REFRESH / LOGOUT
+   HELPER FUNCTIONS
+===================================================== */
+
+function getNowIST() {
+  return new Date().toLocaleString("en-GB", {
+    timeZone: "Asia/Kolkata",
+    day: '2-digit', month: '2-digit', year: 'numeric',
+    hour: '2-digit', minute: '2-digit', second: '2-digit',
+    hour12: false
+  }).replace(',', '');
+}
+
+function formatDate(dateStr) {
+  if (!dateStr) return '-';
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return dateStr;
+  return d.toLocaleString("en-GB", {
+    day: '2-digit', month: '2-digit', year: 'numeric',
+    hour: '2-digit', minute: '2-digit',
+    hour12: false
+  }).replace(',', '');
+}
+
+function getOrdinal(n) {
+  const s = ["th", "st", "nd", "rd"], v = n % 100;
+  return n + (s[(v - 20) % 10] || s[v] || s[0]);
+}
+
+async function uploadToAzure(buffer, blobName, mimeType = "image/jpeg") {
+  if (!containerClient) return null;
+  try {
+    const blockBlobClient = containerClient.getBlockBlobClient(blobName);
+    await blockBlobClient.uploadData(buffer, {
+      blobHTTPHeaders: { blobContentType: mimeType }
+    });
+    return blockBlobClient.url;
+  } catch (err) {
+    console.error("Azure upload error:", err.message);
+    return null;
+  }
+}
+
+/* =====================================================
+   PDF GENERATOR (Fixed for Supervisor Tables)
+===================================================== */
+
+async function drawPermitPDF(doc, p, d, renewalsList) {
+    const workType = (d.WorkType || "PERMIT").toUpperCase();
+    const status = p.Status || "Active";
+    let watermarkText = (status === 'Closed' || status.includes('Closure')) ? `CLOSED - ${workType}` : `ACTIVE - ${workType}`;
+
+    const drawWatermark = () => {
+        doc.save();
+        doc.translate(doc.page.width / 2, doc.page.height / 2);
+        doc.rotate(-45);
+        doc.font('Helvetica-Bold').fontSize(60).fillColor('#ff0000').opacity(0.15);
+        doc.text(watermarkText, -300, -30, { align: 'center', width: 600 });
+        doc.restore();
+        doc.opacity(1);
+    };
+
+    const drawHeader = (permitNoStr) => {
+        const bgColor = d.PdfBgColor || 'White';
+        if (bgColor !== 'Auto' && bgColor !== 'White') {
+            const colorMap = { 'Red': '#fee2e2', 'Green': '#dcfce7', 'Yellow': '#fef9c3' };
+            doc.save().fillColor(colorMap[bgColor] || 'white').rect(0, 0, doc.page.width, doc.page.height).fill().restore();
+        }
+        drawWatermark();
+        const startX = 30, startY = 30;
+        doc.lineWidth(1).rect(startX, startY, 535, 95).stroke();
+        doc.rect(startX, startY, 80, 95).stroke(); 
+        const logoPath = path.join(__dirname, 'public', 'logo.png');
+        if (fs.existsSync(logoPath)) { try { doc.image(logoPath, startX, startY, { fit: [80, 95], align: 'center', valign: 'center' }); } catch (err) {} }
+        doc.rect(startX + 80, startY, 320, 95).stroke();
+        doc.font('Helvetica-Bold').fontSize(11).fillColor('black').text('INDIAN OIL CORPORATION LIMITED', startX + 80, startY + 15, { width: 320, align: 'center' });
+        doc.fontSize(9).text('EASTERN REGION PIPELINES', startX + 80, startY + 30, { width: 320, align: 'center' });
+        doc.text('HSE DEPT.', startX + 80, startY + 45, { width: 320, align: 'center' });
+        doc.fontSize(8).text('COMPOSITE WORK PERMIT SYSTEM', startX + 80, startY + 65, { width: 320, align: 'center' });
+        doc.rect(startX + 400, startY, 135, 95).stroke();
+        doc.fontSize(8).font('Helvetica').text('Doc No: ERPL/HS&E/25-26', startX + 405, startY + 60);
+        doc.font('Helvetica-Bold').fontSize(10).fillColor('red').text(`Permit No: ${permitNoStr}`, startX + 405, startY + 15);
+        doc.fillColor('black');
+    };
+
+    const drawHeaderOnAll = () => { drawHeader(`${d.IssuedToDept || 'DEPT'}/${p.PermitID}`); doc.y = 135; doc.fontSize(9).font('Helvetica'); };
+    drawHeaderOnAll();
+
+    doc.text(`(i) Work clearance from: ${formatDate(p.ValidFrom)} To ${formatDate(p.ValidTo)}`, 30, doc.y);
+    doc.y += 15;
+    doc.text(`(ii) Issued to: ${d.IssuedToDept || '-'} / ${d.Vendor || '-'}`, 30, doc.y);
+    doc.y += 15;
+    doc.text(`(iii) Location: ${d.WorkLocationDetail || '-'} [GPS: ${d.ExactLocation || 'No GPS'}]`, 30, doc.y);
+    doc.y += 15;
+    doc.text(`(iv) Description: ${d.Desc || '-'}`, 30, doc.y, { width: 535 });
+    doc.y += 20;
+
+    // Supervisor Table Drawing Function
+    const drawSupTable = (title, headers, dataRows) => {
+        if (doc.y > 650) { doc.addPage(); drawHeaderOnAll(); doc.y = 135; }
+        doc.font('Helvetica-Bold').fontSize(10).text(title, 30, doc.y);
+        doc.y += 15;
+        const headerHeight = 20;
+        let currentY = doc.y;
+        let currentX = 30;
+        headers.forEach(h => {
+            doc.rect(currentX, currentY, h.w, headerHeight).stroke();
+            doc.text(h.t, currentX + 2, currentY + 6, { width: h.w - 4, align: 'left' });
+            currentX += h.w;
+        });
+        currentY += headerHeight;
+        doc.font('Helvetica');
+        dataRows.forEach(row => {
+            let maxRowHeight = 20;
+            row.forEach((cell, idx) => {
+                const cellWidth = headers[idx].w - 4;
+                const textHeight = doc.heightOfString(String(cell), { width: cellWidth, align: 'left' });
+                if (textHeight + 10 > maxRowHeight) maxRowHeight = textHeight + 10;
+            });
+            if (currentY + maxRowHeight > 750) { doc.addPage(); drawHeaderOnAll(); currentY = 135; }
+            let rowX = 30;
+            row.forEach((cell, idx) => {
+                doc.rect(rowX, currentY, headers[idx].w, maxRowHeight).stroke();
+                if(idx === 3) { doc.fontSize(7); } else { doc.fontSize(9); } 
+                doc.text(String(cell || '-'), rowX + 2, currentY + 5, { width: headers[idx].w - 4 });
+                doc.fontSize(9);
+                rowX += headers[idx].w;
+            });
+            currentY += maxRowHeight;
+        });
+        doc.y = currentY + 15;
+    };
+
+    // Prepare IOCL Data
+    const ioclSups = d.IOCLSupervisors || [];
+    let ioclRows = ioclSups.map(s => {
+        let audit = `Add: ${s.added_by || '-'} (${s.added_at || '-'})`;
+        if (s.is_deleted) audit += `\nDel: ${s.deleted_by || '-'} (${s.deleted_at || '-'})`;
+        return [s.name || '-', s.desig || '-', s.contact || '-', audit];
+    });
+    if (ioclRows.length === 0) ioclRows.push(["-", "-", "-", "-"]);
+    
+    drawSupTable("Authorized Work Supervisor (IOCL)", 
+        [{ t: "Name", w: 130 }, { t: "Designation", w: 130 }, { t: "Contact", w: 100 }, { t: "Audit Trail", w: 175 }], 
+        ioclRows);
+
+    // Prepare Contractor Data
+    const contRows = [[d.RequesterName || '-', "Site In-Charge", d.EmergencyContact || '-']];
+    drawSupTable("Authorized Work Supervisor (Contractor)", 
+        [{ t: "Name", w: 180 }, { t: "Designation", w: 180 }, { t: "Contact", w: 175 }], 
+        contRows);
+
+    // Prepare Workers Data
+    const workers = d.SelectedWorkers || [];
+    let workerRows = workers.map(w => [
+        w.Name, 
+        w.Gender || '-', 
+        String(w.Age || '-'), 
+        `${w.IDType || ''}: ${w.ID || ''}`, 
+        w.RequestorName || '-', 
+        `${w.ApprovedAt || '-'}\nby ${w.ApprovedBy || '-'}`
+    ]);
+    if (workerRows.length > 0) {
+        drawSupTable("WORKERS DEPLOYED", 
+            [{ t: "Name", w: 80 }, { t: "Gender", w: 50 }, { t: "Age", w: 30 }, { t: "ID Details", w: 100 }, { t: "Req", w: 80 }, { t: "Approved", w: 195 }], 
+            workerRows);
+    }
+
+    // Renewals
+    const rens = renewalsList || JSON.parse(p.RenewalsJSON || "[]");
+    if (rens.length > 0) {
+        doc.font('Helvetica-Bold').text("CLEARANCE RENEWAL", 30, doc.y);
+        doc.y += 15;
+        let ry = doc.y;
+        const rHeaders = [
+            { t: "Duration", w: 90 },
+            { t: "Gas/Prec", w: 100 },
+            { t: "Workers", w: 100 },
+            { t: "Signatures", w: 245 }
+        ];
+        let currentX = 30;
+        rHeaders.forEach(h => {
+            doc.rect(currentX, ry, h.w, 20).stroke();
+            doc.text(h.t, currentX + 2, ry + 6);
+            currentX += h.w;
+        });
+        ry += 20;
+        doc.font('Helvetica').fontSize(8);
+
+        for (const r of rens) {
+            let rowH = 50;
+            if (ry + rowH > 750) { doc.addPage(); drawHeaderOnAll(); ry = 135; }
+            doc.rect(30, ry, 90, rowH).stroke().text(`${r.valid_from}\n${r.valid_till}`, 32, ry + 5, { width: 86 });
+            doc.rect(120, ry, 100, rowH).stroke().text(`HC:${r.hc} Tox:${r.toxic} O2:${r.oxygen}\n${r.precautions}`, 122, ry + 5, { width: 96 });
+            doc.rect(220, ry, 100, rowH).stroke().text(Array.isArray(r.worker_list) ? r.worker_list.join(', ') : 'All', 222, ry + 5, { width: 96 });
+            doc.rect(320, ry, 245, rowH).stroke().text(`REQ: ${r.req_name} (${r.req_at})\nREV: ${r.rev_name || '-'} (${r.rev_at || '-'})\nAPP: ${r.app_name || '-'} (${r.app_at || '-'})`, 322, ry + 5);
+            ry += rowH;
+        }
+        doc.y = ry + 20;
+    }
+
+    if (status === 'Closed' || status.includes('Closure')) {
+        if (doc.y + 80 > 750) { doc.addPage(); drawHeaderOnAll(); }
+        doc.font('Helvetica-Bold').text("WORK COMPLETION & CLOSURE", 30, doc.y);
+        doc.y += 15;
+        doc.rect(30, doc.y, 535, 60).stroke();
+        doc.font('Helvetica').fontSize(9);
+        doc.text(`REQUESTER: ${d.Closure_Receiver_Sig || '-'}`, 35, doc.y + 10);
+        doc.text(`REVIEWER: ${d.Closure_Reviewer_Sig || '-'}`, 35, doc.y + 25);
+        doc.text(`ISSUER/APPROVER: ${d.Closure_Issuer_Sig || '-'}`, 35, doc.y + 40);
+        doc.y += 70;
+    }
+}
+
+/* =====================================================
+   AUTH ROUTES
 ===================================================== */
 
 app.post('/api/login', loginLimiter, async (req, res) => {
@@ -269,53 +484,12 @@ app.post('/api/logout', async (req, res) => {
     res.status(500).json({ error: "Logout Error" });
   }
 });
-/* =====================================================
-   HELPER FUNCTIONS (unchanged from your original)
-===================================================== */
-
-function getNowIST() {
-  return new Date().toLocaleString("en-GB", {
-    timeZone: "Asia/Kolkata",
-    day: '2-digit', month: '2-digit', year: 'numeric',
-    hour: '2-digit', minute: '2-digit', second: '2-digit',
-    hour12: false
-  }).replace(',', '');
-}
-
-function formatDate(dateStr) {
-  if (!dateStr) return '-';
-  const d = new Date(dateStr);
-  if (isNaN(d.getTime())) return dateStr;
-  return d.toLocaleString("en-GB", {
-    day: '2-digit', month: '2-digit', year: 'numeric',
-    hour: '2-digit', minute: '2-digit',
-    hour12: false
-  }).replace(',', '');
-}
-
-function getOrdinal(n) {
-  const s = ["th", "st", "nd", "rd"], v = n % 100;
-  return n + (s[(v - 20) % 10] || s[v] || s[0]);
-}
-
-async function uploadToAzure(buffer, blobName, mimeType = "image/jpeg") {
-  if (!containerClient) return null;
-  try {
-    const blockBlobClient = containerClient.getBlockBlobClient(blobName);
-    await blockBlobClient.uploadData(buffer, {
-      blobHTTPHeaders: { blobContentType: mimeType }
-    });
-    return blockBlobClient.url;
-  } catch (err) {
-    console.error("Azure upload error:", err.message);
-    return null;
-  }
-}
 
 /* =====================================================
-   USERS & WORKERS
+   CORE API ROUTES
 ===================================================== */
 
+// Fixed: Removed authenticateAccess to allow login dropdown to populate
 app.get('/api/users', async (req, res) => {
   try {
     const pool = await getConnection();
@@ -379,10 +553,6 @@ app.post('/api/add-user', authenticateAccess, async (req, res) => {
     res.status(500).json({ error: "Internal Server Error" });
   }
 });
-
-/* =====================================================
-   WORKER MANAGEMENT (unchanged logic, new auth)
-===================================================== */
 
 app.post('/api/save-worker', authenticateAccess, async (req, res) => {
   try {
@@ -506,9 +676,6 @@ app.post('/api/get-workers', authenticateAccess, async (req, res) => {
     res.status(500).json({ error: "Internal Server Error" });
   }
 });
-/* =====================================================
-   DASHBOARD
-===================================================== */
 
 app.post('/api/dashboard', authenticateAccess, async (req, res) => {
   try {
@@ -540,10 +707,6 @@ app.post('/api/dashboard', authenticateAccess, async (req, res) => {
     res.status(500).json({ error: "Internal Server Error" });
   }
 });
-
-/* =====================================================
-   SAVE PERMIT
-===================================================== */
 
 app.post('/api/save-permit', authenticateAccess, upload.any(), async (req, res) => {
   try {
@@ -638,10 +801,6 @@ app.post('/api/save-permit', authenticateAccess, upload.any(), async (req, res) 
   }
 });
 
-/* =====================================================
-   UPDATE PERMIT STATUS
-===================================================== */
-
 app.post('/api/update-status', authenticateAccess, async (req, res) => {
   try {
     const { PermitID, action, ...extras } = req.body;
@@ -650,7 +809,7 @@ app.post('/api/update-status', authenticateAccess, async (req, res) => {
 
     const pool = await getConnection();
     const cur = await pool.request().input('p', PermitID).query("SELECT * FROM Permits WHERE PermitID=@p");
-    if (!cur.recordset.length) return res.json({ error:"Not found" });
+    if (!cur.recordset.length) return res.status(404).json({ error:"Not found" });
 
     let st = cur.recordset[0].Status;
     let d = JSON.parse(cur.recordset[0].FullDataJSON);
@@ -704,10 +863,12 @@ app.post('/api/update-status', authenticateAccess, async (req, res) => {
     let finalJson = JSON.stringify(d);
 
     if (st === 'Closed') {
+      // Fixed: Promise based PDF generation to prevent crashes
       const pdfRecord = { ...cur.recordset[0], Status:'Closed', PermitID, ValidFrom:cur.recordset[0].ValidFrom, ValidTo:cur.recordset[0].ValidTo };
       const pdfBuffer = await new Promise(async (resolve, reject)=>{
         const doc = new PDFDocument({ margin:30, size:'A4', bufferPages:true });
         const buffers=[];
+        
         doc.on('data', buffers.push.bind(buffers));
         doc.on('end', ()=> resolve(Buffer.concat(buffers)));
         doc.on('error', reject);
@@ -715,7 +876,10 @@ app.post('/api/update-status', authenticateAccess, async (req, res) => {
         try {
           await drawPermitPDF(doc, pdfRecord, d, renewals);
           doc.end();
-        } catch(e) { doc.end(); reject(e); }
+        } catch(e) { 
+            if(!doc.closed) doc.end(); 
+            reject(e); 
+        }
       });
       const blobName = `closed-permits/${PermitID}_FINAL.pdf`;
       finalPdfUrl = await uploadToAzure(pdfBuffer, blobName, "application/pdf");
@@ -732,13 +896,10 @@ app.post('/api/update-status', authenticateAccess, async (req, res) => {
     res.json({ success:true, archived:!!finalPdfUrl });
 
   } catch (err) {
+    console.error("Status Update Error:", err);
     res.status(500).json({ error:"Internal Server Error" });
   }
 });
-
-/* =====================================================
-   RENEWAL
-===================================================== */
 
 app.post('/api/renewal', authenticateAccess, upload.any(), async (req, res) => {
   try {
@@ -837,10 +998,6 @@ app.post('/api/renewal', authenticateAccess, upload.any(), async (req, res) => {
   }
 });
 
-/* =====================================================
-   PERMIT DATA & MAP & STATS
-===================================================== */
-
 app.post('/api/permit-data', authenticateAccess, async (req, res) => {
   try {
     const pool = await getConnection();
@@ -895,10 +1052,6 @@ app.post('/api/stats', authenticateAccess, async (req, res) => {
   }
 });
 
-/* =====================================================
-   EXCEL EXPORT
-===================================================== */
-
 app.get('/api/download-excel', authenticateAccess, async (req, res) => {
   try {
     const pool = await getConnection();
@@ -938,10 +1091,6 @@ app.get('/api/download-excel', authenticateAccess, async (req, res) => {
   }
 });
 
-/* =====================================================
-   PDF DOWNLOAD
-===================================================== */
-
 app.get('/api/download-pdf/:id', authenticateAccess, async (req, res) => {
   try {
     const pool = await getConnection();
@@ -975,21 +1124,26 @@ app.get('/api/download-pdf/:id', authenticateAccess, async (req, res) => {
     const d = p.FullDataJSON ? JSON.parse(p.FullDataJSON) : {};
     const renewals = p.RenewalsJSON ? JSON.parse(p.RenewalsJSON) : [];
 
+    // Fixed: Stream handling to prevent crashes
     const doc = new PDFDocument({ margin:30, size:'A4', bufferPages:true });
+    
     res.setHeader('Content-Type','application/pdf');
     res.setHeader('Content-Disposition',`attachment; filename=${p.PermitID}.pdf`);
+    
+    doc.on('error', (err) => {
+        console.error('PDF Stream Error:', err);
+        if (!res.headersSent) res.status(500).end();
+    });
+
     doc.pipe(res);
     await drawPermitPDF(doc, p, d, renewals);
     doc.end();
 
   } catch (err) {
-    res.status(500).send("Internal Server Error");
+    console.error("Download Error:", err);
+    if (!res.headersSent) res.status(500).send("Internal Server Error");
   }
 });
-
-/* =====================================================
-   VIEW PHOTO
-===================================================== */
 
 app.get('/api/view-photo/:filename', authenticateAccess, async (req, res) => {
   try {
@@ -1019,10 +1173,6 @@ app.get('/api/view-photo/:filename', authenticateAccess, async (req, res) => {
     res.status(500).send("Photo retrieval error");
   }
 });
-
-/* =====================================================
-   FRONTEND + SERVER START
-===================================================== */
 
 app.get('/', (req,res)=>{
   const indexPath = path.join(__dirname,'index.html');
