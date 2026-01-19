@@ -235,7 +235,7 @@ async function drawPermitPDF(doc, p, d, renewalsList) {
         doc.fillColor('black').stroke();
         doc.rect(30, doc.y, 535, 20).stroke();
         doc.font('Helvetica-Bold').fontSize(9).fillColor('#047857')
-           .text("✓ I have read, understood and accepted the IOCL Golden Safety Rules terms and penalties.", 35, doc.y + 5);
+            .text("✓ I have read, understood and accepted the IOCL Golden Safety Rules terms and penalties.", 35, doc.y + 5);
         doc.y += 25;
         doc.fillColor('black');
     }
@@ -338,7 +338,7 @@ async function drawPermitPDF(doc, p, d, renewalsList) {
     });
     doc.y = axY + 20;
 
-    // Helper for Supervisor tables
+    // --- SUPERVISOR TABLES LOGIC ---
     const drawSupTable = (title, headers, dataRows) => {
         if (doc.y > 650) { doc.addPage(); drawHeaderOnAll(); doc.y = 135; }
         doc.font('Helvetica-Bold').text(title, 30, doc.y);
@@ -346,25 +346,36 @@ async function drawPermitPDF(doc, p, d, renewalsList) {
         const headerHeight = 20;
         let currentY = doc.y;
         let currentX = 30;
+        
+        // Draw Headers
         headers.forEach(h => {
             doc.rect(currentX, currentY, h.w, headerHeight).stroke();
             doc.text(h.t, currentX + 2, currentY + 6, { width: h.w - 4, align: 'left' });
             currentX += h.w;
         });
         currentY += headerHeight;
+        
         doc.font('Helvetica');
         dataRows.forEach(row => {
             let maxRowHeight = 20;
+            // Calculate Row Height based on content
             row.forEach((cell, idx) => {
                 const cellWidth = headers[idx].w - 4;
                 const textHeight = doc.heightOfString(cell, { width: cellWidth, align: 'left' });
                 if (textHeight + 10 > maxRowHeight) maxRowHeight = textHeight + 10;
             });
+
             if (currentY + maxRowHeight > 750) { doc.addPage(); drawHeaderOnAll(); currentY = 135; }
+
             let rowX = 30;
             row.forEach((cell, idx) => {
                 doc.rect(rowX, currentY, headers[idx].w, maxRowHeight).stroke();
-                doc.text(cell, rowX + 2, currentY + 5, { width: headers[idx].w - 4, align: 'left' });
+                // Check if it's the audit column to use smaller font
+                const opts = { width: headers[idx].w - 4, align: 'left' };
+                if(idx === 3) { doc.fontSize(7); } else { doc.fontSize(9); } 
+                
+                doc.text(cell, rowX + 2, currentY + 5, opts);
+                doc.fontSize(9); // Reset font
                 rowX += headers[idx].w;
             });
             currentY += maxRowHeight;
@@ -376,13 +387,23 @@ async function drawPermitPDF(doc, p, d, renewalsList) {
     let ioclRows = ioclSups.map(s => {
         let auditText = `Add: ${s.added_by || '-'} (${s.added_at || '-'})`;
         if (s.is_deleted) auditText += `\nDel: ${s.deleted_by} (${s.deleted_at})`;
-        return [s.name, s.desig, s.contact, auditText];
+        return [s.name, s.desig || '-', s.contact || '-', auditText];
     });
+    
     if (ioclRows.length === 0) ioclRows.push(["-", "-", "-", "-"]);
-    drawSupTable("Authorized Work Supervisor (IOCL)", [{ t: "Name", w: 130 }, { t: "Designation", w: 130 }, { t: "Contact", w: 100 }, { t: "Audit Trail", w: 175 }], ioclRows);
+    
+    // Updated Columns: Name, Desig, Contact, Audit
+    drawSupTable("Authorized Work Supervisor (IOCL)", 
+        [{ t: "Name", w: 130 }, { t: "Designation", w: 130 }, { t: "Contact", w: 100 }, { t: "Audit Trail", w: 175 }], 
+        ioclRows
+    );
 
     const contRows = [[d.RequesterName || '-', "Site In-Charge / Requester", d.EmergencyContact || '-']];
-    drawSupTable("Authorized Work Supervisor (Contractor)", [{ t: "Name", w: 180 }, { t: "Designation", w: 180 }, { t: "Contact", w: 175 }], contRows);
+    // Keep Contractor table simpler (no audit needed)
+    drawSupTable("Authorized Work Supervisor (Contractor)", 
+        [{ t: "Name", w: 180 }, { t: "Designation", w: 180 }, { t: "Contact", w: 175 }], 
+        contRows
+    );
 
     if (doc.y > 650) { doc.addPage(); drawHeaderOnAll(); doc.y = 135; }
     doc.font('Helvetica-Bold').text("HAZARDS & PRECAUTIONS", 30, doc.y); doc.y += 15; doc.rect(30, doc.y, 535, 60).stroke();
