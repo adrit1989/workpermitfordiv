@@ -29,31 +29,44 @@ app.use((req, res, next) => {
 app.use(
   helmet({
     contentSecurityPolicy: {
-      useDefaults: false,
+      useDefaults: true,
       directives: {
         defaultSrc: ["'self'"],
         scriptSrc: [
           "'self'",
-          // STRICT: Only allow scripts that match the Nonce
           (req, res) => `'nonce-${res.locals.nonce}'`,
-          "https://cdn.tailwindcss.com",
           "https://cdn.jsdelivr.net",
+          "https://cdn.jsdelivr.net/npm/chart.js",
           "https://maps.googleapis.com"
         ],
         styleSrc: [
           "'self'",
-          // LOOSE: Allow inline styles for Tailwind/Maps to render correctly
-          "'unsafe-inline'", 
+          (req, res) => `'nonce-${res.locals.nonce}'`,
           "https://fonts.googleapis.com"
         ],
-        fontSrc: ["'self'", "https://fonts.gstatic.com"],
-        imgSrc: ["'self'", "data:", "blob:", "https://maps.gstatic.com", "https://maps.googleapis.com"],
-        connectSrc: ["'self'", "https://maps.googleapis.com", "https://cdn.jsdelivr.net"],
-        frameSrc: ["'self'"],
+        imgSrc: [
+          "'self'",
+          "data:",
+          "blob:",
+          "https://maps.gstatic.com",
+          "https://maps.googleapis.com"
+        ],
+        fontSrc: [
+          "'self'",
+          "https://fonts.gstatic.com"
+        ],
+        connectSrc: [
+          "'self'",
+          "https://maps.googleapis.com",
+          "https://maps.gstatic.com",
+          "https://cdn.jsdelivr.net"
+        ],
         objectSrc: ["'none'"],
-        upgradeInsecureRequests: []
-      }
-    }
+        baseUri: ["'self'"],
+        frameAncestors: ["'none'"],
+        upgradeInsecureRequests: [],
+      },
+    },
   })
 );
 
