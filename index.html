@@ -779,6 +779,7 @@
             
             const pending = res.filter(p => p.Status.includes('Pending') || p.Status === 'Submitted');
             const active = res.filter(p => p.Status === 'Active' || p.Status.includes('Renewal'));
+            // Ensure both Closed and Rejected are caught here
             const closed = res.filter(p => p.Status.includes('Closed') || p.Status === 'Rejected');
             
             const renderTable = (title, items, color) => {
@@ -789,19 +790,40 @@
                             <h3 class="font-bold text-${color}-700 uppercase text-sm tracking-wide flex items-center gap-2">${title}</h3>
                             <span class="bg-${color}-100 text-${color}-800 text-xs font-bold px-3 py-1 rounded-full border border-${color}-200">${items.length}</span>
                         </div>
-                        <div class="overflow-x-auto"><table class="w-full text-left text-xs data-table"><thead><tr><th>ID</th><th>Type</th><th>Location</th><th>Status</th><th>Date</th><th>Action</th></tr></thead><tbody>${items.map(p => {
-                            let action = '';
-                            if(title !== 'Action Required') {
-                                 action = `<button class="btn-pdf" onclick="event.stopPropagation(); downloadSecurePDF('${p.PermitID}')">📄 PDF</button>`;
-                            }
-                            // REQ B: Pending Status Red Color
-                            let statusClass = "text-[10px] uppercase font-bold px-2 py-0.5 rounded border ";
-                            if(p.Status.includes('Pending')) statusClass += "bg-red-50 text-red-600 border-red-200";
-                            else if(p.Status==='Active') statusClass += "bg-green-50 text-green-700 border-green-200";
-                            else statusClass += "bg-gray-50 text-gray-600 border-gray-200";
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-left text-xs data-table">
+                                <thead>
+                                    <tr>
+                                        <th>ID</th><th>Type</th><th>Location</th><th>Status</th><th>Date</th><th>Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${items.map(p => {
+                                        // LOGIC: Show PDF button for Active and Closed permits
+                                        // Hide it for 'Action Required' (Pending) to force user to open the permit first
+                                        let action = '';
+                                        if(p.Status === 'Closed' || p.Status === 'Active' || p.Status.includes('Renewal')) {
+                                             action = `<button class="btn-pdf" onclick="event.stopPropagation(); downloadSecurePDF('${p.PermitID}')">📥 PDF</button>`;
+                                        }
 
-                            return `<tr onclick="openPermit('${p.PermitID}')" class="group hover:bg-${color}-50 transition"><td class="font-bold text-blue-600 group-hover:underline">${p.PermitID}</td><td class="font-medium">${p.WorkType}</td><td class="text-gray-500">${p.LocationUnit}</td><td><span class="${statusClass}">${p.Status}</span></td><td class="font-mono text-gray-500">${p.ValidFrom.split('T')[0]}</td><td>${action}</td></tr>`;
-                        }).join('')}</tbody></table></div>
+                                        let statusClass = "text-[10px] uppercase font-bold px-2 py-0.5 rounded border ";
+                                        if(p.Status.includes('Pending')) statusClass += "bg-red-50 text-red-600 border-red-200";
+                                        else if(p.Status==='Active') statusClass += "bg-green-50 text-green-700 border-green-200";
+                                        else statusClass += "bg-gray-50 text-gray-600 border-gray-200";
+
+                                        return `
+                                            <tr onclick="openPermit('${p.PermitID}')" class="group hover:bg-${color}-50 transition">
+                                                <td class="font-bold text-blue-600 group-hover:underline">${p.PermitID}</td>
+                                                <td class="font-medium">${p.WorkType || '-'}</td>
+                                                <td class="text-gray-500">${p.LocationUnit || '-'}</td>
+                                                <td><span class="${statusClass}">${p.Status}</span></td>
+                                                <td class="font-mono text-gray-500">${p.ValidFrom ? p.ValidFrom.split('T')[0] : '-'}</td>
+                                                <td>${action}</td>
+                                            </tr>`;
+                                    }).join('')}
+                                </tbody>
+                            </table>
+                        </div>
                     </div>`;
             };
             container.innerHTML += renderTable('Action Required', pending, 'red');
@@ -880,6 +902,11 @@
         }
 
         async function openPermit(id) {
+                     
+                if (p.Status === 'Closed' || !p.WorkType) {
+                alert("📂 This permit is closed and archived.\n\nThe raw form data has been purged to save space. Please use the 'PDF' button on the dashboard to view the final signed document.");
+                return;
+            }
             const p = await apiCall('/permit-data', 'POST', {permitId:id});
             currentPermitId = id; currentPermitIOCLData = p.IOCLSupervisors || []; permitRequirePhoto = (p.RequireRenewalPhotos === 'Y');
             document.getElementById('view-dashboard').classList.add('hidden'); document.getElementById('view-form').classList.remove('hidden');
@@ -1449,6 +1476,7 @@ async function upd(act) {
     </script>
 </body>
 </html>
+
 
 
 
