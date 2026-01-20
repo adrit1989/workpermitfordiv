@@ -797,66 +797,58 @@
     const container = document.getElementById('dashboard-content'); 
     container.innerHTML = '';
     
-    // --- SMART FILTERING LOGIC ---
-    // This ensures users only see "Action Required" if it is actually THEIR turn to act.
+    // --- SMART FILTERING BY ROLE ---
     const pending = res.filter(p => {
         const s = p.Status;
         if (currentUser.Role === 'MasterAdmin') return s.includes('Pending') || s === 'Submitted';
 
         if (currentUser.Role === 'Reviewer') {
+            // Reviewer only sees items in "Review" stage
             return s === 'Pending Review' || s === 'Renewal Pending Review' || s === 'Closure Pending Review';
         }
         if (currentUser.Role === 'Approver') {
+            // Approver only sees items already recommended by Reviewer
             return s === 'Pending Approval' || s === 'Renewal Pending Approval' || s === 'Closure Pending Approval';
         }
-        // Requesters see all their items that are not yet Active or Closed
+        // Requesters see all their items awaiting action
         return (s.includes('Pending') || s === 'Submitted') && p.RequesterEmail === currentUser.Email;
     });
 
+    // Active permits include those currently in a renewal cycle but not stuck in "Pending Action"
     const active = res.filter(p => p.Status === 'Active' || (p.Status.includes('Renewal') && !p.Status.includes('Pending')));
     
+    // History includes closed or rejected permits
     const closed = res.filter(p => p.Status === 'Closed' || p.Status === 'Rejected');
     
-    // --- RENDER TABLES ---
     const renderTable = (title, items, color) => {
         if(items.length === 0) return '';
-        
         return `
-            <div class="glass border-l-4 border-${color}-500 transform transition hover:shadow-lg mb-6">
+            <div class="glass border-l-4 border-${color}-500 mb-6">
                 <div class="flex justify-between items-center border-b pb-2 mb-3">
-                    <h3 class="font-bold text-${color}-700 uppercase text-sm tracking-wide flex items-center gap-2">${title}</h3>
-                    <span class="bg-${color}-100 text-${color}-800 text-xs font-bold px-3 py-1 rounded-full border border-${color}-200">${items.length}</span>
+                    <h3 class="font-bold text-${color}-700 uppercase text-sm">${title}</h3>
+                    <span class="bg-${color}-100 text-${color}-800 text-xs font-bold px-3 py-1 rounded-full">${items.length}</span>
                 </div>
                 <div class="overflow-x-auto">
                     <table class="w-full text-left text-xs data-table">
-                        <thead>
-                            <tr class="bg-gray-50">
-                                <th class="p-3">ID</th><th>Type</th><th>Location</th><th>Status</th><th>Date</th><th>Action</th>
-                            </tr>
-                        </thead>
+                        <thead><tr class="bg-gray-50"><th class="p-3">ID</th><th>Type</th><th>Location</th><th>Status</th><th>Date</th><th>Action</th></tr></thead>
                         <tbody>
                             ${items.map(p => {
-                                let action = '';
-                                // Show PDF button for anything that has been officially approved at least once
-                                if(p.Status === 'Closed' || p.Status === 'Active' || p.Status.includes('Renewal')) {
-                                     action = `<button class="btn-pdf" onclick="event.stopPropagation(); downloadSecurePDF('${p.PermitID}')">📥 PDF</button>`;
-                                }
+                                let action = (p.Status === 'Closed' || p.Status === 'Active' || p.Status.includes('Renewal')) 
+                                    ? `<button class="btn-pdf" onclick="event.stopPropagation(); downloadSecurePDF('${p.PermitID}')">📥 PDF</button>` : '';
+                                
+                                let stCls = "text-[10px] font-bold px-2 py-0.5 rounded border ";
+                                if(p.Status.includes('Pending')) stCls += "bg-orange-50 text-orange-600 border-orange-200";
+                                else if(p.Status==='Active') stCls += "bg-green-50 text-green-700 border-green-200";
+                                else if(p.Status==='Rejected') stCls += "bg-red-50 text-red-600 border-red-200";
+                                else stCls += "bg-gray-50 text-gray-600 border-gray-200";
 
-                                let statusClass = "text-[10px] uppercase font-bold px-2 py-0.5 rounded border ";
-                                if(p.Status.includes('Pending')) statusClass += "bg-orange-50 text-orange-600 border-orange-200";
-                                else if(p.Status==='Active') statusClass += "bg-green-50 text-green-700 border-green-200";
-                                else if(p.Status==='Rejected') statusClass += "bg-red-50 text-red-600 border-red-200";
-                                else statusClass += "bg-gray-50 text-gray-600 border-gray-200";
-
-                                return `
-                                    <tr onclick="openPermit('${p.PermitID}')" class="group hover:bg-gray-50 transition cursor-pointer">
-                                        <td class="p-3 font-bold text-blue-600 group-hover:underline">${p.PermitID}</td>
-                                        <td class="p-3 font-medium">${p.WorkType || '-'}</td>
-                                        <td class="p-3 text-gray-500">${p.LocationUnit || '-'}</td>
-                                        <td class="p-3"><span class="${statusClass}">${p.Status}</span></td>
-                                        <td class="p-3 font-mono text-gray-500">${p.ValidFrom ? p.ValidFrom.split('T')[0] : '-'}</td>
-                                        <td class="p-3">${action}</td>
-                                    </tr>`;
+                                return `<tr onclick="openPermit('${p.PermitID}')" class="hover:bg-gray-50 transition cursor-pointer">
+                                    <td class="p-3 font-bold text-blue-600">${p.PermitID}</td>
+                                    <td>${p.WorkType || '-'}</td><td>${p.LocationUnit || '-'}</td>
+                                    <td><span class="${stCls}">${p.Status}</span></td>
+                                    <td class="font-mono">${p.ValidFrom ? p.ValidFrom.split('T')[0] : '-'}</td>
+                                    <td>${action}</td>
+                                </tr>`;
                             }).join('')}
                         </tbody>
                     </table>
@@ -867,7 +859,6 @@
     container.innerHTML += renderTable('Action Required', pending, 'orange');
     container.innerHTML += renderTable('Active Permits', active, 'green');
     container.innerHTML += renderTable('Closed / Archive', closed, 'gray');
-    
     loadStats(res);
 }
         async function downloadSecurePDF(id) {
@@ -939,242 +930,90 @@
             loadWorkers('permit_dropdown');
         }
 
-      async function openPermit(id) {
-            // 1. Fetch data FIRST
-            const p = await apiCall('/permit-data', 'POST', {permitId:id});
-            
-            // 2. Then check if it exists or is closed
-            if (!p || p.Status === 'Closed' || !p.WorkType) {
-                alert("📂 This permit is closed and archived.\n\nThe raw form data has been purged to save space. Please use the 'PDF' button on the dashboard to view the final signed document.");
-                return downloadSecurePDF(id);
-            }
-            
-            currentPermitId = id; currentPermitIOCLData = p.IOCLSupervisors || []; permitRequirePhoto = (p.RequireRenewalPhotos === 'Y');
-            document.getElementById('view-dashboard').classList.add('hidden'); document.getElementById('view-form').classList.remove('hidden');
-            document.getElementById('permit-title').innerText = `Permit: ${id}`;
-            document.getElementById('permit-header-display').innerText = `Status: ${p.Status}`;
-            
-            if(currentUser.Role === 'Requester') document.getElementById('ppe-section-wrapper').classList.add('hidden');
-            else document.getElementById('ppe-section-wrapper').classList.remove('hidden');
-            
-            const isPendingAction = (currentUser.Role === 'Reviewer' || currentUser.Role === 'Approver') && 
-                                    (p.Status.includes('Pending') || p.Status === 'Active');
+        async function openPermit(id) {
+    const p = await apiCall('/permit-data', 'POST', { permitId: id });
 
-            document.querySelectorAll('#pf input, #pf textarea, #pf select').forEach(el => {
-                let shouldDisable = true;
-                if(isPendingAction && (el.name.startsWith('H_') || el.id === 'H_Others_Detail')) shouldDisable = false;
-                if(currentUser.Role === 'Approver' && el.id === 'RequireRenewalPhotos') shouldDisable = false;
-                // REQ A: Ensure Renewal Radios are enabled during pending flow
-                if(el.name === 'RevRenAction' || el.name === 'AppRenAction') shouldDisable = false;
+    if (!p || p.Status === 'Closed' || !p.WorkType) {
+        alert("📂 This permit is archived. Opening PDF...");
+        return downloadSecurePDF(id);
+    }
 
-                if(el.type === 'checkbox') el.checked = (p[el.name] === 'Y'); 
-                else if(el.type !== 'file') el.value = p[el.name] || ''; 
-                el.disabled = shouldDisable;
-            });
+    currentPermitId = id;
+    currentPermitIOCLData = p.IOCLSupervisors || [];
+    permitRequirePhoto = (p.RequireRenewalPhotos === 'Y');
 
-            document.getElementById('validity-box').classList.remove('hidden');
-            document.getElementById('val-time-from').innerText = p.ValidFrom.replace('T', ' '); document.getElementById('val-time-to').innerText = p.ValidTo.replace('T', ' ');
-            document.getElementById('val-status').innerText = p.Status.toUpperCase();
+    document.getElementById('view-dashboard').classList.add('hidden');
+    document.getElementById('view-form').classList.remove('hidden');
+    document.getElementById('permit-title').innerText = `Permit: ${id}`;
+    document.getElementById('permit-header-display').innerText = `Status: ${p.Status}`;
 
-            currentPermitWorkers = p.SelectedWorkers;
-            const wTable = document.getElementById('worker-display-table'); wTable.classList.remove('hidden');
-            wTable.querySelector('tbody').innerHTML = currentPermitWorkers.map(w => `<tr><td>${escapeHtml(w.Name)}</td><td>${escapeHtml(w.IDType)}: ${escapeHtml(w.ID)}</td><td>${escapeHtml(w.Contact)}</td></tr>`).join('');
+    // --- Form field management ---
+    const isPending = (p.Status.includes('Pending') || p.Status === 'Active');
+    const isAuth = (currentUser.Role === 'Reviewer' || currentUser.Role === 'Approver');
 
-            renderIOCLTable();
+    document.querySelectorAll('#pf input, #pf textarea, #pf select').forEach(el => {
+        let shouldDisable = true;
+        if (isAuth && isPending && (el.name.startsWith('H_') || el.name.startsWith('P_') || el.id === 'H_Others_Detail')) shouldDisable = false;
+        if (currentUser.Role === 'Approver' && el.id === 'RequireRenewalPhotos') shouldDisable = false;
+        if (el.name === 'RevRenAction' || el.name === 'AppRenAction') shouldDisable = false;
 
-           const rens = JSON.parse(p.RenewalsJSON || "[]");
-            const lastRen = rens.length > 0 ? rens[rens.length - 1] : null;
-            currentRenewalCount = rens.length;
-            const canRenew = (currentUser.Role === 'Requester' && (p.Status === 'Active' || p.Status.includes('Renewal')));
-            
-            if (rens.length > 0 || canRenew) {
-                document.getElementById('renewals-section').classList.remove('hidden');
-                
-                // REQ C: Renewal Table Logic
-                document.getElementById('renewal-history-body').innerHTML = rens.map(r => {
-                    const photoHtml = r.photoUrl ? `<button type="button" class="text-blue-600 font-bold underline text-xs" onclick="viewSecurePhoto('${r.photoUrl}')">View Photo</button>` : 'N/A';
-                    return `<tr class="border-b border-gray-100 hover:bg-purple-50">
-                        <td class="p-2 font-mono text-[10px]">${r.valid_from}<br>${r.valid_to}</td>
-                        <td class="p-2">HC:${r.hc}% Tox:${r.toxic} O2:${r.oxygen}</td>
-                        <td class="p-2">${r.worker_list ? r.worker_list.join(', ') : 'All'}</td>
-                        <td class="p-2 text-[10px]">${r.precautions || '-'}</td>
-                        <td class="p-2">${r.req_name}</td>
-                        <td class="p-2 text-[10px]">${r.rev_name || '-'}<br>${r.rev_at || ''}</td>
-                        <td class="p-2 text-[10px]">${r.app_name || '-'}<br>${r.app_at || ''}</td>
-                        <td class="p-2 text-center">${photoHtml}</td>
-                    </tr>`;
-                }).join('');
-                
-                if (canRenew) {
-                    if (!lastRen || !lastRen.status.includes('pending')) {
-                        document.getElementById('form-renewal').classList.remove('hidden');
-                        document.querySelectorAll('#form-renewal input').forEach(el => { el.disabled = false; });
+        if (el.type === 'checkbox') el.checked = (p[el.name] === 'Y');
+        else if (el.type !== 'file') el.value = p[el.name] || '';
+        el.disabled = shouldDisable;
+    });
 
-                        const renSel = document.getElementById('renewal-worker-select');
-                        renSel.innerHTML = currentPermitWorkers.map(w => `<label class="flex items-center gap-1 text-xs bg-white p-1 rounded border"><input type="checkbox" value="${escapeHtml(w.Name)}" checked class="ren-worker-cb accent-purple-600"> ${escapeHtml(w.Name)}</label>`).join('');
-                        
-                        if (permitRequirePhoto) {
-                            document.getElementById('renewal-photo-wrapper').classList.remove('hidden'); 
-                            document.getElementById('ren-cam-sub').required = true;
-                            document.getElementById('ren-cam-sub').disabled = false; 
-                        } else {
-                            document.getElementById('renewal-photo-wrapper').classList.add('hidden'); 
-                            document.getElementById('ren-cam-sub').required = false;
-                        }
-                    } else {
-                        document.getElementById('form-renewal').classList.add('hidden');
-                    }
-                } else {
-                    document.getElementById('form-renewal').classList.add('hidden');
-                }
-            } else {
-                document.getElementById('renewals-section').classList.add('hidden');
-            }
+    // --- Populate History ---
+    const rens = JSON.parse(p.RenewalsJSON || "[]");
+    const lastRen = rens.length > 0 ? rens[rens.length - 1] : null;
+    const canRenew = (currentUser.Role === 'Requester' && (p.Status === 'Active' || p.Status.includes('Renewal')));
 
-            const actionsDiv = document.getElementById("actions-bar"); 
-            actionsDiv.innerHTML = "";
-            // REQ A: 1st Renewal Logic
-            if(p.Status === 'Pending Review' && currentUser.Role === 'Reviewer') {
-                if(rens.length === 1 && rens[0].status === 'pending_review') {
-                    document.getElementById('rev-renewal-decision').classList.remove('hidden');
-                }
-            }
-            if(p.Status === 'Pending Approval' && currentUser.Role === 'Approver') {
-                if(rens.length === 1 && rens[0].status === 'pending_approval') { // Only if Reviewer Recommended
-                    document.getElementById('app-renewal-decision').classList.remove('hidden');
-                }
-            }
+    if (rens.length > 0 || canRenew) {
+        document.getElementById('renewals-section').classList.remove('hidden');
+        document.getElementById('renewal-history-body').innerHTML = rens.map(r => `
+            <tr class="border-b text-[10px]">
+                <td class="p-2">${r.valid_from}</td><td class="p-2">${r.hc}%/${r.toxic}/${r.oxygen}%</td>
+                <td class="p-2">${r.req_name}</td><td class="p-2">${r.rev_name || '-'}</td>
+                <td class="p-2">${r.app_name || '-'}</td>
+                <td class="p-2">${r.photoUrl ? '<button onclick="viewSecurePhoto(\''+r.photoUrl+'\')">🖼️</button>' : 'N/A'}</td>
+            </tr>`).join('');
 
-           
-            if(currentUser.Role === 'Requester' && p.Status === 'New') showNewPermit();
-          // --- CLOSURE HANDSHAKE LOGIC ---
-
-            // A. Requester: Initiate Closure
-            if(currentUser.Role === 'Requester' && (p.Status === 'Active' || p.Status.includes('Renewal'))) {
-                document.getElementById('closure-section').classList.remove('hidden');
-                document.getElementById('div-closure-req').classList.remove('hidden');
-                document.getElementById('Closure_Requestor_Remarks').disabled = false;
-                document.getElementById('Site_Restored_Check').disabled = false;
-
-                const bClose = document.createElement("button");
-                bClose.className = "bg-red-600 text-white px-6 py-2 rounded shadow font-bold hover:bg-red-700 transition";
-                bClose.innerText = "Job Complete / Submit for Closure";
-                bClose.onclick = () => upd('initiate_closure'); 
-                actionsDiv.appendChild(bClose);
-            }
-            
-            // B. Reviewer: Verify or Reject Closure
-            if(currentUser.Role === 'Reviewer' && p.Status === 'Closure Pending Review') {
-                document.getElementById('closure-section').classList.remove('hidden');
-                document.getElementById('div-closure-req').classList.remove('hidden'); // Show Req remarks
-                document.getElementById('div-closure-rev').classList.remove('hidden');
-                document.getElementById('Closure_Reviewer_Remarks').disabled = false;
-                
-                // Show Requester's history
-                setText("ts-clos-req", p.Closure_Requestor_Date || '');
-                safeSet("Closure_Requestor_Remarks", p.Closure_Requestor_Remarks || "");
-
-                const bRej = document.createElement("button");
-                bRej.className = "bg-orange-100 text-orange-700 px-4 py-2 rounded shadow font-bold border border-orange-200 mr-2";
-                bRej.innerText = "Reject Closure (Back to Active)";
-                bRej.onclick = () => upd('reject_closure'); 
-
-                const bVerify = document.createElement("button");
-                bVerify.className = "bg-green-600 text-white px-4 py-2 rounded shadow font-bold";
-                bVerify.innerText = "Verify & Forward";
-                bVerify.onclick = () => upd('approve_closure');
-
-                actionsDiv.append(bRej, bVerify);
-            }
-
-            // C. Approver: Final Close or Reject Closure
-            if(currentUser.Role === 'Approver' && p.Status === 'Closure Pending Approval') {
-                document.getElementById('closure-section').classList.remove('hidden');
-                document.getElementById('div-closure-req').classList.remove('hidden'); // History
-                document.getElementById('div-closure-rev').classList.remove('hidden'); // History
-                document.getElementById('div-closure-app').classList.remove('hidden');
-                document.getElementById('Closure_Approver_Remarks').disabled = false;
-                
-                // Show History to Approver
-                setText("ts-clos-req", p.Closure_Requestor_Date || '');
-                setText("ts-clos-rev", p.Closure_Reviewer_Date || '');
-                safeSet("Closure_Requestor_Remarks", p.Closure_Requestor_Remarks || "");
-                safeSet("Closure_Reviewer_Remarks", p.Closure_Reviewer_Remarks || "");
-
-                const bRej = document.createElement("button");
-                bRej.className = "bg-orange-100 text-orange-700 px-4 py-2 rounded shadow font-bold border border-orange-200 mr-2";
-                bRej.innerText = "Reject Closure (Back to Active)";
-                bRej.onclick = () => upd('reject_closure');
-
-                const bFinal = document.createElement("button");
-                bFinal.className = "bg-black text-white px-4 py-2 rounded shadow font-bold";
-                bFinal.innerText = "Final Permit Close";
-                bFinal.onclick = () => upd('approve'); 
-                
-                actionsDiv.append(bRej, bFinal);
-            }
-            
-            if(currentUser.Role === 'Reviewer' && p.Status === 'Pending Review') {
-                document.getElementById('fs-reviewer-section').classList.remove('hidden'); document.getElementById('iocl-reviewer-wrapper').classList.remove('hidden');
-                document.getElementById('Reviewer_Remarks').disabled = false; document.getElementById('AdditionalPrecautions').disabled = false;
-                document.querySelectorAll('#ppe-grid input, .checklist-grid input, .checklist-grid input[type="radio"]').forEach(el => el.disabled = false);
-                
-                const b1 = document.createElement("button"); b1.className = "bg-red-600 text-white px-4 py-2 rounded shadow font-bold"; b1.innerText = "Reject"; b1.onclick = () => upd('reject');
-                const b2 = document.createElement("button"); b2.className = "bg-green-600 text-white px-4 py-2 rounded shadow font-bold"; b2.innerText = "Review & Forward"; b2.onclick = () => upd('review');
-                actionsDiv.append(b1, b2);
-            }
-            if(currentUser.Role === 'Approver' && p.Status === 'Pending Approval') {
-                document.getElementById('fs-approver-section').classList.remove('hidden'); document.getElementById('iocl-approver-wrapper').classList.remove('hidden');
-                document.getElementById('Approver_Remarks').disabled = false; 
-                document.getElementById('RequireRenewalPhotos').disabled = false;
-                
-                const b1 = document.createElement("button"); b1.className = "bg-red-600 text-white px-4 py-2 rounded shadow font-bold"; b1.innerText = "Reject"; b1.onclick = () => upd('reject');
-                const b2 = document.createElement("button"); b2.className = "bg-green-600 text-white px-4 py-2 rounded shadow font-bold"; b2.innerText = "Final Approve"; b2.onclick = () => upd('approve');
-                actionsDiv.append(b1, b2);
-            }
-            
-            if(lastRen && lastRen.status.includes('pending')) {
-                if(currentUser.Role !== 'Requester') {
-                    document.getElementById('pending-renewal-display').classList.remove('hidden');
-                    if(lastRen.oddHourReq === 'Y') document.getElementById('odd-hour-approval-controls').classList.remove('hidden');
-                }
-
-                if((currentUser.Role === 'Reviewer' && p.Status.includes('Review')) || (currentUser.Role === 'Approver' && p.Status.includes('Approval'))) {
-                    // Only show standard renewal actions if NOT the 1st renewal flow (which uses the radios)
-                    if(rens.length > 1) { 
-                        document.getElementById('action-renewal').classList.remove('hidden');
-                        document.getElementById('btn-approve-renewal').onclick = () => submitRenewal('approve');
-                        document.getElementById('btn-reject-renewal').onclick = () => submitRenewal('reject');
-                        
-                        if(lastRen.oddHourReq === 'Y' && currentUser.Role === 'Approver') {
-                            document.getElementById('btn-approve-renewal').disabled = true; 
-                            window.toggleRenewalApproveBtn = function() {
-                                document.getElementById('btn-approve-renewal').disabled = !document.getElementById('odd-hour-allow-check').checked;
-                            }
-                        }
-                    }
-                }
-            }
-
-            if(p.Status.includes('Closure')) {
-                document.getElementById('closure-section').classList.remove('hidden');
-                document.getElementById('div-closure-req').classList.remove('hidden');
-                if(p.Status !== 'Closure Pending Review') document.getElementById('div-closure-rev').classList.remove('hidden');
-                if(p.Status === 'Closed' || p.Status === 'Closure Pending Approval') document.getElementById('div-closure-app').classList.remove('hidden');
-
-                if(currentUser.Role === 'Reviewer' && p.Status === 'Closure Pending Review') {
-                    document.getElementById('Closure_Reviewer_Remarks').disabled = false;
-                    const b2 = document.createElement("button"); b2.className = "bg-green-600 text-white px-4 py-2 rounded shadow font-bold"; b2.innerText = "Verify Closure"; b2.onclick = () => upd('approve_closure');
-                    actionsDiv.appendChild(b2);
-                }
-                if(currentUser.Role === 'Approver' && p.Status === 'Closure Pending Approval') {
-                    document.getElementById('Closure_Approver_Remarks').disabled = false;
-                    const b2 = document.createElement("button"); b2.className = "bg-black text-white px-4 py-2 rounded shadow font-bold"; b2.innerText = "Close Permit"; b2.onclick = () => upd('approve');
-                    actionsDiv.appendChild(b2);
-                }
-            }
-            attachFileValidators();
+        // Renewal Request Form logic
+        if (canRenew && (!lastRen || !lastRen.status.includes('pending'))) {
+            document.getElementById('form-renewal').classList.remove('hidden');
+            document.getElementById('renewal-photo-wrapper').classList.toggle('hidden', !permitRequirePhoto);
+        } else {
+            document.getElementById('form-renewal').classList.add('hidden');
         }
+    }
+
+    // --- Handle Renewal Action Buttons (The turn-based logic) ---
+    if (lastRen && lastRen.status.includes('pending')) {
+        const isRevTurn = (currentUser.Role === 'Reviewer' && p.Status === 'Renewal Pending Review');
+        const isAppTurn = (currentUser.Role === 'Approver' && p.Status === 'Renewal Pending Approval');
+
+        if (isRevTurn || isAppTurn) {
+            document.getElementById('action-renewal').classList.remove('hidden');
+            document.getElementById('btn-approve-renewal').onclick = () => submitRenewal('approve');
+            document.getElementById('btn-reject-renewal').onclick = () => submitRenewal('reject');
+        }
+    }
+
+    // --- Action Bar (Main Buttons) ---
+    const actionsDiv = document.getElementById("actions-bar");
+    actionsDiv.innerHTML = "";
+
+    if (currentUser.Role === 'Reviewer' && p.Status === 'Pending Review') {
+        const b = document.createElement("button"); b.className = "bg-green-600 text-white px-6 py-2 rounded font-bold"; b.innerText = "Review & Forward"; b.onclick = () => upd('review');
+        actionsDiv.appendChild(b);
+    }
+    if (currentUser.Role === 'Approver' && p.Status === 'Pending Approval') {
+        const b = document.createElement("button"); b.className = "bg-green-600 text-white px-6 py-2 rounded font-bold"; b.innerText = "Final Approve"; b.onclick = () => upd('approve');
+        actionsDiv.appendChild(b);
+    }
+
+    handleClosureUI(p, actionsDiv);
+    attachFileValidators();
+}
 
         // Logic to check odd hours automatically
         function checkRenewalTime() {
@@ -1517,6 +1356,7 @@ async function upd(act) {
     </script>
 </body>
 </html>
+
 
 
 
