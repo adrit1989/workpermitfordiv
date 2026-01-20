@@ -920,11 +920,12 @@
             loadWorkers('permit_dropdown');
         }
 
-        async function openPermit(id) {
+      async function openPermit(id) {
+            // 1. Fetch data FIRST
             const p = await apiCall('/permit-data', 'POST', {permitId:id});
-            currentPermitId = id;
-                     
-                if (p.Status === 'Closed' || !p.WorkType) {
+            
+            // 2. Then check if it exists or is closed
+            if (!p || p.Status === 'Closed' || !p.WorkType) {
                 alert("📂 This permit is closed and archived.\n\nThe raw form data has been purged to save space. Please use the 'PDF' button on the dashboard to view the final signed document.");
                 return downloadSecurePDF(id);
             }
@@ -1212,7 +1213,13 @@ async function submitRenewal(act) {
             // ACTUAL FETCH CALL (Previously missing)
             const res = await fetch(API+'/renewal', {method:'POST', body:fd, headers: {'Authorization': `Bearer ${authToken}`}});
             const json = await res.json();
-            if(json.success) { alert("Renewal Submitted!"); loadDashboard(); switchView('dashboard'); } else alert(json.error);
+            if(json.success) { 
+                alert("Renewal Request Submitted!"); 
+                loadDashboard(); 
+                switchView('dashboard'); 
+            } else { 
+                alert(json.error || "Submission failed"); 
+            }
         }
 
         function openWorkerModal() { 
@@ -1491,6 +1498,7 @@ async function upd(act) {
     </script>
 </body>
 </html>
+
 
 
 
