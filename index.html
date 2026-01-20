@@ -1172,8 +1172,8 @@
                 }
             }
         }
-
- async function submitRenewal(act) {
+async function submitRenewal(act) {
+            // Handle Approvals/Rejections
             if(act === 'approve' || act === 'reject') {
                 const remark = document.getElementById('RenewalRemark').value;
                 const res = await apiCall('/renewal', 'POST', {PermitID: currentPermitId, action: act, rejectionReason: remark});
@@ -1181,42 +1181,38 @@
                 return;
             }
 
+            // Handle New Requests
             const fd = new FormData();
             fd.append('PermitID', currentPermitId);
             fd.append('action', 'initiate'); 
             fd.append('RenewalValidFrom', getVal("RenewalValidFrom"));
             fd.append('RenewalValidTo', getVal("RenewalValidTo"));
             
-            // CORRECTED GAS MAPPING
+            // Gas Mapping
             fd.append('hc', getVal("RenewalHC")); 
-            fd.append('toxic', getVal("RenewalToxic")); // Now pulls from the new ID
+            fd.append('toxic', getVal("RenewalToxic")); 
             fd.append('oxygen', getVal("RenewalOxygen")); 
-            
             fd.append('precautions', getVal("RenewalPrec"));
             
             const selWorkers = []; 
             document.querySelectorAll('.ren-worker-cb:checked').forEach(c => selWorkers.push(c.value));
             fd.append('renewalWorkers', JSON.stringify(selWorkers));
 
-            // ... Azure Upload and Fetch code continues ...
-
             if(!document.getElementById("odd-hour-agreement").classList.contains("hidden")) {
-                if(!document.getElementById("OddHourSafetyCheck").checked) return alert("You must accept Odd Hour safety terms.");
+                if(!document.getElementById("OddHourSafetyCheck").checked) return alert("Accept Odd Hour safety terms.");
                 fd.append('oddHourReq', 'Y');
             }
 
             const fileInput = document.getElementById("ren-cam-sub");
-            const isPhotoMandatory = !document.getElementById('renewal-photo-wrapper').classList.contains('hidden');
-            
-            if(isPhotoMandatory && fileInput.files.length === 0) {
-                alert("⛔ MANDATORY: You must upload a site condition photo.");
-                return;
+            if(!document.getElementById('renewal-photo-wrapper').classList.contains('hidden') && fileInput.files.length === 0) {
+                return alert("⛔ Site photo is mandatory.");
             }
             if(fileInput.files.length > 0) fd.append('RenewalImage', fileInput.files[0]);
 
+            // ACTUAL FETCH CALL (Previously missing)
             const res = await fetch(API+'/renewal', {method:'POST', body:fd, headers: {'Authorization': `Bearer ${authToken}`}});
             const json = await res.json();
-            if(json.success) { alert("Renewal Request Submitted!"); switchView('dashboard'); } else alert(json.error);
+            if(json.success) { alert("Renewal Submitted!"); loadDashboard(); switchView('dashboard'); } else alert(json.error);
         }
 
         function openWorkerModal() { 
@@ -1495,6 +1491,7 @@ async function upd(act) {
     </script>
 </body>
 </html>
+
 
 
 
