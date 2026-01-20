@@ -794,48 +794,68 @@ app.post('/api/admin/reset-password', authenticateAccess, async (req, res) => {
     } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-// 6. Bulk Upload Users (Master Admin Only)
+
+// 6. Bulk Upload Users (Strictly Master Admin Only)
 app.post('/api/admin/bulk-upload', authenticateAccess, upload.single('excelFile'), async (req, res) => {
-    if(req.user.role !== 'MasterAdmin') return res.status(403).json({error: "Master Admin only"});
+    // [SECURITY CHECK] strictly allow only 'MasterAdmin'
+    if (req.user.role !== 'MasterAdmin') {
+        console.warn(`[SECURITY] Unauthorized Bulk Upload attempt by ${req.user.email}`);
+        return res.status(403).json({ error: "Access Denied: Master Admin rights required." });
+    }
     
     try {
+        if (!req.file) return res.status(400).json({ error: "No file uploaded" });
+
         const workbook = new ExcelJS.Workbook();
         await workbook.xlsx.load(req.file.buffer);
-        const worksheet = workbook.getWorksheet(1);
+        const worksheet = workbook.getWorksheet(1); // Read first sheet
         const pool = await getConnection();
         
         const promises = [];
         
+        // Iterate rows (Skip header row 1)
         worksheet.eachRow((row, rowNumber) => {
-            if(rowNumber === 1) return; // Skip Header
-            // Columns: A=Name, B=Email, C=Role, D=Password, E=Region, F=Unit, G=Location
+            if (rowNumber === 1) return; 
+
+            // Map Excel Columns: A=Name, B=Email, C=Role, D=Password, E=Region, F=Unit, G=Location
             const name = row.getCell(1).value;
             const email = row.getCell(2).value;
             const role = row.getCell(3).value;
-            const pass = row.getCell(4).value.toString(); // Temp Pass
+            const rawPass = row.getCell(4).value ? row.getCell(4).value.toString() : "Pass@123"; // Default if empty
             const region = row.getCell(5).value;
             const unit = row.getCell(6).value;
             const loc = row.getCell(7).value;
 
-            promises.push((async () => {
-                const hashed = await bcrypt.hash(pass, 10);
-                await pool.request()
-                    .input('n', name).input('e', email).input('r', role).input('p', hashed)
-                    .input('reg', region).input('u', unit).input('l', loc).input('cb', req.user.email)
-                    .query(`
-                        IF NOT EXISTS (SELECT * FROM Users WHERE Email=@e)
-                        INSERT INTO Users (Name, Email, Role, Password, Region, Unit, Location, CreatedBy, ForcePwdChange)
-                        VALUES (@n, @e, @r, @p, @reg, @u, @l, @cb, 'Y')
-                    `);
-            })());
+            if (email && role) {
+                promises.push((async () => {
+                    const hashed = await bcrypt.hash(rawPass, 10);
+                    // Insert if email doesn't exist
+                    await pool.request()
+                        .input('n', name)
+                        .input('e', email)
+                        .input('r', role)
+                        .input('p', hashed)
+                        .input('reg', region)
+                        .input('u', unit)
+                        .input('l', loc)
+                        .input('cb', req.user.email) // Track who uploaded
+                        .query(`
+                            IF NOT EXISTS (SELECT * FROM Users WHERE Email=@e)
+                            INSERT INTO Users (Name, Email, Role, Password, Region, Unit, Location, CreatedBy, ForcePwdChange)
+                            VALUES (@n, @e, @r, @p, @reg, @u, @l, @cb, 'Y')
+                        `);
+                })());
+            }
         });
 
         await Promise.all(promises);
-        res.json({ success: true, count: promises.length });
+        res.json({ success: true, count: promises.length, message: `Successfully processed ${promises.length} users.` });
 
-    } catch(e) { res.status(500).json({error: "Bulk Upload Failed: " + e.message}); }
+    } catch (e) { 
+        console.error("Bulk Upload Error:", e.message);
+        res.status(500).json({ error: "Bulk Upload Failed: " + e.message }); 
+    }
 });
-
 // 7. Add User (Single)
 app.post('/api/add-user', authenticateAccess, async (req, res) => {
     if(req.user.role !== 'Approver' && req.user.role !== 'MasterAdmin') return res.sendStatus(403);
