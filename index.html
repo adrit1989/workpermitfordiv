@@ -682,6 +682,10 @@
             }
             if(viewName === 'users') loadManageUsers();
             if(viewName === 'workers') loadWorkers('mgmt');
+            if(viewName === 'map') {
+        // Must wait for div to be visible
+        setTimeout(initMap, 200); 
+    
         }
 
         async function loadMappedApprovers() {
@@ -989,7 +993,7 @@ function handleClosureUI(p, actionsDiv) {
         document.getElementById('closure-section').classList.add('hidden');
     }
 }
-      async function openPermit(id) {
+    async function openPermit(id) {
     // 1. Fetch data
     const p = await apiCall('/permit-data', 'POST', { permitId: id });
 
@@ -1004,30 +1008,26 @@ function handleClosureUI(p, actionsDiv) {
     currentPermitIOCLData = p.IOCLSupervisors || [];
     permitRequirePhoto = (p.RequireRenewalPhotos === 'Y');
 
-    // 4. UI Transition & Header
+    // 4. UI Transition
     document.getElementById('view-dashboard').classList.add('hidden');
     document.getElementById('view-form').classList.remove('hidden');
     document.getElementById('permit-title').innerText = `Permit: ${id}`;
     document.getElementById('permit-header-display').innerText = `Status: ${p.Status}`;
 
-    // 5. Section Reset (Crucial: Hide all action boxes by default)
-    document.getElementById('fs-reviewer-section').classList.add('hidden');
-    document.getElementById('fs-approver-section').classList.add('hidden');
-    document.getElementById('rev-renewal-decision').classList.add('hidden');
-    document.getElementById('app-renewal-decision').classList.add('hidden');
-    document.getElementById('action-renewal').classList.add('hidden');
-    document.getElementById('pending-renewal-display').classList.add('hidden');
+    // 5. Section Reset (Hide all potential action boxes)
+    ['fs-reviewer-section', 'fs-approver-section', 'rev-renewal-decision', 'app-renewal-decision', 'action-renewal', 'pending-renewal-display', 'odd-hour-approval-controls']
+        .forEach(id => document.getElementById(id).classList.add('hidden'));
 
     const actionsDiv = document.getElementById("actions-bar");
     actionsDiv.innerHTML = "";
 
     // 6. Form Disabling Logic
-    const isMainPermitFlow = (p.Status === 'Pending Review' || p.Status === 'Pending Approval');
+    const isMainPending = (p.Status === 'Pending Review' || p.Status === 'Pending Approval');
     const isAuthority = (currentUser.Role === 'Reviewer' || currentUser.Role === 'Approver');
 
     document.querySelectorAll('#pf input, #pf textarea, #pf select').forEach(el => {
         let shouldDisable = true;
-        if (isAuthority && isMainPermitFlow && (el.name.startsWith('H_') || el.name.startsWith('P_') || el.id === 'H_Others_Detail')) shouldDisable = false;
+        if (isAuthority && isMainPending && (el.name.startsWith('H_') || el.name.startsWith('P_') || el.id === 'H_Others_Detail')) shouldDisable = false;
         if (currentUser.Role === 'Approver' && el.id === 'RequireRenewalPhotos') shouldDisable = false;
         if (el.name === 'RevRenAction' || el.name === 'AppRenAction') shouldDisable = false;
 
@@ -1036,9 +1036,17 @@ function handleClosureUI(p, actionsDiv) {
         el.disabled = shouldDisable;
     });
 
-    // 7. Populate Worker Details
-    currentPermitWorkers = p.SelectedWorkers || [];
+    // 7. Populate Worker Details (FIX FOR ISSUE D)
+    // We must try to parse it because it often comes as a string from the DB
+    let wData = p.SelectedWorkers;
+    if (typeof wData === 'string') {
+        try { wData = JSON.parse(wData); } catch (e) { wData = []; }
+    }
+    currentPermitWorkers = Array.isArray(wData) ? wData : [];
+
     const workerTableBody = document.getElementById('worker-display-body');
+    document.getElementById('worker-display-table').classList.toggle('hidden', currentPermitWorkers.length === 0);
+    
     if (workerTableBody) {
         workerTableBody.innerHTML = currentPermitWorkers.map(w => `
             <tr class="border-b">
@@ -1048,9 +1056,12 @@ function handleClosureUI(p, actionsDiv) {
             </tr>`).join('');
     }
 
-    // 8. Handle MAIN PERMIT Approval Buttons
+    renderIOCLTable();
+
+    // 8. Handle MAIN PERMIT Approval Buttons (FIX FOR ISSUE B)
     if (p.Status === 'Pending Review' && currentUser.Role === 'Reviewer') {
         document.getElementById('fs-reviewer-section').classList.remove('hidden');
+        document.getElementById('ppe-section-wrapper').classList.remove('hidden');
         const b1 = document.createElement("button"); b1.className = "bg-red-600 text-white px-6 py-2 rounded font-bold mr-2"; b1.innerText = "Reject Permit"; b1.onclick = () => upd('reject');
         const b2 = document.createElement("button"); b2.className = "bg-green-600 text-white px-6 py-2 rounded font-bold"; b2.innerText = "Review & Forward"; b2.onclick = () => upd('review');
         actionsDiv.append(b1, b2);
@@ -1062,37 +1073,70 @@ function handleClosureUI(p, actionsDiv) {
         actionsDiv.append(b1, b2);
     }
 
-    // 9. RENEWAL HANDLING
+    // 9. RENEWAL HANDLING (FIX FOR ISSUE A & C)
     const rens = JSON.parse(p.RenewalsJSON || "[]");
     const lastRen = rens.length > 0 ? rens[rens.length - 1] : null;
+    const canRenew = (currentUser.Role === 'Requester' && p.Status === 'Active');
 
+    if (rens.length > 0 || canRenew) {
+        document.getElementById('renewals-section').classList.remove('hidden');
+        document.getElementById('renewal-history-body').innerHTML = rens.map(r => {
+            const photoBtn = r.photoUrl ? `<button type="button" class="text-blue-600 underline font-bold" onclick="viewSecurePhoto('${r.photoUrl}')">View</button>` : 'N/A';
+            return `<tr class="border-b text-[10px]">
+                <td class="p-2">${r.valid_from}<br>to ${r.valid_to}</td>
+                <td class="p-2">HC:${r.hc}% Tox:${r.toxic}</td>
+                <td class="p-2">${r.req_name}</td>
+                <td class="p-2">${r.rev_name || '-'}</td>
+                <td class="p-2">${r.app_name || '-'}</td>
+                <td class="p-2">${photoBtn}</td>
+            </tr>`;
+        }).join('');
+
+        if (canRenew && (!lastRen || !lastRen.status.includes('pending'))) {
+            document.getElementById('form-renewal').classList.remove('hidden');
+            document.getElementById('renewal-worker-select').innerHTML = currentPermitWorkers.map(w => 
+                `<label class="flex items-center gap-1 text-xs bg-white p-1 rounded border"><input type="checkbox" value="${escapeHtml(w.Name)}" checked class="ren-worker-cb"> ${escapeHtml(w.Name)}</label>`
+            ).join('');
+            document.getElementById('renewal-photo-wrapper').classList.toggle('hidden', !permitRequirePhoto);
+        } else {
+            document.getElementById('form-renewal').classList.add('hidden');
+        }
+    }
+
+    // 10. RENEWAL ACTION BUTTONS (Turn Based)
     if (lastRen && lastRen.status.includes('pending')) {
+        if (currentUser.Role !== 'Requester') document.getElementById('pending-renewal-display').classList.remove('hidden');
+
         const isRevTurn = (currentUser.Role === 'Reviewer' && p.Status === 'Renewal Pending Review');
         const isAppTurn = (currentUser.Role === 'Approver' && p.Status === 'Renewal Pending Approval');
 
-        if (currentUser.Role !== 'Requester') document.getElementById('pending-renewal-display').classList.remove('hidden');
-
         if (isRevTurn || isAppTurn) {
-            // Check if it's the specific "1st Renewal" flow or standard standalone renewal
+            // FIX C: 1st Renewal (Embedded) vs Subsequent (Standalone)
             if (rens.length === 1 && p.Status.includes('Renewal')) {
                 if (isRevTurn) document.getElementById('rev-renewal-decision').classList.remove('hidden');
                 if (isAppTurn) document.getElementById('app-renewal-decision').classList.remove('hidden');
-                
-                const b = document.createElement("button"); b.className = "bg-purple-600 text-white px-6 py-2 rounded font-bold"; 
-                b.innerText = "Process Renewal Decision"; b.onclick = () => upd('approve_1st_ren');
+                const b = document.createElement("button"); b.className = "bg-purple-600 text-white px-6 py-2 rounded font-bold"; b.innerText = "Process Renewal Decision"; b.onclick = () => upd('approve_1st_ren');
                 actionsDiv.appendChild(b);
             } else {
+                // FIX A: Subsequent Renewals
                 document.getElementById('action-renewal').classList.remove('hidden');
                 document.getElementById('btn-approve-renewal').onclick = () => submitRenewal('approve');
                 document.getElementById('btn-reject-renewal').onclick = () => submitRenewal('reject');
+
+                if (lastRen.oddHourReq === 'Y' && isAppTurn) {
+                    document.getElementById('odd-hour-approval-controls').classList.remove('hidden');
+                    document.getElementById('btn-approve-renewal').disabled = true;
+                    window.toggleRenewalApproveBtn = () => {
+                        document.getElementById('btn-approve-renewal').disabled = !document.getElementById('odd-hour-allow-check').checked;
+                    };
+                }
             }
         }
     }
 
     handleClosureUI(p, actionsDiv);
-    renderIOCLTable();
     attachFileValidators();
-      }
+}
 
         // Logic to check odd hours automatically
         function checkRenewalTime() {
@@ -1195,6 +1239,42 @@ async function submitRenewal(act) {
             } else { alert(res.error); }
         });
 
+        async function initMap() {
+    try {
+        const mapData = await apiCall('/map-data', 'POST', {});
+        const mapEl = document.getElementById('map');
+        if (!mapEl || !window.google) return;
+
+        // Default center (India) or first permit
+        const center = mapData.length > 0 ? { lat: mapData[0].lat, lng: mapData[0].lng } : { lat: 22.5726, lng: 88.3639 }; // Kolkata default
+        
+        mapInstance = new google.maps.Map(mapEl, { zoom: 6, center: center });
+
+        mapData.forEach(p => {
+            if(!p.lat || !p.lng) return;
+            
+            const marker = new google.maps.Marker({
+                position: { lat: p.lat, lng: p.lng },
+                map: mapInstance,
+                title: p.PermitID
+            });
+
+            const infoContent = `
+                <div class="p-2 min-w-[150px]">
+                    <h3 class="font-bold text-orange-600 border-b pb-1 mb-1">${p.PermitID}</h3>
+                    <p class="text-xs"><b>Type:</b> ${p.WorkType}</p>
+                    <p class="text-xs"><b>Loc:</b> ${p.WorkLocationDetail}</p>
+                    <p class="text-xs mb-2"><b>Status:</b> <span class="font-bold text-blue-600">${p.Status}</span></p>
+                    <button onclick="openPermit('${p.PermitID}')" class="w-full bg-blue-600 text-white text-xs py-1 rounded font-bold hover:bg-blue-700">View Details</button>
+                </div>
+            `;
+
+            const infoWindow = new google.maps.InfoWindow({ content: infoContent });
+            marker.addListener('click', () => infoWindow.open(mapInstance, marker));
+        });
+    } catch(e) { console.error("Map Load Error", e); }
+}
+
         async function loadWorkers(context) { 
             const res = await apiCall('/get-workers', 'POST', {role:currentUser.Role, email:currentUser.Email, context:context}); 
             
@@ -1243,60 +1323,63 @@ async function submitRenewal(act) {
         async function workerAction(id, act) { await apiCall('/save-worker', 'POST', {WorkerID:id, Action:act, Role:currentUser.Role, ApproverName: currentUser.Name}); loadWorkers('mgmt'); }
 
 async function upd(act) {
-    // 1. Safety check for Requester initiating closure
     if (act === 'initiate_closure') {
-        const siteCheck = document.getElementById("Site_Restored_Check").checked;
-        if (!siteCheck) {
-            alert("⛔ Error: You must tick the 'I confirm Site is Restored' checkbox before submitting.");
-            return;
-        }
+        if (!document.getElementById("Site_Restored_Check").checked) return alert("Please confirm site restoration.");
     }
 
-    // 2. Logic to fetch supervisor data if authority is acting
     let ioclData = [];
     if (currentUser.Role === 'Reviewer') ioclData = getIOCLData('iocl-sup-container-rev');
     if (currentUser.Role === 'Approver') ioclData = getIOCLData('iocl-sup-container-app');
 
-    // 3. Construct the body
     const body = {
         PermitID: currentPermitId,
         action: act,
         role: currentUser.Role,
         user: currentUser.Name,
         IOCLSupervisors: ioclData,
-        // Standard remarks
         comment: (currentUser.Role === 'Reviewer' ? getVal("Reviewer_Remarks") : getVal("Approver_Remarks")),
         AdditionalPrecautions: getVal("AdditionalPrecautions"),
         RequireRenewalPhotos: document.getElementById('RequireRenewalPhotos').checked ? 'Y' : 'N',
         PdfBgColor: getVal('PdfBgColor'),
         
-        // Handshake-Specific Remarks (Crucial for backend audit trail)
         Closure_Requestor_Remarks: getVal("Closure_Requestor_Remarks"),
         Closure_Reviewer_Remarks: getVal("Closure_Reviewer_Remarks"),
         Closure_Approver_Remarks: getVal("Closure_Approver_Remarks"),
         Site_Restored_Check: document.getElementById("Site_Restored_Check").checked ? 'Y' : 'N'
     };
 
-    // 4. Capture Hazards & PPE state if Reviewer is forwarding initial permit
-    if (currentUser.Role === 'Reviewer' && act === 'review') {
-        document.querySelectorAll('#hazards-grid input[type=checkbox], #ppe-grid input[type=checkbox]').forEach(c => {
-            if (c.name) body[c.name] = c.checked ? 'Y' : 'N';
-        });
-        document.querySelectorAll('.checklist-grid input[type=radio]:checked').forEach(r => {
-            if (r.name && !r.name.includes('Master')) body[r.name] = r.value;
-        });
-        const dec = document.querySelector('input[name="RevRenAction"]:checked');
-        if (dec) body.FirstRenewalAction = dec.value;
+    // CAPTURE 1st RENEWAL RADIO CHOICE
+    if (act === 'review' || act === 'approve' || act === 'approve_1st_ren') {
+        const revDec = document.querySelector('input[name="RevRenAction"]:checked');
+        const appDec = document.querySelector('input[name="AppRenAction"]:checked');
+        
+        if (currentUser.Role === 'Reviewer' && revDec) body.FirstRenewalAction = revDec.value;
+        if (currentUser.Role === 'Approver' && appDec) body.FirstRenewalAction = appDec.value;
+
+        // If explicitly processing 1st renewal via the special button, map act back to standard
+        if (act === 'approve_1st_ren') {
+            if (currentUser.Role === 'Reviewer') {
+                 // Check if user selected "Reject" radio
+                 if (revDec && revDec.value === 'reject') body.action = 'reject'; 
+                 else body.action = 'review';
+            }
+            if (currentUser.Role === 'Approver') {
+                 if (appDec && appDec.value === 'reject') body.action = 'reject';
+                 else body.action = 'approve';
+            }
+        }
     }
 
-    // 5. API Call
-    const res = await apiCall('/update-status', 'POST', body);
-    if (res.success) {
-        alert("Action processed successfully.");
-        switchView('dashboard');
-    } else {
-        alert(res.error || "Update failed");
+    // Capture Checkboxes for Reviewer Update
+    if (currentUser.Role === 'Reviewer') {
+        document.querySelectorAll('#hazards-grid input, #ppe-grid input').forEach(c => {
+             if (c.name) body[c.name] = c.checked ? 'Y' : 'N';
+        });
     }
+
+    const res = await apiCall('/update-status', 'POST', body);
+    if (res.success) { alert("Success"); switchView('dashboard'); } 
+    else { alert(res.error || "Update Failed"); }
 }
 
         function addIOCLRow(containerId, data=null) {
@@ -1429,3 +1512,4 @@ async function upd(act) {
     </script>
 </body>
 </html>
+
