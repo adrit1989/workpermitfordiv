@@ -10,51 +10,165 @@
     <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyADwuqMDCwNSaZKBnWURDCYdqlMxfiWBnU" async></script>
 
     <style nonce="NONCE_PLACEHOLDER">
-        /* GLOBAL SETTINGS */
-        body { background-color: #f3f4f6; font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; overflow: hidden; margin: 0; padding: 0; }
-        
+        /* --- GLOBAL & LAYOUT STYLES --- */
+        body { 
+            background-color: #f3f4f6; 
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; 
+            overflow: hidden; 
+            margin: 0; padding: 0;
+        }
+
         /* UTILITIES */
         .hidden { display: none !important; }
-        .glass { background: white; padding: 1.5rem; border-radius: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); margin-bottom: 1.5rem; border: 1px solid #e5e7eb; }
         
-        /* FORM ELEMENTS */
-        input, select, textarea { width: 100%; border: 1px solid #d1d5db !important; padding: 10px 12px; border-radius: 8px; font-size: 0.9rem; background: #fff; margin-bottom: 0.5rem; }
-        input:focus, select:focus, textarea:focus { border-color: #ea580c !important; outline: none; box-shadow: 0 0 0 2px #fdba74; }
-        input:disabled, select:disabled, textarea:disabled { background-color: #f9fafb; color: #6b7280; border-color: #e5e7eb !important; cursor: not-allowed; }
+        .glass { 
+            background: white; 
+            padding: 1.5rem; 
+            border-radius: 12px; 
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05); 
+            margin-bottom: 1.5rem; 
+            border: 1px solid #e5e7eb; 
+        }
         
+        /* INPUTS */
+        input, select, textarea { 
+            width: 100%; 
+            border: 1px solid #d1d5db !important; 
+            padding: 10px 12px; 
+            border-radius: 8px; 
+            font-size: 0.9rem; 
+            background: #fff; 
+            margin-bottom: 0.5rem; 
+        }
+        
+        input:focus, select:focus, textarea:focus { 
+            border-color: #ea580c !important; 
+            outline: none; 
+            box-shadow: 0 0 0 2px #fdba74; 
+        }
+        
+        input:disabled, select:disabled, textarea:disabled { 
+            background-color: #f9fafb; 
+            color: #6b7280; 
+            border-color: #e5e7eb !important; 
+            cursor: not-allowed;
+        }
+
         /* LOADER */
-        .loader-overlay { position: fixed; inset: 0; background: rgba(255,255,255,0.95); z-index: 10000; display: none; justify-content: center; align-items: center; flex-direction: column; }
-        .spinner { border: 5px solid #f3f3f3; border-top: 5px solid #ea580c; border-radius: 50%; width: 60px; height: 60px; animation: spin 0.8s linear infinite; }
+        .loader-overlay { 
+            position: fixed; 
+            inset: 0; 
+            background: rgba(255,255,255,0.95); 
+            z-index: 10000; 
+            display: none; 
+            justify-content: center; 
+            align-items: center; 
+            flex-direction: column; 
+        }
+        
+        .spinner { 
+            border: 5px solid #f3f3f3; 
+            border-top: 5px solid #ea580c; 
+            border-radius: 50%; 
+            width: 60px; 
+            height: 60px; 
+            animation: spin 0.8s linear infinite; 
+        }
+        
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 
-        /* LAYOUT */
+        /* SANDWICH LAYOUT */
         #main-wrapper { display: flex; height: 100vh; width: 100vw; }
-        .sidebar-left { width: 260px; background: #1e293b; color: white; display: flex; flex-direction: column; flex-shrink: 0; transition: 0.3s; box-shadow: 2px 0 10px rgba(0,0,0,0.1); z-index: 40; }
-        .sidebar-right { width: 320px; background: white; border-left: 1px solid #e5e7eb; overflow-y: auto; flex-shrink: 0; padding: 1.5rem; display: flex; flex-direction: column; gap: 20px; z-index: 30; } 
-        .content-area { flex-grow: 1; overflow-y: auto; padding: 2rem; background: #f8fafc; position: relative; scroll-behavior: smooth; }
+        
+        .sidebar-left { 
+            width: 260px; 
+            background: #1e293b; 
+            color: white; 
+            display: flex; 
+            flex-direction: column; 
+            flex-shrink: 0; 
+            transition: 0.3s; 
+            box-shadow: 2px 0 10px rgba(0,0,0,0.1); 
+            z-index: 40;
+        }
+        
+        .sidebar-right { 
+            width: 320px; 
+            background: white; 
+            border-left: 1px solid #e5e7eb; 
+            overflow-y: auto; 
+            flex-shrink: 0; 
+            padding: 1.5rem; 
+            display: flex; 
+            flex-direction: column; 
+            gap: 20px; 
+            z-index: 30;
+        } 
+
+        .content-area { 
+            flex-grow: 1; 
+            overflow-y: auto; 
+            padding: 2rem; 
+            background: #f8fafc; 
+            position: relative; 
+            scroll-behavior: smooth;
+        }
 
         /* GRID & TABLES */
-        .checklist-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; }
+        .checklist-grid { 
+            display: grid; 
+            grid-template-columns: repeat(3, 1fr); 
+            gap: 1rem; 
+        }
+        
+        /* TABLE STYLES */
         .data-table { width: 100%; border-collapse: collapse; }
-        .data-table th { background: #f1f5f9; color: #475569; font-weight: 700; padding: 0.75rem; text-align: left; font-size: 0.8rem; border-bottom: 2px solid #e2e8f0; }
-        .data-table td { padding: 0.75rem; border-bottom: 1px solid #e2e8f0; font-size: 0.85rem; vertical-align: middle; }
+        .data-table th { 
+            background: #f1f5f9; 
+            color: #475569; 
+            font-weight: 700; 
+            padding: 0.75rem; 
+            text-align: left; 
+            font-size: 0.8rem; 
+            border-bottom: 2px solid #e2e8f0; 
+        }
+        .data-table td { 
+            padding: 0.75rem; 
+            border-bottom: 1px solid #e2e8f0; 
+            font-size: 0.85rem; 
+            vertical-align: middle; 
+        }
         .data-table tr:hover { background: #f8fafc; cursor: pointer; }
+
+        .nav-item { 
+            padding: 1rem 1.25rem; 
+            cursor: pointer; 
+            display: flex; 
+            align-items: center; 
+            gap: 0.75rem; 
+            color: #94a3b8; 
+            transition: all 0.2s; 
+            border-left: 4px solid transparent; 
+            font-weight: 500; 
+        }
+        .nav-item:hover { background: #334155; color: white; }
+        .nav-item.active { background: #0f172a; color: white; border-left-color: #ea580c; }
 
         /* RESPONSIVE */
         @media(max-width: 1280px) { .checklist-grid { grid-template-columns: repeat(2, 1fr); } }
-        @media(max-width: 1024px) { .sidebar-right { display: none; } .checklist-grid { grid-template-columns: 1fr; } }
+        @media(max-width: 1024px) { 
+            .sidebar-right { display: none; } 
+            .checklist-grid { grid-template-columns: 1fr; }
+        }
         @media(max-width: 768px) { 
             .sidebar-left { position: absolute; left: -260px; height: 100%; } 
-            .sidebar-left.open { left: 0; }
+            .sidebar-left.open { left: 0; } 
             .checklist-grid { grid-template-columns: 1fr; }
             .mobile-table th { display: none; }
             .mobile-table td { display: block; width: 100%; border: none; padding: 4px 8px; }
             .mobile-table tr { display: block; margin-bottom: 1rem; border: 1px solid #e5e7eb; border-radius: 8px; padding: 8px; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
         }
-
-        .nav-item { padding: 1rem 1.25rem; cursor: pointer; display: flex; align-items: center; gap: 0.75rem; color: #94a3b8; transition: all 0.2s; border-left: 4px solid transparent; font-weight: 500; }
-        .nav-item:hover { background: #334155; color: white; }
-        .nav-item.active { background: #0f172a; color: white; border-left-color: #ea580c; }
+        
         .marked-deleted { text-decoration: line-through; opacity: 0.6; background-color: #fee2e2; }
     </style>
 </head>
@@ -62,7 +176,7 @@
 
     <div id="loader" class="loader-overlay">
         <div class="spinner"></div>
-        <div class="mt-6 font-bold text-orange-600 animate-pulse text-xl">Processing...</div>
+        <div class="mt-6 font-bold text-orange-600 animate-pulse text-xl">Processing Request...</div>
     </div>
 
     <div id="view-login" class="fixed inset-0 bg-orange-50 z-50 flex items-center justify-center p-4">
@@ -72,26 +186,44 @@
                     <img src="/public/logo.png" class="h-16 object-contain">
                     <img src="/public/rhino.png" class="h-16 object-contain">
                 </div>
-                <h1 class="text-3xl font-extrabold text-orange-600">IndianOil ERPL</h1>
-                <p class="text-gray-500 font-semibold mt-2">Work Permit System</p>
+                <h1 class="text-3xl font-extrabold text-orange-600">IndianOil</h1>
+                <p class="text-gray-500 font-semibold mt-2">Mainline Permit System (ERPL)</p>
             </div>
             <form id="login-form" class="space-y-4">
-                <div class="p-4 bg-gray-50 rounded-lg border space-y-3">
-                    <select id="login-region" class="w-full"><option value="">Loading...</option></select>
-                    <select id="login-unit" class="w-full" disabled><option value="">Select Region</option></select>
-                    <select id="login-loc" class="w-full" disabled><option value="">Select Unit</option></select>
+                <div class="p-4 bg-gray-50 rounded-lg border border-gray-200 space-y-3">
+                    <div>
+                        <label class="text-xs font-bold text-gray-500 uppercase block mb-1">1. Region</label>
+                        <select id="login-region" class="w-full"><option value="">Loading Regions...</option></select>
+                    </div>
+                    <div>
+                        <label class="text-xs font-bold text-gray-500 uppercase block mb-1">2. Unit</label>
+                        <select id="login-unit" class="w-full" disabled><option value="">Select Region First</option></select>
+                    </div>
+                    <div>
+                        <label class="text-xs font-bold text-gray-500 uppercase block mb-1">3. Location</label>
+                        <select id="login-loc" class="w-full" disabled><option value="">Select Unit First</option></select>
+                    </div>
                 </div>
                 <div class="grid grid-cols-2 gap-3">
-                    <select id="login-role">
-                        <option value="Requester">Requester</option>
-                        <option value="Reviewer">Reviewer</option>
-                        <option value="Approver">Approver</option>
-                        <option value="MasterAdmin">MasterAdmin</option>
-                    </select>
-                    <select id="login-user" disabled><option>Select Loc</option></select>
+                    <div>
+                        <label class="text-xs font-bold text-gray-500 uppercase block mb-1">4. Role</label>
+                        <select id="login-role" class="w-full">
+                            <option value="Requester">Requester</option>
+                            <option value="Reviewer">Reviewer</option>
+                            <option value="Approver">Approver</option>
+                            <option value="MasterAdmin">MasterAdmin</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="text-xs font-bold text-gray-500 uppercase block mb-1">5. User</label>
+                        <select id="login-user" class="w-full" disabled><option value="">Select Location & Role</option></select>
+                    </div>
                 </div>
-                <input type="password" id="login-pass" placeholder="Password">
-                <button type="submit" class="w-full bg-orange-600 text-white py-3 rounded-lg font-bold shadow-lg hover:bg-orange-700">Login</button>
+                <div>
+                    <label class="text-xs font-bold text-gray-500 uppercase block mb-1">Password</label>
+                    <input type="password" id="login-pass" class="w-full" placeholder="••••••">
+                </div>
+                <button type="submit" class="w-full bg-orange-600 text-white py-3.5 rounded-lg font-bold text-lg shadow-lg hover:bg-orange-700">Secure Login</button>
             </form>
         </div>
     </div>
@@ -100,11 +232,12 @@
         <div class="glass w-full max-w-sm border-l-8 border-red-600 shadow-2xl">
             <div class="flex justify-between items-center mb-4">
                 <h3 class="font-bold text-2xl text-red-600">Password Update</h3>
-                <button onclick="document.getElementById('view-pwd-change').classList.add('hidden')" class="text-gray-500 font-bold">✕</button>
+                <button onclick="document.getElementById('view-pwd-change').classList.add('hidden')" class="text-gray-500 hover:text-gray-700 font-bold" id="btn-close-pwd-modal">✕</button>
             </div>
+            <p class="text-gray-600 mb-6 text-sm">Please enter a new secure password.</p>
             <input type="password" id="new-pwd-1" placeholder="New Password" class="mb-4">
             <input type="password" id="new-pwd-2" placeholder="Confirm Password" class="mb-6">
-            <button id="btn-force-pwd" class="w-full bg-red-600 text-white py-3 rounded-lg font-bold shadow-md">Update Password</button>
+            <button id="btn-force-pwd" class="w-full bg-red-600 text-white py-3 rounded-lg font-bold hover:bg-red-700 shadow-md">Update Password</button>
         </div>
     </div>
 
@@ -112,21 +245,21 @@
         <div id="main-wrapper">
             
             <div class="sidebar-left" id="sidebar">
-                <div class="p-6 font-bold text-xl text-orange-500 border-b border-gray-700 flex items-center gap-2 bg-gray-900">
+                <div class="p-6 font-bold text-xl text-orange-500 border-b border-gray-700 flex items-center gap-3 bg-gray-900">
                     <img src="/public/rhino.png" class="h-8 w-8 bg-white rounded-full p-1"> <span>ERPL Permit</span>
                 </div>
-                <div id="user-display" class="p-5 text-xs text-gray-300 bg-gray-800 border-b border-gray-700 font-mono"></div>
+                <div id="user-display" class="p-5 text-xs text-gray-300 bg-gray-800 border-b border-gray-700 font-mono leading-relaxed"></div>
                 <nav class="flex-1 overflow-y-auto mt-4 space-y-1 px-3">
                     <div class="nav-item active" onclick="switchView('dashboard')" id="nav-dashboard"><span>📊</span> Dashboard</div>
                     <div class="nav-item hidden" onclick="switchView('new-permit')" id="nav-new-permit"><span>📝</span> Create Permit</div>
                     <div class="nav-item" onclick="switchView('workers')" id="nav-workers"><span>👷</span> Workers</div>
                     <div class="nav-item hidden" id="nav-users" onclick="switchView('users')"><span>👥</span> User Mgmt</div>
                     <div class="nav-item hidden" onclick="switchView('map')" id="nav-map"><span>🗺️</span> Map View</div>
-                    <div class="nav-item hidden" id="nav-admin" onclick="switchView('admin')"><span>🔐</span> Admin</div>
+                    <div class="nav-item hidden" id="nav-admin" onclick="switchView('admin')"><span>🔐</span> Admin Console</div>
                 </nav>
                 <div class="p-4 border-t border-gray-700 bg-gray-900 flex flex-col gap-2">
-                    <div class="nav-item text-blue-400 hover:bg-blue-900/30 rounded justify-center" onclick="showChangePassword()"><span>🔑</span> Change Pwd</div>
-                    <div class="nav-item text-red-400 hover:bg-red-900/30 rounded justify-center" onclick="location.reload()"><span>🚪</span> Sign Out</div>
+                    <div class="nav-item text-blue-400 hover:text-blue-300 hover:bg-blue-900/30 rounded justify-center" onclick="showChangePassword()"><span>🔑</span> Change Pwd</div>
+                    <div class="nav-item text-red-400 hover:text-red-300 hover:bg-red-900/30 rounded justify-center" onclick="logout()"><span>🚪</span> Sign Out</div>
                 </div>
             </div>
 
@@ -136,22 +269,32 @@
                 <div id="view-dashboard">
                     <div class="flex justify-between items-center mb-6">
                         <h2 class="text-2xl font-bold text-gray-800">Dashboard</h2>
-                        <button id="dash-btn-new" onclick="switchView('new-permit')" class="hidden bg-orange-600 text-white px-4 py-2 rounded shadow font-bold">+ New Permit</button>
+                        <button id="dash-btn-new" onclick="switchView('new-permit')" class="hidden bg-orange-600 text-white px-4 py-2 rounded shadow font-bold hover:bg-orange-700">+ New Permit</button>
                     </div>
                     <div id="dashboard-content" class="space-y-6">
-                        <h3 class="font-bold text-gray-500 text-xs uppercase mb-2">Action Required</h3>
-                        <div class="glass overflow-x-auto p-0"><table class="mobile-table w-full text-left text-sm data-table" id="table-pending"><thead class="bg-red-50 text-red-900"><tr><th class="p-3">ID</th><th>Type</th><th>Location</th><th>Status</th><th>Date</th></tr></thead><tbody class="divide-y divide-gray-100"></tbody></table></div>
-                        <h3 class="font-bold text-gray-500 text-xs uppercase mb-2">Active Permits</h3>
-                        <div class="glass overflow-x-auto p-0"><table class="mobile-table w-full text-left text-sm data-table" id="table-active"><thead class="bg-green-50 text-green-900"><tr><th class="p-3">ID</th><th>Type</th><th>Location</th><th>Status</th><th>Date</th></tr></thead><tbody class="divide-y divide-gray-100"></tbody></table></div>
-                        <h3 class="font-bold text-gray-500 text-xs uppercase mb-2">Archive</h3>
-                        <div class="glass overflow-x-auto p-0"><table class="mobile-table w-full text-left text-sm data-table" id="table-other"><thead class="bg-gray-50 text-gray-700"><tr><th class="p-3">ID</th><th>Type</th><th>Location</th><th>Status</th><th>Date</th></tr></thead><tbody class="divide-y divide-gray-100"></tbody></table></div>
+                        <h3 class="font-bold text-gray-500 uppercase text-xs mb-2 tracking-wide">Action Required</h3>
+                        <div class="glass overflow-x-auto p-0"><table class="mobile-table w-full text-left text-sm data-table" id="table-pending"><thead class="bg-red-50 text-red-900 border-b border-red-200"><tr><th class="p-3 w-24">ID</th><th class="p-3 w-24">Type</th><th class="p-3">Location</th><th class="p-3 w-32">Status</th><th class="p-3 w-32">Pending With</th><th class="p-3 w-24">Action</th></tr></thead><tbody class="divide-y divide-gray-100"></tbody></table></div>
+                        
+                        <h3 class="font-bold text-gray-500 uppercase text-xs mb-2 tracking-wide">Active Permits</h3>
+                        <div class="glass overflow-x-auto p-0"><table class="mobile-table w-full text-left text-sm data-table" id="table-active"><thead class="bg-green-50 text-green-900 border-b border-green-200"><tr><th class="p-3 w-24">ID</th><th class="p-3 w-24">Type</th><th class="p-3">Location</th><th class="p-3 w-32">Status</th><th class="p-3 w-32">Pending With</th><th class="p-3 w-24">Action</th></tr></thead><tbody class="divide-y divide-gray-100"></tbody></table></div>
+                        
+                        <h3 class="font-bold text-gray-500 uppercase text-xs mb-2 tracking-wide">Closed / Other</h3>
+                        <div class="glass overflow-x-auto p-0"><table class="mobile-table w-full text-left text-sm data-table" id="table-other"><thead class="bg-gray-50 text-gray-700 border-b border-gray-200"><tr><th class="p-3 w-24">ID</th><th class="p-3 w-24">Type</th><th class="p-3">Location</th><th class="p-3 w-32">Status</th><th class="p-3 w-32">Pending With</th><th class="p-3 w-24">Action</th></tr></thead><tbody class="divide-y divide-gray-100"></tbody></table></div>
                     </div>
                 </div>
 
                 <div id="view-form" class="hidden">
                     <div class="flex justify-between items-center mb-4 sticky top-0 bg-gray-50/95 backdrop-blur z-20 py-2 border-b">
-                        <button onclick="switchView('dashboard')" class="text-blue-600 font-bold">← Back</button>
-                        <div class="text-right"><h2 class="text-xl font-bold text-gray-800" id="permit-title">New</h2><div id="permit-header-display" class="text-xs text-blue-600 font-bold"></div></div>
+                        <button onclick="switchView('dashboard')" class="text-blue-600 font-bold flex items-center gap-1 hover:underline">← Back</button>
+                        <div class="text-right">
+                            <h2 class="text-xl font-bold text-gray-800" id="permit-title">New Permit</h2>
+                            <div id="permit-header-display" class="text-xs text-blue-600 font-bold"></div>
+                        </div>
+                    </div>
+
+                    <div id="permit-worker-audit-display" class="glass border-l-4 border-orange-500 mb-4 hidden">
+                        <h3 class="font-bold border-b pb-2 mb-2 text-orange-800">Deployed Workers & Approval Status</h3>
+                        <div id="assigned-worker-audit" class="overflow-x-auto"></div>
                     </div>
 
                     <form id="pf" class="max-w-7xl mx-auto space-y-4 pb-20">
@@ -159,34 +302,41 @@
                         <input type="hidden" id="Status" name="Status">
                         
                         <div class="glass border-t-4 border-orange-500">
-                            <h3 class="font-bold text-orange-600 border-b pb-2 mb-4">1. Basic Details</h3>
+                            <h3 class="section-title text-orange-600 border-b pb-2 mb-4 font-bold">1. Basic Details</h3>
                             <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-                                <div><label class="text-xs font-bold text-gray-500">Work Type</label><select name="WorkType" id="WorkType"><option>Hot</option><option>Cold</option><option>Confined Space</option><option>Excavation</option></select></div>
-                                <div><label class="text-xs font-bold text-gray-500">Specific Work</label><input name="WorkTypeOther" id="WorkTypeOther"></div>
-                                <div class="md:col-span-2"><label class="text-xs font-bold text-gray-500">GPS</label><div class="flex gap-2"><input name="ExactLocation" id="ExactLocation" class="flex-1"><button type="button" onclick="getGeo()" class="bg-blue-100 text-blue-700 px-3 rounded font-bold">Get</button></div><input type="hidden" id="Latitude" name="Latitude"><input type="hidden" id="Longitude" name="Longitude"></div>
+                                <div><label class="text-xs font-bold text-gray-500 uppercase">Work Type</label><select name="WorkType" id="WorkType"><option>Hot</option><option>Cold</option><option>Confined Space</option><option>Excavation</option></select></div>
+                                <div><label class="text-xs font-bold text-gray-500 uppercase">Specific Work</label><input name="WorkTypeOther" id="WorkTypeOther"></div>
+                                <div class="md:col-span-2">
+                                    <label class="text-xs font-bold text-gray-500 uppercase">Location (GPS)</label>
+                                    <div class="flex gap-2">
+                                        <input name="ExactLocation" id="ExactLocation" class="flex-1" placeholder="Coords">
+                                        <button type="button" id="btn-get-geo" class="bg-blue-100 text-blue-700 px-3 rounded font-bold border border-blue-200">📍 Get GPS</button>
+                                    </div>
+                                    <input type="hidden" id="Latitude" name="Latitude"><input type="hidden" id="Longitude" name="Longitude">
+                                </div>
                                 
-                                <div><label class="text-xs font-bold text-gray-500">Region/Unit/Location</label><input name="LocationUnit" id="LocationUnit" readonly class="bg-gray-100 font-bold"></div>
-                                <div><label class="text-xs font-bold text-gray-500">Location Details</label><input name="WorkLocationDetail"></div>
+                                <div><label class="text-xs font-bold text-gray-500 uppercase">Location Details</label><input name="WorkLocationDetail" id="WorkLocationDetail"></div>
+                                <div><label class="text-xs font-bold text-gray-500 uppercase">Region/Unit/Location</label><input name="LocationUnit" id="LocationUnit" readonly class="bg-gray-100 font-bold"></div>
                                 
-                                <div><label class="text-xs font-bold text-gray-500">Valid From</label><input type="datetime-local" name="ValidFrom" id="ValidFrom" onchange="validateDates()"></div>
-                                <div><label class="text-xs font-bold text-gray-500">Valid To</label><input type="datetime-local" name="ValidTo" id="ValidTo" onchange="validateDates()"></div>
+                                <div><label class="text-xs font-bold text-gray-500 uppercase">Valid From</label><input type="datetime-local" name="ValidFrom" id="ValidFrom" onchange="validateDates()"></div>
+                                <div><label class="text-xs font-bold text-gray-500 uppercase">Valid To</label><input type="datetime-local" name="ValidTo" id="ValidTo" onchange="validateDates()"></div>
                                 
-                                <div><label class="text-xs font-bold text-gray-500">Requester</label><input name="RequesterName" id="RequesterName"></div>
-                                <div><label class="text-xs font-bold text-gray-500">Vendor</label><input name="Vendor" id="Vendor" readonly class="bg-gray-100"></div>
+                                <div><label class="text-xs font-bold text-gray-500 uppercase">Vendor</label><input name="Vendor" id="Vendor" readonly class="bg-gray-100"></div>
+                                <div><label class="text-xs font-bold text-gray-500 uppercase">Requester</label><input name="RequesterName" id="RequesterName"></div>
                                 
-                                <div class="md:col-span-2"><label class="text-xs font-bold text-gray-500">Issued To Dept</label><input name="IssuedToDept"></div>
-                                <div><label class="text-xs font-bold text-gray-500">Security Guard</label><input name="SecurityGuard"></div>
-                                <div><label class="text-xs font-bold text-gray-500">Emergency Contact</label><input name="EmergencyContact"></div>
-                                <div><label class="text-xs font-bold text-gray-500">Fire Stn/Hosp</label><input name="FireStation"></div>
-                                <div class="md:col-span-4"><label class="text-xs font-bold text-gray-500">Description</label><textarea name="Desc" rows="2"></textarea></div>
-                                <div class="md:col-span-2"><label class="text-xs font-bold text-gray-500">Assign Reviewer</label><select name="ReviewerEmail" id="ReviewerEmail"></select></div>
-                                <div class="md:col-span-2"><label class="text-xs font-bold text-gray-500">Assign Approver</label><select name="ApproverEmail" id="ApproverEmail"></select></div>
+                                <div class="md:col-span-2"><label class="text-xs font-bold text-gray-500 uppercase">Issued To Dept</label><input name="IssuedToDept" id="IssuedToDept"></div>
+                                <div><label class="text-xs font-bold text-gray-500 uppercase">Security Guard</label><input name="SecurityGuard" id="SecurityGuard"></div>
+                                <div><label class="text-xs font-bold text-gray-500 uppercase">Emergency Contact</label><input name="EmergencyContact" id="EmergencyContact"></div>
+                                <div><label class="text-xs font-bold text-gray-500 uppercase">Fire Stn/Hosp</label><input name="FireStation" id="FireStation"></div>
+                                <div class="md:col-span-4"><label class="text-xs font-bold text-gray-500 uppercase">Description</label><textarea name="Desc" id="Desc" rows="2"></textarea></div>
+                                <div class="md:col-span-2"><label class="text-xs font-bold text-gray-500 uppercase">Assign Reviewer</label><select name="ReviewerEmail" id="ReviewerEmail"></select></div>
+                                <div class="md:col-span-2"><label class="text-xs font-bold text-gray-500 uppercase">Assign Approver</label><select name="ApproverEmail" id="ApproverEmail"></select></div>
                             </div>
                         </div>
 
-                        <div id="init-renewal-wrapper" class="glass border-l-4 border-purple-500 bg-purple-50">
+                        <div id="init-renewal-wrapper" class="glass border-l-4 border-purple-500 bg-purple-50 hidden">
                             <label class="flex items-center gap-2 font-bold cursor-pointer text-purple-800">
-                                <input type="checkbox" name="InitRen" value="Y" id="chk-init-renewal" onchange="toggleInitRenewal()"> Request 1st Renewal with Permit
+                                <input type="checkbox" name="InitRen" value="Y" id="chk-init-renewal" class="w-5 h-5" onchange="toggleInitRenewal()"> Request 1st Renewal with Permit
                             </label>
                             <div id="div-init-renewal" class="hidden mt-3 p-3 bg-white rounded border border-purple-200">
                                 <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-2">
@@ -205,45 +355,40 @@
                         <div id="checklists-container" class="space-y-4"></div>
 
                         <div class="glass border-t-4 border-blue-500">
-                            <h3 class="font-bold text-blue-600 border-b pb-2 mb-4">3. Workers</h3>
-                            <div id="worker-select-area" class="grid grid-cols-1 md:grid-cols-3 gap-3"></div>
-                            <div id="worker-display-table" class="hidden overflow-x-auto mt-2"><table class="mobile-table w-full text-xs text-left"><thead class="bg-gray-100"><tr><th>Name</th><th>ID</th><th>Contact</th></tr></thead><tbody id="worker-display-body"></tbody></table></div>
+                            <h3 class="section-title text-blue-600 border-b pb-2 mb-4 font-bold">3. Workers</h3>
+                            <div id="worker-select-area" class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-2"></div>
+                            <div id="worker-display-table" class="hidden overflow-x-auto mt-2">
+                                <table class="mobile-table w-full text-xs text-left"><thead class="bg-gray-100"><tr><th>Name</th><th>ID Type/No</th><th>Contact</th></tr></thead><tbody id="worker-display-body"></tbody></table>
+                            </div>
                         </div>
 
                         <div class="glass border-t-4 border-red-500">
-                            <h3 class="font-bold text-red-600 border-b pb-2 mb-4">4. Hazards & PPE</h3>
+                            <h3 class="section-title text-red-600 border-b pb-2 mb-4 font-bold">4. Hazards & PPE</h3>
                             <div id="hazards-grid" class="grid grid-cols-2 md:grid-cols-4 gap-2 mb-4"></div>
-                            <div id="other-hazard-div" class="hidden mb-2"><input name="H_Others_Detail" placeholder="Specify other..." class="w-full"></div>
+                            <div id="other-hazard-div" class="hidden mb-2"><input id="H_Others_Detail" name="H_Others_Detail" placeholder="Specify other hazards..." class="w-full"></div>
                             <div id="ppe-section-wrapper" class="hidden">
-                                <h4 class="font-bold text-gray-500 text-xs uppercase mb-2">PPE Required (Reviewer)</h4>
+                                <h4 class="font-bold text-gray-500 text-xs uppercase mb-2">PPE Required (Reviewer Only)</h4>
                                 <div id="ppe-grid" class="grid grid-cols-2 md:grid-cols-4 gap-2"></div>
                             </div>
                         </div>
 
-                        <div id="gsr-container" class="glass border-l-4 border-orange-600 bg-orange-50 hidden">
-                            <label class="flex items-start gap-3 p-2 cursor-pointer">
-                                <input type="checkbox" id="gsr-check" class="mt-1 w-6 h-6 text-orange-600">
-                                <span class="text-sm font-bold text-gray-800 text-justify">I have read, understood and accepted all terms, conditions and non-compliance penalty of IOCL Golden Safety Rules.</span>
-                            </label>
-                        </div>
-
                         <div id="fs-reviewer-section" class="glass hidden border-l-4 border-yellow-500">
-                            <h3 class="font-bold text-yellow-700 border-b pb-2 mb-4">4. Reviewer</h3>
+                            <h3 class="section-title text-yellow-700 border-b pb-2 mb-4 font-bold">4. Reviewer</h3>
                             <div class="mb-4 hidden" id="iocl-reviewer-wrapper">
                                 <label class="font-bold text-sm text-gray-700">Authorized IOCL Supervisors</label>
                                 <div id="iocl-sup-container-rev" class="space-y-2 mt-2"></div>
-                                <button type="button" id="btn-add-rev-sup" class="mt-2 text-xs bg-gray-200 px-2 py-1 rounded font-bold">+ Add Supervisor</button>
+                                <button type="button" id="btn-add-rev-sup" class="mt-2 text-xs bg-gray-200 px-2 py-1 rounded hover:bg-gray-300 font-bold">+ Add Supervisor</button>
                             </div>
                             <textarea name="Reviewer_Remarks" id="Reviewer_Remarks" placeholder="Reviewer Remarks" class="w-full"></textarea>
                             <textarea name="AdditionalPrecautions" id="AdditionalPrecautions" placeholder="Additional Precautions" class="w-full mt-2"></textarea>
                         </div>
 
                         <div id="fs-approver-section" class="glass hidden border-l-4 border-green-500">
-                            <h3 class="font-bold text-green-700 border-b pb-2 mb-4">5. Approval</h3>
+                            <h3 class="section-title text-green-700 border-b pb-2 mb-4 font-bold">5. Approval</h3>
                             <div class="mb-4 hidden" id="iocl-approver-wrapper">
                                 <label class="font-bold text-sm text-gray-700">Authorized IOCL Supervisors</label>
                                 <div id="iocl-sup-container-app" class="space-y-2 mt-2"></div>
-                                <button type="button" id="btn-add-app-sup" class="mt-2 text-xs bg-gray-200 px-2 py-1 rounded font-bold">+ Add Supervisor</button>
+                                <button type="button" id="btn-add-app-sup" class="mt-2 text-xs bg-gray-200 px-2 py-1 rounded hover:bg-gray-300 font-bold">+ Add Supervisor</button>
                             </div>
                             <textarea name="Approver_Remarks" id="Approver_Remarks" placeholder="Approver Remarks" class="w-full mb-2"></textarea>
                             <label class="flex items-center gap-2 mb-2 p-2 bg-green-50 border border-green-200 rounded cursor-pointer">
@@ -254,12 +399,12 @@
                         </div>
 
                         <div id="iocl-sup-display-section" class="glass hidden">
-                            <h3 class="font-bold border-b pb-2 mb-2">Authorized Supervisors (IOCL)</h3>
+                            <h3 class="section-title border-b pb-2 mb-2 font-bold">Authorized Supervisors (IOCL)</h3>
                             <table class="mobile-table w-full text-xs text-left" id="table-iocl-display"><thead><tr><th>Name</th><th>Designation</th><th>Contact</th><th>Audit Trail</th></tr></thead><tbody></tbody></table>
                         </div>
 
                         <div id="renewals-section" class="glass hidden border-l-4 border-purple-500 bg-purple-50/20">
-                            <h3 class="font-bold text-purple-700 border-b pb-2 mb-4">📅 Renewal History</h3>
+                            <h3 class="section-title text-purple-700 border-b pb-2 mb-4 font-bold">📅 Renewal History</h3>
                             <div id="first-renewal-decision" class="hidden mb-4 p-4 border-2 border-purple-500 bg-purple-50 rounded-lg animate-pulse">
                                 <h4 class="font-bold text-purple-900 mb-2">⚡ 1st Renewal Request Action</h4>
                                 <div class="flex gap-4">
@@ -279,10 +424,10 @@
                                     <input id="RenewalOxygen" placeholder="O2 %">
                                 </div>
                                 <input id="RenewalPrec" placeholder="Specific Precautions for this shift" class="mb-2">
-                                <div class="mb-2 bg-indigo-50 p-2 rounded border border-indigo-200">
+                                <div id="odd-hour-agreement" class="hidden mb-2 p-2 bg-indigo-50 border border-indigo-200 rounded">
                                     <label class="flex items-start gap-2 cursor-pointer">
                                         <input type="checkbox" id="OddHourSafetyCheck" class="mt-1 w-5 h-5 accent-indigo-600">
-                                        <span class="text-xs font-bold text-indigo-900">I agree to ensure proper lighting/safety for odd-hour work.</span>
+                                        <span class="text-xs font-bold text-indigo-900">I agree to ensure proper lighting and safety for odd-hour work.</span>
                                     </label>
                                 </div>
                                 <div class="mb-2">
@@ -293,9 +438,8 @@
                                     <label class="block text-xs font-bold text-red-700 uppercase mb-1">📸 Mandatory Site Photo</label>
                                     <input type="file" id="ren-cam-sub" accept="image/*" class="w-full text-sm bg-white border p-1 rounded">
                                 </div>
-                                <button type="button" onclick="submitRenewal('pending_review')" class="w-full bg-purple-600 text-white py-2 rounded font-bold shadow">Submit Request</button>
+                                <button type="button" onclick="submitRenewal('pending_review')" class="w-full bg-purple-600 text-white py-2 rounded font-bold shadow hover:bg-purple-700">Submit Request</button>
                             </div>
-
                             <div id="action-renewal" class="hidden p-4 bg-yellow-50 mt-2 rounded border border-yellow-200">
                                 <textarea id="RenewalRemark" placeholder="Rejection Reason / Remarks" class="w-full mb-2"></textarea>
                                 <div class="grid grid-cols-2 gap-2">
@@ -306,7 +450,7 @@
                         </div>
 
                         <div id="closure-section" class="glass hidden border-l-4 border-gray-600">
-                            <h3 class="font-bold text-gray-700 border-b pb-2 mb-4">Closure</h3>
+                            <h3 class="section-title font-bold text-gray-700 border-b pb-2 mb-4">Closure</h3>
                             <label class="flex items-center gap-2 mb-4 font-bold text-red-600 p-3 bg-red-50 rounded border border-red-100 cursor-pointer">
                                 <input type="checkbox" id="Site_Restored_Check" name="Site_Restored_Check" class="w-5 h-5 accent-red-600"> I confirm Site is Restored.
                             </label>
@@ -328,7 +472,7 @@
                         </div>
 
                         <div class="glass" id="section-e">
-                            <h3 class="font-bold text-gray-600 border-b pb-2 mb-4">E. References</h3>
+                            <h3 class="section-title border-b pb-2 mb-4 font-bold text-gray-600">E. References</h3>
                             <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
                                 <input name="SopNo" id="SopNo" placeholder="SOP/SWP/SMP No"><input name="JsaNo" id="JsaNo" placeholder="JSA No">
                                 <input name="IoclEquip" id="IoclEquip" placeholder="IOCL Equip"><input name="ContEquip" id="ContEquip" placeholder="Contractor Equip">
@@ -336,8 +480,15 @@
                             </div>
                         </div>
 
+                        <div id="gsr-container" class="glass border-l-4 border-orange-600 bg-orange-50 hidden">
+                            <label class="flex items-start gap-3 p-2 cursor-pointer">
+                                <input type="checkbox" id="gsr-check" name="GSR_Check_Box" class="mt-1 w-6 h-6 text-orange-600 rounded focus:ring-orange-500 shrink-0">
+                                <span class="text-sm font-bold text-gray-800 text-justify">I have read, understood and accepted all terms, conditions and non-compliance penalty of IOCL Golden Safety Rules.</span>
+                            </label>
+                        </div>
+                        
                         <div id="signature-history" class="glass hidden">
-                            <h3 class="font-bold mb-2">History</h3>
+                            <h3 class="section-title font-bold mb-2">History</h3>
                             <div class="grid grid-cols-1 gap-2 text-xs">
                                 <div class="border p-3 rounded bg-gray-50 flex justify-between"><strong>Approval:</strong> <span id="sig-app" class="text-right"></span></div>
                                 <div class="border p-3 rounded bg-gray-50 flex justify-between"><strong>Renewal:</strong> <span id="sig-ren" class="text-right"></span></div>
@@ -345,14 +496,14 @@
                             </div>
                         </div>
 
-                        <div id="actions-bar" class="flex flex-col md:flex-row justify-end gap-3 bg-white p-4 shadow sticky bottom-0 z-40 rounded-t-lg"></div>
+                        <div id="actions-bar" class="flex flex-col md:flex-row justify-end gap-3 bg-white p-4 shadow-[0_-5px_15px_rgba(0,0,0,0.1)] border-t sticky bottom-0 z-40 rounded-t-lg"></div>
                     </form>
                 </div>
 
                 <div id="view-workers" class="hidden">
                     <div class="flex justify-between items-center mb-6">
                         <h2 class="text-2xl font-bold text-gray-800">Worker Management</h2>
-                        <button onclick="openWorkerModal()" class="bg-blue-600 text-white px-4 py-2 rounded shadow font-bold">+ Add Worker</button>
+                        <button onclick="openWorkerModal()" class="bg-blue-600 text-white px-4 py-2 rounded shadow font-bold hover:bg-blue-700 transition">+ Add Worker</button>
                     </div>
                     <div class="glass overflow-x-auto p-0"><table class="w-full text-sm text-left data-table" id="table-workers"><thead class="bg-gray-100"><tr><th>Name</th><th>ID</th><th>Role</th><th>Status</th><th>Approval Info</th><th>Action</th></tr></thead><tbody class="divide-y"></tbody></table></div>
                 </div>
@@ -360,7 +511,7 @@
                 <div id="view-users" class="hidden">
                     <div class="flex justify-between items-center mb-6">
                         <h2 class="text-2xl font-bold text-gray-800">User Management</h2>
-                        <button onclick="document.getElementById('view-add-user').classList.remove('hidden')" class="bg-purple-600 text-white px-4 py-2 rounded shadow font-bold">+ Add User</button>
+                        <button onclick="document.getElementById('view-add-user').classList.remove('hidden')" class="bg-purple-600 text-white px-4 py-2 rounded shadow font-bold hover:bg-purple-700 transition">+ Add User</button>
                     </div>
                     <div class="glass overflow-x-auto p-0"><table class="w-full text-sm text-left data-table" id="table-manage-users"><thead class="bg-gray-100"><tr><th>Name</th><th>Email</th><th>Role</th><th>Location</th><th>Action</th></tr></thead><tbody class="divide-y"></tbody></table></div>
                 </div>
@@ -371,19 +522,19 @@
                         <div class="glass border-t-4 border-green-600">
                              <h3 class="font-bold text-lg mb-2 text-green-800">👤 Add Single User</h3>
                              <p class="text-xs text-gray-500 mb-4 bg-green-50 p-2 rounded">Create a single user manually.</p>
-                             <button onclick="document.getElementById('view-add-user').classList.remove('hidden')" class="w-full bg-green-600 text-white py-2 rounded font-bold hover:bg-green-700">+ Create User</button>
+                             <button onclick="document.getElementById('view-add-user').classList.remove('hidden')" class="w-full bg-green-600 text-white py-2 rounded font-bold hover:bg-green-700 transition">+ Create User</button>
                         </div>
                         <div class="glass border-t-4 border-purple-600">
                             <h3 class="font-bold text-lg mb-2 text-purple-800">📂 Bulk User Upload</h3>
                             <p class="text-xs text-gray-500 mb-4 bg-purple-50 p-2 rounded">Upload Excel (.xlsx).</p>
                             <input type="file" id="bulk-excel" accept=".xlsx" class="mb-4 w-full">
-                            <button onclick="uploadBulkUsers()" class="w-full bg-purple-600 text-white py-2 rounded font-bold">Upload & Map</button>
+                            <button onclick="uploadBulkUsers()" class="w-full bg-purple-600 text-white py-2 rounded font-bold hover:bg-purple-700 transition">Upload & Map</button>
                         </div>
                         <div class="glass border-t-4 border-red-600">
                             <h3 class="font-bold text-lg mb-2 text-red-800">🔑 Global Reset Password</h3>
                             <input id="reset-email" placeholder="User Email" class="mb-2 w-full">
                             <input id="reset-temp-pass" placeholder="Temp Password" class="mb-2 w-full">
-                            <button onclick="resetUserPassword()" class="w-full bg-red-600 text-white py-2 rounded font-bold">Reset Password</button>
+                            <button onclick="resetUserPassword()" class="w-full bg-red-600 text-white py-2 rounded font-bold hover:bg-red-700 transition">Reset Password</button>
                         </div>
                     </div>
                 </div>
@@ -396,24 +547,27 @@
 
             <div class="sidebar-right">
                 <div class="mb-6" id="charts-container">
-                    <h3 class="text-xs font-bold text-gray-400 uppercase mb-2">Live Stats</h3>
+                    <h3 class="text-xs font-bold text-gray-400 uppercase mb-2 tracking-wider">Live Stats</h3>
                     <div class="h-40"><canvas id="chartStatus"></canvas></div>
                 </div>
-                <div id="validity-box" class="hidden mb-6 p-4 bg-green-50 border border-green-200 rounded-lg text-center">
-                    <div class="text-xs font-bold text-green-800 uppercase">Permit Validity</div>
-                    <div id="val-time-from" class="text-sm font-mono font-bold"></div>
+                <div id="validity-box" class="hidden mb-6 p-4 bg-green-50 border border-green-200 rounded-lg shadow-sm text-center">
+                    <div class="text-xs font-bold text-green-800 uppercase mb-1">Permit Validity</div>
+                    <div id="val-time-from" class="text-sm font-mono text-gray-700 font-bold"></div>
                     <div class="text-center text-gray-400 text-xs my-1">⬇</div>
-                    <div id="val-time-to" class="text-sm font-mono font-bold"></div>
+                    <div id="val-time-to" class="text-sm font-mono text-gray-700 font-bold"></div>
                     <div id="val-status" class="mt-2 inline-block px-3 py-1 rounded-full bg-green-200 text-green-800 text-xs font-bold">ACTIVE</div>
                 </div>
-                <div><h3 class="text-xs font-bold text-gray-400 uppercase mb-2">Selection Info</h3><div id="right-panel-info" class="text-sm text-gray-500 italic bg-gray-50 p-3 rounded border">Select permit to view details.</div></div>
+                <div>
+                    <h3 class="text-xs font-bold text-gray-400 uppercase mb-2 tracking-wider">Selection Info</h3>
+                    <div id="right-panel-info" class="text-sm text-gray-500 italic bg-gray-50 p-3 rounded border">Select permit to view details.</div>
+                </div>
             </div>
         </div>
     </div>
 
     <div id="modal-worker" class="fixed inset-0 bg-black/60 z-50 hidden flex items-center justify-center p-4 backdrop-blur-sm">
         <div class="glass w-full max-w-lg relative animate-scale-up">
-            <button onclick="document.getElementById('modal-worker').classList.add('hidden')" class="absolute top-4 right-4 text-xl font-bold text-gray-400">✕</button>
+            <button onclick="document.getElementById('modal-worker').classList.add('hidden')" class="absolute top-4 right-4 text-xl font-bold text-gray-400 hover:text-gray-600">✕</button>
             <h3 class="font-bold text-lg mb-4">Worker Details</h3>
             <form id="worker-form-real" class="grid grid-cols-2 gap-3">
                 <input id="w-id" type="hidden">
@@ -426,21 +580,21 @@
                 <select id="w-id-type"><option value="Voter Card">Voter Card</option><option value="PAN Card">PAN Card</option><option value="Other">Other</option></select>
                 <input id="w-id-type-other" placeholder="Specify ID" class="hidden col-span-2 bg-yellow-50">
                 <input id="w-idcard" placeholder="ID Number" class="col-span-2">
-                <button type="submit" class="col-span-2 bg-blue-600 text-white py-3 rounded-lg font-bold shadow">Save Worker</button>
+                <button type="submit" class="col-span-2 bg-blue-600 text-white py-3 rounded-lg font-bold hover:bg-blue-700 shadow">Save Worker</button>
             </form>
         </div>
     </div>
 
     <div id="view-add-user" class="fixed inset-0 bg-black/60 z-50 hidden flex items-center justify-center p-4 backdrop-blur-sm">
         <div class="glass w-full max-w-sm relative animate-scale-up">
-            <button onclick="document.getElementById('view-add-user').classList.add('hidden')" class="absolute top-4 right-4 text-xl font-bold text-gray-400">✕</button>
+            <button onclick="document.getElementById('view-add-user').classList.add('hidden')" class="absolute top-4 right-4 text-xl font-bold text-gray-400 hover:text-gray-600">✕</button>
             <h3 class="font-bold mb-4 text-lg">Add New User</h3>
             <form id="adduser-form" class="space-y-3">
                 <input id="new-user-name" placeholder="Full Name" required>
                 <input id="new-user-email" placeholder="Email Address" required>
                 <select id="new-user-role"><option>Requester</option><option>Reviewer</option><option>Approver</option></select>
                 <input id="new-user-pass" type="password" placeholder="Initial Password" required>
-                <button type="submit" class="w-full bg-purple-600 text-white py-3 rounded-lg font-bold shadow">Create User</button>
+                <button type="submit" class="w-full bg-purple-600 text-white py-3 rounded-lg font-bold shadow hover:bg-purple-700">Create User</button>
             </form>
         </div>
     </div>
@@ -472,11 +626,10 @@
             finally { document.getElementById('loader').style.display = 'none'; }
         }
 
-        function safeSet(id, val) { const el = document.getElementById(id); if(el) el.value = val; }
         function escapeHtml(text) { if (!text) return text; return String(text).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
         function getVal(id) { const el = document.getElementById(id); return el ? el.value : ''; }
+        function safeSet(id, val) { const el = document.getElementById(id); if(el) el.value = val; }
 
-        // --- INIT & LOGIN ---
         async function initLogin() {
             const regions = await apiCall('/get-hierarchy', 'POST', {});
             document.getElementById('login-region').innerHTML = `<option value="">Select Region</option>` + regions.map(r=>`<option>${r}</option>`).join('');
@@ -553,7 +706,6 @@
             if(viewName === 'users') loadManageUsers();
         }
 
-        // --- DASHBOARD ---
         async function loadDashboard() {
             const res = await apiCall('/dashboard', 'POST', {role: currentUser.Role, email: currentUser.Email});
             const buildTable = (data, id, col) => {
@@ -577,23 +729,19 @@
             }
         }
 
-        // --- PERMIT LOGIC ---
         function showNewPermit() {
             document.getElementById("pf").reset();
             currentPermitId = null;
             document.querySelectorAll('#pf input, #pf select, #pf textarea').forEach(e => e.disabled = false);
-            
-            // Fix A: Enable Requestor Editing
-            safeSet("RequesterName", currentUser.Name);
-            // Fix B: Auto-fill Location
-            safeSet("LocationUnit", `${currentUser.Region}/${currentUser.Unit}/${currentUser.Location}`);
-            safeSet("Vendor", currentUser.Name);
-            document.getElementById("Vendor").readOnly = true;
-
-            // Fix C & D: Show Renewal & GSR
             document.getElementById("init-renewal-wrapper").classList.remove('hidden');
             document.getElementById("gsr-container").classList.remove('hidden');
             document.getElementById("ppe-section-wrapper").classList.add('hidden');
+
+            safeSet("RequesterName", currentUser.Name);
+            safeSet("Vendor", currentUser.Name);
+            document.getElementById("Vendor").readOnly = true;
+            
+            safeSet("LocationUnit", `${currentUser.Region}/${currentUser.Unit}/${currentUser.Location}`);
 
             const actionsDiv = document.getElementById("actions-bar"); 
             actionsDiv.innerHTML = `<button type="button" onclick="savePermit()" class="bg-blue-600 text-white px-6 py-3 rounded-lg font-bold shadow hover:bg-blue-700">Submit Application</button>`;
@@ -613,7 +761,6 @@
             Object.keys(CL_DATA).forEach(sec => {
                 let itemsHtml = CL_DATA[sec].map((item, i) => {
                     let extra = `<input class="w-full text-xs border-b mt-1" placeholder="Remarks" name="${sec}_${i}_Rem">`;
-                    // Fix C: Gas Test Inputs
                     if (sec === 'A' && i === 11) {
                          extra = `<div class="grid grid-cols-3 gap-2 mt-2">
                              <input name="GP_Q12_HC" placeholder="HC % LEL" onchange="autoFillRenGas()">
@@ -621,24 +768,23 @@
                              <input name="GP_Q12_Oxygen" placeholder="O2 %" onchange="autoFillRenGas()">
                          </div>`;
                     }
-                    return `<div class="p-3 border rounded text-xs"><p class="mb-2 font-bold">${item}</p>
+                    return `<div class="p-3 border rounded-lg bg-gray-50 text-xs hover:shadow-md transition"><p class="mb-2 font-semibold text-gray-700 min-h-[30px]">${item}</p>
                         <div class="flex gap-2 justify-center">
-                            <label><input type="radio" name="${sec}_${i}" value="Y" checked> Y</label>
-                            <label><input type="radio" name="${sec}_${i}" value="N"> N</label>
-                            <label><input type="radio" name="${sec}_${i}" value="NA"> NA</label>
+                            <label class="cursor-pointer flex items-center gap-1"><input type="radio" name="${sec}_${i}" value="Y" checked class="accent-green-600"> Y</label>
+                            <label class="cursor-pointer flex items-center gap-1"><input type="radio" name="${sec}_${i}" value="N" class="accent-red-600"> N</label>
+                            <label class="cursor-pointer flex items-center gap-1"><input type="radio" name="${sec}_${i}" value="NA" class="accent-gray-600"> NA</label>
                         </div>${extra}</div>`;
                 }).join('');
-                // Fix B: Common Toggle
-                container.innerHTML += `<div class="glass"><h4 class="font-bold border-b mb-2">Section ${sec} <span class="text-xs float-right"><label><input type="radio" name="M_${sec}" onchange="toggleAll('${sec}','Y')"> All Y</label> <label><input type="radio" name="M_${sec}" onchange="toggleAll('${sec}','N')"> All N</label></span></h4><div class="checklist-grid">${itemsHtml}</div></div>`;
+                container.innerHTML += `<div class="glass border-t-4 border-gray-400"><div class="flex justify-between items-center border-b pb-2 mb-4 bg-gray-50 p-2 rounded"><h4 class="font-bold text-gray-700">Section ${sec} Checks</h4><div class="flex gap-2 text-xs"><label class="cursor-pointer font-bold"><input type="radio" name="Master_${sec}" value="Y" class="sec-toggle" data-sec="${sec}"> All Yes</label><label class="cursor-pointer font-bold"><input type="radio" name="Master_${sec}" value="N" class="sec-toggle" data-sec="${sec}"> All No</label><label class="cursor-pointer font-bold"><input type="radio" name="Master_${sec}" value="NA" class="sec-toggle" data-sec="${sec}"> All NA</label></div></div><div class="checklist-grid">${itemsHtml}</div></div>`;
+            });
+            document.querySelectorAll('.sec-toggle').forEach(el => {
+                el.addEventListener('change', (e) => {
+                    const sec = e.target.dataset.sec; const val = e.target.value;
+                    document.querySelectorAll(`input[name^="${sec}_"]`).forEach(rb => { if(rb.value === val) rb.checked = true; });
+                });
             });
         }
-        function toggleAll(sec, val) { document.querySelectorAll(`input[name^="${sec}_"][value="${val}"]`).forEach(cb => cb.checked = true); }
-
-        function renderHazards() {
-            document.getElementById('hazards-grid').innerHTML = HAZARDS.map(h => `<label class="flex gap-2 border p-3 rounded bg-gray-50"><input type="checkbox" name="H_${h.replace(/ /g,'')}" value="Y"> ${h}</label>`).join('');
-            document.getElementById('ppe-grid').innerHTML = PPE.map(p => `<label class="flex gap-2 border p-3 rounded bg-gray-50"><input type="checkbox" name="P_${p.replace(/ /g,'')}" value="Y"> ${p}</label>`).join('');
-        }
-
+        
         window.autoFillRenGas = function() {
             if(document.getElementById('chk-init-renewal').checked) {
                 safeSet('InitRenHC', getVal('GP_Q12_HC'));
@@ -651,7 +797,6 @@
             autoFillRenGas();
         }
 
-        // Fix E: Date Validation
         window.validateDates = function() {
             const f = new Date(document.getElementById('ValidFrom').value);
             const t = new Date(document.getElementById('ValidTo').value);
@@ -662,12 +807,17 @@
             }
         }
 
+        function renderHazards() {
+            document.getElementById('hazards-grid').innerHTML = HAZARDS.map(h => `<label class="flex items-center gap-2 p-3 border rounded-lg bg-gray-50 text-xs cursor-pointer hover:bg-orange-100 transition shadow-sm font-bold text-gray-700"><input type="checkbox" name="H_${h.replace(/ /g,'')}" value="Y"> ${h}</label>`).join('');
+            document.getElementById('ppe-grid').innerHTML = PPE.map(p => `<label class="flex items-center gap-2 p-3 border rounded-lg bg-gray-50 text-xs cursor-pointer hover:bg-blue-100 transition shadow-sm font-bold text-gray-700"><input type="checkbox" name="P_${p.replace(/ /g,'')}" value="Y"> ${p}</label>`).join('');
+            document.getElementById('w-id-type').addEventListener('change', (e) => document.getElementById('w-id-type-other').classList.toggle('hidden', e.target.value !== 'Other'));
+        }
+
         async function openPermit(id) {
             const p = await apiCall('/permit-data', 'POST', {permitId:id});
             currentPermitId = id; 
             document.getElementById('view-dashboard').classList.add('hidden'); document.getElementById('view-form').classList.remove('hidden');
             document.getElementById('permit-title').innerText = id;
-            
             document.getElementById('ppe-section-wrapper').classList.toggle('hidden', currentUser.Role === 'Requester');
             document.getElementById('val-status').innerText = p.Status;
             document.getElementById('val-status').className = `mt-2 inline-block px-3 py-1 rounded-full text-xs font-bold ${p.Status==='Active'?'bg-green-100 text-green-800':'bg-gray-100 text-gray-800'}`;
@@ -676,7 +826,6 @@
                 if(e.type === 'checkbox') e.checked = (p[e.name] === 'Y'); else e.value = p[e.name] || ''; e.disabled = true;
             });
             
-            // Fix F: Renewal Table Visibility
             const rens = JSON.parse(p.RenewalsJSON || "[]");
             document.getElementById('renewals-section').classList.remove('hidden');
             document.querySelector('#table-renewals tbody').innerHTML = rens.map(r => `<tr class="border-b"><td class="text-xs">${r.valid_from}<br>${r.valid_to}</td><td>${r.hc}/${r.toxic}/${r.oxygen}</td><td>${r.status}</td></tr>`).join('');
@@ -685,12 +834,12 @@
             if(currentUser.Role === 'Reviewer' && p.Status === 'Pending Review') {
                  document.getElementById('Reviewer_Remarks').disabled = false;
                  document.querySelectorAll('#ppe-grid input').forEach(i => i.disabled = false);
-                 acts.innerHTML = `<button onclick="upd('reject')" class="bg-red-600 text-white px-4 py-2 rounded">Reject</button><button onclick="upd('review')" class="bg-green-600 text-white px-4 py-2 rounded">Review</button>`;
+                 acts.innerHTML = `<button onclick="upd('reject')" class="bg-red-600 text-white px-4 py-2 rounded shadow font-bold">Reject</button><button onclick="upd('review')" class="bg-green-600 text-white px-4 py-2 rounded shadow font-bold ml-2">Review</button>`;
                  document.getElementById('fs-reviewer-section').classList.remove('hidden');
             }
              if(currentUser.Role === 'Approver' && p.Status === 'Pending Approval') {
                  document.getElementById('Approver_Remarks').disabled = false;
-                 acts.innerHTML = `<button onclick="upd('reject')" class="bg-red-600 text-white px-4 py-2 rounded">Reject</button><button onclick="upd('approve')" class="bg-green-600 text-white px-4 py-2 rounded">Approve</button>`;
+                 acts.innerHTML = `<button onclick="upd('reject')" class="bg-red-600 text-white px-4 py-2 rounded shadow font-bold">Reject</button><button onclick="upd('approve')" class="bg-green-600 text-white px-4 py-2 rounded shadow font-bold ml-2">Approve</button>`;
                  document.getElementById('fs-approver-section').classList.remove('hidden');
             }
         }
@@ -699,11 +848,9 @@
             if(!document.getElementById('gsr-check').checked) return alert("Must accept Golden Safety Rules");
             const fd = new FormData(document.getElementById("pf"));
             document.querySelectorAll('input[type="checkbox"]').forEach(c => fd.set(c.name, c.checked ? "Y" : "N"));
-            
             fd.append("GP_Q12_HC", document.getElementsByName('GP_Q12_HC')[0]?.value || "");
             fd.append("GP_Q12_ToxicGas", document.getElementsByName('GP_Q12_ToxicGas')[0]?.value || "");
             fd.append("GP_Q12_Oxygen", document.getElementsByName('GP_Q12_Oxygen')[0]?.value || "");
-
             document.querySelectorAll('input[name$="_Rem"]').forEach(rem => { if(rem.value) fd.append(rem.name, rem.value); });
             const selectedWorkers = [];
             document.querySelectorAll('#worker-select-area input:checked').forEach(c => selectedWorkers.push(JSON.parse(c.value)));
@@ -731,7 +878,6 @@
             if(ctx === 'permit_dropdown') {
                 document.getElementById('worker-select-area').innerHTML = res.map(w => `<label class="flex gap-2 border p-2 rounded"><input type="checkbox" value='${JSON.stringify(w)}' class="accent-blue-600"> ${w.Name}</label>`).join('');
             } else {
-                // Fix I: Edit button logic
                 document.querySelector('#table-workers tbody').innerHTML = res.map(w => {
                     const audit = w.ApprovedBy ? `<div class="text-xs text-gray-500">By ${w.ApprovedBy}</div>` : '-';
                     const safeData = JSON.stringify(w).replace(/"/g, '&quot;');
