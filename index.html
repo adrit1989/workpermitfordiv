@@ -14,11 +14,31 @@
         body { 
             background-color: #f3f4f6; 
             font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; 
-            overflow: hidden; /* Prevent body scroll, use container scroll */
+            overflow: hidden; 
             margin: 0; padding: 0;
         }
 
-        /* REQ A: Global Loader Overlay */
+        /* UTILITIES */
+        .hidden { display: none !important; }
+        .glass { 
+            background: white; padding: 1.5rem; border-radius: 12px; 
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05); margin-bottom: 1.5rem; 
+            border: 1px solid #e5e7eb; 
+        }
+        
+        /* INPUTS */
+        input, select, textarea { 
+            width: 100%; border: 1px solid #d1d5db !important; padding: 10px 12px; 
+            border-radius: 8px; font-size: 0.9rem; background: #fff; margin-bottom: 0.5rem; 
+        }
+        input:focus, select:focus, textarea:focus { 
+            border-color: #ea580c !important; outline: none; box-shadow: 0 0 0 2px #fdba74; 
+        }
+        input:disabled, select:disabled, textarea:disabled { 
+            background-color: #f9fafb; color: #6b7280; border-color: #e5e7eb !important; 
+        }
+
+        /* LOADER */
         .loader-overlay { 
             position: fixed; inset: 0; background: rgba(255,255,255,0.95); z-index: 10000; 
             display: none; justify-content: center; align-items: center; flex-direction: column; 
@@ -29,35 +49,30 @@
         }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 
-        /* REQ D: SANDWICH LAYOUT STRUCTURE */
+        /* SANDWICH LAYOUT */
         #main-wrapper { display: flex; height: 100vh; width: 100vw; }
         
-        /* Left Sidebar (Navigation) */
         .sidebar-left { 
             width: 260px; background: #1e293b; color: white; display: flex; 
             flex-direction: column; flex-shrink: 0; transition: 0.3s; 
             box-shadow: 2px 0 10px rgba(0,0,0,0.1); z-index: 40;
         }
         
-        /* Right Sidebar (Info/Stats/Validity) */
         .sidebar-right { 
             width: 320px; background: white; border-left: 1px solid #e5e7eb; 
             overflow-y: auto; flex-shrink: 0; padding: 1.5rem; 
             display: flex; flex-direction: column; gap: 20px; z-index: 30;
         } 
 
-        /* Center Content (Scrollable) */
         .content-area { 
             flex-grow: 1; overflow-y: auto; padding: 2rem; 
             background: #f8fafc; position: relative; scroll-behavior: smooth;
         }
 
-        /* REQ C: 3 Column Checklist Grid */
-        .checklist-grid { 
-            display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; 
-        }
-
-        /* Responsive */
+        /* GRID & TABLES */
+        .checklist-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; }
+        
+        /* Mobile & Responsive */
         @media(max-width: 1280px) { .checklist-grid { grid-template-columns: repeat(2, 1fr); } }
         @media(max-width: 1024px) { 
             .sidebar-right { display: none; } 
@@ -67,77 +82,40 @@
             .sidebar-left { position: absolute; left: -260px; height: 100%; }
             .sidebar-left.open { left: 0; }
             .checklist-grid { grid-template-columns: 1fr; }
-        }
-
-        /* --- UI COMPONENTS --- */
-        .glass { 
-            background: white; padding: 1.5rem; border-radius: 12px; 
-            box-shadow: 0 2px 4px rgba(0,0,0,0.05); margin-bottom: 1.5rem; 
-            border: 1px solid #e5e7eb; 
-        }
-        
-        input, select, textarea { 
-            width: 100%; border: 1px solid #d1d5db !important; padding: 10px 12px; 
-            border-radius: 8px; font-size: 0.95rem; background: #fff; margin-bottom: 0.5rem; 
-        }
-        input:focus, select:focus, textarea:focus { 
-            border-color: #ea580c !important; outline: none; box-shadow: 0 0 0 2px #fdba74; 
-        }
-        input:disabled, select:disabled, textarea:disabled { 
-            background-color: #f9fafb; color: #6b7280; border-color: #e5e7eb !important; cursor: not-allowed;
-        }
-        
-        .hidden { display: none !important; }
-
-        /* Nav Items */
-        .nav-item { 
-            padding: 1rem 1.25rem; cursor: pointer; display: flex; align-items: center; 
-            gap: 0.75rem; color: #94a3b8; transition: all 0.2s; 
-            border-left: 4px solid transparent; font-weight: 500;
-        }
-        .nav-item:hover { background: #334155; color: white; }
-        .nav-item.active { background: #0f172a; color: white; border-left-color: #f97316; }
-
-        /* Tables */
-        .data-table { width: 100%; border-collapse: collapse; }
-        .data-table th { 
-            background: #f1f5f9; color: #475569; font-weight: 700; padding: 0.75rem; 
-            text-align: left; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; 
-            border-bottom: 2px solid #e2e8f0; 
-        }
-        .data-table td { padding: 0.75rem; border-bottom: 1px solid #e2e8f0; font-size: 0.9rem; vertical-align: middle; }
-        .data-table tr:hover { background: #f8fafc; cursor: pointer; }
-        
-        /* Mobile Table Support */
-        @media (max-width: 768px) {
             .mobile-table th { display: none; }
             .mobile-table td { display: block; width: 100%; border: none; padding: 4px 8px; }
             .mobile-table tr { display: block; margin-bottom: 1rem; border: 1px solid #e5e7eb; border-radius: 8px; padding: 8px; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
         }
 
+        /* TABLE STYLES */
+        .data-table { width: 100%; border-collapse: collapse; }
+        .data-table th { background: #f1f5f9; color: #475569; font-weight: 700; padding: 0.75rem; text-align: left; font-size: 0.8rem; border-bottom: 2px solid #e2e8f0; }
+        .data-table td { padding: 0.75rem; border-bottom: 1px solid #e2e8f0; font-size: 0.85rem; vertical-align: middle; }
+        .data-table tr:hover { background: #f8fafc; cursor: pointer; }
+
         .marked-deleted { text-decoration: line-through; opacity: 0.6; background-color: #fee2e2; }
-        .audit-text { font-size: 0.65rem; color: #6b7280; line-height: 1.1; display: block; margin-top: 2px; }
-        .audit-del { color: #dc2626; font-weight: bold; display: block; margin-top: 2px; }
+        .nav-item { padding: 1rem 1.25rem; cursor: pointer; display: flex; align-items: center; gap: 0.75rem; color: #94a3b8; transition: all 0.2s; border-left: 4px solid transparent; font-weight: 500; }
+        .nav-item:hover { background: #334155; color: white; }
+        .nav-item.active { background: #0f172a; color: white; border-left-color: #ea580c; }
     </style>
 </head>
 <body>
 
     <div id="loader" class="loader-overlay">
         <div class="spinner"></div>
-        <div class="mt-6 font-bold text-orange-600 animate-pulse text-xl">Processing Request...</div>
+        <div class="mt-6 font-bold text-orange-600 animate-pulse text-xl">Processing...</div>
     </div>
 
     <div id="view-login" class="fixed inset-0 bg-orange-50 z-50 flex items-center justify-center p-4">
         <div class="glass w-full max-w-md shadow-2xl border-t-4 border-orange-600 p-8">
             <div class="text-center mb-6">
                 <div class="flex justify-center items-center gap-4 mb-4">
-                    <img src="/public/logo.png" class="h-20 object-contain">
-                    <img src="/public/rhino.png" class="h-20 object-contain">
+                    <img src="/public/logo.png" class="h-16 object-contain">
+                    <img src="/public/rhino.png" class="h-16 object-contain">
                 </div>
                 <h1 class="text-3xl font-extrabold text-orange-600">IndianOil</h1>
-                <p class="text-gray-500 font-semibold mt-2">Mainline Permit System (ERPL)</p>
+                <p class="text-gray-500 font-semibold mt-2">Mainline Permit System</p>
             </div>
-            
             <form id="login-form" class="space-y-4">
                 <div class="p-4 bg-gray-50 rounded-lg border border-gray-200 space-y-3">
                     <div>
@@ -153,7 +131,6 @@
                         <select id="login-loc" class="w-full" disabled><option value="">Select Unit First</option></select>
                     </div>
                 </div>
-
                 <div class="grid grid-cols-2 gap-3">
                     <div>
                         <label class="text-xs font-bold text-gray-500 uppercase block mb-1">4. Role</label>
@@ -169,36 +146,24 @@
                         <select id="login-user" class="w-full" disabled><option value="">Select Location & Role</option></select>
                     </div>
                 </div>
-
                 <div>
                     <label class="text-xs font-bold text-gray-500 uppercase block mb-1">Password</label>
                     <input type="password" id="login-pass" class="w-full" placeholder="••••••">
                 </div>
-
-                <button type="submit" class="w-full bg-orange-600 text-white py-3.5 rounded-lg font-bold text-lg shadow-lg hover:bg-orange-700 transition">
-                    Secure Login
-                </button>
+                <button type="submit" class="w-full bg-orange-600 text-white py-3.5 rounded-lg font-bold text-lg shadow-lg hover:bg-orange-700">Secure Login</button>
             </form>
         </div>
     </div>
 
-    <div id="view-pwd-change" class="fixed inset-0 bg-black/90 z-[100] flex items-center justify-center hidden backdrop-blur-sm">
+    <div id="view-pwd-change" class="fixed inset-0 bg-black/90 z-[100] flex items-center justify-center hidden">
         <div class="glass w-full max-w-sm border-l-8 border-red-600 shadow-2xl">
             <div class="flex justify-between items-center mb-4">
-                <h3 class="font-bold text-2xl text-red-600">Password Update</h3>
-                <button onclick="document.getElementById('view-pwd-change').classList.add('hidden')" class="text-gray-500 hover:text-gray-700 font-bold" id="btn-close-pwd-modal">✕</button>
+                <h3 class="font-bold text-xl text-red-600">Password Update</h3>
+                <button onclick="document.getElementById('view-pwd-change').classList.add('hidden')" class="text-gray-500 font-bold">✕</button>
             </div>
-            <p class="text-gray-600 mb-6 text-sm">Please enter a new secure password.</p>
-            
-            <label class="text-xs font-bold text-gray-500 uppercase block mb-1">New Password</label>
-            <input type="password" id="new-pwd-1" placeholder="Enter new password" class="mb-4">
-            
-            <label class="text-xs font-bold text-gray-500 uppercase block mb-1">Confirm Password</label>
-            <input type="password" id="new-pwd-2" placeholder="Re-enter password" class="mb-6">
-            
-            <button id="btn-force-pwd" class="w-full bg-red-600 text-white py-3 rounded-lg font-bold hover:bg-red-700 shadow-md">
-                Update Password
-            </button>
+            <input type="password" id="new-pwd-1" placeholder="New Password" class="mb-4">
+            <input type="password" id="new-pwd-2" placeholder="Confirm Password" class="mb-6">
+            <button id="btn-force-pwd" class="w-full bg-red-600 text-white py-3 rounded-lg font-bold shadow-md">Update</button>
         </div>
     </div>
 
@@ -207,13 +172,9 @@
             
             <div class="sidebar-left" id="sidebar">
                 <div class="p-6 font-bold text-xl text-orange-500 border-b border-gray-700 flex items-center gap-3 bg-gray-900">
-                    <img src="/public/rhino.png" class="h-8 w-8 bg-white rounded-full p-1"> 
-                    <span>ERPL Permit</span>
+                    <img src="/public/rhino.png" class="h-8 w-8 bg-white rounded-full p-1"> <span>ERPL Permit</span>
                 </div>
-                
-                <div id="user-display" class="p-5 text-xs text-gray-300 bg-gray-800 border-b border-gray-700 font-mono leading-relaxed">
-                    </div>
-
+                <div id="user-display" class="p-5 text-xs text-gray-300 bg-gray-800 border-b border-gray-700 font-mono leading-relaxed"></div>
                 <nav class="flex-1 overflow-y-auto mt-4 space-y-1 px-3">
                     <div class="nav-item active" onclick="switchView('dashboard')" id="nav-dashboard"><span>📊</span> Dashboard</div>
                     <div class="nav-item hidden" onclick="switchView('new-permit')" id="nav-new-permit"><span>📝</span> Create Permit</div>
@@ -222,10 +183,9 @@
                     <div class="nav-item hidden" onclick="switchView('map')" id="nav-map"><span>🗺️</span> Map View</div>
                     <div class="nav-item hidden" id="nav-admin" onclick="switchView('admin')"><span>🔐</span> Admin Console</div>
                 </nav>
-
                 <div class="p-4 border-t border-gray-700 bg-gray-900 flex flex-col gap-2">
-                    <div class="nav-item text-blue-400 hover:text-blue-300 hover:bg-blue-900/30 rounded justify-center" onclick="showChangePassword()"><span>🔑</span> Change Pwd</div>
-                    <div class="nav-item text-red-400 hover:text-red-300 hover:bg-red-900/30 rounded justify-center" onclick="logout()"><span>🚪</span> Sign Out</div>
+                    <div class="nav-item text-blue-400 hover:bg-blue-900/30 rounded justify-center" onclick="showChangePassword()"><span>🔑</span> Change Pwd</div>
+                    <div class="nav-item text-red-400 hover:bg-red-900/30 rounded justify-center" onclick="logout()"><span>🚪</span> Sign Out</div>
                 </div>
             </div>
 
@@ -235,24 +195,23 @@
                 <div id="view-dashboard">
                     <div class="flex justify-between items-center mb-6">
                         <h2 class="text-2xl font-bold text-gray-800">Dashboard</h2>
-                        <button id="dash-btn-new" onclick="switchView('new-permit')" class="hidden bg-orange-600 text-white px-4 py-2 rounded shadow font-bold hover:bg-orange-700">+ New Permit</button>
+                        <button id="dash-btn-new" onclick="switchView('new-permit')" class="hidden bg-orange-600 text-white px-4 py-2 rounded shadow font-bold">+ New Permit</button>
                     </div>
-                    
                     <div id="dashboard-content" class="space-y-6">
-                        <h3 class="font-bold text-gray-500 uppercase text-xs mb-2 tracking-wide">Action Required</h3>
-                        <div class="glass overflow-x-auto p-0"><table class="mobile-table w-full text-left text-sm data-table" id="table-pending"><thead class="bg-red-50 text-red-900 border-b border-red-200"><tr><th class="p-3 w-24">ID</th><th class="p-3 w-24">Type</th><th class="p-3">Location</th><th class="p-3 w-32">Status</th><th class="p-3 w-32">Pending With</th><th class="p-3 w-24">Action</th></tr></thead><tbody class="divide-y divide-gray-100"></tbody></table></div>
+                        <h3 class="font-bold text-xs uppercase text-gray-500">Action Required</h3>
+                        <div class="glass overflow-x-auto p-0"><table class="mobile-table w-full text-left text-sm data-table" id="table-pending"><thead class="bg-red-50 text-red-900"><tr><th class="p-3">ID</th><th>Type</th><th>Location</th><th>Status</th><th>Date</th></tr></thead><tbody class="divide-y"></tbody></table></div>
                         
-                        <h3 class="font-bold text-gray-500 uppercase text-xs mb-2 tracking-wide">Active Permits</h3>
-                        <div class="glass overflow-x-auto p-0"><table class="mobile-table w-full text-left text-sm data-table" id="table-active"><thead class="bg-green-50 text-green-900 border-b border-green-200"><tr><th class="p-3 w-24">ID</th><th class="p-3 w-24">Type</th><th class="p-3">Location</th><th class="p-3 w-32">Status</th><th class="p-3 w-32">Pending With</th><th class="p-3 w-24">Action</th></tr></thead><tbody class="divide-y divide-gray-100"></tbody></table></div>
+                        <h3 class="font-bold text-xs uppercase text-gray-500">Active Permits</h3>
+                        <div class="glass overflow-x-auto p-0"><table class="mobile-table w-full text-left text-sm data-table" id="table-active"><thead class="bg-green-50 text-green-900"><tr><th class="p-3">ID</th><th>Type</th><th>Location</th><th>Status</th><th>Date</th></tr></thead><tbody class="divide-y"></tbody></table></div>
                         
-                        <h3 class="font-bold text-gray-500 uppercase text-xs mb-2 tracking-wide">Closed / Other</h3>
-                        <div class="glass overflow-x-auto p-0"><table class="mobile-table w-full text-left text-sm data-table" id="table-other"><thead class="bg-gray-50 text-gray-700 border-b border-gray-200"><tr><th class="p-3 w-24">ID</th><th class="p-3 w-24">Type</th><th class="p-3">Location</th><th class="p-3 w-32">Status</th><th class="p-3 w-32">Pending With</th><th class="p-3 w-24">Action</th></tr></thead><tbody class="divide-y divide-gray-100"></tbody></table></div>
+                        <h3 class="font-bold text-xs uppercase text-gray-500">Closed / Archive</h3>
+                        <div class="glass overflow-x-auto p-0"><table class="mobile-table w-full text-left text-sm data-table" id="table-other"><thead class="bg-gray-50 text-gray-700"><tr><th class="p-3">ID</th><th>Type</th><th>Location</th><th>Status</th><th>Date</th></tr></thead><tbody class="divide-y"></tbody></table></div>
                     </div>
                 </div>
 
                 <div id="view-form" class="hidden">
                     <div class="flex justify-between items-center mb-4 sticky top-0 bg-gray-50/95 backdrop-blur z-20 py-2 border-b">
-                        <button onclick="switchView('dashboard')" class="text-blue-600 font-bold flex items-center gap-1 hover:underline">← Back</button>
+                        <button onclick="switchView('dashboard')" class="text-blue-600 font-bold">← Back</button>
                         <div class="text-right">
                             <h2 class="text-xl font-bold text-gray-800" id="permit-title">New Permit</h2>
                             <div id="permit-header-display" class="text-xs text-blue-600 font-bold"></div>
@@ -260,7 +219,7 @@
                     </div>
 
                     <div id="permit-worker-audit-display" class="glass border-l-4 border-orange-500 mb-4 hidden">
-                        <h3 class="font-bold border-b pb-2 mb-2 text-orange-800">Deployed Workers & Approval Status</h3>
+                        <h3 class="font-bold border-b pb-2 mb-2 text-orange-800">Deployed Workers</h3>
                         <div id="assigned-worker-audit" class="overflow-x-auto"></div>
                     </div>
 
@@ -269,41 +228,28 @@
                         <input type="hidden" id="Status" name="Status">
                         
                         <div class="glass border-t-4 border-orange-500">
-                            <h3 class="section-title text-orange-600 border-b pb-2 mb-4 font-bold">1. Basic Details</h3>
+                            <h3 class="font-bold text-orange-600 border-b pb-2 mb-4">1. Basic Details</h3>
                             <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-                                <div><label class="text-xs font-bold text-gray-500 uppercase">Work Type</label><select name="WorkType" id="WorkType"><option>Hot</option><option>Cold</option><option>Confined Space</option><option>Excavation</option></select></div>
-                                <div><label class="text-xs font-bold text-gray-500 uppercase">Specific Work</label><input name="WorkTypeOther" id="WorkTypeOther"></div>
-                                <div class="md:col-span-2">
-                                    <label class="text-xs font-bold text-gray-500 uppercase">Location (GPS)</label>
-                                    <div class="flex gap-2">
-                                        <input name="ExactLocation" id="ExactLocation" class="flex-1" placeholder="Coords">
-                                        <button type="button" id="btn-get-geo" class="bg-blue-100 text-blue-700 px-3 rounded font-bold border border-blue-200">📍 Get GPS</button>
-                                    </div>
-                                    <input type="hidden" id="Latitude" name="Latitude"><input type="hidden" id="Longitude" name="Longitude">
-                                </div>
-                                
-                                <div><label class="text-xs font-bold text-gray-500 uppercase">Location Details</label><input name="WorkLocationDetail" id="WorkLocationDetail"></div>
-                                <div><label class="text-xs font-bold text-gray-500 uppercase">Section/Unit</label><input name="LocationUnit" id="LocationUnit" value="Pipeline"></div>
-                                
-                                <div><label class="text-xs font-bold text-gray-500 uppercase">Valid From</label><input type="datetime-local" name="ValidFrom" id="ValidFrom"></div>
-                                <div><label class="text-xs font-bold text-gray-500 uppercase">Valid To</label><input type="datetime-local" name="ValidTo" id="ValidTo"></div>
-                                
-                                <div><label class="text-xs font-bold text-gray-500 uppercase">Vendor</label><input name="Vendor" id="Vendor" readonly class="bg-gray-100"></div>
-                                <div><label class="text-xs font-bold text-gray-500 uppercase">Requester</label><input name="RequesterName" id="RequesterName" readonly class="bg-gray-100"></div>
-                                
-                                <div class="md:col-span-2"><label class="text-xs font-bold text-gray-500 uppercase">Issued To Dept</label><input name="IssuedToDept" id="IssuedToDept"></div>
-                                <div><label class="text-xs font-bold text-gray-500 uppercase">Security Guard</label><input name="SecurityGuard" id="SecurityGuard"></div>
-                                <div><label class="text-xs font-bold text-gray-500 uppercase">Emergency Contact</label><input name="EmergencyContact" id="EmergencyContact"></div>
-                                <div><label class="text-xs font-bold text-gray-500 uppercase">Fire Stn/Hosp</label><input name="FireStation" id="FireStation"></div>
-                                
-                                <div class="md:col-span-4"><label class="text-xs font-bold text-gray-500 uppercase">Description</label><textarea name="Desc" id="Desc" rows="2"></textarea></div>
-                                
-                                <div class="md:col-span-2"><label class="text-xs font-bold text-gray-500 uppercase">Assign Reviewer</label><select name="ReviewerEmail" id="ReviewerEmail"></select></div>
-                                <div class="md:col-span-2"><label class="text-xs font-bold text-gray-500 uppercase">Assign Approver</label><select name="ApproverEmail" id="ApproverEmail"></select></div>
+                                <div><label class="text-xs font-bold text-gray-500">Work Type</label><select name="WorkType" id="WorkType"><option>Hot</option><option>Cold</option><option>Confined Space</option><option>Excavation</option></select></div>
+                                <div><label class="text-xs font-bold text-gray-500">Specific Work</label><input name="WorkTypeOther" id="WorkTypeOther"></div>
+                                <div class="md:col-span-2"><label class="text-xs font-bold text-gray-500">Location (GPS)</label><div class="flex gap-2"><input name="ExactLocation" id="ExactLocation" class="flex-1" placeholder="Coords"><button type="button" id="btn-get-geo" class="bg-blue-100 text-blue-700 px-3 rounded font-bold">📍 GPS</button></div><input type="hidden" id="Latitude" name="Latitude"><input type="hidden" id="Longitude" name="Longitude"></div>
+                                <div><label class="text-xs font-bold text-gray-500">Location Details</label><input name="WorkLocationDetail" id="WorkLocationDetail"></div>
+                                <div><label class="text-xs font-bold text-gray-500">Section/Unit</label><input name="LocationUnit" id="LocationUnit" value="Pipeline"></div>
+                                <div><label class="text-xs font-bold text-gray-500">Valid From</label><input type="datetime-local" name="ValidFrom" id="ValidFrom"></div>
+                                <div><label class="text-xs font-bold text-gray-500">Valid To</label><input type="datetime-local" name="ValidTo" id="ValidTo"></div>
+                                <div><label class="text-xs font-bold text-gray-500">Vendor</label><input name="Vendor" id="Vendor" readonly class="bg-gray-100"></div>
+                                <div><label class="text-xs font-bold text-gray-500">Requester</label><input name="RequesterName" id="RequesterName" readonly class="bg-gray-100"></div>
+                                <div class="md:col-span-2"><label class="text-xs font-bold text-gray-500">Issued To Dept</label><input name="IssuedToDept" id="IssuedToDept"></div>
+                                <div><label class="text-xs font-bold text-gray-500">Security Guard</label><input name="SecurityGuard" id="SecurityGuard"></div>
+                                <div><label class="text-xs font-bold text-gray-500">Emergency Contact</label><input name="EmergencyContact" id="EmergencyContact"></div>
+                                <div><label class="text-xs font-bold text-gray-500">Fire Stn/Hosp</label><input name="FireStation" id="FireStation"></div>
+                                <div class="md:col-span-4"><label class="text-xs font-bold text-gray-500">Description</label><textarea name="Desc" id="Desc" rows="2"></textarea></div>
+                                <div class="md:col-span-2"><label class="text-xs font-bold text-gray-500">Assign Reviewer</label><select name="ReviewerEmail" id="ReviewerEmail"></select></div>
+                                <div class="md:col-span-2"><label class="text-xs font-bold text-gray-500">Assign Approver</label><select name="ApproverEmail" id="ApproverEmail"></select></div>
                             </div>
                         </div>
-                        
-                        <div id="init-renewal-wrapper" class="glass border-l-4 border-purple-500 bg-purple-50 hidden">
+
+                        <div id="init-renewal-wrapper" class="glass border-l-4 border-purple-500 bg-purple-50">
                             <label class="flex items-center gap-2 font-bold cursor-pointer text-purple-800">
                                 <input type="checkbox" name="InitRen" value="Y" id="chk-init-renewal" class="w-5 h-5"> Request 1st Renewal with Permit
                             </label>
@@ -322,67 +268,58 @@
                         </div>
 
                         <div id="checklists-container" class="space-y-4"></div>
-                        
+
                         <div class="glass border-t-4 border-blue-500">
-                            <h3 class="section-title text-blue-600 border-b pb-2 mb-4 font-bold">3. Workers</h3>
+                            <h3 class="font-bold text-blue-600 border-b pb-2 mb-4">3. Workers</h3>
                             <div id="worker-select-area" class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-2"></div>
                             <div id="worker-display-table" class="hidden overflow-x-auto mt-2">
-                                <table class="mobile-table w-full text-xs text-left">
-                                    <thead class="bg-gray-100"><tr><th>Name</th><th>ID Type/No</th><th>Contact</th></tr></thead>
-                                    <tbody id="worker-display-body"></tbody>
-                                </table>
+                                <table class="mobile-table w-full text-xs text-left"><thead class="bg-gray-100"><tr><th>Name</th><th>ID</th><th>Contact</th></tr></thead><tbody id="worker-display-body"></tbody></table>
                             </div>
                         </div>
 
                         <div class="glass border-t-4 border-red-500">
-                            <h3 class="section-title text-red-600 border-b pb-2 mb-4 font-bold">4. Hazards & PPE</h3>
+                            <h3 class="font-bold text-red-600 border-b pb-2 mb-4">4. Hazards & PPE</h3>
                             <div id="hazards-grid" class="grid grid-cols-2 md:grid-cols-4 gap-2 mb-4"></div>
                             <div id="other-hazard-div" class="hidden mb-2"><input id="H_Others_Detail" name="H_Others_Detail" placeholder="Specify other hazards..." class="w-full"></div>
                             <div id="ppe-section-wrapper" class="hidden">
-                                <h4 class="font-bold text-gray-500 text-xs uppercase mb-2">PPE Required (Reviewer Only)</h4>
+                                <h4 class="font-bold text-gray-500 text-xs uppercase mb-2">PPE Required (Reviewer)</h4>
                                 <div id="ppe-grid" class="grid grid-cols-2 md:grid-cols-4 gap-2"></div>
                             </div>
                         </div>
-                        
+
                         <div id="fs-reviewer-section" class="glass hidden border-l-4 border-yellow-500">
-                            <h3 class="section-title text-yellow-700 border-b pb-2 mb-4 font-bold">4. Reviewer</h3>
+                            <h3 class="font-bold text-yellow-700 border-b pb-2 mb-4">4. Reviewer</h3>
                             <div class="mb-4 hidden" id="iocl-reviewer-wrapper">
                                 <label class="font-bold text-sm text-gray-700">Authorized IOCL Supervisors</label>
                                 <div id="iocl-sup-container-rev" class="space-y-2 mt-2"></div>
-                                <button type="button" id="btn-add-rev-sup" class="mt-2 text-xs bg-gray-200 px-2 py-1 rounded hover:bg-gray-300 font-bold">+ Add Supervisor</button>
+                                <button type="button" id="btn-add-rev-sup" class="mt-2 text-xs bg-gray-200 px-2 py-1 rounded font-bold">+ Add Supervisor</button>
                             </div>
                             <textarea name="Reviewer_Remarks" id="Reviewer_Remarks" placeholder="Reviewer Remarks" class="w-full"></textarea>
                             <textarea name="AdditionalPrecautions" id="AdditionalPrecautions" placeholder="Additional Precautions" class="w-full mt-2"></textarea>
                         </div>
 
                         <div id="fs-approver-section" class="glass hidden border-l-4 border-green-500">
-                            <h3 class="section-title text-green-700 border-b pb-2 mb-4 font-bold">5. Approval</h3>
+                            <h3 class="font-bold text-green-700 border-b pb-2 mb-4">5. Approval</h3>
                             <div class="mb-4 hidden" id="iocl-approver-wrapper">
                                 <label class="font-bold text-sm text-gray-700">Authorized IOCL Supervisors</label>
                                 <div id="iocl-sup-container-app" class="space-y-2 mt-2"></div>
-                                <button type="button" id="btn-add-app-sup" class="mt-2 text-xs bg-gray-200 px-2 py-1 rounded hover:bg-gray-300 font-bold">+ Add Supervisor</button>
+                                <button type="button" id="btn-add-app-sup" class="mt-2 text-xs bg-gray-200 px-2 py-1 rounded font-bold">+ Add Supervisor</button>
                             </div>
                             <textarea name="Approver_Remarks" id="Approver_Remarks" placeholder="Approver Remarks" class="w-full mb-2"></textarea>
-                            
                             <label class="flex items-center gap-2 mb-2 p-2 bg-green-50 border border-green-200 rounded cursor-pointer">
                                 <input type="checkbox" name="RequireRenewalPhotos" id="RequireRenewalPhotos" value="Y" class="w-5 h-5 accent-green-600">
                                 <span class="text-sm font-bold text-green-800">Require Photo Evidence for ALL Renewals?</span>
                             </label>
-                            
                             <div id="pdf-color-select" class="mt-2 hidden"><label>PDF Background:</label><select id="PdfBgColor"><option>White</option><option>Red</option><option>Green</option><option>Yellow</option><option>Auto</option></select></div>
                         </div>
 
                         <div id="iocl-sup-display-section" class="glass hidden">
-                            <h3 class="section-title border-b pb-2 mb-2 font-bold">Authorized Supervisors (IOCL)</h3>
-                            <table class="mobile-table w-full text-xs text-left" id="table-iocl-display">
-                                <thead><tr><th>Name</th><th>Designation</th><th>Contact</th><th>Audit Trail</th></tr></thead>
-                                <tbody></tbody>
-                            </table>
+                            <h3 class="font-bold border-b pb-2 mb-2">Authorized Supervisors (IOCL)</h3>
+                            <table class="mobile-table w-full text-xs text-left" id="table-iocl-display"><thead><tr><th>Name</th><th>Designation</th><th>Contact</th><th>Audit Trail</th></tr></thead><tbody></tbody></table>
                         </div>
 
                         <div id="renewals-section" class="glass hidden border-l-4 border-purple-500 bg-purple-50/20">
-                            <h3 class="section-title text-purple-700 border-b pb-2 mb-4 font-bold">📅 Renewal History</h3>
-                            
+                            <h3 class="font-bold text-purple-700 border-b pb-2 mb-4">📅 Renewal History</h3>
                             <div id="first-renewal-decision" class="hidden mb-4 p-4 border-2 border-purple-500 bg-purple-50 rounded-lg animate-pulse">
                                 <h4 class="font-bold text-purple-900 mb-2">⚡ 1st Renewal Request Action</h4>
                                 <div class="flex gap-4">
@@ -390,14 +327,9 @@
                                     <label class="flex items-center gap-2 cursor-pointer font-bold text-red-700"><input type="radio" name="FirstRenewalAction" value="reject" class="w-5 h-5 accent-red-600"> Reject Renewal Only</label>
                                 </div>
                             </div>
-                            
                             <div class="overflow-x-auto mb-4 bg-white rounded shadow-sm border">
-                                <table class="mobile-table w-full text-xs text-left data-table" id="table-renewals">
-                                    <thead class="bg-purple-100"><tr><th>Period</th><th>Gas/Prec</th><th>Workers</th><th>Photo</th><th>Requester</th><th>Status</th></tr></thead>
-                                    <tbody id="renewal-history-body"></tbody>
-                                </table>
+                                <table class="mobile-table w-full text-xs text-left data-table" id="table-renewals"><thead class="bg-purple-100"><tr><th>Period</th><th>Gas/Prec</th><th>Workers</th><th>Photo</th><th>Requester</th><th>Status</th></tr></thead><tbody id="renewal-history-body"></tbody></table>
                             </div>
-
                             <div id="form-renewal" class="hidden bg-white p-4 rounded border border-purple-200 shadow-sm">
                                 <h4 class="font-bold text-sm mb-2 text-purple-800">New Renewal Request</h4>
                                 <div class="grid grid-cols-1 md:grid-cols-4 gap-3 mb-2">
@@ -407,28 +339,23 @@
                                     <input id="RenewalOxygen" placeholder="O2 %">
                                 </div>
                                 <input id="RenewalPrec" placeholder="Specific Precautions for this shift" class="mb-2">
-                                
                                 <div id="odd-hour-agreement" class="hidden mb-2 p-2 bg-indigo-50 border border-indigo-200 rounded">
                                     <label class="flex items-start gap-2 cursor-pointer">
                                         <input type="checkbox" id="OddHourSafetyCheck" class="mt-1 w-5 h-5 accent-indigo-600">
                                         <span class="text-xs font-bold text-indigo-900">I agree to ensure proper lighting and safety for odd-hour work.</span>
                                     </label>
                                 </div>
-
                                 <div class="mb-2">
-                                    <label class="text-xs font-bold text-gray-500 block mb-1">Select Workers for this Shift</label>
+                                    <label class="text-xs font-bold text-gray-500 block mb-1">Select Workers</label>
                                     <div class="bg-gray-50 p-2 rounded border max-h-32 overflow-y-auto grid grid-cols-2 gap-2" id="renewal-worker-select"></div>
                                 </div>
-
                                 <div id="renewal-photo-wrapper" class="hidden mb-2 p-2 bg-red-50 border border-red-200 rounded">
                                     <label class="block text-xs font-bold text-red-700 uppercase mb-1">📸 Mandatory Site Photo</label>
                                     <input type="file" id="ren-cam-sub" accept="image/*" capture="environment" class="w-full text-sm bg-white border p-1 rounded">
-                                    <p class="text-[10px] text-red-500 mt-1" id="photo-mandate-msg">Upload required by Approver settings.</p>
+                                    <p class="text-[10px] text-red-500 mt-1" id="photo-mandate-msg">Required by Approver.</p>
                                 </div>
-
                                 <button type="button" onclick="submitRenewal('pending_review')" class="w-full bg-purple-600 text-white py-2 rounded font-bold shadow hover:bg-purple-700">Submit Request</button>
                             </div>
-                            
                             <div id="action-renewal" class="hidden p-4 bg-yellow-50 mt-2 rounded border border-yellow-200">
                                 <textarea id="RenewalRemark" placeholder="Rejection Reason / Remarks" class="w-full mb-2"></textarea>
                                 <div class="grid grid-cols-2 gap-2">
@@ -439,10 +366,9 @@
                         </div>
 
                         <div id="closure-section" class="glass hidden border-l-4 border-gray-600">
-                            <h3 class="section-title font-bold text-gray-700 border-b pb-2 mb-4">Closure</h3>
+                            <h3 class="font-bold text-gray-700 border-b pb-2 mb-4">Closure</h3>
                             <label class="flex items-center gap-2 mb-4 font-bold text-red-600 p-3 bg-red-50 rounded border border-red-100 cursor-pointer">
-                                <input type="checkbox" id="Site_Restored_Check" name="Site_Restored_Check" class="w-5 h-5 accent-red-600"> 
-                                I confirm Site is Restored, Materials Removed & Housekeeping Done.
+                                <input type="checkbox" id="Site_Restored_Check" name="Site_Restored_Check" class="w-5 h-5 accent-red-600"> I confirm Site is Restored.
                             </label>
                             <div id="div-closure-req" class="hidden space-y-2">
                                 <label class="text-xs font-bold text-gray-500">Requester Remarks</label>
@@ -460,28 +386,25 @@
                                 <span id="ts-clos-app" class="text-xs text-gray-400 block text-right font-mono"></span>
                             </div>
                         </div>
-                        
+
                         <div class="glass" id="section-e">
-                            <h3 class="section-title border-b pb-2 mb-4 font-bold text-gray-600">E. References</h3>
+                            <h3 class="font-bold text-gray-600 border-b pb-2 mb-4">E. References</h3>
                             <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-                                <input name="SopNo" id="SopNo" placeholder="SOP/SWP/SMP No">
-                                <input name="JsaNo" id="JsaNo" placeholder="JSA No">
-                                <input name="IoclEquip" id="IoclEquip" placeholder="IOCL Equip">
-                                <input name="ContEquip" id="ContEquip" placeholder="Contractor Equip">
-                                <input name="WorkOrder" id="WorkOrder" placeholder="Work Order No">
-                                <input name="ToolBoxTalk" id="ToolBoxTalk" placeholder="Tool Box Talk Ref"> 
+                                <input name="SopNo" id="SopNo" placeholder="SOP/SWP/SMP No"><input name="JsaNo" id="JsaNo" placeholder="JSA No">
+                                <input name="IoclEquip" id="IoclEquip" placeholder="IOCL Equip"><input name="ContEquip" id="ContEquip" placeholder="Contractor Equip">
+                                <input name="WorkOrder" id="WorkOrder" placeholder="Work Order No"><input name="ToolBoxTalk" id="ToolBoxTalk" placeholder="Tool Box Talk Ref"> 
                             </div>
                         </div>
 
                         <div id="gsr-container" class="glass border-l-4 border-orange-600 bg-orange-50 hidden">
                             <label class="flex items-start gap-3 p-2 cursor-pointer">
                                 <input type="checkbox" id="gsr-check" name="GSR_Check_Box" class="mt-1 w-6 h-6 text-orange-600 rounded focus:ring-orange-500 shrink-0">
-                                <span class="text-sm font-bold text-gray-800 text-justify">I have read, understood and accepted all terms, conditions and non-compliance penalty of IOCL Golden Safety Rules. I shall ensure all workers are complied to all these rules and in case of any violation, penalty will be imposed by IOCL and I shall accept such penalties without any further challenge.</span>
+                                <span class="text-sm font-bold text-gray-800 text-justify">I have read, understood and accepted all terms, conditions and non-compliance penalty of IOCL Golden Safety Rules.</span>
                             </label>
                         </div>
                         
                         <div id="signature-history" class="glass hidden">
-                            <h3 class="section-title font-bold mb-2">History</h3>
+                            <h3 class="font-bold mb-2">History</h3>
                             <div class="grid grid-cols-1 gap-2 text-xs">
                                 <div class="border p-3 rounded bg-gray-50 flex justify-between"><strong>Approval:</strong> <span id="sig-app" class="text-right"></span></div>
                                 <div class="border p-3 rounded bg-gray-50 flex justify-between"><strong>Renewal:</strong> <span id="sig-ren" class="text-right"></span></div>
@@ -489,35 +412,24 @@
                             </div>
                         </div>
 
-                        <div id="actions-bar" class="flex flex-col md:flex-row justify-end gap-3 bg-white p-4 shadow-[0_-5px_15px_rgba(0,0,0,0.1)] border-t sticky bottom-0 z-40 rounded-t-lg">
-                            </div>
+                        <div id="actions-bar" class="flex flex-col md:flex-row justify-end gap-3 bg-white p-4 shadow-[0_-5px_15px_rgba(0,0,0,0.1)] border-t sticky bottom-0 z-40 rounded-t-lg"></div>
                     </form>
                 </div>
 
                 <div id="view-workers" class="hidden">
                     <div class="flex justify-between items-center mb-6">
                         <h2 class="text-2xl font-bold text-gray-800">Worker Management</h2>
-                        <button onclick="openWorkerModal()" class="bg-blue-600 text-white px-4 py-2 rounded shadow font-bold hover:bg-blue-700 transition">+ Add Worker</button>
+                        <button onclick="openWorkerModal()" class="bg-blue-600 text-white px-4 py-2 rounded shadow font-bold">+ Add Worker</button>
                     </div>
-                    <div class="glass overflow-x-auto p-0">
-                        <table class="w-full text-sm text-left data-table" id="table-workers">
-                            <thead class="bg-gray-100"><tr><th>Name</th><th>ID</th><th>Role</th><th>Status</th><th>Action</th></tr></thead>
-                            <tbody class="divide-y"></tbody>
-                        </table>
-                    </div>
+                    <div class="glass overflow-x-auto p-0"><table class="w-full text-sm text-left data-table" id="table-workers"><thead class="bg-gray-100"><tr><th>Name</th><th>ID</th><th>Role</th><th>Status</th><th>Approval Info</th><th>Action</th></tr></thead><tbody class="divide-y"></tbody></table></div>
                 </div>
 
                 <div id="view-users" class="hidden">
                     <div class="flex justify-between items-center mb-6">
                         <h2 class="text-2xl font-bold text-gray-800">User Management</h2>
-                        <button onclick="document.getElementById('view-add-user').classList.remove('hidden')" class="bg-purple-600 text-white px-4 py-2 rounded shadow font-bold hover:bg-purple-700 transition">+ Add User</button>
+                        <button onclick="document.getElementById('view-add-user').classList.remove('hidden')" class="bg-purple-600 text-white px-4 py-2 rounded shadow font-bold">+ Add User</button>
                     </div>
-                    <div class="glass overflow-x-auto p-0">
-                        <table class="w-full text-sm text-left data-table" id="table-manage-users">
-                            <thead class="bg-gray-100"><tr><th>Name</th><th>Email</th><th>Role</th><th>Location</th><th>Action</th></tr></thead>
-                            <tbody class="divide-y"></tbody>
-                        </table>
-                    </div>
+                    <div class="glass overflow-x-auto p-0"><table class="w-full text-sm text-left data-table" id="table-manage-users"><thead class="bg-gray-100"><tr><th>Name</th><th>Email</th><th>Role</th><th>Location</th><th>Action</th></tr></thead><tbody class="divide-y"></tbody></table></div>
                 </div>
 
                 <div id="view-admin" class="hidden">
@@ -526,28 +438,26 @@
                         <div class="glass border-t-4 border-green-600">
                              <h3 class="font-bold text-lg mb-2 text-green-800">👤 Add Single User</h3>
                              <p class="text-xs text-gray-500 mb-4 bg-green-50 p-2 rounded">Create a single user manually.</p>
-                             <button onclick="document.getElementById('view-add-user').classList.remove('hidden')" class="w-full bg-green-600 text-white py-2 rounded font-bold hover:bg-green-700 transition">+ Create User</button>
+                             <button onclick="document.getElementById('view-add-user').classList.remove('hidden')" class="w-full bg-green-600 text-white py-2 rounded font-bold hover:bg-green-700">+ Create User</button>
                         </div>
                         <div class="glass border-t-4 border-purple-600">
                             <h3 class="font-bold text-lg mb-2 text-purple-800">📂 Bulk User Upload</h3>
-                            <p class="text-xs text-gray-500 mb-4 bg-purple-50 p-2 rounded">Upload Excel (.xlsx) with columns: Name, Email, Role, Password, Region, Unit, Location.</p>
+                            <p class="text-xs text-gray-500 mb-4 bg-purple-50 p-2 rounded">Upload Excel (.xlsx).</p>
                             <input type="file" id="bulk-excel" accept=".xlsx" class="mb-4 w-full">
-                            <button onclick="uploadBulkUsers()" class="w-full bg-purple-600 text-white py-2 rounded font-bold hover:bg-purple-700 transition">Upload & Map</button>
+                            <button onclick="uploadBulkUsers()" class="w-full bg-purple-600 text-white py-2 rounded font-bold">Upload & Map</button>
                         </div>
                         <div class="glass border-t-4 border-red-600">
                             <h3 class="font-bold text-lg mb-2 text-red-800">🔑 Global Reset Password</h3>
                             <input id="reset-email" placeholder="User Email" class="mb-2 w-full">
                             <input id="reset-temp-pass" placeholder="Temp Password" class="mb-2 w-full">
-                            <button onclick="resetUserPassword()" class="w-full bg-red-600 text-white py-2 rounded font-bold hover:bg-red-700 transition">Reset Password</button>
+                            <button onclick="resetUserPassword()" class="w-full bg-red-600 text-white py-2 rounded font-bold">Reset Password</button>
                         </div>
                     </div>
                 </div>
 
                 <div id="view-map" class="hidden h-full">
                     <h2 class="text-2xl font-bold mb-4">Live Permit Map</h2>
-                    <div class="glass h-[600px] w-full p-0 overflow-hidden shadow-inner border-2 border-gray-200 relative">
-                        <div id="map" class="w-full h-full"></div>
-                    </div>
+                    <div class="glass h-[600px] w-full p-0 overflow-hidden shadow-inner border-2 border-gray-200 relative"><div id="map" class="w-full h-full"></div></div>
                 </div>
             </div>
 
@@ -556,7 +466,6 @@
                     <h3 class="text-xs font-bold text-gray-400 uppercase mb-2 tracking-wider">Live Stats</h3>
                     <div class="h-40"><canvas id="chartStatus"></canvas></div>
                 </div>
-                
                 <div id="validity-box" class="hidden mb-6 p-4 bg-green-50 border border-green-200 rounded-lg shadow-sm text-center">
                     <div class="text-xs font-bold text-green-800 uppercase mb-1">Permit Validity</div>
                     <div id="val-time-from" class="text-sm font-mono text-gray-700 font-bold"></div>
@@ -564,7 +473,6 @@
                     <div id="val-time-to" class="text-sm font-mono text-gray-700 font-bold"></div>
                     <div id="val-status" class="mt-2 inline-block px-3 py-1 rounded-full bg-green-200 text-green-800 text-xs font-bold">ACTIVE</div>
                 </div>
-
                 <div>
                     <h3 class="text-xs font-bold text-gray-400 uppercase mb-2 tracking-wider">Selection Info</h3>
                     <div id="right-panel-info" class="text-sm text-gray-500 italic bg-gray-50 p-3 rounded border">Select permit to view details.</div>
@@ -575,7 +483,7 @@
 
     <div id="modal-worker" class="fixed inset-0 bg-black/60 z-50 hidden flex items-center justify-center p-4 backdrop-blur-sm">
         <div class="glass w-full max-w-lg relative animate-scale-up">
-            <button onclick="document.getElementById('modal-worker').classList.add('hidden')" class="absolute top-4 right-4 text-xl font-bold text-gray-400 hover:text-gray-600">✕</button>
+            <button onclick="document.getElementById('modal-worker').classList.add('hidden')" class="absolute top-4 right-4 text-xl font-bold text-gray-400">✕</button>
             <h3 class="font-bold text-lg mb-4">Worker Details</h3>
             <form id="worker-form-real" class="grid grid-cols-2 gap-3">
                 <input id="w-id" type="hidden">
@@ -588,21 +496,21 @@
                 <select id="w-id-type"><option value="Voter Card">Voter Card</option><option value="PAN Card">PAN Card</option><option value="Other">Other</option></select>
                 <input id="w-id-type-other" placeholder="Specify ID" class="hidden col-span-2 bg-yellow-50">
                 <input id="w-idcard" placeholder="ID Number" class="col-span-2">
-                <button type="submit" class="col-span-2 bg-blue-600 text-white py-3 rounded-lg font-bold hover:bg-blue-700 shadow">Save Worker</button>
+                <button type="submit" class="col-span-2 bg-blue-600 text-white py-3 rounded-lg font-bold shadow">Save Worker</button>
             </form>
         </div>
     </div>
 
     <div id="view-add-user" class="fixed inset-0 bg-black/60 z-50 hidden flex items-center justify-center p-4 backdrop-blur-sm">
         <div class="glass w-full max-w-sm relative animate-scale-up">
-            <button onclick="document.getElementById('view-add-user').classList.add('hidden')" class="absolute top-4 right-4 text-xl font-bold text-gray-400 hover:text-gray-600">✕</button>
+            <button onclick="document.getElementById('view-add-user').classList.add('hidden')" class="absolute top-4 right-4 text-xl font-bold text-gray-400">✕</button>
             <h3 class="font-bold mb-4 text-lg">Add New User</h3>
             <form id="adduser-form" class="space-y-3">
                 <input id="new-user-name" placeholder="Full Name" required>
                 <input id="new-user-email" placeholder="Email Address" required>
                 <select id="new-user-role"><option>Requester</option><option>Reviewer</option><option>Approver</option></select>
                 <input id="new-user-pass" type="password" placeholder="Initial Password" required>
-                <button type="submit" class="w-full bg-purple-600 text-white py-3 rounded-lg font-bold shadow hover:bg-purple-700">Create User</button>
+                <button type="submit" class="w-full bg-purple-600 text-white py-3 rounded-lg font-bold shadow">Create User</button>
             </form>
         </div>
     </div>
@@ -612,8 +520,7 @@
         let authToken = null, currentUser = null;
         let mapInstance = null, chartS = null;
         let currentPermitId = null, currentPermitWorkers = [], currentRenewalCount = 0, permitRequirePhoto = false, currentPermitIOCLData = [];
-        let isRefreshing = false;
-
+        
         const CL_DATA = { 
             A: ["1. Equipment / Work Area inspected.", "2. Surrounding area checked.", "3. Manholes covered.", "4. Hazards considered.", "5. Equipment blinded.", "6. Drained.", "7. Steamed.", "8. Flushed.", "9. Fire Access.", "10. Iron Sulfide.", "11. Electrical Isolation.", "12. Gas Test: HC / Toxic / O2", "13. Firefighting.", "14. Cordoned.", "15. CCTV.", "16. Ventilation."], 
             B: ["1. Exit.", "2. Standby.", "3. Gas trap.", "4. Spark shield.", "5. Grounding.", "6. Standby (Confined).", "7. Communication.", "8. Rescue.", "9. Cooling.", "10. Inert Gas.", "11. ELCB.", "12. Cylinders.", "13. Spark arrestor.", "14. Welding loc.", "15. Height."], 
@@ -623,32 +530,25 @@
         const HAZARDS = ["Lack of Oxygen", "H2S", "Toxic Gases", "Combustible gases", "Pyrophoric Iron", "Corrosive Chemicals", "cave in formation", "Others"];
         const PPE = ["Helmet", "Safety Shoes", "Hand gloves", "Boiler suit", "Face Shield", "Apron", "Goggles", "Dust Respirator", "Fresh Air Mask", "Lifeline", "Safety Harness", "Airline", "Earmuff", "IFR"];
 
-        // --- REQ A: Loader ---
-        async function apiCall(ep, meth="GET", body=null, isPdfDownload=false) {
-            if(!isPdfDownload) document.getElementById('loader').style.display = 'flex';
+        async function apiCall(ep, meth="GET", body=null) {
+            document.getElementById('loader').style.display = 'flex';
             try {
-                const headers = {'Content-Type':'application/json'};
-                if(authToken) headers['Authorization'] = `Bearer ${authToken}`;
-                const opts = {method:meth, headers:headers};
+                const opts = {method:meth, headers:{'Content-Type':'application/json'}, credentials:'include'};
+                if(authToken) opts.headers['Authorization'] = `Bearer ${authToken}`;
                 if(body) opts.body = JSON.stringify(body);
-                opts.credentials = 'include';
-                
                 const res = await fetch(API+ep, opts);
                 if(res.status === 401) { location.reload(); return; }
-                if(isPdfDownload) return res; 
                 return await res.json();
             } catch(e) { console.error(e); return {error: "Network Error"}; }
-            finally { if(!isPdfDownload) document.getElementById('loader').style.display = 'none'; }
+            finally { document.getElementById('loader').style.display = 'none'; }
         }
 
-        // --- HELPER FUNCTIONS ---
         function escapeHtml(text) { if (!text) return text; return String(text).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
         function getVal(id) { const el = document.getElementById(id); return el ? el.value : ''; }
         function safeSet(id, val) { const el = document.getElementById(id); if(el) el.value = val; }
         function setText(id, val) { const el = document.getElementById(id); if(el) el.innerText = val; }
         function getNow() { return new Date().toLocaleString("en-GB").replace(',',''); }
 
-        // --- REQ F: Login Hierarchy ---
         async function initLogin() {
             const regions = await apiCall('/get-hierarchy', 'POST', {});
             const rSel = document.getElementById('login-region');
@@ -680,21 +580,6 @@
             }
             document.getElementById('login-loc').addEventListener('change', loadUsers);
             document.getElementById('login-role').addEventListener('change', loadUsers);
-        }
-
-        // --- REQ B: File Validation ---
-        function attachFileValidators() {
-            document.querySelectorAll('input[type="file"]').forEach(input => {
-                input.addEventListener('change', function() {
-                    const file = this.files[0];
-                    if(file) {
-                        if(!file.type.startsWith('image/')) {
-                            alert("WARNING: Only Image files (JPG/PNG) are allowed. File rejected.");
-                            this.value = ''; 
-                        }
-                    }
-                });
-            });
         }
 
         document.getElementById('login-form').addEventListener('submit', async (e) => {
@@ -738,18 +623,15 @@
             if(currentUser.Role === 'Requester') document.getElementById('nav-new-permit').classList.remove('hidden');
             if(currentUser.Role === 'MasterAdmin') document.getElementById('nav-admin').classList.remove('hidden');
             if(currentUser.Role === 'Approver' || currentUser.Role === 'MasterAdmin') document.getElementById('nav-users').classList.remove('hidden');
-            // REQ G: Map only for Reviewer/Approver/Admin
             if(currentUser.Role !== 'Requester') document.getElementById('nav-map').classList.remove('hidden');
             
             renderChecklists(); renderHazards(); switchView('dashboard');
         }
 
         function showChangePassword() {
-             // Show change password modal (reusing force pwd modal)
              document.getElementById('view-pwd-change').classList.remove('hidden');
              document.getElementById('view-pwd-change').dataset.email = currentUser.Email;
              document.querySelector('#view-pwd-change h3').innerText = "Change Password";
-             document.querySelector('#view-pwd-change p').innerText = "Enter your new password below.";
              document.querySelector('#view-pwd-change button').innerText = "Update Password";
         }
         document.getElementById('btn-close-pwd-modal').addEventListener('click', () => document.getElementById('view-pwd-change').classList.add('hidden'));
@@ -769,15 +651,13 @@
             
             if(viewName === 'dashboard') loadDashboard();
             if(viewName === 'new-permit') { 
-                attachFileValidators(); 
-                // REQ A: Fetch Reviewers/Approvers for THIS location
+                showNewPermit(); // Fix B: Ensure UI is reset and button added
                 loadMappedApprovers();
             }
             if(viewName === 'users') loadManageUsers();
             if(viewName === 'workers') loadWorkers('mgmt');
         }
 
-        // REQ A: Strict Mapping for Dropdowns
         async function loadMappedApprovers() {
             const reviewers = await apiCall('/get-users-by-loc', 'POST', { region: currentUser.Region, unit: currentUser.Unit, location: currentUser.Location, role: 'Reviewer' });
             const approvers = await apiCall('/get-users-by-loc', 'POST', { region: currentUser.Region, unit: currentUser.Unit, location: currentUser.Location, role: 'Approver' });
@@ -789,13 +669,12 @@
             approvers.forEach(u => aSel.innerHTML += `<option value="${u.Email}">${u.Name}</option>`);
         }
 
-        // REQ B: Common Toggle Yes/No/NA
         function renderChecklists() {
             const container = document.getElementById('checklists-container'); container.innerHTML = '';
             Object.keys(CL_DATA).forEach(sec => {
                 let itemsHtml = CL_DATA[sec].map((item, i) => {
-                    // REQ E: Gas Test Sub-Fields for A-11 (Item 12)
-                    let extraFields = '';
+                    // REQ E & C: Remarks and Gas Test Fields
+                    let extraFields = `<input class="w-full text-xs border-b mt-1" placeholder="Remarks" name="${sec}_${i}_Rem">`;
                     if (sec === 'A' && i === 11) {
                          extraFields = `<div class="grid grid-cols-3 gap-2 mt-2">
                              <input name="GP_Q12_HC" placeholder="HC % LEL" onchange="syncGasToRenewal()">
@@ -834,7 +713,6 @@
             });
         }
         
-        // REQ E: Auto-fill Renewal Gas fields
         window.syncGasToRenewal = function() {
             if(document.getElementById('chk-init-renewal').checked) {
                 safeSet('InitRenHC', getVal('GP_Q12_HC'));
@@ -843,15 +721,9 @@
             }
         }
         
-        function safeSet(name, val) { 
-            const els = document.getElementsByName(name); 
-            if(els.length > 0) els[0].value = val; 
-        }
-
         function renderHazards() {
             document.getElementById('hazards-grid').innerHTML = HAZARDS.map(h => `<label class="flex items-center gap-2 p-3 border rounded-lg bg-gray-50 text-xs cursor-pointer hover:bg-orange-100 transition shadow-sm font-bold text-gray-700"><input type="checkbox" name="H_${h.replace(/ /g,'')}" value="Y" ${h==='Others'?'id="chk-haz-others"':''} class="accent-orange-600 w-4 h-4"> ${h}</label>`).join('');
             document.getElementById('chk-haz-others')?.addEventListener('change', (e) => document.getElementById('other-hazard-div').classList.toggle('hidden', !e.target.checked));
-            // REQ E: PPE is handled differently (hidden for requester, visible for reviewer)
             document.getElementById('ppe-grid').innerHTML = PPE.map(p => `<label class="flex items-center gap-2 p-3 border rounded-lg bg-gray-50 text-xs cursor-pointer hover:bg-blue-100 transition shadow-sm font-bold text-gray-700"><input type="checkbox" name="P_${p.replace(/ /g,'')}" value="Y" class="accent-blue-600 w-4 h-4"> ${p}</label>`).join('');
             document.getElementById('w-id-type').addEventListener('change', (e) => document.getElementById('w-id-type-other').classList.toggle('hidden', e.target.value !== 'Other'));
         }
@@ -879,7 +751,6 @@
                  t.innerHTML = `<tr><td colspan="5" class="text-center p-4 text-gray-500">No users found.</td></tr>`;
              } else {
                  allUsers.forEach(u => {
-                     // REQ H: Users can only see/delete based on role logic (backend enforces, frontend visual)
                      const delBtn = u.Email !== currentUser.Email ? `<button class="bg-red-100 text-red-600 hover:bg-red-200 px-3 py-1 rounded font-bold text-xs" onclick="deleteUser('${u.Email}')">Delete</button>` : '-';
                      t.innerHTML += `<tr class="hover:bg-gray-50 transition border-b border-gray-100"><td class="p-3 font-bold text-gray-800">${u.Name}</td><td class="p-3 text-gray-600 font-mono text-xs">${u.Email}</td><td class="p-3"><span class="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded font-bold uppercase">${u.Role}</span></td><td class="p-3 text-gray-500 text-xs">${currentUser.Location}</td><td class="p-3">${delBtn}</td></tr>`;
                  });
@@ -914,6 +785,33 @@
             container.innerHTML += renderTable('Active Permits', active, 'green');
             container.innerHTML += renderTable('Closed / Archive', closed, 'gray');
             loadStats(res);
+        }
+
+        // Fix B: Ensure submit button appears for New Permits
+        function showNewPermit() {
+            document.getElementById("pf").reset();
+            currentPermitId = null;
+            
+            document.querySelectorAll('#pf input, #pf select, #pf textarea').forEach(e => e.disabled = false);
+            
+            // Fix A: Unhide Renewal Wrapper by default for new requests
+            document.getElementById("init-renewal-wrapper").classList.remove('hidden');
+            
+            safeSet("RequesterName", currentUser.Name);
+            safeSet("Vendor", currentUser.Name);
+            document.getElementById("Vendor").readOnly = true;
+            document.getElementById("RequesterName").readOnly = true;
+
+            const actionsDiv = document.getElementById("actions-bar"); 
+            actionsDiv.innerHTML = "";
+            const btn = document.createElement("button");
+            btn.className = "w-full bg-blue-600 text-white px-6 py-3 rounded-lg font-bold shadow-lg hover:bg-blue-700";
+            btn.innerText = "Submit Application"; 
+            btn.type = "button"; 
+            btn.onclick = savePermit;
+            actionsDiv.appendChild(btn);
+            
+            loadWorkers('permit_dropdown');
         }
 
         async function openPermit(id) {
@@ -971,7 +869,6 @@
             if(currentUser.Role === 'Reviewer' && p.Status === 'Pending Review') {
                 document.getElementById('fs-reviewer-section').classList.remove('hidden'); document.getElementById('iocl-reviewer-wrapper').classList.remove('hidden');
                 document.getElementById('Reviewer_Remarks').disabled = false; document.getElementById('AdditionalPrecautions').disabled = false;
-                // Allow editing PPE and Checklists
                 document.querySelectorAll('#ppe-grid input, .checklist-grid input, .checklist-grid input[type="radio"]').forEach(el => el.disabled = false);
                 
                 const b1 = document.createElement("button"); b1.className = "bg-red-600 text-white px-4 py-2 rounded shadow font-bold"; b1.innerText = "Reject"; b1.onclick = () => upd('reject');
@@ -1047,7 +944,6 @@
             if(json.success) { alert("Renewal Request Submitted!"); switchView('dashboard'); } else alert(json.error);
         }
 
-        // --- WORKER FUNCTIONS (CRUD) ---
         function openWorkerModal() { 
             document.getElementById('worker-form-real').reset(); 
             window.currentWorkerAction = 'create';
@@ -1102,6 +998,9 @@
                 const t = document.querySelector('#table-workers tbody'); 
                 t.innerHTML = "";
                 res.forEach(w => {
+                    // REQ D: Show Audit Trail Column
+                    const audit = w.ApprovedBy ? `<div class="text-[10px] text-gray-500">By ${w.ApprovedBy}<br>${w.ApprovedAt}</div>` : '-';
+                    
                     // REQ F: Delete only for Requester
                     let actions = '';
                     if(currentUser.Role === 'Requester') {
@@ -1117,6 +1016,7 @@
                             <td class="p-3 font-mono text-xs">${escapeHtml(w.IDType)}: ${escapeHtml(w.ID)}</td>
                             <td class="p-3 text-xs">${escapeHtml(w.Role || 'Worker')}</td>
                             <td class="p-3"><span class="px-2 py-1 rounded text-xs font-bold ${w.Status.includes('Approved')?'bg-green-100 text-green-700':'bg-orange-100 text-orange-700'}">${w.Status}</span></td>
+                            <td class="p-3">${audit}</td>
                             <td class="p-3">${actions}</td>
                         </tr>`;
                 });
@@ -1125,7 +1025,6 @@
         
         async function workerAction(id, act) { await apiCall('/save-worker', 'POST', {WorkerID:id, Action:act, Role:currentUser.Role, ApproverName: currentUser.Name}); loadWorkers('mgmt'); }
 
-        // --- UPDATER ---
         async function upd(act) {
             let ioclData = getIOCLData('iocl-sup-container-rev'); 
             if(currentUser.Role === 'Approver') ioclData = getIOCLData('iocl-sup-container-app');
@@ -1151,7 +1050,6 @@
             if(res.success) { alert("Status Updated"); switchView('dashboard'); } else alert(res.error);
         }
 
-        // --- HELPER FOR IOCL SUPERVISORS ---
         function addIOCLRow(containerId, data=null) {
              const div = document.createElement('div'); div.className = "flex gap-2 items-center mb-2 iocl-row";
              div.innerHTML = `
@@ -1205,7 +1103,6 @@
             if(json.success) { alert("Permit Created: "+json.permitId); switchView('dashboard'); } else alert(json.error);
         }
 
-        // --- ADMIN FUNCTIONS ---
         async function uploadBulkUsers() {
             const file = document.getElementById('bulk-excel').files[0];
             if(!file) return alert("Select file");
@@ -1235,7 +1132,6 @@
         
         async function loadStats(data) {
             if(!data) return;
-            // REQ B: Restore Chart Visibility
             document.getElementById('charts-container').classList.remove('hidden');
             const ctx = document.getElementById('chartStatus').getContext('2d');
             if(chartS) chartS.destroy();
