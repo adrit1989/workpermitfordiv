@@ -612,31 +612,6 @@
         
         document.getElementById('adduser-form').addEventListener('submit', submitNewUser);
 
-// 2. The named function that handles the logic
-async function submitNewUser(e) {
-    if(e) e.preventDefault();
-    const body = {
-        name: document.getElementById("new-user-name").value,
-        email: document.getElementById("new-user-email").value,
-        role: document.getElementById("new-user-role").value,
-        password: document.getElementById("new-user-pass").value,
-        region: document.getElementById("new-user-region").value,
-        unit: document.getElementById("new-user-unit").value,
-        location: document.getElementById("new-user-location").value
-    };
-
-    const res = await apiCall('/add-user', 'POST', body);
-    if(res.success) { 
-        alert("User Created Successfully"); 
-        document.getElementById('view-add-user').classList.add('hidden'); 
-        document.getElementById('adduser-form').reset();
-        loadManageUsers();
-    } else {
-        alert(res.error || "Failed to create user");
-    }
-}
-
-
         // 2. The named function that handles the logic
         async function submitNewUser(e) {
             if(e) e.preventDefault();
@@ -947,12 +922,14 @@ async function submitNewUser(e) {
         }
 
         async function openPermit(id) {
+            const p = await apiCall('/permit-data', 'POST', {permitId:id});
+            currentPermitId = id;
                      
                 if (p.Status === 'Closed' || !p.WorkType) {
                 alert("📂 This permit is closed and archived.\n\nThe raw form data has been purged to save space. Please use the 'PDF' button on the dashboard to view the final signed document.");
-                return;
+                return downloadSecurePDF(id);
             }
-            const p = await apiCall('/permit-data', 'POST', {permitId:id});
+            
             currentPermitId = id; currentPermitIOCLData = p.IOCLSupervisors || []; permitRequirePhoto = (p.RequireRenewalPhotos === 'Y');
             document.getElementById('view-dashboard').classList.add('hidden'); document.getElementById('view-form').classList.remove('hidden');
             document.getElementById('permit-title').innerText = `Permit: ${id}`;
@@ -1521,15 +1498,3 @@ async function upd(act) {
     </script>
 </body>
 </html>
-
-
-
-
-
-
-
-
-
-
-
-
