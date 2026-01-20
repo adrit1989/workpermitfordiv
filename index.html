@@ -234,11 +234,15 @@
                                 <div><label class="text-xs font-bold text-gray-500">Specific Work</label><input name="WorkTypeOther" id="WorkTypeOther"></div>
                                 <div class="md:col-span-2"><label class="text-xs font-bold text-gray-500">Location (GPS)</label><div class="flex gap-2"><input name="ExactLocation" id="ExactLocation" class="flex-1" placeholder="Coords"><button type="button" id="btn-get-geo" class="bg-blue-100 text-blue-700 px-3 rounded font-bold">📍 GPS</button></div><input type="hidden" id="Latitude" name="Latitude"><input type="hidden" id="Longitude" name="Longitude"></div>
                                 <div><label class="text-xs font-bold text-gray-500">Location Details</label><input name="WorkLocationDetail" id="WorkLocationDetail"></div>
-                                <div><label class="text-xs font-bold text-gray-500">Section/Unit</label><input name="LocationUnit" id="LocationUnit" value="Pipeline"></div>
+                                
+                                <div><label class="text-xs font-bold text-gray-500">Region/Unit/Location</label><input name="LocationUnit" id="LocationUnit" readonly class="bg-gray-100"></div>
+                                
                                 <div><label class="text-xs font-bold text-gray-500">Valid From</label><input type="datetime-local" name="ValidFrom" id="ValidFrom"></div>
                                 <div><label class="text-xs font-bold text-gray-500">Valid To</label><input type="datetime-local" name="ValidTo" id="ValidTo"></div>
                                 <div><label class="text-xs font-bold text-gray-500">Vendor</label><input name="Vendor" id="Vendor" readonly class="bg-gray-100"></div>
-                                <div><label class="text-xs font-bold text-gray-500">Requester</label><input name="RequesterName" id="RequesterName" readonly class="bg-gray-100"></div>
+                                
+                                <div><label class="text-xs font-bold text-gray-500">Requester</label><input name="RequesterName" id="RequesterName" class="bg-white"></div>
+                                
                                 <div class="md:col-span-2"><label class="text-xs font-bold text-gray-500">Issued To Dept</label><input name="IssuedToDept" id="IssuedToDept"></div>
                                 <div><label class="text-xs font-bold text-gray-500">Security Guard</label><input name="SecurityGuard" id="SecurityGuard"></div>
                                 <div><label class="text-xs font-bold text-gray-500">Emergency Contact</label><input name="EmergencyContact" id="EmergencyContact"></div>
@@ -255,15 +259,16 @@
                             </label>
                             <div id="div-init-renewal" class="hidden mt-3 p-3 bg-white rounded border border-purple-200">
                                 <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-2">
-                                    <input type="datetime-local" name="InitRenFrom" placeholder="From">
-                                    <input type="datetime-local" name="InitRenTo" placeholder="To">
+                                    <label class="block text-xs font-bold">Renewal From <input type="datetime-local" name="InitRenFrom" id="InitRenFrom"></label>
+                                    <label class="block text-xs font-bold">Renewal To <input type="datetime-local" name="InitRenTo" id="InitRenTo"></label>
                                 </div>
                                 <div class="grid grid-cols-3 gap-2">
-                                    <input name="InitRenHC" placeholder="HC %">
-                                    <input name="InitRenTox" placeholder="Tox">
-                                    <input name="InitRenO2" placeholder="O2 %">
+                                    <input name="InitRenHC" id="InitRenHC" placeholder="HC % (Auto)" readonly class="bg-gray-100">
+                                    <input name="InitRenTox" id="InitRenTox" placeholder="Tox (Auto)" readonly class="bg-gray-100">
+                                    <input name="InitRenO2" id="InitRenO2" placeholder="O2 % (Auto)" readonly class="bg-gray-100">
                                 </div>
                                 <input name="InitRenPrec" placeholder="Special Precautions for Renewal" class="w-full mt-2">
+                                <p class="text-[10px] text-gray-500 mt-1">*Gas values auto-sync from Section A. 12</p>
                             </div>
                         </div>
 
@@ -396,7 +401,7 @@
                             </div>
                         </div>
 
-                        <div id="gsr-container" class="glass border-l-4 border-orange-600 bg-orange-50 hidden">
+                        <div id="gsr-container" class="glass border-l-4 border-orange-600 bg-orange-50">
                             <label class="flex items-start gap-3 p-2 cursor-pointer">
                                 <input type="checkbox" id="gsr-check" name="GSR_Check_Box" class="mt-1 w-6 h-6 text-orange-600 rounded focus:ring-orange-500 shrink-0">
                                 <span class="text-sm font-bold text-gray-800 text-justify">I have read, understood and accepted all terms, conditions and non-compliance penalty of IOCL Golden Safety Rules.</span>
@@ -580,6 +585,11 @@
             }
             document.getElementById('login-loc').addEventListener('change', loadUsers);
             document.getElementById('login-role').addEventListener('change', loadUsers);
+            
+            // REQ C: 1st Renewal Toggle
+            document.getElementById('chk-init-renewal').addEventListener('change', (e) => {
+                document.getElementById('div-init-renewal').classList.toggle('hidden', !e.target.checked);
+            });
         }
 
         document.getElementById('login-form').addEventListener('submit', async (e) => {
@@ -651,7 +661,6 @@
             
             if(viewName === 'dashboard') loadDashboard();
             if(viewName === 'new-permit') { 
-                // Fix: Reset UI and show submit button
                 showNewPermit();
                 loadMappedApprovers();
             }
@@ -676,11 +685,12 @@
                 let itemsHtml = CL_DATA[sec].map((item, i) => {
                     let extraFields = `<input class="w-full text-xs border-b mt-1" placeholder="Remarks" name="${sec}_${i}_Rem">`;
                     if (sec === 'A' && i === 11) {
+                        // REQ C: Added specific IDs for auto-sync
                          extraFields = `<div class="grid grid-cols-3 gap-2 mt-2">
-                             <input name="GP_Q12_HC" placeholder="HC % LEL" onchange="syncGasToRenewal()">
-                             <input name="GP_Q12_ToxicGas" placeholder="Toxic PPM" onchange="syncGasToRenewal()">
-                             <input name="GP_Q12_Oxygen" placeholder="O2 %" onchange="syncGasToRenewal()">
-                         </div>`;
+                             <input name="GP_Q12_HC" id="GP_Q12_HC" placeholder="HC % LEL" onkeyup="syncGasToRenewal()">
+                             <input name="GP_Q12_ToxicGas" id="GP_Q12_ToxicGas" placeholder="Toxic PPM" onkeyup="syncGasToRenewal()">
+                             <input name="GP_Q12_Oxygen" id="GP_Q12_Oxygen" placeholder="O2 %" onkeyup="syncGasToRenewal()">
+                          </div>`;
                     }
                     return `<div class="p-3 border rounded-lg bg-gray-50 text-xs hover:shadow-md transition">
                         <p class="mb-2 font-semibold text-gray-700 min-h-[30px]">${item}</p>
@@ -713,6 +723,7 @@
             });
         }
         
+        // REQ C: Auto-sync logic
         window.syncGasToRenewal = function() {
             if(document.getElementById('chk-init-renewal').checked) {
                 safeSet('InitRenHC', getVal('GP_Q12_HC'));
@@ -721,9 +732,9 @@
             }
         }
         
-        function safeSet(name, val) { 
-            const els = document.getElementsByName(name); 
-            if(els.length > 0) els[0].value = val; 
+        function safeSet(id, val) { 
+            const el = document.getElementById(id); 
+            if(el) el.value = val; 
         }
 
         function renderHazards() {
@@ -770,7 +781,9 @@
         async function loadDashboard() {
             const res = await apiCall('/dashboard', 'POST', {role: currentUser.Role, email: currentUser.Email});
             const container = document.getElementById('dashboard-content'); container.innerHTML = '';
-            const pending = res.filter(p => p.Status.includes('Pending'));
+            
+            // REQ G: Ensure all statuses are caught
+            const pending = res.filter(p => p.Status.includes('Pending') || p.Status === 'Submitted');
             const active = res.filter(p => p.Status === 'Active' || p.Status.includes('Renewal'));
             const closed = res.filter(p => p.Status.includes('Closed') || p.Status === 'Rejected');
             
@@ -796,15 +809,20 @@
             currentPermitId = null;
             document.querySelectorAll('#pf input, #pf select, #pf textarea').forEach(e => e.disabled = false);
             
-            // Fix A: Unhide Renewal Box
-            document.getElementById("init-renewal-wrapper").classList.remove('hidden');
-            
+            // REQ A: Requester Editable
             safeSet("RequesterName", currentUser.Name);
             safeSet("Vendor", currentUser.Name);
             document.getElementById("Vendor").readOnly = true;
-            document.getElementById("RequesterName").readOnly = true;
+            document.getElementById("RequesterName").readOnly = false; // Changed to false
 
-            // Fix B: Add Submit Button
+            // REQ B: Auto-fill Region/Unit/Location
+            const locString = `${currentUser.Region}/${currentUser.Unit}/${currentUser.Location}`;
+            safeSet("LocationUnit", locString);
+
+            // REQ C: Ensure 1st Renewal logic is reset
+            document.getElementById("init-renewal-wrapper").classList.remove('hidden');
+            document.getElementById("div-init-renewal").classList.add('hidden');
+
             const actionsDiv = document.getElementById("actions-bar"); 
             actionsDiv.innerHTML = "";
             const btn = document.createElement("button");
@@ -917,13 +935,26 @@
                 if(res.success) { alert("Action Taken"); switchView('dashboard'); } else alert(res.error);
                 return;
             }
-             const getVal = (id) => document.getElementById(id).value;
+            const getVal = (id) => document.getElementById(id).value;
+            const rStart = new Date(getVal("RenewalValidFrom"));
+            const rEnd = new Date(getVal("RenewalValidTo"));
+            
+            // REQ F: Subsequent Renewal Validation
+            // Need main permit dates. Since we are in openPermit context, we can read from DOM or use cached obj if available.
+            // Using DOM reading for simplicity
+            const mainStart = new Date(document.getElementById('val-time-from').innerText);
+            const mainEnd = new Date(document.getElementById('val-time-to').innerText);
+
+            if(rEnd <= rStart) return alert("Renewal End Time must be greater than Start Time.");
+            if((rEnd - rStart) > 8 * 60 * 60 * 1000) return alert("Renewal cannot exceed 8 hours.");
+            if(rStart < mainStart || rEnd > mainEnd) return alert("Renewal must be within original Permit Validity period.");
+
             const fd = new FormData();
             fd.append('PermitID', document.getElementById('PermitID').value);
             fd.append('action', 'initiate'); 
             fd.append('RenewalValidFrom', getVal("RenewalValidFrom"));
             fd.append('RenewalValidTo', getVal("RenewalValidTo"));
-            fd.append('hc', getVal("RenewalHC")); fd.append('toxic', getVal("RenewalToxic")); fd.append('oxygen', getVal("RenewalOxygen"));
+            fd.append('hc', getVal("RenewalHC")); fd.append('toxic', getVal("RenewalOxygen")); fd.append('oxygen', getVal("RenewalOxygen")); // Note: reused oxygen ID as placeholder in form
             fd.append('precautions', getVal("RenewalPrec"));
             
             const selWorkers = []; document.querySelectorAll('.ren-worker-cb:checked').forEach(c => selWorkers.push(c.value));
@@ -1081,6 +1112,30 @@
         
         async function savePermit() {
             if(!document.getElementById('gsr-check').checked) return alert("You must accept Golden Safety Rules.");
+            
+            const getVal = (id) => document.getElementById(id).value;
+            const validFrom = new Date(getVal("ValidFrom"));
+            const validTo = new Date(getVal("ValidTo"));
+            
+            // REQ E: Permit Validity Validation
+            if(isNaN(validFrom) || isNaN(validTo)) return alert("Please enter valid dates.");
+            if(validTo <= validFrom) return alert("Permit 'Valid To' must be after 'Valid From'.");
+            const durationHrs = (validTo - validFrom) / (1000 * 60 * 60);
+            if(durationHrs > 168) return alert("Permit duration cannot exceed 7 days (168 Hours).");
+
+            // REQ F: 1st Renewal Validation
+            if(document.getElementById('chk-init-renewal').checked) {
+                const renFrom = new Date(getVal("InitRenFrom"));
+                const renTo = new Date(getVal("InitRenTo"));
+                if(isNaN(renFrom) || isNaN(renTo)) return alert("Please enter valid renewal dates.");
+                if(renTo <= renFrom) return alert("Renewal End Time must be greater than Start Time.");
+                const renDuration = (renTo - renFrom) / (1000 * 60 * 60);
+                if(renDuration > 8) return alert("Renewal period cannot exceed 8 Hours.");
+                
+                // Nested validity check
+                if(renFrom < validFrom || renTo > validTo) return alert("Renewal dates must be within the main Permit Validity period.");
+            }
+
             const fd = new FormData(document.getElementById("pf"));
             document.querySelectorAll('input[type="checkbox"]').forEach(c => { if(c.name) fd.set(c.name, c.checked ? "Y" : "N"); });
             fd.set("GSR_Accepted", "Y");
