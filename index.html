@@ -159,7 +159,7 @@
         <div class="glass w-full max-w-sm border-l-8 border-red-600 shadow-2xl">
             <div class="flex justify-between items-center mb-4">
                 <h3 class="font-bold text-xl text-red-600">Password Update</h3>
-                <button onclick="document.getElementById('view-pwd-change').classList.add('hidden')" class="text-gray-500 font-bold" id="btn-close-pwd-modal">✕</button>
+                <button onclick="document.getElementById('view-pwd-change').classList.add('hidden')" class="text-gray-500 font-bold">✕</button>
             </div>
             <input type="password" id="new-pwd-1" placeholder="New Password" class="mb-4">
             <input type="password" id="new-pwd-2" placeholder="Confirm Password" class="mb-6">
@@ -234,7 +234,7 @@
                                 <div><label class="text-xs font-bold text-gray-500">Specific Work</label><input name="WorkTypeOther" id="WorkTypeOther"></div>
                                 <div class="md:col-span-2"><label class="text-xs font-bold text-gray-500">Location (GPS)</label><div class="flex gap-2"><input name="ExactLocation" id="ExactLocation" class="flex-1" placeholder="Coords"><button type="button" id="btn-get-geo" class="bg-blue-100 text-blue-700 px-3 rounded font-bold">📍 GPS</button></div><input type="hidden" id="Latitude" name="Latitude"><input type="hidden" id="Longitude" name="Longitude"></div>
                                 <div><label class="text-xs font-bold text-gray-500">Location Details</label><input name="WorkLocationDetail" id="WorkLocationDetail"></div>
-                                <div><label class="text-xs font-bold text-gray-500">Section/Unit</label><input name="LocationUnit" id="LocationUnit" value="Pipeline"></div>
+                                <div><label class="text-xs font-bold text-gray-500">Region/Unit/Location</label><input name="LocationUnit" id="LocationUnit" readonly class="bg-gray-100"></div>
                                 <div><label class="text-xs font-bold text-gray-500">Valid From</label><input type="datetime-local" name="ValidFrom" id="ValidFrom"></div>
                                 <div><label class="text-xs font-bold text-gray-500">Valid To</label><input type="datetime-local" name="ValidTo" id="ValidTo"></div>
                                 <div><label class="text-xs font-bold text-gray-500">Vendor</label><input name="Vendor" id="Vendor" readonly class="bg-gray-100"></div>
@@ -651,8 +651,7 @@
             
             if(viewName === 'dashboard') loadDashboard();
             if(viewName === 'new-permit') { 
-                // Fix: Reset UI and show submit button
-                showNewPermit();
+                showNewPermit(); // Fix B: Ensure UI is reset and button added
                 loadMappedApprovers();
             }
             if(viewName === 'users') loadManageUsers();
@@ -733,6 +732,7 @@
             document.getElementById('w-id-type').addEventListener('change', (e) => document.getElementById('w-id-type-other').classList.toggle('hidden', e.target.value !== 'Other'));
         }
 
+        // --- File Validation ---
         function attachFileValidators() {
             document.querySelectorAll('input[type="file"]').forEach(input => {
                 input.addEventListener('change', function() {
@@ -791,6 +791,7 @@
             loadStats(res);
         }
 
+        // Fix B: Ensure submit button appears for New Permits
         function showNewPermit() {
             document.getElementById("pf").reset();
             currentPermitId = null;
@@ -803,6 +804,9 @@
             safeSet("Vendor", currentUser.Name);
             document.getElementById("Vendor").readOnly = true;
             document.getElementById("RequesterName").readOnly = true;
+            
+            // REQ B (Previous round): Autofill Location
+            safeSet("LocationUnit", `${currentUser.Region}/${currentUser.Unit}/${currentUser.Location}`);
 
             // Fix B: Add Submit Button
             const actionsDiv = document.getElementById("actions-bar"); 
@@ -824,6 +828,7 @@
             document.getElementById('permit-title').innerText = `Permit: ${id}`;
             document.getElementById('permit-header-display').innerText = `Status: ${p.Status}`;
             
+            // REQ E: PPE Handling
             if(currentUser.Role === 'Requester') document.getElementById('ppe-section-wrapper').classList.add('hidden');
             else document.getElementById('ppe-section-wrapper').classList.remove('hidden');
             
@@ -841,6 +846,7 @@
 
             renderIOCLTable();
 
+            // REQ C: Renewal Table for ALL
             const rens = JSON.parse(p.RenewalsJSON || "[]");
             const canRenew = (currentUser.Role === 'Requester' && (p.Status === 'Active' || p.Status.includes('Renewal')));
             
@@ -850,6 +856,7 @@
                 if (canRenew) {
                     document.getElementById('form-renewal').classList.remove('hidden');
                     const renSel = document.getElementById('renewal-worker-select');
+                    // REQ D: Only approved workers in renewal too
                     renSel.innerHTML = currentPermitWorkers.map(w => `<label class="flex items-center gap-1 text-xs bg-white p-1 rounded border"><input type="checkbox" value="${escapeHtml(w.Name)}" checked class="ren-worker-cb accent-purple-600"> ${escapeHtml(w.Name)}</label>`).join('');
                     if (permitRequirePhoto) {
                         document.getElementById('renewal-photo-wrapper').classList.remove('hidden'); document.getElementById('ren-cam-sub').required = true;
@@ -943,9 +950,33 @@
             if(json.success) { alert("Renewal Request Submitted!"); switchView('dashboard'); } else alert(json.error);
         }
 
-        function openWorkerModal() { 
-            document.getElementById('worker-form-real').reset(); 
-            window.currentWorkerAction = 'create';
+        function openWorkerModal(action = 'create', data = null) { 
+            const form = document.getElementById('worker-form-real');
+            form.reset(); 
+            window.currentWorkerAction = action;
+
+            if (action === 'edit_request' && data) {
+                document.getElementById('w-id').value = data.WorkerID;
+                document.getElementById('w-name').value = data.Name;
+                document.getElementById('w-father').value = data.Father;
+                document.getElementById('w-address').value = data.Address;
+                document.getElementById('w-age').value = data.Age;
+                document.getElementById('w-gender').value = data.Gender;
+                document.getElementById('w-contact').value = data.Contact;
+                document.getElementById('w-idcard').value = data.ID;
+
+                // Handle ID Type
+                const isStd = ["Voter Card", "PAN Card"].includes(data.IDType);
+                document.getElementById("w-id-type").value = isStd ? data.IDType : "Other";
+                if(!isStd) {
+                    document.getElementById("w-id-type-other").classList.remove('hidden');
+                    document.getElementById("w-id-type-other").value = data.IDType;
+                } else {
+                    document.getElementById("w-id-type-other").classList.add('hidden');
+                }
+            } else {
+                document.getElementById("w-id-type-other").classList.add('hidden');
+            }
             document.getElementById('modal-worker').classList.remove('hidden'); 
         }
 
@@ -983,6 +1014,7 @@
             const res = await apiCall('/get-workers', 'POST', {role:currentUser.Role, email:currentUser.Email, context:context}); 
             
             if(context === 'permit_dropdown') { 
+                // REQ D: Only approved workers for requester
                 const con = document.getElementById('worker-select-area');
                 con.innerHTML = res.map(w => `
                     <label class="flex items-center gap-3 border p-3 rounded-lg bg-white shadow-sm cursor-pointer hover:bg-blue-50 transition">
@@ -996,10 +1028,18 @@
                 const t = document.querySelector('#table-workers tbody'); 
                 t.innerHTML = "";
                 res.forEach(w => {
+                    // REQ D: Show Audit Trail Column
                     const audit = w.ApprovedBy ? `<div class="text-[10px] text-gray-500">By ${w.ApprovedBy}<br>${w.ApprovedAt}</div>` : '-';
+                    
                     let actions = '';
                     if(currentUser.Role === 'Requester') {
-                        actions = `<button class="text-red-600 font-bold hover:underline text-xs" onclick="workerAction('${w.WorkerID}', 'delete')">Delete</button>`;
+                        // REQ F: Edit and Delete for Requester
+                        // Safe escape for onclick JSON
+                        const safeData = JSON.stringify(w).replace(/"/g, '&quot;');
+                        actions = `
+                            <button class="text-blue-600 font-bold hover:underline text-xs mr-2" onclick="openWorkerModal('edit_request', ${safeData})">Edit</button>
+                            <button class="text-red-600 font-bold hover:underline text-xs" onclick="workerAction('${w.WorkerID}', 'delete')">Delete</button>
+                        `;
                     } else if (w.Status.includes('Pending')) {
                         actions = `<button class="text-green-600 font-bold text-xs mr-2" onclick="workerAction('${w.WorkerID}', 'approve')">Approve</button>
                                    <button class="text-red-600 font-bold text-xs" onclick="workerAction('${w.WorkerID}', 'reject')">Reject</button>`;
