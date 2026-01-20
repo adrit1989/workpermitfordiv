@@ -1222,6 +1222,20 @@ app.post('/api/update-status', authenticateAccess, async (req, res) => {
 
     let st = cur.recordset[0].Status;
     let d = JSON.parse(cur.recordset[0].FullDataJSON || "{}");
+     Object.keys(req.body).forEach(key => {
+        if (key.includes('_')) {
+            const parts = key.split('_');
+            // If it's a checklist item like A_0, B_1...
+            if (parts.length === 2 && !isNaN(parts[1]) && parts[0].length === 1) {
+                const newKey = `${parts[0]}_Q${parseInt(parts[1]) + 1}`;
+                d[newKey] = req.body[key];
+            } else {
+                d[key] = req.body[key];
+            }
+        } else {
+            d[key] = req.body[key];
+        }
+    });
     let renewals = JSON.parse(cur.recordset[0].RenewalsJSON || "[]");
 
     Object.assign(d, extras);
