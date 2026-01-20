@@ -140,16 +140,7 @@
                             <button id="dash-btn-new" onclick="switchView('new-permit')" class="hidden bg-orange-600 text-white px-4 py-2 rounded shadow font-bold">+ New Permit</button>
                         </div>
                     </div>
-                    <div id="dashboard-content" class="space-y-6">
-                        <h3 class="font-bold text-xs uppercase text-gray-500">Action Required</h3>
-                        <div class="glass overflow-x-auto p-0"><table class="mobile-table w-full text-left text-sm data-table" id="table-pending"><thead class="bg-red-50 text-red-900 border-b border-red-200"><tr><th class="p-3">ID</th><th>Type</th><th>Location</th><th>Status</th><th>Date</th><th>Action</th></tr></thead><tbody class="divide-y divide-gray-100"></tbody></table></div>
-                        
-                        <h3 class="font-bold text-xs uppercase text-gray-500">Active Permits</h3>
-                        <div class="glass overflow-x-auto p-0"><table class="mobile-table w-full text-left text-sm data-table" id="table-active"><thead class="bg-green-50 text-green-900 border-b border-green-200"><tr><th class="p-3">ID</th><th>Type</th><th>Location</th><th>Status</th><th>Date</th><th>Action</th></tr></thead><tbody class="divide-y divide-gray-100"></tbody></table></div>
-                        
-                        <h3 class="font-bold text-xs uppercase text-gray-500">Closed / Archive</h3>
-                        <div class="glass overflow-x-auto p-0"><table class="mobile-table w-full text-left text-sm data-table" id="table-other"><thead class="bg-gray-50 text-gray-700"><tr><th class="p-3">ID</th><th>Type</th><th>Location</th><th>Status</th><th>Date</th><th>Action</th></tr></thead><tbody class="divide-y divide-gray-100"></tbody></table></div>
-                    </div>
+                    <div id="dashboard-content" class="space-y-6"></div>
                 </div>
 
                 <div id="view-form" class="hidden">
@@ -312,8 +303,6 @@
                                         <tr>
                                             <th>Validity</th>
                                             <th>Gas (HC/Tox/O2)</th>
-                                            <th>Workers</th>
-                                            <th>Precautions</th>
                                             <th>Requester</th>
                                             <th>Reviewer</th>
                                             <th>Approver</th>
@@ -325,11 +314,13 @@
                             </div>
                             <div id="form-renewal" class="hidden bg-white p-4 rounded border border-purple-200 shadow-sm">
                                 <h4 class="font-bold text-sm mb-2 text-purple-800">New Renewal Request</h4>
-                                <div class="grid grid-cols-1 md:grid-cols-5 gap-3 mb-2"> <input type="datetime-local" id="RenewalValidFrom">
-    <input type="datetime-local" id="RenewalValidTo">
-    <input id="RenewalHC" placeholder="HC %">
-    <input id="RenewalToxic" placeholder="Toxic PPM"> <input id="RenewalOxygen" placeholder="O2 %">
-</div>
+                                <div class="grid grid-cols-1 md:grid-cols-5 gap-3 mb-2"> 
+                                    <input type="datetime-local" id="RenewalValidFrom">
+                                    <input type="datetime-local" id="RenewalValidTo">
+                                    <input id="RenewalHC" placeholder="HC %">
+                                    <input id="RenewalToxic" placeholder="Toxic PPM"> 
+                                    <input id="RenewalOxygen" placeholder="O2 %">
+                                </div>
                                 <input id="RenewalPrec" placeholder="Specific Precautions for this shift" class="mb-2">
                                 <div id="odd-hour-agreement" class="hidden mb-2 p-2 bg-indigo-50 border border-indigo-200 rounded">
                                     <label class="flex items-start gap-2 cursor-pointer">
@@ -499,676 +490,612 @@
             <button onclick="document.getElementById('view-add-user').classList.add('hidden')" class="absolute top-4 right-4 text-xl font-bold text-gray-400">✕</button>
             <h3 class="font-bold mb-4 text-lg">Add New User</h3>
             <form id="adduser-form" class="space-y-3">
-    <input id="new-user-name" placeholder="Full Name" required>
-    <input id="new-user-email" placeholder="Email Address" required>
-    <select id="new-user-role"><option>Requester</option><option>Reviewer</option><option>Approver</option></select>
-    
-    <input id="new-user-region" placeholder="Region (e.g. ERPL)" required>
-    <input id="new-user-unit" placeholder="Unit (e.g. BKPL)" required>
-    <input id="new-user-location" placeholder="Location (e.g. Barauni)" required>
-    
-    <input id="new-user-pass" type="password" placeholder="Initial Password" required>
-    <button type="submit" class="w-full bg-purple-600 text-white py-3 rounded-lg font-bold shadow">Create User</button>
-</form>
+                <input id="new-user-name" placeholder="Full Name" required>
+                <input id="new-user-email" placeholder="Email Address" required>
+                <select id="new-user-role"><option>Requester</option><option>Reviewer</option><option>Approver</option></select>
+                <input id="new-user-region" placeholder="Region (e.g. ERPL)" required>
+                <input id="new-user-unit" placeholder="Unit (e.g. BKPL)" required>
+                <input id="new-user-location" placeholder="Location (e.g. Barauni)" required>
+                <input id="new-user-pass" type="password" placeholder="Initial Password" required>
+                <button type="submit" class="w-full bg-purple-600 text-white py-3 rounded-lg font-bold shadow">Create User</button>
+            </form>
         </div>
     </div>
 
-<script nonce="NONCE_PLACEHOLDER">
-    /* ==========================================================================
-       1. GLOBAL CONSTANTS & STATE
-       ========================================================================== */
-    const API = "/api";
-    let authToken = null, currentUser = null;
-    let mapInstance = null, chartS = null, chartT = null;
-    let currentPermitId = null, currentPermitWorkers = [], currentRenewalCount = 0, permitRequirePhoto = false, currentPermitIOCLData = [];
+    <script nonce="NONCE_PLACEHOLDER">
+        /* 1. CONSTANTS */
+        const API = "/api";
+        let authToken = null, currentUser = null;
+        let mapInstance = null, chartS = null, chartT = null;
+        let currentPermitId = null, currentPermitWorkers = [], currentRenewalCount = 0, permitRequirePhoto = false, currentPermitIOCLData = [];
 
-    const CL_DATA = { 
-        A: ["1. Equipment / Work Area inspected.", "2. Surrounding area checked.", "3. Manholes covered.", "4. Hazards considered.", "5. Equipment blinded.", "6. Drained.", "7. Steamed.", "8. Flushed.", "9. Fire Access.", "10. Iron Sulfide.", "11. Electrical Isolation.", "12. Gas Test: HC / Toxic / O2", "13. Firefighting.", "14. Cordoned.", "15. CCTV.", "16. Ventilation."], 
-        B: ["1. Exit.", "2. Standby.", "3. Gas trap.", "4. Spark shield.", "5. Grounding.", "6. Standby (Confined).", "7. Communication.", "8. Rescue.", "9. Cooling.", "10. Inert Gas.", "11. ELCB.", "12. Cylinders.", "13. Spark arrestor.", "14. Welding loc.", "15. Height."], 
-        C: ["1. PESO spark elimination."], 
-        D: ["1. Shoring.", "2. Soil distance.", "3. Access.", "4. Vehicle ban."] 
-    };
-    const HAZARDS = ["Lack of Oxygen", "H2S", "Toxic Gases", "Combustible gases", "Pyrophoric Iron", "Corrosive Chemicals", "cave in formation", "Others"];
-    const PPE = ["Helmet", "Safety Shoes", "Hand gloves", "Boiler suit", "Face Shield", "Apron", "Goggles", "Dust Respirator", "Fresh Air Mask", "Lifeline", "Safety Harness", "Airline", "Earmuff", "IFR"];
-
-    /* ==========================================================================
-       2. UTILITY FUNCTIONS
-       ========================================================================== */
-    async function apiCall(ep, meth="GET", body=null) {
-        document.getElementById('loader').style.display = 'flex';
-        try {
-            const opts = {method:meth, headers:{'Content-Type':'application/json'}, credentials:'include'};
-            if(authToken) opts.headers['Authorization'] = `Bearer ${authToken}`;
-            if(body) opts.body = JSON.stringify(body);
-            const res = await fetch(API+ep, opts);
-            if(res.status === 401) { location.reload(); return; }
-            return await res.json();
-        } catch(e) { console.warn("Network Error:", e.message); return { aborted: true }; }
-        finally { document.getElementById('loader').style.display = 'none'; }
-    }
-
-    function escapeHtml(text) { if (!text) return text; return String(text).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
-    function getVal(id) { const el = document.getElementById(id); return el ? el.value : ''; }
-    function safeSet(id, val) { const el = document.getElementById(id); if(el) el.value = val; }
-    function setText(id, val) { const el = document.getElementById(id); if(el) el.innerText = val; }
-    function getNow() { return new Date().toLocaleString("en-GB").replace(',',''); }
-
-    /* ==========================================================================
-       3. INITIALIZATION & LOGIN
-       ========================================================================== */
-    async function initLogin() {
-        const regions = await apiCall('/get-hierarchy', 'POST', {});
-        const rSel = document.getElementById('login-region');
-        rSel.innerHTML = `<option value="">Select Region</option>` + regions.map(r=>`<option>${r}</option>`).join('');
-        
-        rSel.addEventListener('change', async (e) => {
-            const uSel = document.getElementById('login-unit'); uSel.disabled=true; uSel.innerHTML='<option>Loading...</option>';
-            const units = await apiCall('/get-hierarchy', 'POST', {region: e.target.value});
-            uSel.innerHTML = `<option value="">Select Unit</option>` + units.map(u=>`<option>${u}</option>`).join('');
-            uSel.disabled = false;
-        });
-        document.getElementById('login-unit').addEventListener('change', async (e) => {
-            const lSel = document.getElementById('login-loc'); lSel.disabled=true; lSel.innerHTML='<option>Loading...</option>';
-            const locs = await apiCall('/get-hierarchy', 'POST', {region: document.getElementById('login-region').value, unit: e.target.value});
-            lSel.innerHTML = `<option value="">Select Location</option>` + locs.map(l=>`<option>${l}</option>`).join('');
-            lSel.disabled = false;
-        });
-        
-        const loadUsers = async () => {
-            const reg = document.getElementById('login-region').value;
-            const unit = document.getElementById('login-unit').value;
-            const loc = document.getElementById('login-loc').value;
-            const role = document.getElementById('login-role').value;
-            if(reg && unit && loc && role) {
-                const uSel = document.getElementById('login-user'); uSel.innerHTML='<option>Loading...</option>';
-                const users = await apiCall('/get-users-by-loc', 'POST', {region:reg, unit:unit, location:loc, role:role});
-                uSel.innerHTML = users.map(u=>`<option value="${u.Email}">${u.Name}</option>`).join('');
-                uSel.disabled = false;
-            }
-        }
-        document.getElementById('login-loc').addEventListener('change', loadUsers);
-        document.getElementById('login-role').addEventListener('change', loadUsers);
-        
-        document.getElementById('chk-init-renewal').addEventListener('change', (e) => {
-            document.getElementById('div-init-renewal').classList.toggle('hidden', !e.target.checked);
-        });
-        
-        const rFrom = document.getElementById('RenewalValidFrom');
-        const rTo = document.getElementById('RenewalValidTo');
-        if(rFrom) rFrom.addEventListener('change', checkRenewalTime);
-        if(rTo) rTo.addEventListener('change', checkRenewalTime);
-    }
-
-    document.getElementById('login-form').addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const res = await apiCall('/login', 'POST', {email: document.getElementById('login-user').value, password: document.getElementById('login-pass').value});
-        if(res.forceChange) {
-            document.getElementById('view-pwd-change').classList.remove('hidden');
-            document.getElementById('view-pwd-change').dataset.email = res.email;
-        } else if(res.success) { 
-            authToken = res.token; currentUser = res.user; enterApp(); 
-        } else alert(res.msg);
-    });
-
-    function showChangePassword() {
-        document.getElementById('view-pwd-change').classList.remove('hidden');
-        document.getElementById('view-pwd-change').dataset.email = currentUser.Email;
-    }
-
-    document.getElementById('btn-force-pwd').addEventListener('click', async () => {
-        const p1 = document.getElementById('new-pwd-1').value; 
-        const p2 = document.getElementById('new-pwd-2').value;
-        const email = document.getElementById('view-pwd-change').dataset.email;
-        if(p1 !== p2) return alert("Passwords do not match");
-        const res = await apiCall('/force-password-change', 'POST', {email, newPassword: p1});
-        if(res.success) { alert("Updated. Please login."); location.reload(); }
-    });
-
-    function enterApp() {
-        document.getElementById('view-login').classList.add('hidden');
-        document.getElementById('app-container').classList.remove('hidden');
-        document.getElementById('user-display').innerHTML = `<div class="font-bold text-white text-lg">${currentUser.Name}</div><div class="text-orange-400 font-bold uppercase text-xs">${currentUser.Role}</div><div class="text-xs mt-1 text-gray-500 font-mono">${currentUser.Location}</div>`;
-        
-        if(currentUser.Role === 'Requester') document.getElementById('nav-new-permit').classList.remove('hidden');
-        else document.getElementById('btn-export-excel').classList.remove('hidden');
-
-        if(currentUser.Role === 'MasterAdmin') document.getElementById('nav-admin').classList.remove('hidden');
-        if(currentUser.Role === 'Approver' || currentUser.Role === 'MasterAdmin') document.getElementById('nav-users').classList.remove('hidden');
-        if(currentUser.Role !== 'Requester') document.getElementById('nav-map').classList.remove('hidden');
-        
-        renderChecklists(); renderHazards(); switchView('dashboard');
-    }
-
-    /* ==========================================================================
-       4. NAVIGATION & MAP
-       ========================================================================== */
-    function switchView(viewName) {
-        document.querySelectorAll('.content-area > div').forEach(d => d.classList.add('hidden'));
-        document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-        const viewMap = {'dashboard': 'view-dashboard', 'new-permit': 'view-form', 'workers': 'view-workers', 'users': 'view-users', 'map': 'view-map', 'admin': 'view-admin'};
-        
-        if(document.getElementById(viewMap[viewName])) {
-            document.getElementById(viewMap[viewName]).classList.remove('hidden');
-            let navId = (viewName === 'dashboard') ? 'nav-dashboard' : 'nav-' + viewName;
-            const navItem = document.getElementById(navId);
-            if(navItem) navItem.classList.add('active');
-        }
-        
-        if(viewName === 'dashboard') loadDashboard();
-        if(viewName === 'new-permit') { showNewPermit(); loadMappedApprovers(); }
-        if(viewName === 'users') loadManageUsers();
-        if(viewName === 'workers') loadWorkers('mgmt');
-        if(viewName === 'map') { setTimeout(initMap, 200); }
-    }
-
-    async function initMap() {
-        try {
-            const mapData = await apiCall('/map-data', 'POST', {});
-            const mapEl = document.getElementById('map');
-            if (!mapEl || !window.google) return; 
-
-            // SAFETY: Ensure valid floats
-            let validPoints = mapData.filter(p => p.lat && p.lng && isFinite(parseFloat(p.lat)) && isFinite(parseFloat(p.lng)));
-            
-            const center = validPoints.length > 0 
-                ? { lat: parseFloat(validPoints[0].lat), lng: parseFloat(validPoints[0].lng) } 
-                : { lat: 20.5937, lng: 78.9629 };
-            
-            mapInstance = new google.maps.Map(mapEl, { zoom: 5, center: center });
-
-            validPoints.forEach(p => {
-                const marker = new google.maps.Marker({
-                    position: { lat: parseFloat(p.lat), lng: parseFloat(p.lng) },
-                    map: mapInstance,
-                    title: p.PermitID
-                });
-                const infoWindow = new google.maps.InfoWindow({
-                    content: `<div class="p-2"><h3 class="font-bold text-orange-600">${p.PermitID}</h3><p class="text-xs"><b>Status:</b> ${p.Status}</p><button onclick="openPermit('${p.PermitID}')" class="text-blue-600 text-xs font-bold underline mt-1">View Details</button></div>`
-                });
-                marker.addListener('click', () => infoWindow.open(mapInstance, marker));
-            });
-        } catch(e) { console.error("Map Error", e); }
-    }
-
-    /* ==========================================================================
-       5. DASHBOARD & STATS
-       ========================================================================== */
-    async function loadDashboard() {
-        const res = await apiCall('/dashboard', 'POST', {role: currentUser.Role, email: currentUser.Email});
-        const container = document.getElementById('dashboard-content'); 
-        container.innerHTML = '';
-        
-        const pending = res.filter(p => {
-            const s = p.Status;
-            if (currentUser.Role === 'MasterAdmin') return s.includes('Pending') || s === 'Submitted';
-            if (currentUser.Role === 'Reviewer') return s === 'Pending Review' || s === 'Renewal Pending Review' || s === 'Closure Pending Review';
-            if (currentUser.Role === 'Approver') return s === 'Pending Approval' || s === 'Renewal Pending Approval' || s === 'Closure Pending Approval';
-            return (s.includes('Pending') || s === 'Submitted') && p.RequesterEmail === currentUser.Email;
-        });
-
-        const active = res.filter(p => p.Status === 'Active' || (p.Status.includes('Renewal') && !p.Status.includes('Pending')));
-        const closed = res.filter(p => p.Status === 'Closed' || p.Status === 'Rejected');
-
-        const renderTable = (title, items, color) => {
-            if(items.length === 0) return '';
-            return `<div class="glass border-l-4 border-${color}-500 mb-6">
-                <div class="flex justify-between items-center border-b pb-2 mb-3">
-                    <h3 class="font-bold text-${color}-700 uppercase text-sm">${title}</h3>
-                    <span class="bg-${color}-100 text-${color}-800 text-xs font-bold px-3 py-1 rounded-full">${items.length}</span>
-                </div>
-                <div class="overflow-x-auto">
-                    <table class="w-full text-left text-xs data-table">
-                        <thead><tr class="bg-gray-50"><th class="p-3">ID</th><th>Type</th><th>Location</th><th>Status</th><th>Date</th><th>Action</th></tr></thead>
-                        <tbody>${items.map(p => {
-                            let action = (p.Status === 'Closed' || p.Status === 'Active' || p.Status.includes('Renewal')) ? `<button class="btn-pdf" onclick="event.stopPropagation(); downloadSecurePDF('${p.PermitID}')">📥 PDF</button>` : '';
-                            return `<tr onclick="openPermit('${p.PermitID}')" class="hover:bg-gray-50 transition cursor-pointer">
-                                <td class="p-3 font-bold text-blue-600">${p.PermitID}</td><td>${p.WorkType || '-'}</td><td>${p.LocationUnit || '-'}</td>
-                                <td><span class="px-2 py-0.5 rounded border bg-gray-50">${p.Status}</span></td>
-                                <td class="font-mono">${p.ValidFrom ? p.ValidFrom.split('T')[0] : '-'}</td>
-                                <td>${action}</td>
-                            </tr>`;
-                        }).join('')}</tbody>
-                    </table>
-                </div>
-            </div>`;
+        const CL_DATA = { 
+            A: ["1. Equipment / Work Area inspected.", "2. Surrounding area checked.", "3. Manholes covered.", "4. Hazards considered.", "5. Equipment blinded.", "6. Drained.", "7. Steamed.", "8. Flushed.", "9. Fire Access.", "10. Iron Sulfide.", "11. Electrical Isolation.", "12. Gas Test: HC / Toxic / O2", "13. Firefighting.", "14. Cordoned.", "15. CCTV.", "16. Ventilation."], 
+            B: ["1. Exit.", "2. Standby.", "3. Gas trap.", "4. Spark shield.", "5. Grounding.", "6. Standby (Confined).", "7. Communication.", "8. Rescue.", "9. Cooling.", "10. Inert Gas.", "11. ELCB.", "12. Cylinders.", "13. Spark arrestor.", "14. Welding loc.", "15. Height."], 
+            C: ["1. PESO spark elimination."], 
+            D: ["1. Shoring.", "2. Soil distance.", "3. Access.", "4. Vehicle ban."] 
         };
+        const HAZARDS = ["Lack of Oxygen", "H2S", "Toxic Gases", "Combustible gases", "Pyrophoric Iron", "Corrosive Chemicals", "cave in formation", "Others"];
+        const PPE = ["Helmet", "Safety Shoes", "Hand gloves", "Boiler suit", "Face Shield", "Apron", "Goggles", "Dust Respirator", "Fresh Air Mask", "Lifeline", "Safety Harness", "Airline", "Earmuff", "IFR"];
 
-        container.innerHTML += renderTable('Action Required', pending, 'orange');
-        container.innerHTML += renderTable('Active Permits', active, 'green');
-        container.innerHTML += renderTable('Closed / Archive', closed, 'gray');
-        
-        loadStats(res);
-    }
-
-    /* ==========================================================================
-       6. CORE PERMIT LOGIC
-       ========================================================================== */
-    async function openPermit(id) {
-        const p = await apiCall('/permit-data', 'POST', { permitId: id });
-        if (!p || p.Status === 'Closed' || !p.WorkType) {
-            alert("📂 Permit Archived. Downloading PDF...");
-            return downloadSecurePDF(id);
+        /* 2. UTILS */
+        async function apiCall(ep, meth="GET", body=null) {
+            document.getElementById('loader').style.display = 'flex';
+            try {
+                const opts = {method:meth, headers:{'Content-Type':'application/json'}, credentials:'include'};
+                if(authToken) opts.headers['Authorization'] = `Bearer ${authToken}`;
+                if(body) opts.body = JSON.stringify(body);
+                const res = await fetch(API+ep, opts);
+                if(res.status === 401) { location.reload(); return; }
+                return await res.json();
+            } catch(e) { console.warn("Network Error:", e.message); return { aborted: true }; }
+            finally { document.getElementById('loader').style.display = 'none'; }
         }
 
-        currentPermitId = id;
-        currentPermitIOCLData = p.IOCLSupervisors || [];
-        permitRequirePhoto = (p.RequireRenewalPhotos === 'Y');
+        function escapeHtml(text) { if (!text) return text; return String(text).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
+        function getVal(id) { const el = document.getElementById(id); return el ? el.value : ''; }
+        function safeSet(id, val) { const el = document.getElementById(id); if(el) el.value = val; }
+        function setText(id, val) { const el = document.getElementById(id); if(el) el.innerText = val; }
+        function getNow() { return new Date().toLocaleString("en-GB").replace(',',''); }
 
-        // UI Reset
-        document.getElementById('view-dashboard').classList.add('hidden');
-        document.getElementById('view-form').classList.remove('hidden');
-        document.getElementById('permit-title').innerText = `Permit: ${id}`;
-        document.getElementById('permit-header-display').innerText = `Status: ${p.Status}`;
+        function attachFileValidators() {
+            document.querySelectorAll('input[type="file"]').forEach(input => {
+                input.addEventListener('change', function() {
+                    const file = this.files[0];
+                    if(file && !file.type.startsWith('image/')) { alert("Only JPG/PNG images allowed."); this.value = ''; }
+                });
+            });
+        }
 
-        // Reset Action Sections
-        ['fs-reviewer-section', 'fs-approver-section', 'rev-renewal-decision', 'app-renewal-decision', 'action-renewal', 'pending-renewal-display', 'odd-hour-approval-controls']
-            .forEach(id => document.getElementById(id).classList.add('hidden'));
-        
-        const actionsDiv = document.getElementById("actions-bar");
-        actionsDiv.innerHTML = "";
+        /* 3. INIT & LOGIN */
+        async function initLogin() {
+            const regions = await apiCall('/get-hierarchy', 'POST', {});
+            const rSel = document.getElementById('login-region');
+            rSel.innerHTML = `<option value="">Select Region</option>` + regions.map(r=>`<option>${r}</option>`).join('');
+            
+            rSel.addEventListener('change', async (e) => {
+                const uSel = document.getElementById('login-unit'); uSel.disabled=true; uSel.innerHTML='<option>Loading...</option>';
+                const units = await apiCall('/get-hierarchy', 'POST', {region: e.target.value});
+                uSel.innerHTML = `<option value="">Select Unit</option>` + units.map(u=>`<option>${u}</option>`).join('');
+                uSel.disabled = false;
+            });
+            document.getElementById('login-unit').addEventListener('change', async (e) => {
+                const lSel = document.getElementById('login-loc'); lSel.disabled=true; lSel.innerHTML='<option>Loading...</option>';
+                const locs = await apiCall('/get-hierarchy', 'POST', {region: document.getElementById('login-region').value, unit: e.target.value});
+                lSel.innerHTML = `<option value="">Select Location</option>` + locs.map(l=>`<option>${l}</option>`).join('');
+                lSel.disabled = false;
+            });
+            
+            const loadUsers = async () => {
+                const reg = document.getElementById('login-region').value;
+                const unit = document.getElementById('login-unit').value;
+                const loc = document.getElementById('login-loc').value;
+                const role = document.getElementById('login-role').value;
+                if(reg && unit && loc && role) {
+                    const uSel = document.getElementById('login-user'); uSel.innerHTML='<option>Loading...</option>';
+                    const users = await apiCall('/get-users-by-loc', 'POST', {region:reg, unit:unit, location:loc, role:role});
+                    uSel.innerHTML = users.map(u=>`<option value="${u.Email}">${u.Name}</option>`).join('');
+                    uSel.disabled = false;
+                }
+            }
+            document.getElementById('login-loc').addEventListener('change', loadUsers);
+            document.getElementById('login-role').addEventListener('change', loadUsers);
+            
+            document.getElementById('chk-init-renewal').addEventListener('change', (e) => {
+                document.getElementById('div-init-renewal').classList.toggle('hidden', !e.target.checked);
+            });
+            
+            const rFrom = document.getElementById('RenewalValidFrom');
+            const rTo = document.getElementById('RenewalValidTo');
+            if(rFrom) rFrom.addEventListener('change', checkRenewalTime);
+            if(rTo) rTo.addEventListener('change', checkRenewalTime);
+        }
 
-        // Form Logic
-        const isMainPending = (p.Status === 'Pending Review' || p.Status === 'Pending Approval');
-        const isAuthority = (currentUser.Role === 'Reviewer' || currentUser.Role === 'Approver');
-
-        document.querySelectorAll('#pf input, #pf textarea, #pf select').forEach(el => {
-            let shouldDisable = true;
-            if (isAuthority && isMainPending && (el.name.startsWith('H_') || el.name.startsWith('P_') || el.id === 'H_Others_Detail')) shouldDisable = false;
-            if (currentUser.Role === 'Approver' && el.id === 'RequireRenewalPhotos') shouldDisable = false;
-            if (el.name === 'RevRenAction' || el.name === 'AppRenAction') shouldDisable = false;
-            if (el.type === 'checkbox') el.checked = (p[el.name] === 'Y');
-            else if (el.type !== 'file') el.value = p[el.name] || '';
-            el.disabled = shouldDisable;
+        document.getElementById('login-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const res = await apiCall('/login', 'POST', {email: document.getElementById('login-user').value, password: document.getElementById('login-pass').value});
+            if(res.forceChange) {
+                document.getElementById('view-pwd-change').classList.remove('hidden');
+                document.getElementById('view-pwd-change').dataset.email = res.email;
+            } else if(res.success) { 
+                authToken = res.token; currentUser = res.user; enterApp(); 
+            } else alert(res.msg);
         });
 
-        if (currentUser.Role === 'Requester') document.getElementById('ppe-section-wrapper').classList.add('hidden');
-        else document.getElementById('ppe-section-wrapper').classList.remove('hidden');
-
-        // Worker Data Parsing
-        let wData = p.SelectedWorkers;
-        if (typeof wData === 'string') { try { wData = JSON.parse(wData); } catch (e) { wData = []; } }
-        currentPermitWorkers = Array.isArray(wData) ? wData : [];
-        
-        const wTbody = document.getElementById('worker-display-body');
-        document.getElementById('worker-display-table').classList.toggle('hidden', currentPermitWorkers.length === 0);
-        if (wTbody) wTbody.innerHTML = currentPermitWorkers.map(w => `<tr><td class="p-2 font-bold">${escapeHtml(w.Name)}</td><td class="p-2">${escapeHtml(w.IDType)}: ${escapeHtml(w.ID)}</td><td class="p-2 font-mono">${escapeHtml(w.Contact)}</td></tr>`).join('');
-        
-        renderIOCLTable();
-
-        // Main Approval Buttons
-        if (p.Status === 'Pending Review' && currentUser.Role === 'Reviewer') {
-            document.getElementById('fs-reviewer-section').classList.remove('hidden');
-            const b1 = document.createElement("button"); b1.className = "bg-red-600 text-white px-4 py-2 rounded font-bold mr-2"; b1.innerText = "Reject"; b1.onclick = () => upd('reject');
-            const b2 = document.createElement("button"); b2.className = "bg-green-600 text-white px-4 py-2 rounded font-bold"; b2.innerText = "Review & Forward"; b2.onclick = () => upd('review');
-            actionsDiv.append(b1, b2);
-        }
-        if (p.Status === 'Pending Approval' && currentUser.Role === 'Approver') {
-            document.getElementById('fs-approver-section').classList.remove('hidden');
-            const b1 = document.createElement("button"); b1.className = "bg-red-600 text-white px-4 py-2 rounded font-bold mr-2"; b1.innerText = "Reject"; b1.onclick = () => upd('reject');
-            const b2 = document.createElement("button"); b2.className = "bg-green-600 text-white px-4 py-2 rounded font-bold"; b2.innerText = "Final Approve"; b2.onclick = () => upd('approve');
-            actionsDiv.append(b1, b2);
+        function showChangePassword() {
+            document.getElementById('view-pwd-change').classList.remove('hidden');
+            document.getElementById('view-pwd-change').dataset.email = currentUser.Email;
         }
 
-        // Renewal Logic
-        const rens = JSON.parse(p.RenewalsJSON || "[]");
-        const lastRen = rens.length > 0 ? rens[rens.length - 1] : null;
+        document.getElementById('btn-force-pwd').addEventListener('click', async () => {
+            const p1 = document.getElementById('new-pwd-1').value; 
+            const p2 = document.getElementById('new-pwd-2').value;
+            const email = document.getElementById('view-pwd-change').dataset.email;
+            if(p1 !== p2) return alert("Passwords do not match");
+            const res = await apiCall('/force-password-change', 'POST', {email, newPassword: p1});
+            if(res.success) { alert("Updated. Please login."); location.reload(); }
+        });
 
-        if (rens.length > 0 || (currentUser.Role === 'Requester' && p.Status === 'Active')) {
-            document.getElementById('renewals-section').classList.remove('hidden');
-            document.getElementById('renewal-history-body').innerHTML = rens.map(r => `<tr class="border-b text-[10px]"><td class="p-2">${r.valid_from}<br>to ${r.valid_to}</td><td class="p-2">${r.req_name}</td><td class="p-2">${r.status}</td><td class="p-2">${r.photoUrl ? 'YES' : 'NO'}</td></tr>`).join('');
+        function enterApp() {
+            document.getElementById('view-login').classList.add('hidden');
+            document.getElementById('app-container').classList.remove('hidden');
+            document.getElementById('user-display').innerHTML = `<div class="font-bold text-white text-lg">${currentUser.Name}</div><div class="text-orange-400 font-bold uppercase text-xs">${currentUser.Role}</div><div class="text-xs mt-1 text-gray-500 font-mono">${currentUser.Location}</div>`;
             
-            // Allow Renewal Request Creation - EDITABLE FIX
-            const showRenForm = (currentUser.Role === 'Requester' && p.Status === 'Active' && (!lastRen || !lastRen.status.includes('pending')));
-            document.getElementById('form-renewal').classList.toggle('hidden', !showRenForm);
+            if(currentUser.Role === 'Requester') document.getElementById('nav-new-permit').classList.remove('hidden');
+            else document.getElementById('btn-export-excel').classList.remove('hidden');
+
+            if(currentUser.Role === 'MasterAdmin') document.getElementById('nav-admin').classList.remove('hidden');
+            if(currentUser.Role === 'Approver' || currentUser.Role === 'MasterAdmin') document.getElementById('nav-users').classList.remove('hidden');
+            if(currentUser.Role !== 'Requester') document.getElementById('nav-map').classList.remove('hidden');
             
-            if(showRenForm) {
-                // FORCE UNLOCK RENEWAL INPUTS
-                document.querySelectorAll('#form-renewal input').forEach(inp => inp.disabled = false);
-                
-                document.getElementById('renewal-worker-select').innerHTML = currentPermitWorkers.map(w => `<label class="flex items-center gap-1 text-xs bg-white p-1 rounded border"><input type="checkbox" value="${escapeHtml(w.Name)}" checked class="ren-worker-cb"> ${escapeHtml(w.Name)}</label>`).join('');
-                document.getElementById('renewal-photo-wrapper').classList.toggle('hidden', !permitRequirePhoto);
+            renderChecklists(); renderHazards(); switchView('dashboard');
+        }
+
+        /* 4. NAVIGATION & MAP */
+        function switchView(viewName) {
+            document.querySelectorAll('.content-area > div').forEach(d => d.classList.add('hidden'));
+            document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+            const viewMap = {'dashboard': 'view-dashboard', 'new-permit': 'view-form', 'workers': 'view-workers', 'users': 'view-users', 'map': 'view-map', 'admin': 'view-admin'};
+            
+            if(document.getElementById(viewMap[viewName])) {
+                document.getElementById(viewMap[viewName]).classList.remove('hidden');
+                let navId = (viewName === 'dashboard') ? 'nav-dashboard' : 'nav-' + viewName;
+                const navItem = document.getElementById(navId);
+                if(navItem) navItem.classList.add('active');
             }
+            
+            if(viewName === 'dashboard') loadDashboard();
+            if(viewName === 'new-permit') { showNewPermit(); loadMappedApprovers(); }
+            if(viewName === 'users') loadManageUsers();
+            if(viewName === 'workers') loadWorkers('mgmt');
+            if(viewName === 'map') { setTimeout(initMap, 200); }
         }
 
-        if (lastRen && lastRen.status.includes('pending')) {
-            if (currentUser.Role !== 'Requester') document.getElementById('pending-renewal-display').classList.remove('hidden');
-            const isRevTurn = (currentUser.Role === 'Reviewer' && p.Status === 'Renewal Pending Review');
-            const isAppTurn = (currentUser.Role === 'Approver' && p.Status === 'Renewal Pending Approval');
+        async function initMap() {
+            try {
+                const mapData = await apiCall('/map-data', 'POST', {});
+                const mapEl = document.getElementById('map');
+                if (!mapEl || !window.google) return; 
 
-            if (isRevTurn || isAppTurn) {
-                if (rens.length === 1 && p.Status.includes('Renewal')) {
-                    if (isRevTurn) document.getElementById('rev-renewal-decision').classList.remove('hidden');
-                    if (isAppTurn) document.getElementById('app-renewal-decision').classList.remove('hidden');
-                    const b = document.createElement("button"); b.className = "bg-purple-600 text-white px-4 py-2 rounded font-bold"; b.innerText = "Process Renewal Decision"; b.onclick = () => upd('approve_1st_ren');
-                    actionsDiv.appendChild(b);
-                } else {
-                    document.getElementById('action-renewal').classList.remove('hidden');
-                    document.getElementById('btn-approve-renewal').onclick = () => submitRenewal('approve');
-                    document.getElementById('btn-reject-renewal').onclick = () => submitRenewal('reject');
-                    
-                    if (lastRen.oddHourReq === 'Y' && isAppTurn) {
-                        document.getElementById('odd-hour-approval-controls').classList.remove('hidden');
-                        document.getElementById('btn-approve-renewal').disabled = true;
-                        window.toggleRenewalApproveBtn = () => { document.getElementById('btn-approve-renewal').disabled = !document.getElementById('odd-hour-allow-check').checked; };
+                let validPoints = mapData.filter(p => p.lat && p.lng && isFinite(parseFloat(p.lat)) && isFinite(parseFloat(p.lng)));
+                const center = validPoints.length > 0 ? { lat: parseFloat(validPoints[0].lat), lng: parseFloat(validPoints[0].lng) } : { lat: 20.5937, lng: 78.9629 };
+                
+                mapInstance = new google.maps.Map(mapEl, { zoom: 5, center: center });
+
+                validPoints.forEach(p => {
+                    const marker = new google.maps.Marker({ position: { lat: parseFloat(p.lat), lng: parseFloat(p.lng) }, map: mapInstance, title: p.PermitID });
+                    const infoWindow = new google.maps.InfoWindow({ content: `<div class="p-2"><h3 class="font-bold text-orange-600">${p.PermitID}</h3><p class="text-xs"><b>Status:</b> ${p.Status}</p><button onclick="openPermit('${p.PermitID}')" class="text-blue-600 text-xs font-bold underline mt-1">View Details</button></div>` });
+                    marker.addListener('click', () => infoWindow.open(mapInstance, marker));
+                });
+            } catch(e) { console.error("Map Error", e); }
+        }
+
+        /* 5. DASHBOARD & STATS */
+        async function loadDashboard() {
+            const res = await apiCall('/dashboard', 'POST', {role: currentUser.Role, email: currentUser.Email});
+            const container = document.getElementById('dashboard-content'); 
+            container.innerHTML = '';
+            
+            const pending = res.filter(p => {
+                const s = p.Status;
+                if (currentUser.Role === 'MasterAdmin') return s.includes('Pending') || s === 'Submitted';
+                if (currentUser.Role === 'Reviewer') return s === 'Pending Review' || s === 'Renewal Pending Review' || s === 'Closure Pending Review';
+                if (currentUser.Role === 'Approver') return s === 'Pending Approval' || s === 'Renewal Pending Approval' || s === 'Closure Pending Approval';
+                return (s.includes('Pending') || s === 'Submitted') && p.RequesterEmail === currentUser.Email;
+            });
+
+            const active = res.filter(p => p.Status === 'Active' || (p.Status.includes('Renewal') && !p.Status.includes('Pending')));
+            const closed = res.filter(p => p.Status === 'Closed' || p.Status === 'Rejected');
+
+            const renderTable = (title, items, color) => {
+                if(items.length === 0) return '';
+                return `<div class="glass border-l-4 border-${color}-500 mb-6"><div class="flex justify-between items-center border-b pb-2 mb-3"><h3 class="font-bold text-${color}-700 uppercase text-sm">${title}</h3><span class="bg-${color}-100 text-${color}-800 text-xs font-bold px-3 py-1 rounded-full">${items.length}</span></div><div class="overflow-x-auto"><table class="w-full text-left text-xs data-table"><thead><tr class="bg-gray-50"><th class="p-3">ID</th><th>Type</th><th>Location</th><th>Status</th><th>Date</th><th>Action</th></tr></thead><tbody>${items.map(p => {
+                    let action = (p.Status === 'Closed' || p.Status === 'Active' || p.Status.includes('Renewal')) ? `<button class="btn-pdf" onclick="event.stopPropagation(); downloadSecurePDF('${p.PermitID}')">📥 PDF</button>` : '';
+                    return `<tr onclick="openPermit('${p.PermitID}')" class="hover:bg-gray-50 transition cursor-pointer"><td class="p-3 font-bold text-blue-600">${p.PermitID}</td><td>${p.WorkType || '-'}</td><td>${p.LocationUnit || '-'}</td><td><span class="px-2 py-0.5 rounded border bg-gray-50">${p.Status}</span></td><td class="font-mono">${p.ValidFrom ? p.ValidFrom.split('T')[0] : '-'}</td><td>${action}</td></tr>`;
+                }).join('')}</tbody></table></div></div>`;
+            };
+
+            container.innerHTML += renderTable('Action Required', pending, 'orange');
+            container.innerHTML += renderTable('Active Permits', active, 'green');
+            container.innerHTML += renderTable('Closed / Archive', closed, 'gray');
+            loadStats(res);
+        }
+
+        /* 6. CORE PERMIT LOGIC */
+        async function openPermit(id) {
+            const p = await apiCall('/permit-data', 'POST', { permitId: id });
+            if (!p || p.Status === 'Closed' || !p.WorkType) {
+                alert("📂 Permit Archived. Downloading PDF...");
+                return downloadSecurePDF(id);
+            }
+
+            currentPermitId = id;
+            currentPermitIOCLData = p.IOCLSupervisors || [];
+            permitRequirePhoto = (p.RequireRenewalPhotos === 'Y');
+
+            document.getElementById('view-dashboard').classList.add('hidden');
+            document.getElementById('view-form').classList.remove('hidden');
+            document.getElementById('permit-title').innerText = `Permit: ${id}`;
+            document.getElementById('permit-header-display').innerText = `Status: ${p.Status}`;
+
+            // Reset
+            ['fs-reviewer-section', 'fs-approver-section', 'rev-renewal-decision', 'app-renewal-decision', 'action-renewal', 'pending-renewal-display', 'odd-hour-approval-controls']
+                .forEach(id => document.getElementById(id).classList.add('hidden'));
+            
+            const actionsDiv = document.getElementById("actions-bar");
+            actionsDiv.innerHTML = "";
+
+            // Form Logic
+            const isMainPending = (p.Status === 'Pending Review' || p.Status === 'Pending Approval');
+            const isAuthority = (currentUser.Role === 'Reviewer' || currentUser.Role === 'Approver');
+
+            document.querySelectorAll('#pf input, #pf textarea, #pf select').forEach(el => {
+                let shouldDisable = true;
+                if (isAuthority && isMainPending && (el.name.startsWith('H_') || el.name.startsWith('P_') || el.id === 'H_Others_Detail')) shouldDisable = false;
+                if (currentUser.Role === 'Approver' && el.id === 'RequireRenewalPhotos') shouldDisable = false;
+                if (el.name === 'RevRenAction' || el.name === 'AppRenAction') shouldDisable = false;
+                if (el.type === 'checkbox') el.checked = (p[el.name] === 'Y');
+                else if (el.type !== 'file') el.value = p[el.name] || '';
+                el.disabled = shouldDisable;
+            });
+
+            if (currentUser.Role === 'Requester') document.getElementById('ppe-section-wrapper').classList.add('hidden');
+            else document.getElementById('ppe-section-wrapper').classList.remove('hidden');
+
+            // Workers
+            let wData = p.SelectedWorkers;
+            if (typeof wData === 'string') { try { wData = JSON.parse(wData); } catch (e) { wData = []; } }
+            currentPermitWorkers = Array.isArray(wData) ? wData : [];
+            const wTbody = document.getElementById('worker-display-body');
+            document.getElementById('worker-display-table').classList.toggle('hidden', currentPermitWorkers.length === 0);
+            if (wTbody) wTbody.innerHTML = currentPermitWorkers.map(w => `<tr><td class="p-2 font-bold">${escapeHtml(w.Name)}</td><td class="p-2">${escapeHtml(w.IDType)}: ${escapeHtml(w.ID)}</td><td class="p-2 font-mono">${escapeHtml(w.Contact)}</td></tr>`).join('');
+            
+            renderIOCLTable(p.Status);
+
+            // Main Buttons
+            if (p.Status === 'Pending Review' && currentUser.Role === 'Reviewer') {
+                document.getElementById('fs-reviewer-section').classList.remove('hidden');
+                const b1 = document.createElement("button"); b1.className = "bg-red-600 text-white px-4 py-2 rounded font-bold mr-2"; b1.innerText = "Reject"; b1.onclick = () => upd('reject');
+                const b2 = document.createElement("button"); b2.className = "bg-green-600 text-white px-4 py-2 rounded font-bold"; b2.innerText = "Review & Forward"; b2.onclick = () => upd('review');
+                actionsDiv.append(b1, b2);
+            }
+            if (p.Status === 'Pending Approval' && currentUser.Role === 'Approver') {
+                document.getElementById('fs-approver-section').classList.remove('hidden');
+                const b1 = document.createElement("button"); b1.className = "bg-red-600 text-white px-4 py-2 rounded font-bold mr-2"; b1.innerText = "Reject"; b1.onclick = () => upd('reject');
+                const b2 = document.createElement("button"); b2.className = "bg-green-600 text-white px-4 py-2 rounded font-bold"; b2.innerText = "Final Approve"; b2.onclick = () => upd('approve');
+                actionsDiv.append(b1, b2);
+            }
+
+            // Renewal Logic
+            const rens = JSON.parse(p.RenewalsJSON || "[]");
+            const lastRen = rens.length > 0 ? rens[rens.length - 1] : null;
+
+            if (rens.length > 0 || (currentUser.Role === 'Requester' && p.Status === 'Active')) {
+                document.getElementById('renewals-section').classList.remove('hidden');
+                document.getElementById('renewal-history-body').innerHTML = rens.map(r => `<tr class="border-b text-[10px]"><td class="p-2">${r.valid_from}<br>to ${r.valid_to}</td><td class="p-2">${r.hc}/${r.toxic}/${r.oxygen}</td><td class="p-2">${r.req_name}</td><td class="p-2">${r.rev_name || '-'}</td><td class="p-2">${r.app_name || '-'}</td><td class="p-2">${r.photoUrl ? 'YES' : 'NO'}</td></tr>`).join('');
+                
+                const showRenForm = (currentUser.Role === 'Requester' && p.Status === 'Active' && (!lastRen || !lastRen.status.includes('pending')));
+                document.getElementById('form-renewal').classList.toggle('hidden', !showRenForm);
+                if(showRenForm) {
+                    document.querySelectorAll('#form-renewal input').forEach(inp => inp.disabled = false);
+                    document.getElementById('renewal-worker-select').innerHTML = currentPermitWorkers.map(w => `<label class="flex items-center gap-1 text-xs bg-white p-1 rounded border"><input type="checkbox" value="${escapeHtml(w.Name)}" checked class="ren-worker-cb"> ${escapeHtml(w.Name)}</label>`).join('');
+                    document.getElementById('renewal-photo-wrapper').classList.toggle('hidden', !permitRequirePhoto);
+                }
+            }
+
+            if (lastRen && lastRen.status.includes('pending')) {
+                if (currentUser.Role !== 'Requester') document.getElementById('pending-renewal-display').classList.remove('hidden');
+                
+                const isRevTurn = (currentUser.Role === 'Reviewer' && p.Status === 'Renewal Pending Review');
+                const isAppTurn = (currentUser.Role === 'Approver' && p.Status === 'Renewal Pending Approval');
+
+                if (isRevTurn || isAppTurn) {
+                    if (rens.length === 1 && p.Status.includes('Renewal')) {
+                        if (isRevTurn) document.getElementById('rev-renewal-decision').classList.remove('hidden');
+                        if (isAppTurn) document.getElementById('app-renewal-decision').classList.remove('hidden');
+                        const b = document.createElement("button"); b.className = "bg-purple-600 text-white px-4 py-2 rounded font-bold"; b.innerText = "Confirm Decision"; b.onclick = () => upd('approve_1st_ren');
+                        actionsDiv.appendChild(b);
                     } else {
-                        document.getElementById('btn-approve-renewal').disabled = false;
+                        document.getElementById('action-renewal').classList.remove('hidden');
+                        document.getElementById('btn-approve-renewal').onclick = () => submitRenewal('approve');
+                        document.getElementById('btn-reject-renewal').onclick = () => submitRenewal('reject');
+                        
+                        if (lastRen.oddHourReq === 'Y' && isAppTurn) {
+                            document.getElementById('odd-hour-approval-controls').classList.remove('hidden');
+                            document.getElementById('btn-approve-renewal').disabled = true;
+                            window.toggleRenewalApproveBtn = () => { document.getElementById('btn-approve-renewal').disabled = !document.getElementById('odd-hour-allow-check').checked; };
+                        } else {
+                            document.getElementById('btn-approve-renewal').disabled = false;
+                        }
                     }
                 }
             }
-        }
-        
-        handleClosureUI(p, actionsDiv);
-        attachFileValidators();
-    }
-
-    // --- CLOSURE LOGIC ---
-    function handleClosureUI(p, actionsDiv) {
-        const isClosable = (p.Status === 'Active');
-        if (currentUser.Role === 'Requester' && isClosable) {
-            document.getElementById('closure-section').classList.remove('hidden');
-            document.getElementById('div-closure-req').classList.remove('hidden');
-            document.getElementById('Closure_Requestor_Remarks').disabled = false;
-            document.getElementById('Site_Restored_Check').disabled = false;
-            const b = document.createElement("button"); b.className = "bg-red-600 text-white px-4 py-2 rounded font-bold"; b.innerText = "Job Complete / Submit Closure"; b.onclick = () => upd('initiate_closure');
-            actionsDiv.appendChild(b);
-        }
-        if (p.Status.includes('Closure')) {
-            document.getElementById('closure-section').classList.remove('hidden');
-            document.getElementById('div-closure-req').classList.remove('hidden');
-            safeSet("Closure_Requestor_Remarks", p.Closure_Requestor_Remarks || "");
             
-            if (p.Status === 'Closure Pending Review' && currentUser.Role === 'Reviewer') {
-                document.getElementById('div-closure-rev').classList.remove('hidden');
-                document.getElementById('Closure_Reviewer_Remarks').disabled = false;
-                const b = document.createElement("button"); b.className = "bg-green-600 text-white px-4 py-2 rounded font-bold"; b.innerText = "Verify Closure"; b.onclick = () => upd('approve_closure');
+            handleClosureUI(p, actionsDiv);
+            attachFileValidators();
+        }
+
+        function handleClosureUI(p, actionsDiv) {
+            const isClosable = (p.Status === 'Active');
+            if (currentUser.Role === 'Requester' && isClosable) {
+                document.getElementById('closure-section').classList.remove('hidden');
+                document.getElementById('div-closure-req').classList.remove('hidden');
+                document.getElementById('Closure_Requestor_Remarks').disabled = false;
+                document.getElementById('Site_Restored_Check').disabled = false;
+                const b = document.createElement("button"); b.className = "bg-red-600 text-white px-4 py-2 rounded font-bold"; b.innerText = "Submit Closure"; b.onclick = () => upd('initiate_closure');
                 actionsDiv.appendChild(b);
             }
-            if (p.Status === 'Closure Pending Approval' && currentUser.Role === 'Approver') {
-                document.getElementById('div-closure-rev').classList.remove('hidden');
-                document.getElementById('div-closure-app').classList.remove('hidden');
-                document.getElementById('Closure_Approver_Remarks').disabled = false;
-                safeSet("Closure_Reviewer_Remarks", p.Closure_Reviewer_Remarks || "");
-                const b = document.createElement("button"); b.className = "bg-black text-white px-4 py-2 rounded font-bold"; b.innerText = "Final Permit Close"; b.onclick = () => upd('approve');
-                actionsDiv.appendChild(b);
-            }
-        }
-    }
-
-    // --- UPDATE FUNCTION (FIXED) ---
-    async function upd(act) {
-        if (act === 'initiate_closure' && !document.getElementById("Site_Restored_Check").checked) return alert("Please confirm site restoration.");
-        
-        let ioclData = [];
-        if (currentUser.Role === 'Reviewer') ioclData = getIOCLData('iocl-sup-container-rev');
-        if (currentUser.Role === 'Approver') {
-             const exist = getIOCLData('iocl-sup-container-app');
-             ioclData = [...currentPermitIOCLData, ...exist];
-        }
-
-        const body = {
-            PermitID: currentPermitId, action: act, role: currentUser.Role, user: currentUser.Name, IOCLSupervisors: ioclData,
-            comment: (currentUser.Role === 'Reviewer' ? getVal("Reviewer_Remarks") : getVal("Approver_Remarks")),
-            AdditionalPrecautions: getVal("AdditionalPrecautions"),
-            RequireRenewalPhotos: document.getElementById('RequireRenewalPhotos').checked ? 'Y' : 'N',
-            PdfBgColor: getVal('PdfBgColor'),
-            Closure_Requestor_Remarks: getVal("Closure_Requestor_Remarks"),
-            Closure_Reviewer_Remarks: getVal("Closure_Reviewer_Remarks"),
-            Closure_Approver_Remarks: getVal("Closure_Approver_Remarks"),
-            Site_Restored_Check: document.getElementById("Site_Restored_Check").checked ? 'Y' : 'N'
-        };
-
-        if (act === 'review' || act === 'approve' || act === 'approve_1st_ren') {
-            const revDec = document.querySelector('input[name="RevRenAction"]:checked');
-            const appDec = document.querySelector('input[name="AppRenAction"]:checked');
-            if (currentUser.Role === 'Reviewer' && revDec) body.FirstRenewalAction = revDec.value;
-            if (currentUser.Role === 'Approver' && appDec) body.FirstRenewalAction = appDec.value;
-            
-            if (act === 'approve_1st_ren') {
-                if (currentUser.Role === 'Reviewer') body.action = (revDec && revDec.value === 'reject') ? 'reject' : 'review';
-                if (currentUser.Role === 'Approver') body.action = (appDec && appDec.value === 'reject') ? 'reject' : 'approve';
-            }
-        }
-
-        if (currentUser.Role === 'Reviewer') {
-            document.querySelectorAll('#hazards-grid input, #ppe-grid input').forEach(c => { if (c.name) body[c.name] = c.checked ? 'Y' : 'N'; });
-            document.querySelectorAll('.checklist-grid input[type=radio]:checked').forEach(r => { if (r.name && !r.name.includes('Master')) body[r.name] = r.value; });
-        }
-
-        const res = await apiCall('/update-status', 'POST', body);
-        if (res.success) { alert("Success"); switchView('dashboard'); } 
-        else { alert(res.error || "Update Failed"); }
-    }
-
-    // --- SUBMIT PERMIT (FIXED: 500 ERROR PREVENTER) ---
-    async function savePermit() {
-        if(!document.getElementById('gsr-check').checked) return alert("Accept GSR.");
-        
-        // Validation Check
-        if(!getVal('WorkType') || !getVal('ValidFrom') || !getVal('ValidTo')) {
-            return alert("Missing Mandatory Fields: Work Type, Valid From, or Valid To.");
-        }
-
-        const fd = new FormData(document.getElementById("pf"));
-        document.querySelectorAll('input[type="checkbox"]').forEach(c => {
-             if(c.name) fd.set(c.name, c.checked ? "Y" : "N");
-        });
-        
-        const selectedWorkers = [];
-        document.querySelectorAll('#worker-select-area input:checked').forEach(c => {
-             try { selectedWorkers.push(JSON.parse(c.value)); } catch(e){}
-        });
-        fd.append("SelectedWorkers", JSON.stringify(selectedWorkers));
-        if(currentUser) fd.append("RequesterEmail", currentUser.Email);
-
-        // SAFELY Capture Gas values (Fix for 500 Error)
-        const hcEl = document.getElementById('GP_Q12_HC');
-        const toxEl = document.getElementById('GP_Q12_ToxicGas');
-        const o2El = document.getElementById('GP_Q12_Oxygen');
-        fd.append("GP_Q12_HC", hcEl ? hcEl.value : "");
-        fd.append("GP_Q12_ToxicGas", toxEl ? toxEl.value : "");
-        fd.append("GP_Q12_Oxygen", o2El ? o2El.value : "");
-
-        document.querySelectorAll('input[name$="_Rem"]').forEach(rem => { if(rem.value) fd.append(rem.name, rem.value); });
-
-        const res = await fetch(API+'/save-permit', {method:'POST', body:fd, headers: {'Authorization': `Bearer ${authToken}`}});
-        try {
-             const json = await res.json();
-             if(json.success) { alert("Permit Created: "+json.permitId); switchView('dashboard'); } else alert(json.error);
-        } catch(e) {
-             alert("Server Error (500). Please check your data fields.");
-        }
-    }
-    
-    // --- RENEWAL SUBMISSION ---
-    async function submitRenewal(act) {
-        if(act === 'approve' || act === 'reject') {
-            const remark = document.getElementById('RenewalRemark').value;
-            const res = await apiCall('/renewal', 'POST', {PermitID: currentPermitId, action: act, rejectionReason: remark});
-            if(res.success) { alert("Action Taken"); switchView('dashboard'); }
-            return;
-        }
-        const fd = new FormData();
-        fd.append('PermitID', currentPermitId);
-        fd.append('action', 'initiate'); 
-        fd.append('RenewalValidFrom', getVal("RenewalValidFrom"));
-        fd.append('RenewalValidTo', getVal("RenewalValidTo"));
-        fd.append('hc', getVal("RenewalHC")); 
-        fd.append('toxic', getVal("RenewalToxic")); 
-        fd.append('oxygen', getVal("RenewalOxygen")); 
-        fd.append('precautions', getVal("RenewalPrec"));
-        
-        const selWorkers = []; 
-        document.querySelectorAll('.ren-worker-cb:checked').forEach(c => selWorkers.push(c.value));
-        fd.append('renewalWorkers', JSON.stringify(selWorkers));
-
-        if(!document.getElementById("odd-hour-agreement").classList.contains("hidden")) {
-            if(!document.getElementById("OddHourSafetyCheck").checked) return alert("Accept Odd Hour safety terms.");
-            fd.append('oddHourReq', 'Y');
-        }
-
-        const fileInput = document.getElementById("ren-cam-sub");
-        if(!document.getElementById('renewal-photo-wrapper').classList.contains('hidden') && fileInput.files.length === 0) return alert("⛔ Site photo is mandatory.");
-        if(fileInput.files.length > 0) fd.append('RenewalImage', fileInput.files[0]);
-
-        const res = await fetch(API+'/renewal', {method:'POST', body:fd, headers: {'Authorization': `Bearer ${authToken}`}});
-        const json = await res.json();
-        if(json.success) { alert("Renewal Request Submitted!"); switchView('dashboard'); } 
-        else { alert(json.error || "Submission failed"); }
-    }
-
-    function checkRenewalTime() {
-        const fVal = document.getElementById("RenewalValidFrom").value;
-        const tVal = document.getElementById("RenewalValidTo").value;
-        const div = document.getElementById("odd-hour-agreement");
-        if(fVal && tVal) {
-            const h1 = new Date(fVal).getHours(); const h2 = new Date(tVal).getHours();
-            if((h1 >= 18 || h1 < 6) || (h2 >= 18 || h2 < 6)) {
-                div.classList.remove('hidden');
-            } else { 
-                div.classList.add('hidden'); document.getElementById("OddHourSafetyCheck").checked = false; 
-            }
-        }
-    }
-    
-    // --- HELPER FUNCTIONS ---
-    function getIOCLData(id) { return Array.from(document.querySelectorAll(`#${id} .iocl-row`)).map(r => ({ name: r.querySelector('.iocl-name').value, desig: r.querySelector('.iocl-desig').value, contact: r.querySelector('.iocl-contact').value, added_by: currentUser.Name, added_at: getNow() })); }
-    function addIOCLRow(id) { const d=document.createElement('div'); d.className="flex gap-2 mb-2 iocl-row"; d.innerHTML=`<input class="iocl-name border p-1 w-1/3 text-xs" placeholder="Name"><input class="iocl-desig border p-1 w-1/3 text-xs" placeholder="Desig"><input class="iocl-contact border p-1 w-1/3 text-xs" placeholder="Contact"><button type="button" class="text-red-500" onclick="this.parentElement.remove()">x</button>`; document.getElementById(id).appendChild(d); }
-    function renderIOCLTable(status) {
-        const t = document.querySelector('#table-iocl-display tbody'); t.innerHTML = '';
-        if(!currentPermitIOCLData.length) { t.innerHTML = '<tr><td colspan="4">None</td></tr>'; }
-        else {
-             currentPermitIOCLData.forEach(x => t.innerHTML += `<tr><td>${x.name}</td><td>${x.desig}</td><td>${x.contact}</td><td class="text-xs text-gray-500">${x.added_by}</td></tr>`);
-        }
-        document.getElementById('iocl-sup-display-section').classList.remove('hidden');
-        
-        // Visibility Logic for adding supervisors
-        document.getElementById('btn-add-rev-sup').parentElement.classList.add('hidden');
-        document.getElementById('btn-add-app-sup').parentElement.classList.add('hidden');
-
-        if(currentUser.Role === 'Reviewer' && status === 'Pending Review') document.getElementById('btn-add-rev-sup').parentElement.classList.remove('hidden');
-        if(currentUser.Role === 'Approver' && (status === 'Pending Approval' || status === 'Active')) {
-            document.getElementById('btn-add-app-sup').parentElement.classList.remove('hidden');
-        }
-    }
-    
-    // Existing Login/Form Listeners from your previous code...
-    document.getElementById('btn-add-rev-sup').onclick = () => addIOCLRow('iocl-sup-container-rev');
-    document.getElementById('btn-add-app-sup').onclick = () => addIOCLRow('iocl-sup-container-app');
-    
-    // Initialize
-    initLogin();
-    renderChecklists(); renderHazards();
-
-    async function loadMappedApprovers() {
-         const reviewers = await apiCall('/get-users-by-loc', 'POST', { region: currentUser.Region, unit: currentUser.Unit, location: currentUser.Location, role: 'Reviewer' });
-         const approvers = await apiCall('/get-users-by-loc', 'POST', { region: currentUser.Region, unit: currentUser.Unit, location: currentUser.Location, role: 'Approver' });
-         document.getElementById("ReviewerEmail").innerHTML = reviewers.map(u => `<option value="${u.Email}">${u.Name}</option>`).join('');
-         document.getElementById("ApproverEmail").innerHTML = approvers.map(u => `<option value="${u.Email}">${u.Name}</option>`).join('');
-    }
-    
-    function renderChecklists() {
-        const container = document.getElementById('checklists-container'); container.innerHTML = '';
-        Object.keys(CL_DATA).forEach(sec => {
-            let itemsHtml = CL_DATA[sec].map((item, i) => {
-                let extra = `<input class="w-full text-xs border-b mt-1" placeholder="Remarks" name="${sec}_${i}_Rem">`;
-                if(sec==='A' && i===11) extra = `<div class="grid grid-cols-3 gap-2 mt-2"><input name="GP_Q12_HC" id="GP_Q12_HC" placeholder="HC % LEL" onkeyup="syncGasToRenewal()"><input name="GP_Q12_ToxicGas" id="GP_Q12_ToxicGas" placeholder="Toxic PPM" onkeyup="syncGasToRenewal()"><input name="GP_Q12_Oxygen" id="GP_Q12_Oxygen" placeholder="O2 %" onkeyup="syncGasToRenewal()"></div>`;
-                return `<div class="p-3 border rounded-lg bg-gray-50 text-xs hover:shadow-md"><p class="mb-2 font-semibold text-gray-700 min-h-[30px]">${item}</p><div class="flex gap-2 justify-center"><label class="cursor-pointer flex items-center gap-1"><input type="radio" name="${sec}_${i}" value="Y" checked class="accent-green-600"> Y</label><label class="cursor-pointer flex items-center gap-1"><input type="radio" name="${sec}_${i}" value="N" class="accent-red-600"> N</label><label class="cursor-pointer flex items-center gap-1"><input type="radio" name="${sec}_${i}" value="NA" class="accent-gray-600"> NA</label></div>${extra}</div>`;
-            }).join('');
-            
-            // MISSING NA BUTTON ADDED HERE
-            container.innerHTML += `<div class="glass border-t-4 border-gray-400"><div class="flex justify-between items-center border-b pb-2 mb-4 bg-gray-50 p-2 rounded"><h4 class="font-bold text-gray-700">Section ${sec} Checks</h4><div class="flex gap-2 text-xs"><label class="cursor-pointer font-bold"><input type="radio" name="Master_${sec}" value="Y" class="sec-toggle" data-sec="${sec}"> All Yes</label><label class="cursor-pointer font-bold"><input type="radio" name="Master_${sec}" value="N" class="sec-toggle" data-sec="${sec}"> All No</label><label class="cursor-pointer font-bold"><input type="radio" name="Master_${sec}" value="NA" class="sec-toggle" data-sec="${sec}"> All NA</label></div></div><div class="checklist-grid">${itemsHtml}</div></div>`;
-        });
-        document.querySelectorAll('.sec-toggle').forEach(el => { el.addEventListener('change', (e) => { document.querySelectorAll(`input[name^="${e.target.dataset.sec}_"]`).forEach(rb => { if(rb.value === e.target.value) rb.checked = true; }); }); });
-    }
-
-    function renderHazards() {
-        document.getElementById('hazards-grid').innerHTML = HAZARDS.map(h => `<label class="flex items-center gap-2 p-3 border rounded-lg bg-gray-50 text-xs cursor-pointer hover:bg-orange-100 font-bold"><input type="checkbox" name="H_${h.replace(/ /g,'')}" value="Y" ${h==='Others'?'id="chk-haz-others"':''} class="accent-orange-600 w-4 h-4"> ${h}</label>`).join('');
-        document.getElementById('chk-haz-others')?.addEventListener('change', (e) => document.getElementById('other-hazard-div').classList.toggle('hidden', !e.target.checked));
-        document.getElementById('ppe-grid').innerHTML = PPE.map(p => `<label class="flex items-center gap-2 p-3 border rounded-lg bg-gray-50 text-xs cursor-pointer hover:bg-blue-100 font-bold"><input type="checkbox" name="P_${p.replace(/ /g,'')}" value="Y" class="accent-blue-600 w-4 h-4"> ${p}</label>`).join('');
-        document.getElementById('w-id-type').addEventListener('change', (e) => document.getElementById('w-id-type-other').classList.toggle('hidden', e.target.value !== 'Other'));
-    }
-
-    // WORKER MGMT
-    async function loadWorkers(context) { 
-        const res = await apiCall('/get-workers', 'POST', {role:currentUser.Role, email:currentUser.Email, context:context}); 
-        if(currentUser.Role === 'Requester') document.getElementById('btn-add-worker-main').classList.remove('hidden');
-        else document.getElementById('btn-add-worker-main').classList.add('hidden');
-
-        if(context === 'permit_dropdown') { 
-            const con = document.getElementById('worker-select-area');
-            con.innerHTML = res.map(w => `<label class="flex items-center gap-3 border p-3 rounded-lg bg-white shadow-sm cursor-pointer hover:bg-blue-50"><input type="checkbox" name="Worker_${w.WorkerID}" value='${JSON.stringify(w)}' class="w-5 h-5 accent-blue-600 rounded"><div><div class="font-bold text-gray-800 text-sm">${escapeHtml(w.Name)}</div><div class="text-xs text-gray-500">${w.IDType}: ${w.ID}</div></div></label>`).join(''); 
-        } else { 
-            const t = document.querySelector('#table-workers tbody'); t.innerHTML = "";
-            res.forEach(w => {
-                let actions = '';
-                if(currentUser.Role === 'Requester') {
-                    actions = `<button class="text-blue-600 font-bold text-xs mr-2" onclick="editWorker('${w.WorkerID}')">Edit</button><button class="text-red-600 font-bold text-xs" onclick="workerAction('${w.WorkerID}', 'delete')">Delete</button>`;
-                }
-                else if(w.Status.includes('Pending')) {
-                    actions = `<button class="text-green-600 font-bold text-xs mr-2" onclick="workerAction('${w.WorkerID}', 'approve')">Approve</button><button class="text-red-600 font-bold text-xs" onclick="workerAction('${w.WorkerID}', 'reject')">Reject</button>`;
-                }
+            if (p.Status.includes('Closure')) {
+                document.getElementById('closure-section').classList.remove('hidden');
+                document.getElementById('div-closure-req').classList.remove('hidden');
+                safeSet("Closure_Requestor_Remarks", p.Closure_Requestor_Remarks || "");
                 
-                // Show Approved By
-                let approvedInfo = w.ApprovedBy ? `${w.ApprovedBy}<br><span class="text-[9px]">${w.ApprovedAt}</span>` : '-';
-                
-                t.innerHTML += `<tr class="hover:bg-gray-50 border-b border-gray-100">
-                    <td class="p-3 font-bold">${escapeHtml(w.Name)}</td>
-                    <td class="p-3 text-xs">${escapeHtml(w.Age)} / ${escapeHtml(w.Gender)}</td>
-                    <td class="p-3 text-xs font-mono">${escapeHtml(w.Contact)}</td>
-                    <td class="p-3 font-mono text-xs">${escapeHtml(w.IDType)}: ${escapeHtml(w.ID)}</td>
-                    <td class="p-3 text-xs text-gray-500">${approvedInfo}</td>
-                    <td class="p-3">${actions}</td>
-                </tr>`;
+                if (p.Status === 'Closure Pending Review' && currentUser.Role === 'Reviewer') {
+                    document.getElementById('div-closure-rev').classList.remove('hidden');
+                    document.getElementById('Closure_Reviewer_Remarks').disabled = false;
+                    const b = document.createElement("button"); b.className = "bg-green-600 text-white px-4 py-2 rounded font-bold"; b.innerText = "Verify Closure"; b.onclick = () => upd('approve_closure');
+                    actionsDiv.appendChild(b);
+                }
+                if (p.Status === 'Closure Pending Approval' && currentUser.Role === 'Approver') {
+                    document.getElementById('div-closure-rev').classList.remove('hidden');
+                    document.getElementById('div-closure-app').classList.remove('hidden');
+                    document.getElementById('Closure_Approver_Remarks').disabled = false;
+                    safeSet("Closure_Reviewer_Remarks", p.Closure_Reviewer_Remarks || "");
+                    const b = document.createElement("button"); b.className = "bg-black text-white px-4 py-2 rounded font-bold"; b.innerText = "Final Permit Close"; b.onclick = () => upd('approve');
+                    actionsDiv.appendChild(b);
+                }
+            }
+        }
+
+        async function upd(act) {
+            if (act === 'initiate_closure' && !document.getElementById("Site_Restored_Check").checked) return alert("Please confirm site restoration.");
+            
+            let ioclData = [];
+            if (currentUser.Role === 'Reviewer') ioclData = getIOCLData('iocl-sup-container-rev');
+            if (currentUser.Role === 'Approver') {
+                 const exist = getIOCLData('iocl-sup-container-app');
+                 ioclData = [...currentPermitIOCLData, ...exist];
+            }
+
+            const body = {
+                PermitID: currentPermitId, action: act, role: currentUser.Role, user: currentUser.Name, IOCLSupervisors: ioclData,
+                comment: (currentUser.Role === 'Reviewer' ? getVal("Reviewer_Remarks") : getVal("Approver_Remarks")),
+                AdditionalPrecautions: getVal("AdditionalPrecautions"),
+                RequireRenewalPhotos: document.getElementById('RequireRenewalPhotos').checked ? 'Y' : 'N',
+                PdfBgColor: getVal('PdfBgColor'),
+                Closure_Requestor_Remarks: getVal("Closure_Requestor_Remarks"),
+                Closure_Reviewer_Remarks: getVal("Closure_Reviewer_Remarks"),
+                Closure_Approver_Remarks: getVal("Closure_Approver_Remarks"),
+                Site_Restored_Check: document.getElementById("Site_Restored_Check").checked ? 'Y' : 'N'
+            };
+
+            if (act === 'review' || act === 'approve' || act === 'approve_1st_ren') {
+                const revDec = document.querySelector('input[name="RevRenAction"]:checked');
+                const appDec = document.querySelector('input[name="AppRenAction"]:checked');
+                if (currentUser.Role === 'Reviewer' && revDec) body.FirstRenewalAction = revDec.value;
+                if (currentUser.Role === 'Approver' && appDec) body.FirstRenewalAction = appDec.value;
+                if (act === 'approve_1st_ren') {
+                    if (currentUser.Role === 'Reviewer') body.action = (revDec && revDec.value === 'reject') ? 'reject' : 'review';
+                    if (currentUser.Role === 'Approver') body.action = (appDec && appDec.value === 'reject') ? 'reject' : 'approve';
+                }
+            }
+
+            if (currentUser.Role === 'Reviewer') {
+                document.querySelectorAll('#hazards-grid input, #ppe-grid input').forEach(c => { if (c.name) body[c.name] = c.checked ? 'Y' : 'N'; });
+            }
+            const res = await apiCall('/update-status', 'POST', body);
+            if (res.success) { alert("Success"); switchView('dashboard'); } else { alert(res.error || "Update Failed"); }
+        }
+
+        async function submitRenewal(act) {
+            if(act === 'approve' || act === 'reject') {
+                const remark = document.getElementById('RenewalRemark').value;
+                const res = await apiCall('/renewal', 'POST', {PermitID: currentPermitId, action: act, rejectionReason: remark});
+                if(res.success) { alert("Action Taken"); switchView('dashboard'); }
+                return;
+            }
+            const fd = new FormData();
+            fd.append('PermitID', currentPermitId); fd.append('action', 'initiate'); 
+            fd.append('RenewalValidFrom', getVal("RenewalValidFrom")); fd.append('RenewalValidTo', getVal("RenewalValidTo"));
+            fd.append('hc', getVal("RenewalHC")); fd.append('toxic', getVal("RenewalToxic")); fd.append('oxygen', getVal("RenewalOxygen")); fd.append('precautions', getVal("RenewalPrec"));
+            const selWorkers = []; document.querySelectorAll('.ren-worker-cb:checked').forEach(c => selWorkers.push(c.value)); fd.append('renewalWorkers', JSON.stringify(selWorkers));
+            if(!document.getElementById("odd-hour-agreement").classList.contains("hidden")) {
+                if(!document.getElementById("OddHourSafetyCheck").checked) return alert("Accept Odd Hour safety terms.");
+                fd.append('oddHourReq', 'Y');
+            }
+            const fileInput = document.getElementById("ren-cam-sub");
+            if(!document.getElementById('renewal-photo-wrapper').classList.contains('hidden') && fileInput.files.length === 0) return alert("⛔ Site photo is mandatory.");
+            if(fileInput.files.length > 0) fd.append('RenewalImage', fileInput.files[0]);
+
+            const res = await fetch(API+'/renewal', {method:'POST', body:fd, headers: {'Authorization': `Bearer ${authToken}`}});
+            const json = await res.json();
+            if(json.success) { alert("Renewal Request Submitted!"); switchView('dashboard'); } else { alert(json.error || "Submission failed"); }
+        }
+
+        function checkRenewalTime() {
+            const fVal = document.getElementById("RenewalValidFrom").value; const tVal = document.getElementById("RenewalValidTo").value;
+            const div = document.getElementById("odd-hour-agreement");
+            if(fVal && tVal) {
+                const h1 = new Date(fVal).getHours(); const h2 = new Date(tVal).getHours();
+                if((h1 >= 18 || h1 < 6) || (h2 >= 18 || h2 < 6)) div.classList.remove('hidden');
+                else { div.classList.add('hidden'); document.getElementById("OddHourSafetyCheck").checked = false; }
+            }
+        }
+        
+        function getIOCLData(id) { return Array.from(document.querySelectorAll(`#${id} .iocl-row`)).map(r => ({ name: r.querySelector('.iocl-name').value, desig: r.querySelector('.iocl-desig').value, contact: r.querySelector('.iocl-contact').value, added_by: currentUser.Name, added_at: getNow() })); }
+        function addIOCLRow(id) { const d=document.createElement('div'); d.className="flex gap-2 mb-2 iocl-row"; d.innerHTML=`<input class="iocl-name border p-1 w-1/3 text-xs" placeholder="Name"><input class="iocl-desig border p-1 w-1/3 text-xs" placeholder="Desig"><input class="iocl-contact border p-1 w-1/3 text-xs" placeholder="Contact"><button type="button" class="text-red-500" onclick="this.parentElement.remove()">x</button>`; document.getElementById(id).appendChild(d); }
+        
+        function renderIOCLTable(status) {
+            const t = document.querySelector('#table-iocl-display tbody'); t.innerHTML = '';
+            if(!currentPermitIOCLData.length) { t.innerHTML = '<tr><td colspan="4">None</td></tr>'; }
+            else {
+                currentPermitIOCLData.forEach(x => {
+                    let delBtn = '';
+                    if(currentUser.Role === 'Approver' && status === 'Active') {
+                         delBtn = `<button class="text-red-500 text-[10px] font-bold ml-2" onclick="alert('TODO: Implement direct delete')">🗑️</button>`;
+                    }
+                    t.innerHTML += `<tr><td>${x.name}</td><td>${x.desig}</td><td>${x.contact}</td><td class="text-xs text-gray-500">Added by ${x.added_by} on ${x.added_at} ${delBtn}</td></tr>`;
+                });
+            }
+            document.getElementById('iocl-sup-display-section').classList.remove('hidden');
+
+            document.getElementById('btn-add-rev-sup').parentElement.classList.add('hidden');
+            document.getElementById('btn-add-app-sup').parentElement.classList.add('hidden');
+
+            if(currentUser.Role === 'Reviewer' && status === 'Pending Review') document.getElementById('btn-add-rev-sup').parentElement.classList.remove('hidden');
+            if(currentUser.Role === 'Approver' && (status === 'Pending Approval' || status === 'Active')) {
+                document.getElementById('btn-add-app-sup').parentElement.classList.remove('hidden');
+            }
+        }
+
+        function renderChecklists() {
+            const container = document.getElementById('checklists-container'); container.innerHTML = '';
+            Object.keys(CL_DATA).forEach(sec => {
+                let itemsHtml = CL_DATA[sec].map((item, i) => {
+                    let extra = `<input class="w-full text-xs border-b mt-1" placeholder="Remarks" name="${sec}_${i}_Rem">`;
+                    if(sec==='A' && i===11) extra = `<div class="grid grid-cols-3 gap-2 mt-2"><input name="GP_Q12_HC" id="GP_Q12_HC" placeholder="HC % LEL" onkeyup="syncGasToRenewal()"><input name="GP_Q12_ToxicGas" id="GP_Q12_ToxicGas" placeholder="Toxic PPM" onkeyup="syncGasToRenewal()"><input name="GP_Q12_Oxygen" id="GP_Q12_Oxygen" placeholder="O2 %" onkeyup="syncGasToRenewal()"></div>`;
+                    return `<div class="p-3 border rounded-lg bg-gray-50 text-xs hover:shadow-md"><p class="mb-2 font-semibold text-gray-700 min-h-[30px]">${item}</p><div class="flex gap-2 justify-center"><label class="cursor-pointer flex items-center gap-1"><input type="radio" name="${sec}_${i}" value="Y" checked class="accent-green-600"> Y</label><label class="cursor-pointer flex items-center gap-1"><input type="radio" name="${sec}_${i}" value="N" class="accent-red-600"> N</label><label class="cursor-pointer flex items-center gap-1"><input type="radio" name="${sec}_${i}" value="NA" class="accent-gray-600"> NA</label></div>${extra}</div>`;
+                }).join('');
+                container.innerHTML += `<div class="glass border-t-4 border-gray-400"><div class="flex justify-between items-center border-b pb-2 mb-4 bg-gray-50 p-2 rounded"><h4 class="font-bold text-gray-700">Section ${sec} Checks</h4><div class="flex gap-2 text-xs"><label class="cursor-pointer font-bold"><input type="radio" name="Master_${sec}" value="Y" class="sec-toggle" data-sec="${sec}"> All Yes</label><label class="cursor-pointer font-bold"><input type="radio" name="Master_${sec}" value="N" class="sec-toggle" data-sec="${sec}"> All No</label><label class="cursor-pointer font-bold"><input type="radio" name="Master_${sec}" value="NA" class="sec-toggle" data-sec="${sec}"> All NA</label></div></div><div class="checklist-grid">${itemsHtml}</div></div>`;
             });
-        } 
-    }
-    
-    function editWorker(wid) {
-        alert("Edit functionality ready. Pre-fill modal for " + wid);
-        openWorkerModal();
-    }
+            document.querySelectorAll('.sec-toggle').forEach(el => { el.addEventListener('change', (e) => { document.querySelectorAll(`input[name^="${e.target.dataset.sec}_"]`).forEach(rb => { if(rb.value === e.target.value) rb.checked = true; }); }); });
+        }
 
-    async function workerAction(id, act) { await apiCall('/save-worker', 'POST', {WorkerID:id, Action:act, Role:currentUser.Role, ApproverName: currentUser.Name}); loadWorkers('mgmt'); }
-    function openWorkerModal() { document.getElementById('worker-form-real').reset(); window.currentWorkerAction = 'create'; document.getElementById('modal-worker').classList.remove('hidden'); }
-    
-    document.getElementById('worker-form-real').addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const idTypeFinal = document.getElementById("w-id-type").value === "Other" ? document.getElementById("w-id-type-other").value : document.getElementById("w-id-type").value;
-        const body = { Action: window.currentWorkerAction, Role: currentUser.Role, RequestorEmail: currentUser.Email, RequestorName: currentUser.Name, WorkerID: document.getElementById('w-id').value, Details: { Name: document.getElementById("w-name").value, Age: document.getElementById("w-age").value, Father: document.getElementById("w-father").value, Address: document.getElementById("w-address").value, Contact: document.getElementById("w-contact").value, ID: document.getElementById("w-idcard").value, Gender: document.getElementById("w-gender").value, IDType: idTypeFinal } };
-        const res = await apiCall('/save-worker', 'POST', body);
-        if(res.success) { alert("Worker Saved"); document.getElementById('modal-worker').classList.add('hidden'); loadWorkers('mgmt'); } else alert(res.error);
-    });
+        function renderHazards() {
+            document.getElementById('hazards-grid').innerHTML = HAZARDS.map(h => `<label class="flex items-center gap-2 p-3 border rounded-lg bg-gray-50 text-xs cursor-pointer hover:bg-orange-100 font-bold"><input type="checkbox" name="H_${h.replace(/ /g,'')}" value="Y" ${h==='Others'?'id="chk-haz-others"':''} class="accent-orange-600 w-4 h-4"> ${h}</label>`).join('');
+            document.getElementById('chk-haz-others')?.addEventListener('change', (e) => document.getElementById('other-hazard-div').classList.toggle('hidden', !e.target.checked));
+            document.getElementById('ppe-grid').innerHTML = PPE.map(p => `<label class="flex items-center gap-2 p-3 border rounded-lg bg-gray-50 text-xs cursor-pointer hover:bg-blue-100 font-bold"><input type="checkbox" name="P_${p.replace(/ /g,'')}" value="Y" class="accent-blue-600 w-4 h-4"> ${p}</label>`).join('');
+            document.getElementById('w-id-type').addEventListener('change', (e) => document.getElementById('w-id-type-other').classList.toggle('hidden', e.target.value !== 'Other'));
+        }
 
-    async function loadStats(data) {
-        if(!data) return;
-        document.getElementById('charts-container').classList.remove('hidden');
-        const counts = {}; const types = {};
-        data.forEach(d => { counts[d.Status] = (counts[d.Status]||0)+1; types[d.WorkType] = (types[d.WorkType]||0)+1; });
-        if(chartS) chartS.destroy();
-        chartS = new Chart(document.getElementById('chartStatus').getContext('2d'), { type: 'doughnut', data: { labels: Object.keys(counts), datasets: [{ data: Object.values(counts), backgroundColor: ['#f87171', '#4ade80', '#94a3b8', '#fbbf24'] }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right' } } } });
-        if(chartT) chartT.destroy();
-        chartT = new Chart(document.getElementById('chartType').getContext('2d'), { type: 'bar', data: { labels: Object.keys(types), datasets: [{ label: 'Work Types', data: Object.values(types), backgroundColor: '#60a5fa' }] }, options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true } } } });
-    }
-    
-    function logout() { location.reload(); }
-    
-    // --- USER MANAGEMENT PLACEHOLDERS ---
-    async function loadManageUsers() {
-        const t = document.querySelector('#table-manage-users tbody'); t.innerHTML = '<tr><td colspan="5" class="p-4 text-center">Loading...</td></tr>';
-        const roles = ['Requester', 'Reviewer', 'Approver']; let allUsers = [];
-        for(let r of roles) { const u = await apiCall('/get-users-by-loc', 'POST', { region: currentUser.Region, unit: currentUser.Unit, location: currentUser.Location, role: r }); if(Array.isArray(u)) allUsers = [...allUsers, ...u]; }
-        t.innerHTML = '';
-        if(allUsers.length === 0) t.innerHTML = `<tr><td colspan="5" class="text-center p-4">No users found.</td></tr>`;
-        else allUsers.forEach(u => { const delBtn = u.Email !== currentUser.Email ? `<button class="text-red-600 font-bold text-xs" onclick="deleteUser('${u.Email}')">Delete</button>` : '-'; t.innerHTML += `<tr class="hover:bg-gray-50 border-b"><td class="p-3 font-bold">${u.Name}</td><td class="p-3 text-xs">${u.Email}</td><td class="p-3 text-xs uppercase">${u.Role}</td><td class="p-3 text-xs">${currentUser.Location}</td><td class="p-3">${delBtn}</td></tr>`; });
-    }
-    async function deleteUser(email) { if(!confirm("Delete user?")) return; const res = await apiCall('/delete-user', 'POST', {email: email}); if(res.success) { alert("Deleted"); loadManageUsers(); } else alert(res.error); }
-    async function uploadBulkUsers() { const file = document.getElementById('bulk-excel').files[0]; if(!file) return alert("Select file"); const fd = new FormData(); fd.append('excelFile', file); document.getElementById('loader').style.display = 'flex'; const res = await fetch(API+'/admin/bulk-upload', { method: 'POST', headers: {'Authorization': `Bearer ${authToken}`}, body: fd }); const json = await res.json(); document.getElementById('loader').style.display = 'none'; alert(json.success ? "Success" : json.error); }
-    async function resetUserPassword() { const email = document.getElementById('reset-email').value; const pass = document.getElementById('reset-temp-pass').value; const res = await apiCall('/admin/reset-password', 'POST', {targetEmail: email, newTempPass: pass}); alert(res.success ? "Reset Done" : res.error); }
-    document.getElementById('adduser-form').addEventListener('submit', async (e) => { e.preventDefault(); const body = { name: document.getElementById("new-user-name").value, email: document.getElementById("new-user-email").value, role: document.getElementById("new-user-role").value, password: document.getElementById("new-user-pass").value, region: document.getElementById("new-user-region").value, unit: document.getElementById("new-user-unit").value, location: document.getElementById("new-user-location").value }; const res = await apiCall('/add-user', 'POST', body); if(res.success) { alert("User Created"); document.getElementById('view-add-user').classList.add('hidden'); document.getElementById('adduser-form').reset(); loadManageUsers(); } else alert(res.error); });
-    function getGeo() { if(!navigator.geolocation) return alert("Geo not supported"); navigator.geolocation.getCurrentPosition(p => { document.getElementById('ExactLocation').value = `${p.coords.latitude.toFixed(6)}, ${p.coords.longitude.toFixed(6)}`; document.getElementById('Latitude').value = p.coords.latitude; document.getElementById('Longitude').value = p.coords.longitude; }); }
-    document.getElementById('btn-get-geo').onclick = getGeo;
+        window.syncGasToRenewal = function() {
+            if(document.getElementById('chk-init-renewal').checked) {
+                safeSet('InitRenHC', getVal('GP_Q12_HC')); safeSet('InitRenTox', getVal('GP_Q12_ToxicGas')); safeSet('InitRenO2', getVal('GP_Q12_Oxygen'));
+            }
+        }
 
-    initLogin();
-</script>
+        function showNewPermit() {
+            document.getElementById("pf").reset();
+            currentPermitId = null;
+            document.querySelectorAll('#pf input, #pf select, #pf textarea').forEach(e => e.disabled = false);
+            safeSet("RequesterName", currentUser.Name); safeSet("Vendor", currentUser.Name); safeSet("LocationUnit", `${currentUser.Region}/${currentUser.Unit}/${currentUser.Location}`);
+            document.getElementById("Vendor").readOnly = true;
+            document.getElementById("init-renewal-wrapper").classList.remove('hidden');
+            document.getElementById("actions-bar").innerHTML = `<button type="button" onclick="savePermit()" class="w-full bg-blue-600 text-white px-6 py-3 rounded-lg font-bold shadow-lg">Submit Application</button>`;
+            loadWorkers('permit_dropdown');
+        }
+
+        async function savePermit() {
+            if(!document.getElementById('gsr-check').checked) return alert("Accept GSR.");
+            
+            // VALIDATION: PREVENT 500 ERROR
+            if(!getVal('WorkType') || !getVal('ValidFrom') || !getVal('ValidTo')) {
+                return alert("Missing Mandatory Fields: Work Type, Valid From, or Valid To.");
+            }
+
+            const fd = new FormData(document.getElementById("pf"));
+            document.querySelectorAll('input[type="checkbox"]').forEach(c => { if(c.name) fd.set(c.name, c.checked ? "Y" : "N"); });
+            
+            const selectedWorkers = [];
+            document.querySelectorAll('#worker-select-area input:checked').forEach(c => { try { selectedWorkers.push(JSON.parse(c.value)); } catch(e){} });
+            fd.append("SelectedWorkers", JSON.stringify(selectedWorkers));
+            if(currentUser) fd.append("RequesterEmail", currentUser.Email);
+
+            // SAFELY Capture Gas values (Fix for 500 Error)
+            const hcEl = document.getElementById('GP_Q12_HC');
+            const toxEl = document.getElementById('GP_Q12_ToxicGas');
+            const o2El = document.getElementById('GP_Q12_Oxygen');
+            fd.append("GP_Q12_HC", hcEl ? hcEl.value : "");
+            fd.append("GP_Q12_ToxicGas", toxEl ? toxEl.value : "");
+            fd.append("GP_Q12_Oxygen", o2El ? o2El.value : "");
+
+            document.querySelectorAll('input[name$="_Rem"]').forEach(rem => { if(rem.value) fd.append(rem.name, rem.value); });
+
+            const res = await fetch(API+'/save-permit', {method:'POST', body:fd, headers: {'Authorization': `Bearer ${authToken}`}});
+            const json = await res.json();
+            if(json.success) { alert("Permit Created: "+json.permitId); switchView('dashboard'); } else alert(json.error);
+        }
+        
+        async function loadWorkers(context) { 
+            const res = await apiCall('/get-workers', 'POST', {role:currentUser.Role, email:currentUser.Email, context:context}); 
+            if(currentUser.Role === 'Requester') document.getElementById('btn-add-worker-main').classList.remove('hidden');
+            else document.getElementById('btn-add-worker-main').classList.add('hidden');
+
+            if(context === 'permit_dropdown') { 
+                const con = document.getElementById('worker-select-area');
+                con.innerHTML = res.map(w => `<label class="flex items-center gap-3 border p-3 rounded-lg bg-white shadow-sm cursor-pointer hover:bg-blue-50"><input type="checkbox" name="Worker_${w.WorkerID}" value='${JSON.stringify(w)}' class="w-5 h-5 accent-blue-600 rounded"><div><div class="font-bold text-gray-800 text-sm">${escapeHtml(w.Name)}</div><div class="text-xs text-gray-500">${w.IDType}: ${w.ID}</div></div></label>`).join(''); 
+            } else { 
+                const t = document.querySelector('#table-workers tbody'); t.innerHTML = "";
+                res.forEach(w => {
+                    let actions = '';
+                    if(currentUser.Role === 'Requester') {
+                        actions = `<button class="text-blue-600 font-bold text-xs mr-2" onclick="editWorker('${w.WorkerID}')">Edit</button><button class="text-red-600 font-bold text-xs" onclick="workerAction('${w.WorkerID}', 'delete')">Delete</button>`;
+                    }
+                    else if(w.Status.includes('Pending')) {
+                        actions = `<button class="text-green-600 font-bold text-xs mr-2" onclick="workerAction('${w.WorkerID}', 'approve')">Approve</button><button class="text-red-600 font-bold text-xs" onclick="workerAction('${w.WorkerID}', 'reject')">Reject</button>`;
+                    }
+                    
+                    let approvedInfo = w.ApprovedBy ? `${w.ApprovedBy}<br><span class="text-[9px]">${w.ApprovedAt}</span>` : '-';
+                    t.innerHTML += `<tr class="hover:bg-gray-50 border-b border-gray-100"><td class="p-3 font-bold">${escapeHtml(w.Name)}</td><td class="p-3 text-xs">${escapeHtml(w.Age)} / ${escapeHtml(w.Gender)}</td><td class="p-3 text-xs font-mono">${escapeHtml(w.Contact)}</td><td class="p-3 font-mono text-xs">${escapeHtml(w.IDType)}: ${escapeHtml(w.ID)}</td><td class="p-3 text-xs text-gray-500">${approvedInfo}</td><td class="p-3">${actions}</td></tr>`;
+                });
+            } 
+        }
+        
+        function editWorker(wid) { alert("Edit functionality ready. Pre-fill modal for " + wid); openWorkerModal(); }
+        async function workerAction(id, act) { await apiCall('/save-worker', 'POST', {WorkerID:id, Action:act, Role:currentUser.Role, ApproverName: currentUser.Name}); loadWorkers('mgmt'); }
+        function openWorkerModal() { document.getElementById('worker-form-real').reset(); window.currentWorkerAction = 'create'; document.getElementById('modal-worker').classList.remove('hidden'); }
+        
+        document.getElementById('worker-form-real').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const idTypeFinal = document.getElementById("w-id-type").value === "Other" ? document.getElementById("w-id-type-other").value : document.getElementById("w-id-type").value;
+            const body = { Action: window.currentWorkerAction, Role: currentUser.Role, RequestorEmail: currentUser.Email, RequestorName: currentUser.Name, WorkerID: document.getElementById('w-id').value, Details: { Name: document.getElementById("w-name").value, Age: document.getElementById("w-age").value, Father: document.getElementById("w-father").value, Address: document.getElementById("w-address").value, Contact: document.getElementById("w-contact").value, ID: document.getElementById("w-idcard").value, Gender: document.getElementById("w-gender").value, IDType: idTypeFinal } };
+            const res = await apiCall('/save-worker', 'POST', body);
+            if(res.success) { alert("Worker Saved"); document.getElementById('modal-worker').classList.add('hidden'); loadWorkers('mgmt'); } else alert(res.error);
+        });
+
+        async function loadStats(data) {
+            if(!data) return;
+            document.getElementById('charts-container').classList.remove('hidden');
+            const counts = {}; const types = {};
+            data.forEach(d => { counts[d.Status] = (counts[d.Status]||0)+1; types[d.WorkType] = (types[d.WorkType]||0)+1; });
+            if(chartS) chartS.destroy();
+            chartS = new Chart(document.getElementById('chartStatus').getContext('2d'), { type: 'doughnut', data: { labels: Object.keys(counts), datasets: [{ data: Object.values(counts), backgroundColor: ['#f87171', '#4ade80', '#94a3b8', '#fbbf24'] }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right' } } } });
+            if(chartT) chartT.destroy();
+            chartT = new Chart(document.getElementById('chartType').getContext('2d'), { type: 'bar', data: { labels: Object.keys(types), datasets: [{ label: 'Work Types', data: Object.values(types), backgroundColor: '#60a5fa' }] }, options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true } } } });
+        }
+        
+        function logout() { location.reload(); }
+        
+        async function loadMappedApprovers() {
+             const reviewers = await apiCall('/get-users-by-loc', 'POST', { region: currentUser.Region, unit: currentUser.Unit, location: currentUser.Location, role: 'Reviewer' });
+             const approvers = await apiCall('/get-users-by-loc', 'POST', { region: currentUser.Region, unit: currentUser.Unit, location: currentUser.Location, role: 'Approver' });
+             document.getElementById("ReviewerEmail").innerHTML = reviewers.map(u => `<option value="${u.Email}">${u.Name}</option>`).join('');
+             document.getElementById("ApproverEmail").innerHTML = approvers.map(u => `<option value="${u.Email}">${u.Name}</option>`).join('');
+        }
+
+        async function downloadSecurePDF(id) { try { document.getElementById('loader').style.display = 'flex'; const res = await fetch(`${API}/download-pdf/${id}`, { headers: {'Authorization': `Bearer ${authToken}`} }); if(!res.ok) throw new Error("Err"); const blob = await res.blob(); const a = document.createElement('a'); a.href = window.URL.createObjectURL(blob); a.download = `${id}.pdf`; document.body.appendChild(a); a.click(); document.body.removeChild(a); } catch(e) { alert("Download Failed"); } finally { document.getElementById('loader').style.display = 'none'; } }
+        async function downloadSecureExcel() { try { document.getElementById('loader').style.display = 'flex'; const res = await fetch(`${API}/download-excel`, { headers: {'Authorization': `Bearer ${authToken}`} }); if(!res.ok) throw new Error("Err"); const blob = await res.blob(); const a = document.createElement('a'); a.href = window.URL.createObjectURL(blob); a.download = "Permits.xlsx"; document.body.appendChild(a); a.click(); document.body.removeChild(a); } catch(e) { alert("Failed"); } finally { document.getElementById('loader').style.display = 'none'; } }
+        window.viewSecurePhoto = async function(url) { if (!url) return alert("No photo"); const filename = url.split('/').pop(); document.getElementById('loader').style.display = 'flex'; try { const res = await fetch(`${API}/view-photo/${filename}`, { method: 'GET', headers: {'Authorization': `Bearer ${authToken}`} }); if (!res.ok) throw new Error("Err"); const blob = await res.blob(); window.open(window.URL.createObjectURL(blob), '_blank'); } catch (e) { alert("Load Failed"); } finally { document.getElementById('loader').style.display = 'none'; } }
+        
+        document.getElementById('btn-add-rev-sup').onclick = () => addIOCLRow('iocl-sup-container-rev');
+        document.getElementById('btn-add-app-sup').onclick = () => addIOCLRow('iocl-sup-container-app');
+        
+        async function loadManageUsers() {
+            const t = document.querySelector('#table-manage-users tbody'); t.innerHTML = '<tr><td colspan="5" class="p-4 text-center">Loading...</td></tr>';
+            const roles = ['Requester', 'Reviewer', 'Approver']; let allUsers = [];
+            for(let r of roles) { const u = await apiCall('/get-users-by-loc', 'POST', { region: currentUser.Region, unit: currentUser.Unit, location: currentUser.Location, role: r }); if(Array.isArray(u)) allUsers = [...allUsers, ...u]; }
+            t.innerHTML = '';
+            if(allUsers.length === 0) t.innerHTML = `<tr><td colspan="5" class="text-center p-4">No users found.</td></tr>`;
+            else allUsers.forEach(u => { const delBtn = u.Email !== currentUser.Email ? `<button class="text-red-600 font-bold text-xs" onclick="deleteUser('${u.Email}')">Delete</button>` : '-'; t.innerHTML += `<tr class="hover:bg-gray-50 border-b"><td class="p-3 font-bold">${u.Name}</td><td class="p-3 text-xs">${u.Email}</td><td class="p-3 text-xs uppercase">${u.Role}</td><td class="p-3 text-xs">${currentUser.Location}</td><td class="p-3">${delBtn}</td></tr>`; });
+        }
+        async function deleteUser(email) { if(!confirm("Delete user?")) return; const res = await apiCall('/delete-user', 'POST', {email: email}); if(res.success) { alert("Deleted"); loadManageUsers(); } else alert(res.error); }
+        async function uploadBulkUsers() { const file = document.getElementById('bulk-excel').files[0]; if(!file) return alert("Select file"); const fd = new FormData(); fd.append('excelFile', file); document.getElementById('loader').style.display = 'flex'; const res = await fetch(API+'/admin/bulk-upload', { method: 'POST', headers: {'Authorization': `Bearer ${authToken}`}, body: fd }); const json = await res.json(); document.getElementById('loader').style.display = 'none'; alert(json.success ? "Success" : json.error); }
+        async function resetUserPassword() { const email = document.getElementById('reset-email').value; const pass = document.getElementById('reset-temp-pass').value; const res = await apiCall('/admin/reset-password', 'POST', {targetEmail: email, newTempPass: pass}); alert(res.success ? "Reset Done" : res.error); }
+        document.getElementById('adduser-form').addEventListener('submit', async (e) => { e.preventDefault(); const body = { name: document.getElementById("new-user-name").value, email: document.getElementById("new-user-email").value, role: document.getElementById("new-user-role").value, password: document.getElementById("new-user-pass").value, region: document.getElementById("new-user-region").value, unit: document.getElementById("new-user-unit").value, location: document.getElementById("new-user-location").value }; const res = await apiCall('/add-user', 'POST', body); if(res.success) { alert("User Created"); document.getElementById('view-add-user').classList.add('hidden'); document.getElementById('adduser-form').reset(); loadManageUsers(); } else alert(res.error); });
+        function getGeo() { if(!navigator.geolocation) return alert("Geo not supported"); navigator.geolocation.getCurrentPosition(p => { document.getElementById('ExactLocation').value = `${p.coords.latitude.toFixed(6)}, ${p.coords.longitude.toFixed(6)}`; document.getElementById('Latitude').value = p.coords.latitude; document.getElementById('Longitude').value = p.coords.longitude; }); }
+        document.getElementById('btn-get-geo').onclick = getGeo;
+
+        initLogin();
+    </script>
 </body>
 </html>
