@@ -1391,53 +1391,36 @@ app.post('/api/stats', authenticateAccess, async (req, res) => {
   }
 });
 /* =====================================================
-   RENEWAL LOGIC ROUTE (Missing)
+   CORE RENEWAL HANDSHAKE ROUTE
 ===================================================== */
 app.post('/api/renewal', authenticateAccess, upload.single('RenewalImage'), async (req, res) => {
     try {
         const { PermitID, action, rejectionReason } = req.body;
-        const pool = await getConnection();
-        
-        // 1. Fetch Current Permit
-        const cur = await pool.request().input('p', PermitID).query("SELECT Status, RenewalsJSON, FullDataJSON FROM Permits WHERE PermitID=@p");
-        if (!cur.recordset.length) return res.status(404).json({ error: "Permit not found" });
-
-        let renewals = JSON.parse(cur.recordset[0].RenewalsJSON || "[]");
+        const role = req.user.role;
         const user = req.user.name;
         const now = getNowIST();
 
-        // --- CASE A: APPROVE / REJECT EXISTING RENEWAL ---
-        if (action === 'approve' || action === 'reject') {
-            if (renewals.length === 0) return res.status(400).json({ error: "No renewal found" });
+        const pool = await getConnection();
+        
+        // 1. Fetch current state of the permit
+        const cur = await pool.request()
+            .input('p', PermitID)
+            .query("SELECT Status, RenewalsJSON, FullDataJSON FROM Permits WHERE PermitID=@p");
             
-            let last = renewals[renewals.length - 1];
-            
-            if (action === 'approve') {
-                if (req.user.role === 'Reviewer') {
-                    last.status = 'pending_approval';
-                    last.rev_name = user;
-                    last.rev_at = now;
-                } else if (req.user.role === 'Approver') {
-                    last.status = 'approved';
-                    last.app_name = user;
-                    last.app_at = now;
-                }
-            } else {
-                last.status = 'rejected';
-                last.rej_reason = rejectionReason;
-                last.rej_by = user;
+        if (!cur.recordset.length) return res.status(404).json({ error: "Permit not found" });
+
+        const permitData = cur.recordset[0];
+        const currentMainStatus = permitData.Status;
+        let renewals = JSON.parse(permitData.RenewalsJSON || "[]");
+        let fullData = JSON.parse(permitData.FullDataJSON || "{}");
+
+        // --- CASE A: INITIATE (Requester) ---
+        if (action === 'initiate') {
+            // Check if photo is required by Approver settings
+            if (fullData.RequireRenewalPhotos === 'Y' && !req.file) {
+                return res.status(400).json({ error: "Site photo is mandatory for this permit." });
             }
 
-            await pool.request()
-                .input('p', PermitID)
-                .input('ren', JSON.stringify(renewals))
-                .query("UPDATE Permits SET RenewalsJSON=@ren WHERE PermitID=@p");
-
-            return res.json({ success: true });
-        }
-
-        // --- CASE B: INITIATE NEW RENEWAL (Requester) ---
-        if (action === 'initiate') {
             let photoUrl = null;
             if (req.file) {
                 const blobName = `${PermitID}-REN-${Date.now()}.jpg`;
@@ -1445,36 +1428,89 @@ app.post('/api/renewal', authenticateAccess, upload.single('RenewalImage'), asyn
             }
 
             const newRen = {
-                status: 'pending_review',
+                status: 'pending_review', // Inner status
                 valid_from: req.body.RenewalValidFrom,
-                valid_to: req.body.RenewalValidTo, // Mapping frontend field name
+                valid_to: req.body.RenewalValidTo,
                 hc: req.body.hc,
                 toxic: req.body.toxic,
                 oxygen: req.body.oxygen,
                 precautions: req.body.precautions,
-                oddHourReq: req.body.oddHourReq || 'N',
-                worker_list: JSON.parse(req.body.renewalWorkers || "[]"),
                 req_name: user,
                 req_at: now,
-                photoUrl: photoUrl
+                photoUrl: photoUrl,
+                oddHourReq: req.body.oddHourReq || 'N',
+                worker_list: JSON.parse(req.body.renewalWorkers || "[]")
             };
 
             renewals.push(newRen);
 
+            // Update status to move it to Reviewer's "Action Required" list
             await pool.request()
                 .input('p', PermitID)
                 .input('ren', JSON.stringify(renewals))
-                .query("UPDATE Permits SET RenewalsJSON=@ren WHERE PermitID=@p");
+                .input('s', 'Renewal Pending Review') 
+                .query("UPDATE Permits SET RenewalsJSON=@ren, Status=@s WHERE PermitID=@p");
 
-            log(`New Renewal Requested for ${PermitID} by ${user}`);
+            log(`Renewal Initiated for ${PermitID} by ${user}. Status: Renewal Pending Review`);
             return res.json({ success: true });
         }
 
-        res.status(400).json({ error: "Invalid Action" });
+        // --- CASE B: APPROVE / RECOMMEND (Reviewer or Approver) ---
+        if (action === 'approve') {
+            if (renewals.length === 0) return res.status(400).json({ error: "No renewal record found." });
+            
+            let lastRen = renewals[renewals.length - 1];
+            let nextMainStatus = currentMainStatus;
+
+            if (role === 'Reviewer') {
+                lastRen.status = 'pending_approval';
+                lastRen.rev_name = user;
+                lastRen.rev_at = now;
+                nextMainStatus = 'Renewal Pending Approval'; // Move to Approver's bucket
+            } 
+            else if (role === 'Approver') {
+                lastRen.status = 'approved';
+                lastRen.app_name = user;
+                lastRen.app_at = now;
+                nextMainStatus = 'Active'; // Back to fully Active status
+            }
+
+            await pool.request()
+                .input('p', PermitID)
+                .input('ren', JSON.stringify(renewals))
+                .input('s', nextMainStatus)
+                .query("UPDATE Permits SET RenewalsJSON=@ren, Status=@s WHERE PermitID=@p");
+
+            log(`Renewal action 'approve' by ${user} (${role}). Main Status: ${nextMainStatus}`);
+            return res.json({ success: true });
+        }
+
+        // --- CASE C: REJECT (Reviewer or Approver) ---
+        if (action === 'reject') {
+            if (renewals.length === 0) return res.status(400).json({ error: "No renewal record found." });
+            
+            let lastRen = renewals[renewals.length - 1];
+            lastRen.status = 'rejected';
+            lastRen.rej_reason = rejectionReason || "Rejected by authority";
+            lastRen.rej_by = user;
+
+            // On rejection, we usually revert the main status to 'Active' 
+            // but the specific shift request remains marked as rejected in history.
+            await pool.request()
+                .input('p', PermitID)
+                .input('ren', JSON.stringify(renewals))
+                .input('s', 'Active') 
+                .query("UPDATE Permits SET RenewalsJSON=@ren, Status=@s WHERE PermitID=@p");
+
+            log(`Renewal Rejected for ${PermitID} by ${user}`);
+            return res.json({ success: true });
+        }
+
+        return res.status(400).json({ error: "Invalid Action Provided" });
 
     } catch (err) {
-        log("Renewal Error: " + err.message, 'ERROR');
-        res.status(500).json({ error: err.message });
+        log("Critical Renewal Error: " + err.message, 'ERROR');
+        res.status(500).json({ error: "Internal Server Error during renewal processing." });
     }
 });
 app.get('/api/download-excel', authenticateAccess, async (req, res) => {
