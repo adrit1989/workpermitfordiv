@@ -793,64 +793,83 @@
         }
 
         async function loadDashboard() {
-            const res = await apiCall('/dashboard', 'POST', {role: currentUser.Role, email: currentUser.Email});
-            const container = document.getElementById('dashboard-content'); container.innerHTML = '';
-            
-            const pending = res.filter(p => p.Status.includes('Pending') || p.Status === 'Submitted');
-            const active = res.filter(p => p.Status === 'Active' || p.Status.includes('Renewal'));
-            // Ensure both Closed and Rejected are caught here
-            const closed = res.filter(p => p.Status.includes('Closed') || p.Status === 'Rejected');
-            
-            const renderTable = (title, items, color) => {
-                if(items.length === 0) return '';
-                return `
-                    <div class="glass border-l-4 border-${color}-500 transform transition hover:shadow-lg">
-                        <div class="flex justify-between items-center border-b pb-2 mb-3">
-                            <h3 class="font-bold text-${color}-700 uppercase text-sm tracking-wide flex items-center gap-2">${title}</h3>
-                            <span class="bg-${color}-100 text-${color}-800 text-xs font-bold px-3 py-1 rounded-full border border-${color}-200">${items.length}</span>
-                        </div>
-                        <div class="overflow-x-auto">
-                            <table class="w-full text-left text-xs data-table">
-                                <thead>
-                                    <tr>
-                                        <th>ID</th><th>Type</th><th>Location</th><th>Status</th><th>Date</th><th>Action</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    ${items.map(p => {
-                                        // LOGIC: Show PDF button for Active and Closed permits
-                                        // Hide it for 'Action Required' (Pending) to force user to open the permit first
-                                        let action = '';
-                                        if(p.Status === 'Closed' || p.Status === 'Active' || p.Status.includes('Renewal')) {
-                                             action = `<button class="btn-pdf" onclick="event.stopPropagation(); downloadSecurePDF('${p.PermitID}')">📥 PDF</button>`;
-                                        }
+    const res = await apiCall('/dashboard', 'POST', {role: currentUser.Role, email: currentUser.Email});
+    const container = document.getElementById('dashboard-content'); 
+    container.innerHTML = '';
+    
+    // --- SMART FILTERING LOGIC ---
+    // This ensures users only see "Action Required" if it is actually THEIR turn to act.
+    const pending = res.filter(p => {
+        const s = p.Status;
+        if (currentUser.Role === 'MasterAdmin') return s.includes('Pending') || s === 'Submitted';
 
-                                        let statusClass = "text-[10px] uppercase font-bold px-2 py-0.5 rounded border ";
-                                        if(p.Status.includes('Pending')) statusClass += "bg-red-50 text-red-600 border-red-200";
-                                        else if(p.Status==='Active') statusClass += "bg-green-50 text-green-700 border-green-200";
-                                        else statusClass += "bg-gray-50 text-gray-600 border-gray-200";
-
-                                        return `
-                                            <tr onclick="openPermit('${p.PermitID}')" class="group hover:bg-${color}-50 transition">
-                                                <td class="font-bold text-blue-600 group-hover:underline">${p.PermitID}</td>
-                                                <td class="font-medium">${p.WorkType || '-'}</td>
-                                                <td class="text-gray-500">${p.LocationUnit || '-'}</td>
-                                                <td><span class="${statusClass}">${p.Status}</span></td>
-                                                <td class="font-mono text-gray-500">${p.ValidFrom ? p.ValidFrom.split('T')[0] : '-'}</td>
-                                                <td>${action}</td>
-                                            </tr>`;
-                                    }).join('')}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>`;
-            };
-            container.innerHTML += renderTable('Action Required', pending, 'red');
-            container.innerHTML += renderTable('Active Permits', active, 'green');
-            container.innerHTML += renderTable('Closed / Archive', closed, 'gray');
-            loadStats(res);
+        if (currentUser.Role === 'Reviewer') {
+            return s === 'Pending Review' || s === 'Renewal Pending Review' || s === 'Closure Pending Review';
         }
+        if (currentUser.Role === 'Approver') {
+            return s === 'Pending Approval' || s === 'Renewal Pending Approval' || s === 'Closure Pending Approval';
+        }
+        // Requesters see all their items that are not yet Active or Closed
+        return (s.includes('Pending') || s === 'Submitted') && p.RequesterEmail === currentUser.Email;
+    });
 
+    const active = res.filter(p => p.Status === 'Active' || (p.Status.includes('Renewal') && !p.Status.includes('Pending')));
+    
+    const closed = res.filter(p => p.Status === 'Closed' || p.Status === 'Rejected');
+    
+    // --- RENDER TABLES ---
+    const renderTable = (title, items, color) => {
+        if(items.length === 0) return '';
+        
+        return `
+            <div class="glass border-l-4 border-${color}-500 transform transition hover:shadow-lg mb-6">
+                <div class="flex justify-between items-center border-b pb-2 mb-3">
+                    <h3 class="font-bold text-${color}-700 uppercase text-sm tracking-wide flex items-center gap-2">${title}</h3>
+                    <span class="bg-${color}-100 text-${color}-800 text-xs font-bold px-3 py-1 rounded-full border border-${color}-200">${items.length}</span>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-xs data-table">
+                        <thead>
+                            <tr class="bg-gray-50">
+                                <th class="p-3">ID</th><th>Type</th><th>Location</th><th>Status</th><th>Date</th><th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${items.map(p => {
+                                let action = '';
+                                // Show PDF button for anything that has been officially approved at least once
+                                if(p.Status === 'Closed' || p.Status === 'Active' || p.Status.includes('Renewal')) {
+                                     action = `<button class="btn-pdf" onclick="event.stopPropagation(); downloadSecurePDF('${p.PermitID}')">📥 PDF</button>`;
+                                }
+
+                                let statusClass = "text-[10px] uppercase font-bold px-2 py-0.5 rounded border ";
+                                if(p.Status.includes('Pending')) statusClass += "bg-orange-50 text-orange-600 border-orange-200";
+                                else if(p.Status==='Active') statusClass += "bg-green-50 text-green-700 border-green-200";
+                                else if(p.Status==='Rejected') statusClass += "bg-red-50 text-red-600 border-red-200";
+                                else statusClass += "bg-gray-50 text-gray-600 border-gray-200";
+
+                                return `
+                                    <tr onclick="openPermit('${p.PermitID}')" class="group hover:bg-gray-50 transition cursor-pointer">
+                                        <td class="p-3 font-bold text-blue-600 group-hover:underline">${p.PermitID}</td>
+                                        <td class="p-3 font-medium">${p.WorkType || '-'}</td>
+                                        <td class="p-3 text-gray-500">${p.LocationUnit || '-'}</td>
+                                        <td class="p-3"><span class="${statusClass}">${p.Status}</span></td>
+                                        <td class="p-3 font-mono text-gray-500">${p.ValidFrom ? p.ValidFrom.split('T')[0] : '-'}</td>
+                                        <td class="p-3">${action}</td>
+                                    </tr>`;
+                            }).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            </div>`;
+    };
+
+    container.innerHTML += renderTable('Action Required', pending, 'orange');
+    container.innerHTML += renderTable('Active Permits', active, 'green');
+    container.innerHTML += renderTable('Closed / Archive', closed, 'gray');
+    
+    loadStats(res);
+}
         async function downloadSecurePDF(id) {
             try {
                 document.getElementById('loader').style.display = 'flex';
@@ -1498,6 +1517,7 @@ async function upd(act) {
     </script>
 </body>
 </html>
+
 
 
 
