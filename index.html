@@ -1251,67 +1251,61 @@ async function submitRenewal(act) {
         async function workerAction(id, act) { await apiCall('/save-worker', 'POST', {WorkerID:id, Action:act, Role:currentUser.Role, ApproverName: currentUser.Name}); loadWorkers('mgmt'); }
 
 async function upd(act) {
-            // REQ: Safety check for Requester
-            if(act === 'initiate_closure') {
-                const siteCheck = document.getElementById("Site_Restored_Check").checked;
-                if(!siteCheck) {
-                    alert("⛔ Error: You must tick the 'I confirm Site is Restored' checkbox before submitting.");
-                    return;
-                }
-            }
-
-            // Logic to fetch supervisor data from the correct container
-            let ioclData = getIOCLData('iocl-sup-container-rev'); 
-            if(currentUser.Role === 'Approver') ioclData = getIOCLData('iocl-sup-container-app');
-
-            const body = { 
-                PermitID: currentPermitId, 
-                action: act, 
-                role: currentUser.Role, 
-                user: currentUser.Name,
-                IOCLSupervisors: ioclData,
-                comment: (currentUser.Role === 'Reviewer' ? getVal("Reviewer_Remarks") : getVal("Approver_Remarks")),
-                AdditionalPrecautions: getVal("AdditionalPrecautions"),
-                RequireRenewalPhotos: document.getElementById('RequireRenewalPhotos').checked ? 'Y' : 'N',
-                PdfBgColor: getVal('PdfBgColor'),
-                // REQ B: Capture specific closure remarks for the audit trail
-                Closure_Requestor_Remarks: getVal("Closure_Requestor_Remarks"), 
-                Closure_Reviewer_Remarks: getVal("Closure_Reviewer_Remarks"), 
-                Closure_Approver_Remarks: getVal("Closure_Approver_Remarks"),
-                Site_Restored_Check: document.getElementById("Site_Restored_Check").checked ? 'Y' : 'N'
-            };
-            
-            // Re-capture Hazards & PPE if Reviewer is forwarding
-            if(currentUser.Role === 'Reviewer' && act === 'review') {
-                 document.querySelectorAll('input[type=checkbox]').forEach(c => {
-                     if(c.name && (c.name.startsWith('H_') || c.name.startsWith('P_'))) {
-                         body[c.name] = c.checked ? 'Y' : 'N';
-                     }
-                 });
-                 document.querySelectorAll('input[type=radio]:checked').forEach(r => {
-                     if(r.name && !r.name.includes('Master')) body[r.name] = r.value;
-                 });
-                 
-                 // Handle 1st Renewal choice
-                 const dec = document.querySelector('input[name="RevRenAction"]:checked');
-                 if(dec) body.FirstRenewalAction = dec.value;
-            }
-
-            // Handle 1st Renewal choice for Approver
-            if(currentUser.Role === 'Approver' && act === 'approve') {
-                 const dec = document.querySelector('input[name="AppRenAction"]:checked');
-                 if(dec) body.FirstRenewalAction = dec.value;
-            }
-
-            // API execution
-            const res = await apiCall('/update-status', 'POST', body);
-            if(res.success) { 
-                alert("Status Updated Successfully");
-                switchView('dashboard'); 
-            } else { 
-                alert(res.error || "Update failed"); 
-            }
+    // 1. Safety check for Requester initiating closure
+    if (act === 'initiate_closure') {
+        const siteCheck = document.getElementById("Site_Restored_Check").checked;
+        if (!siteCheck) {
+            alert("⛔ Error: You must tick the 'I confirm Site is Restored' checkbox before submitting.");
+            return;
         }
+    }
+
+    // 2. Logic to fetch supervisor data if authority is acting
+    let ioclData = [];
+    if (currentUser.Role === 'Reviewer') ioclData = getIOCLData('iocl-sup-container-rev');
+    if (currentUser.Role === 'Approver') ioclData = getIOCLData('iocl-sup-container-app');
+
+    // 3. Construct the body
+    const body = {
+        PermitID: currentPermitId,
+        action: act,
+        role: currentUser.Role,
+        user: currentUser.Name,
+        IOCLSupervisors: ioclData,
+        // Standard remarks
+        comment: (currentUser.Role === 'Reviewer' ? getVal("Reviewer_Remarks") : getVal("Approver_Remarks")),
+        AdditionalPrecautions: getVal("AdditionalPrecautions"),
+        RequireRenewalPhotos: document.getElementById('RequireRenewalPhotos').checked ? 'Y' : 'N',
+        PdfBgColor: getVal('PdfBgColor'),
+        
+        // Handshake-Specific Remarks (Crucial for backend audit trail)
+        Closure_Requestor_Remarks: getVal("Closure_Requestor_Remarks"),
+        Closure_Reviewer_Remarks: getVal("Closure_Reviewer_Remarks"),
+        Closure_Approver_Remarks: getVal("Closure_Approver_Remarks"),
+        Site_Restored_Check: document.getElementById("Site_Restored_Check").checked ? 'Y' : 'N'
+    };
+
+    // 4. Capture Hazards & PPE state if Reviewer is forwarding initial permit
+    if (currentUser.Role === 'Reviewer' && act === 'review') {
+        document.querySelectorAll('#hazards-grid input[type=checkbox], #ppe-grid input[type=checkbox]').forEach(c => {
+            if (c.name) body[c.name] = c.checked ? 'Y' : 'N';
+        });
+        document.querySelectorAll('.checklist-grid input[type=radio]:checked').forEach(r => {
+            if (r.name && !r.name.includes('Master')) body[r.name] = r.value;
+        });
+        const dec = document.querySelector('input[name="RevRenAction"]:checked');
+        if (dec) body.FirstRenewalAction = dec.value;
+    }
+
+    // 5. API Call
+    const res = await apiCall('/update-status', 'POST', body);
+    if (res.success) {
+        alert("Action processed successfully.");
+        switchView('dashboard');
+    } else {
+        alert(res.error || "Update failed");
+    }
+}
 
         function addIOCLRow(containerId, data=null) {
              const div = document.createElement('div'); div.className = "flex gap-2 items-center mb-2 iocl-row";
@@ -1443,4 +1437,5 @@ async function upd(act) {
     </script>
 </body>
 </html>
+
 
