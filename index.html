@@ -979,6 +979,23 @@
 
            
             if(currentUser.Role === 'Requester' && p.Status === 'New') showNewPermit();
+            // Handle Closure logic for Requester (Unhide and Enable Closure Section)
+            if(currentUser.Role === 'Requester' && (p.Status === 'Active' || p.Status.includes('Renewal'))) {
+                // Ensure the closure UI section is visible
+                document.getElementById('closure-section').classList.remove('hidden');
+                document.getElementById('div-closure-req').classList.remove('hidden');
+                
+                // Unlock the inputs so the requester can provide confirmation and remarks
+                document.getElementById('Closure_Requestor_Remarks').disabled = false;
+                document.getElementById('Site_Restored_Check').disabled = false;
+
+                // Create and show the "Job Complete" button at the bottom action bar
+                const bClose = document.createElement("button");
+                bClose.className = "bg-red-600 text-white px-6 py-2 rounded shadow font-bold hover:bg-red-700 transition";
+                bClose.innerText = "Job Complete / Submit for Closure";
+                bClose.onclick = () => upd('initiate_closure'); // Calls the update status API
+                document.getElementById("actions-bar").appendChild(bClose);
+            }
             
             if(currentUser.Role === 'Reviewer' && p.Status === 'Pending Review') {
                 document.getElementById('fs-reviewer-section').classList.remove('hidden'); document.getElementById('iocl-reviewer-wrapper').classList.remove('hidden');
@@ -1191,6 +1208,13 @@
         async function workerAction(id, act) { await apiCall('/save-worker', 'POST', {WorkerID:id, Action:act, Role:currentUser.Role, ApproverName: currentUser.Name}); loadWorkers('mgmt'); }
 
         async function upd(act) {
+            if(act === 'initiate_closure') {
+                const siteCheck = document.getElementById("Site_Restored_Check").checked;
+                if(!siteCheck) {
+                    alert("⛔ Error: You must tick the 'I confirm Site is Restored' checkbox before submitting.");
+                    return;
+                }
+            }
             let ioclData = getIOCLData('iocl-sup-container-rev'); 
             if(currentUser.Role === 'Approver') ioclData = getIOCLData('iocl-sup-container-app');
 
@@ -1362,6 +1386,7 @@
     </script>
 </body>
 </html>
+
 
 
 
