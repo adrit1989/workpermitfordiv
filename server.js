@@ -24,6 +24,16 @@ app.set('trust proxy', 1);
 app.use(cookieParser());
 
 /* =====================================================
+   AZURE LOG STREAM LOGGER
+===================================================== */
+const log = (msg, type = 'INFO') => {
+    const timestamp = new Date().toISOString();
+    const logMsg = `[${timestamp}] [${type}] ${msg}`;
+    console.log(logMsg);
+    if (type === 'ERROR') console.error(logMsg);
+};
+
+/* =====================================================
    SECURITY CONFIGURATION
 ===================================================== */
 
@@ -33,7 +43,6 @@ app.use((req, res, next) => {
   next();
 });
 
-// --- FIXED CSP HEADERS FOR TAILWIND/FONTS/MAPS ---
 app.use(
   helmet({
     contentSecurityPolicy: {
@@ -102,7 +111,7 @@ const JWT_SECRET = process.env.JWT_SECRET;
 const REFRESH_SECRET = process.env.REFRESH_SECRET || (process.env.JWT_SECRET + "_refresh");
 const AZURE_CONN_STR = process.env.AZURE_STORAGE_CONNECTION_STRING;
 
-// RATE LIMITER
+// RATE LIMIT
 const safeKeyGenerator = (req) => {
     return req.ip ? req.ip.replace(/:\d+$/, '') : req.ip;
 };
@@ -134,7 +143,7 @@ if (AZURE_CONN_STR) {
     containerClient = blobServiceClient.getContainerClient("permit-attachments");
     (async () => { try { await containerClient.createIfNotExists(); } catch (e) {} })();
   } catch (err) {
-    console.error("Blob Error:", err.message);
+    log("Blob Error: " + err.message, 'ERROR');
   }
 }
 
@@ -180,7 +189,7 @@ async function uploadToAzure(buffer, blobName, isSystemPdf = false) {
     }
 
     if (!type || !allowedTypes.includes(type.mime)) {
-        console.error(`[SECURITY ALERT] Blocked upload for ${blobName}. Detected: ${type ? type.mime : 'Unknown'}. Allowed: ${allowedTypes.join(', ')}`);
+        log(`[SECURITY] Blocked upload ${blobName}. Type: ${type?.mime}`, 'WARN');
         return null;
     }
 
@@ -189,10 +198,11 @@ async function uploadToAzure(buffer, blobName, isSystemPdf = false) {
       blobHTTPHeaders: { blobContentType: type.mime }
     });
     
+    log(`File Uploaded: ${blobName}`);
     return blockBlobClient.url;
 
   } catch (err) {
-    console.error("Azure upload error:", err.message);
+    log("Azure upload error: " + err.message, 'ERROR');
     return null;
   }
 }
@@ -202,16 +212,13 @@ async function uploadToAzure(buffer, blobName, isSystemPdf = false) {
 ===================================================== */
 
 function createAccessToken(user) {
-  // Use current timestamp if lastPwd is null/undefined to prevent immediate expiration
-  // Force UTC milliseconds for consistency
   const pwdTime = user.lastPwd || Math.floor(Date.now() / 1000);
-  
   return jwt.sign({
     name: user.Name,
     email: user.Email,
     role: user.Role,
     region: user.Region,
-    lastPwd: pwdTime // Embed timestamp in token
+    lastPwd: pwdTime
   }, JWT_SECRET, { expiresIn: "15m" });
 }
 
@@ -222,9 +229,7 @@ function createRefreshToken(user) {
 async function saveRefreshToken(email, token) {
   const pool = await getConnection();
   await pool.request()
-    .input('e', email)
-    .input('t', token)
-    .input('exp', new Date(Date.now() + 30 * 24 * 3600 * 1000))
+    .input('e', email).input('t', token).input('exp', new Date(Date.now() + 30 * 24 * 3600 * 1000))
     .query("INSERT INTO UserRefreshTokens (Email, RefreshToken, ExpiresAt) VALUES (@e, @t, @exp)");
 }
 
@@ -240,7 +245,6 @@ async function isRefreshValid(token) {
   return new Date(r.recordset[0].ExpiresAt) > new Date();
 }
 
-/* --- AUTH MIDDLEWARE (FIXED FOR SESSION EXPIRED LOOP) --- */
 async function authenticateAccess(req, res, next) {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(" ")[1];
@@ -256,18 +260,12 @@ async function authenticateAccess(req, res, next) {
 
     if (r.recordset.length === 0) return res.status(401).json({ error: "Unknown user" });
 
-    // FIX: Handle Null DB Timestamp safely & Normalize to UTC seconds
     const dbTimeRaw = r.recordset[0].LastPasswordChange;
-    // If DB returns null, treat as 0 (epoch)
     const dbLast = dbTimeRaw ? Math.floor(new Date(dbTimeRaw).getTime() / 1000) : 0;
-    
-    // FIX: Handle missing token timestamp safely
     const tokenLast = decodedUser.lastPwd || 0;
 
-    // FIX: Add generous 120-second tolerance for server/DB clock skew
-    // This prevents "future" DB timestamps from invalidating current tokens immediately
     if (dbLast > (tokenLast + 120)) {
-      console.error(`[AUTH FAIL] Session Expired: DB=${dbLast}, Token=${tokenLast}, Diff=${dbLast - tokenLast}`);
+      log(`Session Expired for ${decodedUser.email}. DB: ${dbLast}, Token: ${tokenLast}`, 'WARN');
       return res.status(401).json({ error: "Session expired" });
     }
 
@@ -279,7 +277,6 @@ async function authenticateAccess(req, res, next) {
 /* =====================================================
    FULL PDF GENERATOR LOGIC
 ===================================================== */
-
 async function drawPermitPDF(doc, p, d, renewalsList) {
     const workType = (d.WorkType || "PERMIT").toUpperCase();
     const status = p.Status || "Active";
@@ -348,7 +345,6 @@ async function drawPermitPDF(doc, p, d, renewalsList) {
 
     drawHeaderOnAll();
 
-    // Safety Banner
     const bannerPath = path.join(__dirname, 'public', 'safety_banner.png');
     if (fs.existsSync(bannerPath)) {
         try {
@@ -715,14 +711,21 @@ app.post('/api/login', loginLimiter, async (req, res) => {
       .input('e', sql.NVarChar, req.body.email) 
       .query('SELECT * FROM Users WHERE Email=@e');
 
-    if (!r.recordset.length) return res.json({ success: false, msg: "User not found" });
+    if (!r.recordset.length) {
+        log(`Login Failed: User not found ${req.body.email}`, 'WARN');
+        return res.json({ success: false, msg: "User not found" });
+    }
 
     const user = r.recordset[0];
     const valid = await bcrypt.compare(req.body.password, user.Password);
-    if (!valid) return res.json({ success: false, msg: "Invalid credentials" });
+    if (!valid) {
+        log(`Login Failed: Invalid Password for ${req.body.email}`, 'WARN');
+        return res.json({ success: false, msg: "Invalid credentials" });
+    }
 
     // REQ I: Mandatory Password Change
     if (user.ForcePwdChange === 'Y') {
+        log(`Login: Password Change Required for ${user.Email}`);
         return res.json({ success: false, forceChange: true, email: user.Email });
     }
 
@@ -744,13 +747,14 @@ app.post('/api/login', loginLimiter, async (req, res) => {
         path: "/api/refresh"
     });
     
+    log(`User Logged In: ${user.Email} (${user.Role})`);
     res.json({ 
         success: true, token: accessToken, 
         user: { Name: user.Name, Email: user.Email, Role: user.Role, Region: user.Region, Unit: user.Unit, Location: user.Location } 
     });
 
   } catch (err) { 
-      console.error("Login Error:", err);
+      log("Login Error: " + err.message, 'ERROR');
       res.status(500).json({ error: "Login Error" }); 
   }
 });
@@ -763,6 +767,7 @@ app.post('/api/force-password-change', async (req, res) => {
         const hashed = await bcrypt.hash(newPassword, 10);
         await pool.request().input('e', email).input('p', hashed)
             .query("UPDATE Users SET Password=@p, ForcePwdChange='N', LastPasswordChange=GETDATE() WHERE Email=@e");
+        log(`Password Changed Successfully for ${email}`);
         res.json({ success: true });
     } catch(e) { res.status(500).json({ error: "Update failed" }); }
 });
@@ -790,6 +795,7 @@ app.post('/api/admin/reset-password', authenticateAccess, async (req, res) => {
         await pool.request().input('e', targetEmail).input('p', hashed)
             .query("UPDATE Users SET Password=@p, ForcePwdChange='Y' WHERE Email=@e"); // REQ I: Force change next time
 
+        log(`Admin Reset Password for ${targetEmail} by ${req.user.email}`);
         res.json({ success: true });
     } catch(e) { res.status(500).json({ error: e.message }); }
 });
@@ -799,7 +805,7 @@ app.post('/api/admin/reset-password', authenticateAccess, async (req, res) => {
 app.post('/api/admin/bulk-upload', authenticateAccess, upload.single('excelFile'), async (req, res) => {
     // [SECURITY CHECK] strictly allow only 'MasterAdmin'
     if (req.user.role !== 'MasterAdmin') {
-        console.warn(`[SECURITY] Unauthorized Bulk Upload attempt by ${req.user.email}`);
+        log(`[SECURITY] Unauthorized Bulk Upload attempt by ${req.user.email}`, 'WARN');
         return res.status(403).json({ error: "Access Denied: Master Admin rights required." });
     }
     
@@ -811,15 +817,20 @@ app.post('/api/admin/bulk-upload', authenticateAccess, upload.single('excelFile'
         const worksheet = workbook.getWorksheet(1); // Read first sheet
         const pool = await getConnection();
         
-        const promises = [];
-        
+        // 1. Fetch all existing emails to compare
+        const existingUsersRes = await pool.request().query("SELECT Email FROM Users");
+        const existingEmails = new Set(existingUsersRes.recordset.map(u => u.Email.toLowerCase()));
+
+        const usersToInsert = [];
+        let skippedCount = 0;
+
         // Iterate rows (Skip header row 1)
         worksheet.eachRow((row, rowNumber) => {
             if (rowNumber === 1) return; 
 
             // Map Excel Columns: A=Name, B=Email, C=Role, D=Password, E=Region, F=Unit, G=Location
             const name = row.getCell(1).value;
-            const email = row.getCell(2).value;
+            const email = row.getCell(2).value ? row.getCell(2).value.toString().trim() : null;
             const role = row.getCell(3).value;
             const rawPass = row.getCell(4).value ? row.getCell(4).value.toString() : "Pass@123"; // Default if empty
             const region = row.getCell(5).value;
@@ -827,35 +838,45 @@ app.post('/api/admin/bulk-upload', authenticateAccess, upload.single('excelFile'
             const loc = row.getCell(7).value;
 
             if (email && role) {
-                promises.push((async () => {
-                    const hashed = await bcrypt.hash(rawPass, 10);
-                    // Insert if email doesn't exist
-                    await pool.request()
-                        .input('n', name)
-                        .input('e', email)
-                        .input('r', role)
-                        .input('p', hashed)
-                        .input('reg', region)
-                        .input('u', unit)
-                        .input('l', loc)
-                        .input('cb', req.user.email) // Track who uploaded
-                        .query(`
-                            IF NOT EXISTS (SELECT * FROM Users WHERE Email=@e)
-                            INSERT INTO Users (Name, Email, Role, Password, Region, Unit, Location, CreatedBy, ForcePwdChange)
-                            VALUES (@n, @e, @r, @p, @reg, @u, @l, @cb, 'Y')
-                        `);
-                })());
+                if (existingEmails.has(email.toLowerCase())) {
+                    skippedCount++; // Duplicate found in DB
+                } else {
+                    usersToInsert.push({ name, email, role, rawPass, region, unit, loc });
+                    existingEmails.add(email.toLowerCase()); // Prevent duplicates within the excel itself
+                }
             }
         });
 
+        // 2. Insert only new users
+        const promises = usersToInsert.map(async (u) => {
+            const hashed = await bcrypt.hash(u.rawPass, 10);
+            return pool.request()
+                .input('n', u.name)
+                .input('e', u.email)
+                .input('r', u.role)
+                .input('p', hashed)
+                .input('reg', u.region)
+                .input('u', u.unit)
+                .input('l', u.loc)
+                .input('cb', req.user.email) // Track who uploaded
+                .query(`
+                    INSERT INTO Users (Name, Email, Role, Password, Region, Unit, Location, CreatedBy, ForcePwdChange)
+                    VALUES (@n, @e, @r, @p, @reg, @u, @l, @cb, 'Y')
+                `);
+        });
+
         await Promise.all(promises);
-        res.json({ success: true, count: promises.length, message: `Successfully processed ${promises.length} users.` });
+        
+        const msg = `Bulk Upload: ${usersToInsert.length} inserted, ${skippedCount} skipped (duplicates).`;
+        log(msg);
+        res.json({ success: true, count: usersToInsert.length, skipped: skippedCount, message: msg });
 
     } catch (e) { 
-        console.error("Bulk Upload Error:", e.message);
+        log("Bulk Upload Error: " + e.message, 'ERROR');
         res.status(500).json({ error: "Bulk Upload Failed: " + e.message }); 
     }
 });
+
 // 7. Add User (Single)
 app.post('/api/add-user', authenticateAccess, async (req, res) => {
     if(req.user.role !== 'Approver' && req.user.role !== 'MasterAdmin') return res.sendStatus(403);
@@ -876,6 +897,7 @@ app.post('/api/add-user', authenticateAccess, async (req, res) => {
             .input('reg', reg).input('u', unit).input('l', loc).input('cb', req.user.email)
             .query("INSERT INTO Users (Name,Email,Role,Password,Region,Unit,Location,CreatedBy,ForcePwdChange) VALUES (@n,@e,@r,@p,@reg,@u,@l,@cb,'Y')");
         
+        log(`User Added: ${req.body.email} by ${req.user.email}`);
         res.json({success: true});
     } catch(e) { res.status(500).json({error: "Error Adding User"}); }
 });
@@ -896,9 +918,13 @@ app.post('/api/delete-user', authenticateAccess, async (req, res) => {
         if (req.user.role === 'MasterAdmin') allow = true;
         else if (req.user.role === 'Approver' && tUser.CreatedBy === req.user.email) allow = true;
 
-        if (!allow) return res.status(403).json({ error: "Unauthorized deletion" });
+        if (!allow) {
+            log(`Delete Denied: ${req.user.email} tried deleting ${targetEmail}`, 'WARN');
+            return res.status(403).json({ error: "Unauthorized deletion" });
+        }
 
         await pool.request().input('e', targetEmail).query("DELETE FROM Users WHERE Email=@e");
+        log(`User Deleted: ${targetEmail} by ${req.user.email}`);
         res.json({ success: true });
 
     } catch(e) { res.status(500).json({ error: "Delete failed" }); }
@@ -1160,7 +1186,8 @@ app.post('/api/save-permit', authenticateAccess, upload.any(), async (req, res) 
     } else {
       await q.query("INSERT INTO Permits (PermitID, Status, WorkType, RequesterEmail, ReviewerEmail, ApproverEmail, ValidFrom, ValidTo, Latitude, Longitude, FullDataJSON, RenewalsJSON) VALUES (@p,@s,@w,@re,@rv,@ap,@vf,@vt,@lat,@lng,@j,@ren)");
     }
-
+    
+    log(`Permit Saved: ${pid} by ${requesterEmail}`);
     res.json({ success: true, permitId: pid });
 
   } catch (err) {
@@ -1260,6 +1287,7 @@ app.post('/api/update-status', authenticateAccess, async (req, res) => {
       await q.input('j', finalJson).query("UPDATE Permits SET Status=@s, FullDataJSON=@j, RenewalsJSON=@r WHERE PermitID=@p");
     }
 
+    log(`Status Update: ${PermitID} -> ${action} by ${user}`);
     res.json({ success:true, archived:!!finalPdfUrl });
 
   } catch (err) {
