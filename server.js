@@ -39,17 +39,19 @@ app.use(
       useDefaults: true,
       directives: {
         defaultSrc: ["'self'"],
+        // Script still uses Nonce for security
         scriptSrc: ["'self'", (req, res) => `'nonce-${res.locals.nonce}'`, "https://cdn.jsdelivr.net", "https://maps.googleapis.com", "https://cdn.tailwindcss.com"],
-        styleSrc: ["'self'", (req, res) => `'nonce-${res.locals.nonce}'`, "https://fonts.googleapis.com", "'unsafe-inline'"],
-        imgSrc: ["'self'", "data:", "blob:", "https://maps.gstatic.com", "https://maps.googleapis.com"],
-        fontSrc: ["'self'", "https://fonts.gstatic.com"],
+        // Style MUST allow unsafe-inline for Tailwind CDN to work
+        styleSrc: ["'self'", "https:", "'unsafe-inline'"], 
+        imgSrc: ["'self'", "data:", "blob:", "https://maps.gstatic.com", "https://maps.googleapis.com", "https://*.googleapis.com"],
+        fontSrc: ["'self'", "https:", "data:"],
         connectSrc: ["'self'", "https://maps.googleapis.com", "https://cdn.jsdelivr.net"],
-        frameAncestors: ["'none'"]
+        frameAncestors: ["'none'"],
+        upgradeInsecureRequests: [] // Optional: Helps with mixed content on some Azure setups
       }
     }
   })
 );
-
 /* --- CORS --- */
 const allowedOrigins = [
   "https://workpermit-a8hueufcdzc0ftcd.centralindia-01.azurewebsites.net",
