@@ -24,7 +24,7 @@ app.set('trust proxy', 1);
 app.use(cookieParser());
 
 /* =====================================================
-   SECURITY CONFIGURATION (CSP & CORS)
+   SECURITY CONFIGURATION
 ===================================================== */
 
 /* --- NONCE CSP --- */
@@ -33,6 +33,7 @@ app.use((req, res, next) => {
   next();
 });
 
+// --- FIXED CSP HEADERS FOR TAILWIND/FONTS/MAPS ---
 app.use(
   helmet({
     contentSecurityPolicy: {
@@ -79,7 +80,7 @@ const JWT_SECRET = process.env.JWT_SECRET;
 const REFRESH_SECRET = process.env.REFRESH_SECRET || (process.env.JWT_SECRET + "_refresh");
 const AZURE_CONN_STR = process.env.AZURE_STORAGE_CONNECTION_STRING;
 
-// RATE LIMITER (Safe IP Logic)
+// RATE LIMITER
 const safeKeyGenerator = (req) => {
     return req.ip ? req.ip.replace(/:\d+$/, '') : req.ip;
 };
@@ -144,33 +145,23 @@ function getOrdinal(n) {
   return n + (s[(v - 20) % 10] || s[v] || s[0]);
 }
 
-// --- SECURE UPLOAD HELPER (FILE-TYPE) ---
+// --- SECURE UPLOAD HELPER ---
 async function uploadToAzure(buffer, blobName, isSystemPdf = false) {
   if (!containerClient) return null;
   try {
-    // 1. Dynamic Import (ESM fix for CommonJS environment)
     const { fileTypeFromBuffer } = await import('file-type');
-    
-    // 2. Inspect Buffer Magic Numbers
     const type = await fileTypeFromBuffer(buffer);
 
-    // 3. Define Allowed Types
-    // Default: Images only (User Uploads)
     let allowedTypes = ['image/jpeg', 'image/png'];
-
-    // Exception: Allow PDF ONLY if System explicitly requests it (Archiving)
     if (isSystemPdf === 'application/pdf' || isSystemPdf === true) {
         allowedTypes.push('application/pdf');
     }
 
-    // 4. Security Check
-    // If type is undefined (unknown binary) or not in allowed list -> Block
     if (!type || !allowedTypes.includes(type.mime)) {
-        console.error(`[SECURITY ALERT] Blocked upload for ${blobName}. Detected: ${type ? type.mime : 'Unknown'}. Allowed: ${allowedTypes.join(', ')}`);
+        console.error(`[SECURITY] Blocked upload ${blobName}. Type: ${type?.mime}`);
         return null;
     }
 
-    // 5. Upload with Verified Mime
     const blockBlobClient = containerClient.getBlockBlobClient(blobName);
     await blockBlobClient.uploadData(buffer, {
       blobHTTPHeaders: { blobContentType: type.mime }
@@ -205,9 +196,7 @@ function createRefreshToken(user) {
 async function saveRefreshToken(email, token) {
   const pool = await getConnection();
   await pool.request()
-    .input('e', email)
-    .input('t', token)
-    .input('exp', new Date(Date.now() + 30 * 24 * 3600 * 1000))
+    .input('e', email).input('t', token).input('exp', new Date(Date.now() + 30 * 24 * 3600 * 1000))
     .query("INSERT INTO UserRefreshTokens (Email, RefreshToken, ExpiresAt) VALUES (@e, @t, @exp)");
 }
 
@@ -223,7 +212,7 @@ async function isRefreshValid(token) {
   return new Date(r.recordset[0].ExpiresAt) > new Date();
 }
 
-// --- AUTH MIDDLEWARE ---
+// --- AUTH MIDDLEWARE (FIXED FOR TIME SKEW) ---
 async function authenticateAccess(req, res, next) {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(" ")[1];
@@ -242,7 +231,10 @@ async function authenticateAccess(req, res, next) {
     const dbLast = r.recordset[0].LastPasswordChange ?
       Math.floor(new Date(r.recordset[0].LastPasswordChange).getTime() / 1000) : 0;
 
-    if (dbLast > (user.lastPwd || 0)) {
+    // FIX: Add 60 second tolerance for server time drift
+    const tokenLast = (user.lastPwd || 0);
+    if (dbLast > (tokenLast + 60)) {
+      console.log(`Session Expired: DB=${dbLast}, Token=${tokenLast}`);
       return res.status(401).json({ error: "Session expired" });
     }
 
@@ -252,9 +244,8 @@ async function authenticateAccess(req, res, next) {
 }
 
 /* =====================================================
-   FULL PDF GENERATOR LOGIC
+   PDF GENERATOR
 ===================================================== */
-
 async function drawPermitPDF(doc, p, d, renewalsList) {
     const workType = (d.WorkType || "PERMIT").toUpperCase();
     const status = p.Status || "Active";
