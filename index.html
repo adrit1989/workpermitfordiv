@@ -619,6 +619,10 @@
             const res = await apiCall('/add-user', 'POST', body);
             if(res.success) { alert("User Added"); document.getElementById('view-add-user').classList.add('hidden'); loadManageUsers(); } else alert(res.error);
         });
+        // 1. The Event Listener (tells the form to use the function below)
+        document.getElementById('adduser-form').addEventListener('submit', submitNewUser);
+
+        // 2. The named function that handles the logic
         async function submitNewUser(e) {
             if(e) e.preventDefault();
             const body = {
@@ -636,6 +640,7 @@
             if(res.success) { 
                 alert("User Created Successfully"); 
                 document.getElementById('view-add-user').classList.add('hidden'); 
+                document.getElementById('adduser-form').reset(); // Clears form for next time
                 loadManageUsers(); // Refresh the table
             } else {
                 alert(res.error || "Failed to create user");
@@ -1501,6 +1506,7 @@ async function upd(act) {
     </script>
 </body>
 </html>
+
 
 
 
