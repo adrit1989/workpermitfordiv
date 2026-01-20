@@ -500,12 +500,17 @@
             <button onclick="document.getElementById('view-add-user').classList.add('hidden')" class="absolute top-4 right-4 text-xl font-bold text-gray-400">✕</button>
             <h3 class="font-bold mb-4 text-lg">Add New User</h3>
             <form id="adduser-form" class="space-y-3">
-                <input id="new-user-name" placeholder="Full Name" required>
-                <input id="new-user-email" placeholder="Email Address" required>
-                <select id="new-user-role"><option>Requester</option><option>Reviewer</option><option>Approver</option></select>
-                <input id="new-user-pass" type="password" placeholder="Initial Password" required>
-                <button type="submit" class="w-full bg-purple-600 text-white py-3 rounded-lg font-bold shadow">Create User</button>
-            </form>
+    <input id="new-user-name" placeholder="Full Name" required>
+    <input id="new-user-email" placeholder="Email Address" required>
+    <select id="new-user-role"><option>Requester</option><option>Reviewer</option><option>Approver</option></select>
+    
+    <input id="new-user-region" placeholder="Region (e.g. ERPL)" required>
+    <input id="new-user-unit" placeholder="Unit (e.g. BKPL)" required>
+    <input id="new-user-location" placeholder="Location (e.g. Barauni)" required>
+    
+    <input id="new-user-pass" type="password" placeholder="Initial Password" required>
+    <button type="submit" class="w-full bg-purple-600 text-white py-3 rounded-lg font-bold shadow">Create User</button>
+</form>
         </div>
     </div>
 
@@ -1476,6 +1481,7 @@ async function upd(act) {
     </script>
 </body>
 </html>
+
 
 
 
