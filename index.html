@@ -159,7 +159,7 @@
         <div class="glass w-full max-w-sm border-l-8 border-red-600 shadow-2xl">
             <div class="flex justify-between items-center mb-4">
                 <h3 class="font-bold text-xl text-red-600">Password Update</h3>
-                <button onclick="document.getElementById('view-pwd-change').classList.add('hidden')" class="text-gray-500 font-bold">✕</button>
+                <button onclick="document.getElementById('view-pwd-change').classList.add('hidden')" class="text-gray-500 font-bold" id="btn-close-pwd-modal">✕</button>
             </div>
             <input type="password" id="new-pwd-1" placeholder="New Password" class="mb-4">
             <input type="password" id="new-pwd-2" placeholder="Confirm Password" class="mb-6">
@@ -199,13 +199,13 @@
                     </div>
                     <div id="dashboard-content" class="space-y-6">
                         <h3 class="font-bold text-xs uppercase text-gray-500">Action Required</h3>
-                        <div class="glass overflow-x-auto p-0"><table class="mobile-table w-full text-left text-sm data-table" id="table-pending"><thead class="bg-red-50 text-red-900"><tr><th class="p-3">ID</th><th>Type</th><th>Location</th><th>Status</th><th>Date</th></tr></thead><tbody class="divide-y"></tbody></table></div>
+                        <div class="glass overflow-x-auto p-0"><table class="mobile-table w-full text-left text-sm data-table" id="table-pending"><thead class="bg-red-50 text-red-900 border-b border-red-200"><tr><th class="p-3">ID</th><th>Type</th><th>Location</th><th>Status</th><th>Date</th></tr></thead><tbody class="divide-y divide-gray-100"></tbody></table></div>
                         
                         <h3 class="font-bold text-xs uppercase text-gray-500">Active Permits</h3>
-                        <div class="glass overflow-x-auto p-0"><table class="mobile-table w-full text-left text-sm data-table" id="table-active"><thead class="bg-green-50 text-green-900"><tr><th class="p-3">ID</th><th>Type</th><th>Location</th><th>Status</th><th>Date</th></tr></thead><tbody class="divide-y"></tbody></table></div>
+                        <div class="glass overflow-x-auto p-0"><table class="mobile-table w-full text-left text-sm data-table" id="table-active"><thead class="bg-green-50 text-green-900 border-b border-green-200"><tr><th class="p-3">ID</th><th>Type</th><th>Location</th><th>Status</th><th>Date</th></tr></thead><tbody class="divide-y divide-gray-100"></tbody></table></div>
                         
                         <h3 class="font-bold text-xs uppercase text-gray-500">Closed / Archive</h3>
-                        <div class="glass overflow-x-auto p-0"><table class="mobile-table w-full text-left text-sm data-table" id="table-other"><thead class="bg-gray-50 text-gray-700"><tr><th class="p-3">ID</th><th>Type</th><th>Location</th><th>Status</th><th>Date</th></tr></thead><tbody class="divide-y"></tbody></table></div>
+                        <div class="glass overflow-x-auto p-0"><table class="mobile-table w-full text-left text-sm data-table" id="table-other"><thead class="bg-gray-50 text-gray-700"><tr><th class="p-3">ID</th><th>Type</th><th>Location</th><th>Status</th><th>Date</th></tr></thead><tbody class="divide-y divide-gray-100"></tbody></table></div>
                     </div>
                 </div>
 
@@ -651,7 +651,8 @@
             
             if(viewName === 'dashboard') loadDashboard();
             if(viewName === 'new-permit') { 
-                showNewPermit(); // Fix B: Ensure UI is reset and button added
+                // Fix: Reset UI and show submit button
+                showNewPermit();
                 loadMappedApprovers();
             }
             if(viewName === 'users') loadManageUsers();
@@ -673,7 +674,6 @@
             const container = document.getElementById('checklists-container'); container.innerHTML = '';
             Object.keys(CL_DATA).forEach(sec => {
                 let itemsHtml = CL_DATA[sec].map((item, i) => {
-                    // REQ E & C: Remarks and Gas Test Fields
                     let extraFields = `<input class="w-full text-xs border-b mt-1" placeholder="Remarks" name="${sec}_${i}_Rem">`;
                     if (sec === 'A' && i === 11) {
                          extraFields = `<div class="grid grid-cols-3 gap-2 mt-2">
@@ -721,6 +721,11 @@
             }
         }
         
+        function safeSet(name, val) { 
+            const els = document.getElementsByName(name); 
+            if(els.length > 0) els[0].value = val; 
+        }
+
         function renderHazards() {
             document.getElementById('hazards-grid').innerHTML = HAZARDS.map(h => `<label class="flex items-center gap-2 p-3 border rounded-lg bg-gray-50 text-xs cursor-pointer hover:bg-orange-100 transition shadow-sm font-bold text-gray-700"><input type="checkbox" name="H_${h.replace(/ /g,'')}" value="Y" ${h==='Others'?'id="chk-haz-others"':''} class="accent-orange-600 w-4 h-4"> ${h}</label>`).join('');
             document.getElementById('chk-haz-others')?.addEventListener('change', (e) => document.getElementById('other-hazard-div').classList.toggle('hidden', !e.target.checked));
@@ -728,7 +733,6 @@
             document.getElementById('w-id-type').addEventListener('change', (e) => document.getElementById('w-id-type-other').classList.toggle('hidden', e.target.value !== 'Other'));
         }
 
-        // --- File Validation ---
         function attachFileValidators() {
             document.querySelectorAll('input[type="file"]').forEach(input => {
                 input.addEventListener('change', function() {
@@ -787,14 +791,12 @@
             loadStats(res);
         }
 
-        // Fix B: Ensure submit button appears for New Permits
         function showNewPermit() {
             document.getElementById("pf").reset();
             currentPermitId = null;
-            
             document.querySelectorAll('#pf input, #pf select, #pf textarea').forEach(e => e.disabled = false);
             
-            // Fix A: Unhide Renewal Wrapper by default for new requests
+            // Fix A: Unhide Renewal Box
             document.getElementById("init-renewal-wrapper").classList.remove('hidden');
             
             safeSet("RequesterName", currentUser.Name);
@@ -802,6 +804,7 @@
             document.getElementById("Vendor").readOnly = true;
             document.getElementById("RequesterName").readOnly = true;
 
+            // Fix B: Add Submit Button
             const actionsDiv = document.getElementById("actions-bar"); 
             actionsDiv.innerHTML = "";
             const btn = document.createElement("button");
@@ -821,7 +824,6 @@
             document.getElementById('permit-title').innerText = `Permit: ${id}`;
             document.getElementById('permit-header-display').innerText = `Status: ${p.Status}`;
             
-            // REQ E: PPE Handling
             if(currentUser.Role === 'Requester') document.getElementById('ppe-section-wrapper').classList.add('hidden');
             else document.getElementById('ppe-section-wrapper').classList.remove('hidden');
             
@@ -839,7 +841,6 @@
 
             renderIOCLTable();
 
-            // REQ C: Renewal Table for ALL
             const rens = JSON.parse(p.RenewalsJSON || "[]");
             const canRenew = (currentUser.Role === 'Requester' && (p.Status === 'Active' || p.Status.includes('Renewal')));
             
@@ -849,7 +850,6 @@
                 if (canRenew) {
                     document.getElementById('form-renewal').classList.remove('hidden');
                     const renSel = document.getElementById('renewal-worker-select');
-                    // REQ D: Only approved workers in renewal too
                     renSel.innerHTML = currentPermitWorkers.map(w => `<label class="flex items-center gap-1 text-xs bg-white p-1 rounded border"><input type="checkbox" value="${escapeHtml(w.Name)}" checked class="ren-worker-cb accent-purple-600"> ${escapeHtml(w.Name)}</label>`).join('');
                     if (permitRequirePhoto) {
                         document.getElementById('renewal-photo-wrapper').classList.remove('hidden'); document.getElementById('ren-cam-sub').required = true;
@@ -863,8 +863,7 @@
             const lastRen = rens.length > 0 ? rens[rens.length-1] : null;
 
             if(currentUser.Role === 'Requester' && p.Status === 'New') {
-                document.querySelectorAll('#pf input, #pf select, #pf textarea').forEach(e => e.disabled = false);
-                const btn = document.createElement("button"); btn.className = "bg-blue-600 text-white px-6 py-3 rounded-lg font-bold shadow-lg hover:bg-blue-700"; btn.innerText = "Submit Application"; btn.type = "button"; btn.onclick = savePermit; actionsDiv.appendChild(btn);
+                showNewPermit();
             }
             if(currentUser.Role === 'Reviewer' && p.Status === 'Pending Review') {
                 document.getElementById('fs-reviewer-section').classList.remove('hidden'); document.getElementById('iocl-reviewer-wrapper').classList.remove('hidden');
@@ -984,7 +983,6 @@
             const res = await apiCall('/get-workers', 'POST', {role:currentUser.Role, email:currentUser.Email, context:context}); 
             
             if(context === 'permit_dropdown') { 
-                // REQ D: Only approved workers for requester
                 const con = document.getElementById('worker-select-area');
                 con.innerHTML = res.map(w => `
                     <label class="flex items-center gap-3 border p-3 rounded-lg bg-white shadow-sm cursor-pointer hover:bg-blue-50 transition">
@@ -998,10 +996,7 @@
                 const t = document.querySelector('#table-workers tbody'); 
                 t.innerHTML = "";
                 res.forEach(w => {
-                    // REQ D: Show Audit Trail Column
                     const audit = w.ApprovedBy ? `<div class="text-[10px] text-gray-500">By ${w.ApprovedBy}<br>${w.ApprovedAt}</div>` : '-';
-                    
-                    // REQ F: Delete only for Requester
                     let actions = '';
                     if(currentUser.Role === 'Requester') {
                         actions = `<button class="text-red-600 font-bold hover:underline text-xs" onclick="workerAction('${w.WorkerID}', 'delete')">Delete</button>`;
@@ -1093,16 +1088,23 @@
             document.querySelectorAll('#worker-select-area input:checked').forEach(c => selectedWorkers.push(JSON.parse(c.value)));
             fd.append("SelectedWorkers", JSON.stringify(selectedWorkers));
             if(currentUser) fd.append("RequesterEmail", currentUser.Email);
-            // Add custom gas test inputs if available
+            
+            // Add custom gas test inputs
             fd.append("GP_Q12_HC", document.getElementsByName('GP_Q12_HC')[0]?.value || "");
             fd.append("GP_Q12_ToxicGas", document.getElementsByName('GP_Q12_ToxicGas')[0]?.value || "");
             fd.append("GP_Q12_Oxygen", document.getElementsByName('GP_Q12_Oxygen')[0]?.value || "");
+
+            // Capture all Remarks
+            document.querySelectorAll('input[name$="_Rem"]').forEach(rem => {
+                if(rem.value) fd.append(rem.name, rem.value);
+            });
 
             const res = await fetch(API+'/save-permit', {method:'POST', body:fd, headers: {'Authorization': `Bearer ${authToken}`}});
             const json = await res.json();
             if(json.success) { alert("Permit Created: "+json.permitId); switchView('dashboard'); } else alert(json.error);
         }
 
+        // --- ADMIN FUNCTIONS ---
         async function uploadBulkUsers() {
             const file = document.getElementById('bulk-excel').files[0];
             if(!file) return alert("Select file");
