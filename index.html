@@ -765,11 +765,16 @@
                 let shouldDisable = true;
                 
                 // [Requirement C] Enable AdditionalPrecautions for Approver too
-                if (isAuthority && isMainPending && (el.name && (el.name.startsWith('H_') || el.name.startsWith('P_')) || el.id === 'H_Others_Detail')) shouldDisable = false;
-                if (isMainPending && currentUser.Role === 'Reviewer' && (el.id === 'Reviewer_Remarks' || el.id === 'AdditionalPrecautions' || el.name === 'RevRenAction')) shouldDisable = false;
-                if (isMainPending && currentUser.Role === 'Approver' && (el.id === 'Approver_Remarks' || el.id === 'AdditionalPrecautions' || el.name === 'AppRenAction')) shouldDisable = false;
+                if (isAuthority && (isMainPending || p.Status === 'Active') && (el.name && (el.name.startsWith('H_') || el.name.startsWith('P_')) || el.id === 'H_Others_Detail')) shouldDisable = false;
                 
-                if (currentUser.Role === 'Approver' && el.id === 'RequireRenewalPhotos') shouldDisable = false;
+                if (isMainPending && currentUser.Role === 'Reviewer' && (el.id === 'Reviewer_Remarks' || el.id === 'AdditionalPrecautions' || el.name === 'RevRenAction')) shouldDisable = false;
+                
+                if ((isMainPending || p.Status === 'Active') && currentUser.Role === 'Approver' && (el.id === 'Approver_Remarks' || el.id === 'AdditionalPrecautions' || el.name === 'AppRenAction')) shouldDisable = false;
+                
+                // [Requirement D] RequireRenewalPhotos Locked if Active
+                if (currentUser.Role === 'Approver' && el.id === 'RequireRenewalPhotos') {
+                     shouldDisable = (p.Status === 'Active'); 
+                }
                 
                 if (el.type === 'checkbox') el.checked = (p[el.name] === 'Y');
                 else if (el.type === 'radio') el.checked = false; 
@@ -930,14 +935,10 @@
             let ioclData = [];
             // Reviewer Logic
             if (currentUser.Role === 'Reviewer') ioclData = getIOCLData('iocl-sup-container-rev');
-            // Approver Logic (Merges existing with any new ones they added)
+            // Approver Logic
             if (currentUser.Role === 'Approver') {
                  const newOnes = getIOCLData('iocl-sup-container-app');
-                 // For Update action, we reconstruct the list: existing visible (minus deleted) + new ones
-                 // But since 'delete' removes from currentPermitIOCLData array immediately, we just send that
-                 // WAIT: renderIOCLTable doesn't put existing ones into input fields. It puts them in table.
-                 // So we must combine: Remaining in Table + New Input Fields.
-                 // Actually, simplify: We only ever add NEW via input fields. Deletions happen on the main list.
+                 // Merge new inputs with existing list. Since deletes are soft-deletes, they are already in currentPermitIOCLData.
                  ioclData = [...currentPermitIOCLData, ...newOnes];
             }
 
@@ -968,7 +969,7 @@
                 }
             }
 
-            if (currentUser.Role === 'Reviewer') {
+            if (currentUser.Role === 'Reviewer' || currentUser.Role === 'Approver') {
                 document.querySelectorAll('#hazards-grid input, #ppe-grid input').forEach(c => { if (c.name) body[c.name] = c.checked ? 'Y' : 'N'; });
             }
             const res = await apiCall('/update-status', 'POST', body);
@@ -1010,41 +1011,77 @@
             }
         }
         
-        function getIOCLData(id) { return Array.from(document.querySelectorAll(`#${id} .iocl-row`)).map(r => ({ name: r.querySelector('.iocl-name').value, desig: r.querySelector('.iocl-desig').value, contact: r.querySelector('.iocl-contact').value, added_by: currentUser.Name, added_at: getNow() })); }
-        function addIOCLRow(id) { const d=document.createElement('div'); d.className="flex gap-2 mb-2 iocl-row"; d.innerHTML=`<input class="iocl-name border p-1 w-1/3 text-xs" placeholder="Name"><input class="iocl-desig border p-1 w-1/3 text-xs" placeholder="Desig"><input class="iocl-contact border p-1 w-1/3 text-xs" placeholder="Contact"><button type="button" class="text-red-500" onclick="this.parentElement.remove()">x</button>`; document.getElementById(id).appendChild(d); }
+        function getIOCLData(id) { 
+            // Only capture entries from input fields (new ones)
+            return Array.from(document.querySelectorAll(`#${id} .iocl-row`)).map(r => ({ 
+                name: r.querySelector('.iocl-name').value, 
+                desig: r.querySelector('.iocl-desig').value, 
+                contact: r.querySelector('.iocl-contact').value, 
+                added_by: currentUser.Name, 
+                added_at: getNow(),
+                status: 'active' 
+            })).filter(x => x.name.trim() !== ''); 
+        }
+
+        function addIOCLRow(id) { 
+            const d=document.createElement('div'); d.className="flex gap-2 mb-2 iocl-row"; 
+            d.innerHTML=`<input class="iocl-name border p-1 w-1/3 text-xs" placeholder="Name"><input class="iocl-desig border p-1 w-1/3 text-xs" placeholder="Desig"><input class="iocl-contact border p-1 w-1/3 text-xs" placeholder="Contact"><button type="button" class="text-red-500" onclick="this.parentElement.remove()">x</button>`; 
+            document.getElementById(id).appendChild(d); 
+        }
         
         function renderIOCLTable(status) {
             const t = document.querySelector('#table-iocl-display tbody'); t.innerHTML = '';
-            if(!currentPermitIOCLData.length) { t.innerHTML = '<tr><td colspan="4">None</td></tr>'; }
-            else {
+            
+            if(!currentPermitIOCLData || currentPermitIOCLData.length === 0) { 
+                t.innerHTML = '<tr><td colspan="4">None</td></tr>'; 
+            } else {
                 currentPermitIOCLData.forEach((x, idx) => {
-                    let delBtn = '';
-                    // [Requirement B] Allow delete if Approver and Active
-                    if(currentUser.Role === 'Approver' && status === 'Active') {
-                         delBtn = `<button class="text-red-500 text-[10px] font-bold ml-2" onclick="deleteIOCLSup(${idx}, '${status}')">🗑️</button>`;
+                    // Check if row is deleted
+                    const isDeleted = x.status === 'inactive';
+                    const rowClass = isDeleted ? "bg-red-50 text-gray-400 line-through" : "";
+                    
+                    // Audit Trail Logic
+                    let auditText = `Added by ${x.added_by} on ${x.added_at}`;
+                    if(x.deleted_by) {
+                        auditText += `<br><span class="text-red-600 font-bold no-underline">Deleted by ${x.deleted_by} on ${x.deleted_at}</span>`;
                     }
-                    t.innerHTML += `<tr><td>${x.name}</td><td>${x.desig}</td><td>${x.contact}</td><td class="text-xs text-gray-500">Added by ${x.added_by} on ${x.added_at} ${delBtn}</td></tr>`;
+                    
+                    let actionBtn = '';
+                    // Show delete button only if: User is Approver + Permit is Active + Row is NOT deleted
+                    if(currentUser.Role === 'Approver' && status === 'Active' && !isDeleted) {
+                        actionBtn = `<button type="button" class="text-red-500 text-[10px] font-bold ml-2" onclick="deleteIOCLSup(${idx}, '${status}')">🗑️</button>`;
+                    }
+
+                    t.innerHTML += `<tr class="${rowClass}">
+                        <td class="p-2">${x.name}</td>
+                        <td class="p-2">${x.desig}</td>
+                        <td class="p-2">${x.contact}</td>
+                        <td class="p-2 text-xs text-gray-500">${auditText} ${actionBtn}</td>
+                    </tr>`;
                 });
             }
             document.getElementById('iocl-sup-display-section').classList.remove('hidden');
 
+            // Toggle Add Buttons based on Role & Status
             document.getElementById('btn-add-rev-sup').parentElement.classList.add('hidden');
             document.getElementById('btn-add-app-sup').parentElement.classList.add('hidden');
 
-            // [Requirement A] Reviewer can add when Pending Review
             if(currentUser.Role === 'Reviewer' && status.includes('Pending Review')) 
                 document.getElementById('btn-add-rev-sup').parentElement.classList.remove('hidden');
             
-            // [Requirement A, B] Approver can add when Pending Approval OR Active
             if(currentUser.Role === 'Approver' && (status.includes('Pending Approval') || status === 'Active')) {
                 document.getElementById('btn-add-app-sup').parentElement.classList.remove('hidden');
             }
         }
         
-        // [Requirement B] Delete Supervisor Function
+        // [Requirement B & C] Soft Delete Logic
         function deleteIOCLSup(index, status) {
-            if(!confirm("Remove this supervisor?")) return;
-            currentPermitIOCLData.splice(index, 1);
+            if(!confirm("Remove this supervisor from active list?")) return;
+            // Update the object in memory
+            currentPermitIOCLData[index].status = 'inactive';
+            currentPermitIOCLData[index].deleted_by = currentUser.Name;
+            currentPermitIOCLData[index].deleted_at = getNow();
+            // Re-render immediately to show strikethrough
             renderIOCLTable(status);
         }
 
@@ -1194,6 +1231,8 @@
 
         initLogin();
     </script>
+</body>
+</html>
 
 
 
