@@ -764,13 +764,13 @@
             const actionsDiv = document.getElementById("actions-bar");
             actionsDiv.innerHTML = "";
 
+            // --- Form Field Logic ---
             const isMainPending = (p.Status.includes('Pending Review') || p.Status.includes('Pending Approval'));
             const isAuthority = (currentUser.Role === 'Reviewer' || currentUser.Role === 'Approver');
 
             document.querySelectorAll('#pf input, #pf textarea, #pf select').forEach(el => {
                 let shouldDisable = true;
                 
-                // [Requirement C] Enable AdditionalPrecautions for Approver too
                 if (isAuthority && (isMainPending || p.Status === 'Active') && (el.name && (el.name.startsWith('H_') || el.name.startsWith('P_')) || el.id === 'H_Others_Detail')) shouldDisable = false;
                 
                 if (isMainPending && currentUser.Role === 'Reviewer' && (el.id === 'Reviewer_Remarks' || el.id === 'AdditionalPrecautions' || el.name === 'RevRenAction')) shouldDisable = false;
@@ -811,11 +811,15 @@
                     document.getElementById('rev-renewal-decision').classList.remove('hidden');
                 }
 
-                // Fix A: Only show buttons if NOT in a pure renewal state, or handle differently.
+                // FIX B: Only show standard buttons if it is the MAIN permit (not renewal)
                 if (p.Status === 'Pending Review') {
                     const b1 = document.createElement("button"); b1.type = "button"; b1.className = "bg-red-600 text-white px-4 py-2 rounded font-bold mr-2"; b1.innerText = "Reject Permit"; b1.onclick = () => upd('reject');
                     const b2 = document.createElement("button"); b2.type = "button"; b2.className = "bg-green-600 text-white px-4 py-2 rounded font-bold"; b2.innerText = "Review & Forward"; b2.onclick = () => upd('review');
                     actionsDiv.append(b1, b2);
+                } else if(p.Status === 'Renewal Pending Review') {
+                    // For Renewal, show button to submit renewal decision
+                     const b2 = document.createElement("button"); b2.type = "button"; b2.className = "bg-green-600 text-white px-4 py-2 rounded font-bold"; b2.innerText = "Submit Renewal Decision"; b2.onclick = () => upd('review'); // upd('review') handles renewal logic internally
+                     actionsDiv.append(b2);
                 }
             }
 
@@ -827,11 +831,13 @@
                     document.getElementById('app-renewal-decision').classList.remove('hidden');
                 }
 
-                // Fix A: Only show buttons if status is 'Pending Approval' (Main).
                 if (p.Status === 'Pending Approval') {
                     const b1 = document.createElement("button"); b1.type = "button"; b1.className = "bg-red-600 text-white px-4 py-2 rounded font-bold mr-2"; b1.innerText = "Reject Permit"; b1.onclick = () => upd('reject');
                     const b2 = document.createElement("button"); b2.type = "button"; b2.className = "bg-green-600 text-white px-4 py-2 rounded font-bold"; b2.innerText = "Final Approve"; b2.onclick = () => upd('approve');
                     actionsDiv.append(b1, b2);
+                } else if(p.Status === 'Renewal Pending Approval') {
+                     const b2 = document.createElement("button"); b2.type = "button"; b2.className = "bg-green-600 text-white px-4 py-2 rounded font-bold"; b2.innerText = "Submit Renewal Decision"; b2.onclick = () => upd('approve');
+                     actionsDiv.append(b2);
                 }
             }
 
@@ -857,7 +863,6 @@
 
                 if (isRevTurn || isAppTurn) {
                     document.getElementById('action-renewal').classList.remove('hidden');
-                    // Fix B: Make remark editable
                     document.getElementById('RenewalRemark').disabled = false;
                     document.getElementById('btn-approve-renewal').onclick = () => submitRenewal('approve');
                     document.getElementById('btn-reject-renewal').onclick = () => submitRenewal('reject');
@@ -875,7 +880,6 @@
             // --- Requester View (Renewals) ---
             if (rens.length > 0 || (currentUser.Role === 'Requester' && p.Status === 'Active')) {
                 document.getElementById('renewals-section').classList.remove('hidden');
-                // Fix C & D: Timestamp + Photo Link
                 document.getElementById('renewal-history-body').innerHTML = rens.map(r => `
                     <tr class="border-b text-[10px]">
                         <td class="p-2">${r.valid_from}<br>to ${r.valid_to}</td>
@@ -894,7 +898,7 @@
                             <div class="text-[9px] text-gray-500">${r.app_at || ''}</div>
                         </td>
                         <td class="p-2">
-                             ${r.photoUrl ? `<button type="button" class="text-blue-600 underline font-bold" onclick="viewSecurePhoto('${r.photoUrl}')">View Photo</button>` : 'NO'}
+                             ${r.photoUrl ? `<button type="button" class="text-blue-600 underline font-bold" onclick="viewSecurePhoto('${r.photoUrl.replace(/\\/g, '/')}')">View Photo</button>` : 'NO'}
                         </td>
                     </tr>
                 `).join('');
@@ -948,9 +952,7 @@
             if (act === 'initiate_closure' && !document.getElementById("Site_Restored_Check").checked) return alert("Please confirm site restoration.");
             
             let ioclData = [];
-            // Reviewer Logic
             if (currentUser.Role === 'Reviewer') ioclData = getIOCLData('iocl-sup-container-rev');
-            // Approver Logic
             if (currentUser.Role === 'Approver') {
                  const newOnes = getIOCLData('iocl-sup-container-app');
                  ioclData = [...currentPermitIOCLData, ...newOnes];
@@ -968,13 +970,15 @@
                 Site_Restored_Check: document.getElementById("Site_Restored_Check").checked ? 'Y' : 'N'
             };
 
+            // FIX 2: FORCE 1st Renewal Logic Detection
             if (act === 'review' || act === 'approve') {
                 const revDec = document.querySelector('input[name="RevRenAction"]:checked');
                 const appDec = document.querySelector('input[name="AppRenAction"]:checked');
                 
+                // If Reviewer selected Yes/No for renewal, WE MUST SEND 'approve_1st_ren'
                 if (currentUser.Role === 'Reviewer' && revDec) {
                     body.FirstRenewalAction = revDec.value; 
-                    body.action = 'approve_1st_ren'; 
+                    body.action = 'approve_1st_ren';  // Force specific action for renewal
                 }
                 
                 if (currentUser.Role === 'Approver' && appDec) {
@@ -1026,7 +1030,6 @@
         }
         
         function getIOCLData(id) { 
-            // Only capture entries from input fields (new ones)
             return Array.from(document.querySelectorAll(`#${id} .iocl-row`)).map(r => ({ 
                 name: r.querySelector('.iocl-name').value, 
                 desig: r.querySelector('.iocl-desig').value, 
@@ -1050,18 +1053,15 @@
                 t.innerHTML = '<tr><td colspan="4">None</td></tr>'; 
             } else {
                 currentPermitIOCLData.forEach((x, idx) => {
-                    // Check if row is deleted
                     const isDeleted = x.status === 'inactive';
                     const rowClass = isDeleted ? "bg-red-50 text-gray-400 line-through" : "";
                     
-                    // Audit Trail Logic
                     let auditText = `Added by ${x.added_by} on ${x.added_at}`;
                     if(x.deleted_by) {
                         auditText += `<br><span class="text-red-600 font-bold no-underline">Deleted by ${x.deleted_by} on ${x.deleted_at}</span>`;
                     }
                     
                     let actionBtn = '';
-                    // Show delete button only if: User is Approver + Permit is Active + Row is NOT deleted
                     if(currentUser.Role === 'Approver' && status === 'Active' && !isDeleted) {
                         actionBtn = `<button type="button" class="text-red-500 text-[10px] font-bold ml-2" onclick="deleteIOCLSup(${idx}, '${status}')">🗑️</button>`;
                     }
@@ -1076,31 +1076,25 @@
             }
             document.getElementById('iocl-sup-display-section').classList.remove('hidden');
 
-            // Toggle Add Buttons based on Role & Status
             document.getElementById('btn-add-rev-sup').parentElement.classList.add('hidden');
             document.getElementById('btn-add-app-sup').parentElement.classList.add('hidden');
 
-            // Fix B: Check status - hide buttons if Renewal or Closure pending
-            // Only allow if it's the "Main" workflow stage for that user.
-            
-            // Reviewer can add only if it's "Pending Review" (Main Permit). NOT Renewal.
+            // [Requirement B]: Strict Hide for Renewal/Closure
+            if (status.includes('Renewal') || status.includes('Closure')) return;
+
             if(currentUser.Role === 'Reviewer' && status === 'Pending Review') 
                 document.getElementById('btn-add-rev-sup').parentElement.classList.remove('hidden');
             
-            // Approver can add if "Pending Approval" (Main Permit) OR "Active" (Update Mode)
             if(currentUser.Role === 'Approver' && (status === 'Pending Approval' || status === 'Active')) {
                 document.getElementById('btn-add-app-sup').parentElement.classList.remove('hidden');
             }
         }
         
-        // [Requirement B & C] Soft Delete Logic
         function deleteIOCLSup(index, status) {
             if(!confirm("Remove this supervisor from active list?")) return;
-            // Update the object in memory
             currentPermitIOCLData[index].status = 'inactive';
             currentPermitIOCLData[index].deleted_by = currentUser.Name;
             currentPermitIOCLData[index].deleted_at = getNow();
-            // Re-render immediately to show strikethrough
             renderIOCLTable(status);
         }
 
@@ -1166,7 +1160,7 @@
 
             const res = await fetch(API+'/save-permit', {method:'POST', body:fd, headers: {'Authorization': `Bearer ${authToken}`}});
             const json = await res.json();
-            if(json.success) { alert("Permit Created: "+json.permitId); switchView('dashboard'); } else { alert(json.error); }
+            if(json.success) { alert("Permit Created: "+json.permitId); switchView('dashboard'); } else alert(json.error);
         }
         
         async function loadWorkers(context) { 
@@ -1233,7 +1227,25 @@
 
         async function downloadSecurePDF(id) { try { document.getElementById('loader').style.display = 'flex'; const res = await fetch(`${API}/download-pdf/${id}`, { headers: {'Authorization': `Bearer ${authToken}`} }); if(!res.ok) throw new Error("Err"); const blob = await res.blob(); const a = document.createElement('a'); a.href = window.URL.createObjectURL(blob); a.download = `${id}.pdf`; document.body.appendChild(a); a.click(); document.body.removeChild(a); } catch(e) { alert("Download Failed"); } finally { document.getElementById('loader').style.display = 'none'; } }
         async function downloadSecureExcel() { try { document.getElementById('loader').style.display = 'flex'; const res = await fetch(`${API}/download-excel`, { headers: {'Authorization': `Bearer ${authToken}`} }); if(!res.ok) throw new Error("Err"); const blob = await res.blob(); const a = document.createElement('a'); a.href = window.URL.createObjectURL(blob); a.download = "Permits.xlsx"; document.body.appendChild(a); a.click(); document.body.removeChild(a); } catch(e) { alert("Failed"); } finally { document.getElementById('loader').style.display = 'none'; } }
-        window.viewSecurePhoto = async function(url) { if (!url) return alert("No photo"); const filename = url.split(/[/\\]/).pop(); document.getElementById('loader').style.display = 'flex'; try { const res = await fetch(`${API}/view-photo/${filename}`, { method: 'GET', headers: {'Authorization': `Bearer ${authToken}`} }); if (!res.ok) throw new Error("Err"); const blob = await res.blob(); window.open(window.URL.createObjectURL(blob), '_blank'); } catch (e) { alert("Load Failed"); } finally { document.getElementById('loader').style.display = 'none'; } }
+        
+        // FIX A: Normalize path to handle Windows backslashes
+        window.viewSecurePhoto = async function(url) { 
+            if (!url) return alert("No photo"); 
+            // Extract filename from path (handles both / and \)
+            const filename = url.replace(/^.*[\\\/]/, ''); 
+            
+            document.getElementById('loader').style.display = 'flex'; 
+            try { 
+                const res = await fetch(`${API}/view-photo/${filename}`, { method: 'GET', headers: {'Authorization': `Bearer ${authToken}`} }); 
+                if (!res.ok) throw new Error("Err"); 
+                const blob = await res.blob(); 
+                window.open(window.URL.createObjectURL(blob), '_blank'); 
+            } catch (e) { 
+                alert("Load Failed"); 
+            } finally { 
+                document.getElementById('loader').style.display = 'none'; 
+            } 
+        }
         
         document.getElementById('btn-add-rev-sup').onclick = () => addIOCLRow('iocl-sup-container-rev');
         document.getElementById('btn-add-app-sup').onclick = () => addIOCLRow('iocl-sup-container-app');
@@ -1257,3 +1269,4 @@
     </script>
 </body>
 </html>
+
