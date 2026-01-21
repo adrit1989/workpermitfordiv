@@ -358,11 +358,12 @@
                                 <button type="button" onclick="submitRenewal('pending_review')" class="w-full bg-purple-600 text-white py-2 rounded font-bold shadow hover:bg-purple-700">Submit Request</button>
                             </div>
                          <div id="action-renewal" class="hidden p-4 bg-yellow-50 mt-2 rounded border border-yellow-200">
-    <textarea id="RenewalRemark" placeholder="Remarks (Required for Rejection)" class="w-full mb-2"></textarea>
-    <button type="button" id="btn-approve-renewal" class="w-full bg-green-600 text-white py-2 rounded font-bold shadow">Submit Renewal Decision</button>
-    <button type="button" id="btn-reject-renewal" class="hidden">Reject</button>
+    <textarea id="RenewalRemark" placeholder="Remarks (Mandatory for Rejection)" class="w-full mb-2"></textarea>
+    <div class="grid grid-cols-2 gap-2">
+        <button type="button" id="btn-approve-renewal" class="bg-green-600 text-white py-2 rounded font-bold shadow">Submit Renewal Decision</button>
+        <button type="button" id="btn-reject-renewal" class="bg-red-600 text-white py-2 rounded font-bold shadow">Reject Renewal</button>
+    </div>
 </div>
-                            </div>
                         </div>
 
                         <div id="closure-section" class="glass hidden border-l-4 border-gray-600">
@@ -739,7 +740,7 @@
         }
 
        
-        /* 6. CORE PERMIT LOGIC - RECTIFIED */
+        /* 6. CORE PERMIT LOGIC */
 async function openPermit(id) {
     const p = await apiCall('/permit-data', 'POST', { permitId: id });
     
@@ -771,14 +772,16 @@ async function openPermit(id) {
     document.querySelectorAll('#pf input, #pf textarea, #pf select').forEach(el => {
         let shouldDisable = true;
         
-        // Enable fields for Reviewer/Approver during their turn
-        if (isAuthority && (isMainPending || p.Status === 'Active') && (el.name && (el.name.startsWith('H_') || el.name.startsWith('P_')) || el.id === 'H_Others_Detail')) shouldDisable = false;
+        // FIX: Hazards & PPE are editable ONLY during Initial Pending stages. LOCKED if Active.
+        if (isAuthority && isMainPending && (el.name && (el.name.startsWith('H_') || el.name.startsWith('P_')) || el.id === 'H_Others_Detail')) {
+            shouldDisable = false;
+        }
         
+        // Remarks fields
         if (isMainPending && currentUser.Role === 'Reviewer' && (el.id === 'Reviewer_Remarks' || el.id === 'AdditionalPrecautions' || el.name === 'RevRenAction')) shouldDisable = false;
+        if ((isMainPending || p.Status === 'Active') && currentUser.Role === 'Approver' && (el.id === 'Approver_Remarks' || el.name === 'AppRenAction')) shouldDisable = false;
         
-        if ((isMainPending || p.Status === 'Active') && currentUser.Role === 'Approver' && (el.id === 'Approver_Remarks' || el.id === 'AdditionalPrecautions' || el.name === 'AppRenAction')) shouldDisable = false;
-        
-        // Requirement: Make checkbox uneditable once approved (Active)
+        // Require Photo Checkbox
         if (currentUser.Role === 'Approver' && el.id === 'RequireRenewalPhotos') {
                 shouldDisable = (p.Status === 'Active'); 
         }
@@ -805,7 +808,7 @@ async function openPermit(id) {
     const lastRen = rens.length > 0 ? rens[rens.length - 1] : null;
     const isFirstRenRequest = (rens.length === 1 && p.InitRen === 'Y');
 
-    // --- Reviewer View (Main & 1st Renewal) ---
+    // --- Reviewer View ---
     if ((p.Status === 'Pending Review' || p.Status === 'Renewal Pending Review') && currentUser.Role === 'Reviewer') {
         document.getElementById('fs-reviewer-section').classList.remove('hidden');
         
@@ -813,14 +816,14 @@ async function openPermit(id) {
             document.getElementById('rev-renewal-decision').classList.remove('hidden');
         }
 
-        // Standard Buttons for both Main Permit and 1st Renewal
-        const b1 = document.createElement("button"); b1.type = "button"; b1.className = "bg-red-600 text-white px-4 py-2 rounded font-bold mr-2"; b1.innerText = "Reject Permit"; b1.onclick = () => upd('reject');
-        const b2 = document.createElement("button"); b2.type = "button"; b2.className = "bg-green-600 text-white px-4 py-2 rounded font-bold"; b2.innerText = "Review & Forward"; b2.onclick = () => upd('review');
-        actionsDiv.append(b1, b2);
+        if (p.Status === 'Pending Review') {
+            const b1 = document.createElement("button"); b1.type = "button"; b1.className = "bg-red-600 text-white px-4 py-2 rounded font-bold mr-2"; b1.innerText = "Reject Permit"; b1.onclick = () => upd('reject');
+            const b2 = document.createElement("button"); b2.type = "button"; b2.className = "bg-green-600 text-white px-4 py-2 rounded font-bold"; b2.innerText = "Review & Forward"; b2.onclick = () => upd('review');
+            actionsDiv.append(b1, b2);
+        }
     }
 
-    // --- Approver View (Main & 1st Renewal) ---
-    // FIX A: Restored "Approve/Reject" buttons for Renewal Pending Approval too
+    // --- Approver View ---
     if ((p.Status === 'Pending Approval' || p.Status === 'Renewal Pending Approval') && currentUser.Role === 'Approver') {
         document.getElementById('fs-approver-section').classList.remove('hidden');
 
@@ -828,12 +831,14 @@ async function openPermit(id) {
             document.getElementById('app-renewal-decision').classList.remove('hidden');
         }
 
-        const b1 = document.createElement("button"); b1.type = "button"; b1.className = "bg-red-600 text-white px-4 py-2 rounded font-bold mr-2"; b1.innerText = "Reject Permit"; b1.onclick = () => upd('reject');
-        const b2 = document.createElement("button"); b2.type = "button"; b2.className = "bg-green-600 text-white px-4 py-2 rounded font-bold"; b2.innerText = "Final Approve"; b2.onclick = () => upd('approve');
-        actionsDiv.append(b1, b2);
+        if (p.Status === 'Pending Approval') {
+            const b1 = document.createElement("button"); b1.type = "button"; b1.className = "bg-red-600 text-white px-4 py-2 rounded font-bold mr-2"; b1.innerText = "Reject Permit"; b1.onclick = () => upd('reject');
+            const b2 = document.createElement("button"); b2.type = "button"; b2.className = "bg-green-600 text-white px-4 py-2 rounded font-bold"; b2.innerText = "Final Approve"; b2.onclick = () => upd('approve');
+            actionsDiv.append(b1, b2);
+        }
     }
 
-    // --- Active View (Update Mode) ---
+    // --- Active View for Approver (Update Supervisors) ---
     if (p.Status === 'Active' && currentUser.Role === 'Approver') {
         document.getElementById('fs-approver-section').classList.remove('hidden');
         document.getElementById('app-renewal-decision').classList.add('hidden');
@@ -841,12 +846,13 @@ async function openPermit(id) {
         const b = document.createElement("button"); 
         b.type = "button"; 
         b.className = "bg-blue-600 text-white px-4 py-2 rounded font-bold"; 
-        b.innerText = "💾 Update Supervisors / PPE"; 
+        b.innerText = "💾 Update Supervisors"; 
         b.onclick = () => upd('update_data');
         actionsDiv.appendChild(b);
     }
 
-    // --- Subsequent Renewals (Standalone) ---
+    // --- Subsequent Renewals Logic (For both Reviewer & Approver) ---
+    // This handles cases where status is 'Renewal Pending...'
     if (!isFirstRenRequest && lastRen && lastRen.status.includes('pending')) {
         if (currentUser.Role !== 'Requester') document.getElementById('pending-renewal-display').classList.remove('hidden');
         
@@ -856,24 +862,28 @@ async function openPermit(id) {
         if (isRevTurn || isAppTurn) {
             document.getElementById('action-renewal').classList.remove('hidden');
             document.getElementById('RenewalRemark').disabled = false;
-            // FIX B: Only ONE button (Submit) is now used. Logic handles approve.
-            document.getElementById('btn-approve-renewal').onclick = () => submitRenewal('approve');
+            
+            // FIX: Wire up the buttons explicitly here
+            const btnApprove = document.getElementById('btn-approve-renewal');
+            const btnReject = document.getElementById('btn-reject-renewal');
+            
+            btnApprove.onclick = () => submitRenewal('approve');
+            btnReject.onclick = () => submitRenewal('reject');
             
             if (lastRen.oddHourReq === 'Y' && isAppTurn) {
                 document.getElementById('odd-hour-approval-controls').classList.remove('hidden');
-                document.getElementById('btn-approve-renewal').disabled = true;
-                window.toggleRenewalApproveBtn = () => { document.getElementById('btn-approve-renewal').disabled = !document.getElementById('odd-hour-allow-check').checked; };
+                btnApprove.disabled = true;
+                window.toggleRenewalApproveBtn = () => { btnApprove.disabled = !document.getElementById('odd-hour-allow-check').checked; };
             } else {
-                document.getElementById('btn-approve-renewal').disabled = false;
+                btnApprove.disabled = false;
             }
         }
     }
 
-    // --- Requester View & History Table ---
+    // --- Requester View (Renewals) ---
     if (rens.length > 0 || (currentUser.Role === 'Requester' && p.Status === 'Active')) {
         document.getElementById('renewals-section').classList.remove('hidden');
         
-        // FIX D: Added fallbacks for timestamps (req_at, rev_at, app_at)
         document.getElementById('renewal-history-body').innerHTML = rens.map(r => `
             <tr class="border-b text-[10px]">
                 <td class="p-2">${r.valid_from}<br>to ${r.valid_to}</td>
@@ -1262,4 +1272,5 @@ async function openPermit(id) {
     </script>
 </body>
 </html>
+
 
