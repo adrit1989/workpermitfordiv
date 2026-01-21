@@ -769,6 +769,7 @@
                 // Exceptions for Authorities to edit specific fields
                 if (isAuthority && isMainPending && (el.name && (el.name.startsWith('H_') || el.name.startsWith('P_')) || el.id === 'H_Others_Detail')) shouldDisable = false;
                 if (isMainPending && currentUser.Role === 'Reviewer' && el.id === 'Reviewer_Remarks') shouldDisable = false;
+                if (isMainPending && currentUser.Role === 'Reviewer' && el.id === 'AdditionalPrecautions') shouldDisable = false;
                 if (isMainPending && currentUser.Role === 'Approver' && el.id === 'Approver_Remarks') shouldDisable = false;
                 if (currentUser.Role === 'Approver' && el.id === 'RequireRenewalPhotos') shouldDisable = false;
                 if (el.name === 'RevRenAction' || el.name === 'AppRenAction') shouldDisable = false;
@@ -829,36 +830,33 @@
             if (lastRen && lastRen.status && lastRen.status.includes('pending')) {
                 if (currentUser.Role !== 'Requester') document.getElementById('pending-renewal-display').classList.remove('hidden');
                 
-                const isRevTurn = (currentUser.Role === 'Reviewer' && p.Status === 'Renewal Pending Review');
-                const isAppTurn = (currentUser.Role === 'Approver' && p.Status === 'Renewal Pending Approval');
+                const isRevTurn = (currentUser.Role === 'Reviewer' && (p.Status === 'Renewal Pending Review' || p.Status === 'Pending Review'));
+                const isAppTurn = (currentUser.Role === 'Approver' && (p.Status === 'Renewal Pending Approval' || p.Status === 'Pending Approval'));
 
-                if (isRevTurn || isAppTurn) {
-                    // Scenario 1: First Renewal (Integrated Decision)
-                    if (rens.length === 1 && p.Status.includes('Renewal')) {
-                        if (isRevTurn) document.getElementById('rev-renewal-decision').classList.remove('hidden');
-                        if (isAppTurn) document.getElementById('app-renewal-decision').classList.remove('hidden');
-                        const b = document.createElement("button"); 
-                        b.className = "bg-purple-600 text-white px-4 py-2 rounded font-bold"; 
-                        b.innerText = "Confirm Decision"; 
-                        b.onclick = () => upd('approve_1st_ren');
-                        actionsDiv.appendChild(b);
-                    } 
-                    // Scenario 2: Subsequent Renewals (Standard Action Box)
-                    else {
-                        document.getElementById('action-renewal').classList.remove('hidden');
-                        document.getElementById('btn-approve-renewal').onclick = () => submitRenewal('approve');
-                        document.getElementById('btn-reject-renewal').onclick = () => submitRenewal('reject');
-                        
-                        if (lastRen.oddHourReq === 'Y' && isAppTurn) {
-                            document.getElementById('odd-hour-approval-controls').classList.remove('hidden');
-                            document.getElementById('btn-approve-renewal').disabled = true;
-                            window.toggleRenewalApproveBtn = () => { document.getElementById('btn-approve-renewal').disabled = !document.getElementById('odd-hour-allow-check').checked; };
-                        } else {
-                            document.getElementById('btn-approve-renewal').disabled = false;
-                        }
-                    }
-                }
-            } 
+               if (isRevTurn || isAppTurn) {
+    // If this is the first renewal request (or any single pending renewal to be decided inline), show Confirm Decision
+    if (lastRen && lastRen.status && lastRen.status.includes('pending')) {
+        if (isRevTurn) document.getElementById('rev-renewal-decision').classList.remove('hidden');
+        if (isAppTurn) document.getElementById('app-renewal-decision').classList.remove('hidden');
+        const b = document.createElement("button");
+        b.className = "bg-purple-600 text-white px-4 py-2 rounded font-bold";
+        b.innerText = "Confirm Decision";
+        b.onclick = () => upd('approve_1st_ren');
+        actionsDiv.appendChild(b);
+    } else {
+        // fallback to standard renewal action UI
+        document.getElementById('action-renewal').classList.remove('hidden');
+        document.getElementById('btn-approve-renewal').onclick = () => submitRenewal('approve');
+        document.getElementById('btn-reject-renewal').onclick = () => submitRenewal('reject');
+        if (lastRen && lastRen.oddHourReq === 'Y' && isAppTurn) {
+            document.getElementById('odd-hour-approval-controls').classList.remove('hidden');
+            document.getElementById('btn-approve-renewal').disabled = true;
+            window.toggleRenewalApproveBtn = () => { document.getElementById('btn-approve-renewal').disabled = !document.getElementById('odd-hour-allow-check').checked; };
+        } else {
+            document.getElementById('btn-approve-renewal').disabled = false;
+        }
+    }
+} 
 
             handleClosureUI(p, actionsDiv);
             attachFileValidators();
@@ -1148,6 +1146,7 @@
     </script>
 </body>
 </html>
+
 
 
 
