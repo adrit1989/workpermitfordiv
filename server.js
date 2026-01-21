@@ -741,11 +741,22 @@ app.post('/api/dashboard', authenticateAccess, async (req, res) => {
     const pool = await getConnection();
     const r = await pool.request().query("SELECT PermitID, Status, ValidFrom, ValidTo, RequesterEmail, ReviewerEmail, ApproverEmail, FullDataJSON, FinalPdfUrl FROM Permits");
     
-    const data = r.recordset.map(x => ({ 
-        ...x, 
-        ...JSON.parse(x.FullDataJSON||"{}"),
+const data = r.recordset.map(x => {
+    let parsed = {};
+    try {
+        parsed = JSON.parse(x.FullDataJSON || "{}");
+    } catch (e) {
+        // If JSON is invalid, keep parsed as empty object and log for debugging
+        console.warn("Invalid FullDataJSON for PermitID", x.PermitID);
+        parsed = {};
+    }
+    // Spread parsed first (client-supplied), then DB columns override them so DB is authoritative.
+    return {
+        ...parsed,
+        ...x,
         FinalPdfUrl: x.FinalPdfUrl // Include archival link
-    }));
+    };
+});
     
     // Filter based on Role
     const filtered = data.filter(p => {
