@@ -10,7 +10,6 @@ const PDFDocument = require('pdfkit');
 const ExcelJS = require('exceljs');
 const { BlobServiceClient } = require('@azure/storage-blob');
 const { getConnection, sql } = require('./db');
-const axios = require('axios');
 
 // SECURITY PACKAGES
 const jwt = require('jsonwebtoken');
