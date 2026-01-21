@@ -811,7 +811,8 @@
             }
 
             // --- Approver View ---
-            if (p.Status === 'Pending Approval' && currentUser.Role === 'Approver') {
+            if ((p.Status === 'Pending Approval' || p.Status === 'Renewal Pending Approval') && currentUser.Role === 'Approver') {
+            
                 document.getElementById('fs-approver-section').classList.remove('hidden');
 
                 // Show Yes/No radios ONLY if Reviewer said YES (status is pending_approval)
