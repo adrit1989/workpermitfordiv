@@ -762,15 +762,34 @@
             const isMainPending = (p.Status === 'Pending Review' || p.Status === 'Pending Approval');
             const isAuthority = (currentUser.Role === 'Reviewer' || currentUser.Role === 'Approver');
 
-            document.querySelectorAll('#pf input, #pf textarea, #pf select').forEach(el => {
-                let shouldDisable = true;
-                if (isAuthority && isMainPending && (el.name.startsWith('H_') || el.name.startsWith('P_') || el.id === 'H_Others_Detail')) shouldDisable = false;
-                if (currentUser.Role === 'Approver' && el.id === 'RequireRenewalPhotos') shouldDisable = false;
-                if (el.name === 'RevRenAction' || el.name === 'AppRenAction') shouldDisable = false;
-                if (el.type === 'checkbox') el.checked = (p[el.name] === 'Y');
-                else if (el.type !== 'file') el.value = p[el.name] || '';
-                el.disabled = shouldDisable;
-            });
+document.querySelectorAll('#pf input, #pf textarea, #pf select').forEach(el => {
+    let shouldDisable = true;
+
+    // Allow Authorities to edit hazard/precaution fields while permit is in main-pending
+    if (isAuthority && isMainPending && (el.name && (el.name.startsWith('H_') || el.name.startsWith('P_')) || el.id === 'H_Others_Detail')) {
+        shouldDisable = false;
+    }
+
+    // Allow the reviewer to edit Reviewer_Remarks while permit is in Pending Review
+    if (isMainPending && currentUser.Role === 'Reviewer' && el.id === 'Reviewer_Remarks') {
+        shouldDisable = false;
+    }
+
+    // Allow the approver to edit Approver_Remarks while permit is in Pending Approval
+    if (isMainPending && currentUser.Role === 'Approver' && el.id === 'Approver_Remarks') {
+        shouldDisable = false;
+    }
+
+    // Keep existing exceptions
+    if (currentUser.Role === 'Approver' && el.id === 'RequireRenewalPhotos') shouldDisable = false;
+    if (el.name === 'RevRenAction' || el.name === 'AppRenAction') shouldDisable = false;
+
+    // Populate values and checkboxes as before
+    if (el.type === 'checkbox') el.checked = (p[el.name] === 'Y');
+    else if (el.type !== 'file') el.value = p[el.name] || '';
+
+    el.disabled = shouldDisable;
+});
 
             if (currentUser.Role === 'Requester') document.getElementById('ppe-section-wrapper').classList.add('hidden');
             else document.getElementById('ppe-section-wrapper').classList.remove('hidden');
@@ -822,27 +841,34 @@
                 const isRevTurn = (currentUser.Role === 'Reviewer' && p.Status === 'Renewal Pending Review');
                 const isAppTurn = (currentUser.Role === 'Approver' && p.Status === 'Renewal Pending Approval');
 
-                if (isRevTurn || isAppTurn) {
-                    if (rens.length === 1 && p.Status.includes('Renewal')) {
-                        if (isRevTurn) document.getElementById('rev-renewal-decision').classList.remove('hidden');
-                        if (isAppTurn) document.getElementById('app-renewal-decision').classList.remove('hidden');
-                        const b = document.createElement("button"); b.className = "bg-purple-600 text-white px-4 py-2 rounded font-bold"; b.innerText = "Confirm Decision"; b.onclick = () => upd('approve_1st_ren');
-                        actionsDiv.appendChild(b);
-                    } else {
-                        document.getElementById('action-renewal').classList.remove('hidden');
-                        document.getElementById('btn-approve-renewal').onclick = () => submitRenewal('approve');
-                        document.getElementById('btn-reject-renewal').onclick = () => submitRenewal('reject');
-                        
-                        if (lastRen.oddHourReq === 'Y' && isAppTurn) {
-                            document.getElementById('odd-hour-approval-controls').classList.remove('hidden');
-                            document.getElementById('btn-approve-renewal').disabled = true;
-                            window.toggleRenewalApproveBtn = () => { document.getElementById('btn-approve-renewal').disabled = !document.getElementById('odd-hour-allow-check').checked; };
-                        } else {
-                            document.getElementById('btn-approve-renewal').disabled = false;
-                        }
-                    }
-                }
-            }
+           if (isRevTurn || isAppTurn) {
+    // If there's a pending first renewal request, show quick decision controls
+    if (lastRen && lastRen.status && lastRen.status.includes('pending')) {
+        if (isRevTurn) document.getElementById('rev-renewal-decision').classList.remove('hidden');
+        if (isAppTurn) document.getElementById('app-renewal-decision').classList.remove('hidden');
+
+        // Confirm Decision button sends a special action to handle 1st-ren decision flow
+        const b = document.createElement("button");
+        b.className = "bg-purple-600 text-white px-4 py-2 rounded font-bold";
+        b.innerText = "Confirm Decision";
+        // Use the server-side handler that will map reviewer/approver inputs into correct transitions.
+        b.onclick = () => upd('approve_1st_ren');
+        actionsDiv.appendChild(b);
+    } else {
+        // Fall back to existing multi-renewal / generic renewal actions flow
+        document.getElementById('action-renewal').classList.remove('hidden');
+        document.getElementById('btn-approve-renewal').onclick = () => submitRenewal('approve');
+        document.getElementById('btn-reject-renewal').onclick = () => submitRenewal('reject');
+
+        if (lastRen && lastRen.oddHourReq === 'Y' && isAppTurn) {
+            document.getElementById('odd-hour-approval-controls').classList.remove('hidden');
+            document.getElementById('btn-approve-renewal').disabled = true;
+            window.toggleRenewalApproveBtn = () => { document.getElementById('btn-approve-renewal').disabled = !document.getElementById('odd-hour-allow-check').checked; };
+        } else {
+            document.getElementById('btn-approve-renewal').disabled = false;
+        }
+    }
+}
             
             handleClosureUI(p, actionsDiv);
             attachFileValidators();
@@ -1132,4 +1158,5 @@
     </script>
 </body>
 </html>
+
 
