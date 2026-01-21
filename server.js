@@ -1012,7 +1012,20 @@ app.post('/api/map-data', async(req,res) => {
         ...JSON.parse(x.FullDataJSON)
     })));
 });
-
+app.get('/', (req, res) => {
+    // Ensure you save your HTML code as 'index.html' in the same folder
+    const indexPath = path.join(__dirname, 'index.html');
+    
+    fs.readFile(indexPath, 'utf8', (err, html) => {
+        if (err) {
+            console.error("HTML File missing!", err);
+            return res.status(500).send('Error loading System UI. Is index.html present?');
+        }
+        // This replaces the NONCE_PLACEHOLDER in your HTML with a secure random key
+        const finalHtml = html.replace(/NONCE_PLACEHOLDER/g, res.locals.nonce);
+        res.send(finalHtml);
+    });
+});
 // SERVER START
 const PORT = process.env.PORT || 8080;
 app.listen(PORT, () => console.log("Server Started on Port " + PORT));
