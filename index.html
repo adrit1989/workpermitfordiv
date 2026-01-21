@@ -736,55 +736,72 @@
         }
         /* 6. CORE PERMIT LOGIC */
      /* 6. CORE PERMIT LOGIC */
+        /* 6. CORE PERMIT LOGIC */
         async function openPermit(id) {
             const p = await apiCall('/permit-data', 'POST', { permitId: id });
+            
+            // 1. Check for Archived/Closed State
             if (!p || p.Status === 'Closed' || !p.WorkType) {
                 alert("📂 Permit Archived. Downloading PDF...");
                 return downloadSecurePDF(id);
             }
 
+            // 2. Setup Global State
             currentPermitId = id;
             currentPermitIOCLData = p.IOCLSupervisors || [];
             permitRequirePhoto = (p.RequireRenewalPhotos === 'Y');
 
+            // 3. UI Switching
             document.getElementById('view-dashboard').classList.add('hidden');
             document.getElementById('view-form').classList.remove('hidden');
             document.getElementById('permit-title').innerText = `Permit: ${id}`;
             document.getElementById('permit-header-display').innerText = `Status: ${p.Status}`;
 
-            // Reset UI
+            // 4. Reset Action UI Sections
             ['fs-reviewer-section', 'fs-approver-section', 'rev-renewal-decision', 'app-renewal-decision', 'action-renewal', 'pending-renewal-display', 'odd-hour-approval-controls']
                 .forEach(id => document.getElementById(id).classList.add('hidden'));
             
             const actionsDiv = document.getElementById("actions-bar");
             actionsDiv.innerHTML = "";
 
-            // Form Logic & Disabling Fields
+            // 5. Form Logic & Disabling Fields
             const isMainPending = (p.Status === 'Pending Review' || p.Status === 'Pending Approval');
             const isAuthority = (currentUser.Role === 'Reviewer' || currentUser.Role === 'Approver');
 
             document.querySelectorAll('#pf input, #pf textarea, #pf select').forEach(el => {
                 let shouldDisable = true;
 
-                // Exceptions for Authorities to edit specific fields
-                if (isAuthority && isMainPending && (el.name && (el.name.startsWith('H_') || el.name.startsWith('P_')) || el.id === 'H_Others_Detail')) shouldDisable = false;
-                if (isMainPending && currentUser.Role === 'Reviewer' && el.id === 'Reviewer_Remarks') shouldDisable = false;
-                if (isMainPending && currentUser.Role === 'Reviewer' && el.id === 'AdditionalPrecautions') shouldDisable = false;
-                if (isMainPending && currentUser.Role === 'Approver' && el.id === 'Approver_Remarks') shouldDisable = false;
+                // Authorities can edit Hazards/PPE during main review
+                if (isAuthority && isMainPending && (el.name && (el.name.startsWith('H_') || el.name.startsWith('P_')) || el.id === 'H_Others_Detail')) {
+                    shouldDisable = false;
+                }
+
+                // Reviewer can edit remarks during their turn
+                if (isMainPending && currentUser.Role === 'Reviewer' && (el.id === 'Reviewer_Remarks' || el.id === 'AdditionalPrecautions')) {
+                    shouldDisable = false;
+                }
+
+                // Approver can edit remarks during their turn
+                if (isMainPending && currentUser.Role === 'Approver' && el.id === 'Approver_Remarks') {
+                    shouldDisable = false;
+                }
+
+                // Configuration exceptions
                 if (currentUser.Role === 'Approver' && el.id === 'RequireRenewalPhotos') shouldDisable = false;
                 if (el.name === 'RevRenAction' || el.name === 'AppRenAction') shouldDisable = false;
 
-                // Populate values
+                // Populate Data
                 if (el.type === 'checkbox') el.checked = (p[el.name] === 'Y');
                 else if (el.type !== 'file') el.value = p[el.name] || '';
 
                 el.disabled = shouldDisable;
             });
 
+            // Toggle PPE Section visibility
             if (currentUser.Role === 'Requester') document.getElementById('ppe-section-wrapper').classList.add('hidden');
             else document.getElementById('ppe-section-wrapper').classList.remove('hidden');
 
-            // Workers
+            // 6. Workers Table
             let wData = p.SelectedWorkers;
             if (typeof wData === 'string') { try { wData = JSON.parse(wData); } catch (e) { wData = []; } }
             currentPermitWorkers = Array.isArray(wData) ? wData : [];
@@ -793,9 +810,10 @@
             document.getElementById('worker-display-table').classList.toggle('hidden', currentPermitWorkers.length === 0);
             if (wTbody) wTbody.innerHTML = currentPermitWorkers.map(w => `<tr><td class="p-2 font-bold">${escapeHtml(w.Name)}</td><td class="p-2">${escapeHtml(w.IDType)}: ${escapeHtml(w.ID)}</td><td class="p-2 font-mono">${escapeHtml(w.Contact)}</td></tr>`).join('');
             
+            // 7. IOCL Supervisors Table
             renderIOCLTable(p.Status);
 
-            // Main Action Buttons
+            // 8. Main Workflow Actions (Permit Creation)
             if (p.Status === 'Pending Review' && currentUser.Role === 'Reviewer') {
                 document.getElementById('fs-reviewer-section').classList.remove('hidden');
                 const b1 = document.createElement("button"); b1.className = "bg-red-600 text-white px-4 py-2 rounded font-bold mr-2"; b1.innerText = "Reject"; b1.onclick = () => upd('reject');
@@ -809,7 +827,7 @@
                 actionsDiv.append(b1, b2);
             }
 
-            // Renewal Logic
+            // 9. Renewal History & Requester Logic
             const rens = JSON.parse(p.RenewalsJSON || "[]");
             const lastRen = rens.length > 0 ? rens[rens.length - 1] : null;
 
@@ -817,8 +835,10 @@
                 document.getElementById('renewals-section').classList.remove('hidden');
                 document.getElementById('renewal-history-body').innerHTML = rens.map(r => `<tr class="border-b text-[10px]"><td class="p-2">${r.valid_from}<br>to ${r.valid_to}</td><td class="p-2">${r.hc}/${r.toxic}/${r.oxygen}</td><td class="p-2">${r.req_name}</td><td class="p-2">${r.rev_name || '-'}</td><td class="p-2">${r.app_name || '-'}</td><td class="p-2">${r.photoUrl ? 'YES' : 'NO'}</td></tr>`).join('');
                 
+                // Show "Request Renewal" form if Active and not currently pending
                 const showRenForm = (currentUser.Role === 'Requester' && p.Status === 'Active' && (!lastRen || !lastRen.status.includes('pending')));
                 document.getElementById('form-renewal').classList.toggle('hidden', !showRenForm);
+                
                 if(showRenForm) {
                     document.querySelectorAll('#form-renewal input').forEach(inp => inp.disabled = false);
                     document.getElementById('renewal-worker-select').innerHTML = currentPermitWorkers.map(w => `<label class="flex items-center gap-1 text-xs bg-white p-1 rounded border"><input type="checkbox" value="${escapeHtml(w.Name)}" checked class="ren-worker-cb"> ${escapeHtml(w.Name)}</label>`).join('');
@@ -826,38 +846,43 @@
                 }
             }
 
-            // Pending Renewal Action Logic
+            // 10. Pending Renewal Action Logic (Reviewer/Approver)
             if (lastRen && lastRen.status && lastRen.status.includes('pending')) {
                 if (currentUser.Role !== 'Requester') document.getElementById('pending-renewal-display').classList.remove('hidden');
                 
                 const isRevTurn = (currentUser.Role === 'Reviewer' && (p.Status === 'Renewal Pending Review' || p.Status === 'Pending Review'));
                 const isAppTurn = (currentUser.Role === 'Approver' && (p.Status === 'Renewal Pending Approval' || p.Status === 'Pending Approval'));
 
-               if (isRevTurn || isAppTurn) {
-    // If this is the first renewal request (or any single pending renewal to be decided inline), show Confirm Decision
-    if (lastRen && lastRen.status && lastRen.status.includes('pending')) {
-        if (isRevTurn) document.getElementById('rev-renewal-decision').classList.remove('hidden');
-        if (isAppTurn) document.getElementById('app-renewal-decision').classList.remove('hidden');
-        const b = document.createElement("button");
-        b.className = "bg-purple-600 text-white px-4 py-2 rounded font-bold";
-        b.innerText = "Confirm Decision";
-        b.onclick = () => upd('approve_1st_ren');
-        actionsDiv.appendChild(b);
-    } else {
-        // fallback to standard renewal action UI
-        document.getElementById('action-renewal').classList.remove('hidden');
-        document.getElementById('btn-approve-renewal').onclick = () => submitRenewal('approve');
-        document.getElementById('btn-reject-renewal').onclick = () => submitRenewal('reject');
-        if (lastRen && lastRen.oddHourReq === 'Y' && isAppTurn) {
-            document.getElementById('odd-hour-approval-controls').classList.remove('hidden');
-            document.getElementById('btn-approve-renewal').disabled = true;
-            window.toggleRenewalApproveBtn = () => { document.getElementById('btn-approve-renewal').disabled = !document.getElementById('odd-hour-allow-check').checked; };
-        } else {
-            document.getElementById('btn-approve-renewal').disabled = false;
-        }
-    }
-} 
+                if (isRevTurn || isAppTurn) {
+                    // Scenario A: First Renewal (Use Integrated Decision Radio Buttons)
+                    if (rens.length === 1 && p.Status.includes('Renewal')) {
+                        if (isRevTurn) document.getElementById('rev-renewal-decision').classList.remove('hidden');
+                        if (isAppTurn) document.getElementById('app-renewal-decision').classList.remove('hidden');
+                        const b = document.createElement("button"); 
+                        b.className = "bg-purple-600 text-white px-4 py-2 rounded font-bold"; 
+                        b.innerText = "Confirm Decision"; 
+                        b.onclick = () => upd('approve_1st_ren');
+                        actionsDiv.appendChild(b);
+                    } 
+                    // Scenario B: Subsequent Renewals (Use Standard Approve/Reject Box)
+                    else {
+                        document.getElementById('action-renewal').classList.remove('hidden');
+                        document.getElementById('btn-approve-renewal').onclick = () => submitRenewal('approve');
+                        document.getElementById('btn-reject-renewal').onclick = () => submitRenewal('reject');
+                        
+                        // Night Shift Logic
+                        if (lastRen.oddHourReq === 'Y' && isAppTurn) {
+                            document.getElementById('odd-hour-approval-controls').classList.remove('hidden');
+                            document.getElementById('btn-approve-renewal').disabled = true;
+                            window.toggleRenewalApproveBtn = () => { document.getElementById('btn-approve-renewal').disabled = !document.getElementById('odd-hour-allow-check').checked; };
+                        } else {
+                            document.getElementById('btn-approve-renewal').disabled = false;
+                        }
+                    }
+                }
+            } 
 
+            // 11. Closure Logic & Cleanup
             handleClosureUI(p, actionsDiv);
             attachFileValidators();
         }
@@ -1146,6 +1171,7 @@
     </script>
 </body>
 </html>
+
 
 
 
