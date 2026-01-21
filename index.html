@@ -229,17 +229,17 @@
                         <div id="fs-reviewer-section" class="glass hidden border-l-4 border-yellow-500">
                             <h3 class="font-bold text-yellow-700 border-b pb-2 mb-4">4. Reviewer</h3>
                             
-                            <div id="rev-renewal-decision" class="mb-4 hidden p-3 bg-yellow-50 border border-yellow-200 rounded">
-                                <h4 class="font-bold text-sm text-yellow-800 mb-2">1st Renewal Action (Requested by User)</h4>
-                                <div class="flex gap-4">
-                                    <label class="flex items-center gap-2 cursor-pointer font-bold text-green-700">
-                                        <input type="radio" name="RevRenAction" value="recommend" class="w-4 h-4 accent-green-600"> Recommend Renewal
-                                    </label>
-                                    <label class="flex items-center gap-2 cursor-pointer font-bold text-red-700">
-                                        <input type="radio" name="RevRenAction" value="reject" class="w-4 h-4 accent-red-600"> Reject Renewal
-                                    </label>
-                                </div>
+                            <div id="rev-renewal-decision" class="mb-4 hidden p-4 bg-yellow-50 border border-yellow-200 rounded">
+                                        <h4 class="font-bold text-sm text-yellow-900 mb-2">1st Renewal: Accept and forward?</h4>
+                                            <div class="flex gap-6">
+                                               <label class="flex items-center gap-2 cursor-pointer font-bold text-gray-700">
+                                              <input type="radio" name="RevRenAction" value="recommend" class="w-5 h-5 accent-green-600"> Yes
+                                             </label>
+                                          <label class="flex items-center gap-2 cursor-pointer font-bold text-gray-700">
+                                    <input type="radio" name="RevRenAction" value="reject" class="w-5 h-5 accent-red-600"> No
+                                </label>
                             </div>
+                         </div>
 
                             <div class="mb-4 hidden" id="iocl-reviewer-wrapper">
                                 <label class="font-bold text-sm text-gray-700">Authorized IOCL Supervisors</label>
@@ -253,17 +253,17 @@
                         <div id="fs-approver-section" class="glass hidden border-l-4 border-green-500">
                             <h3 class="font-bold text-green-700 border-b pb-2 mb-4">5. Approval</h3>
                             
-                            <div id="app-renewal-decision" class="mb-4 hidden p-3 bg-green-50 border border-green-200 rounded">
-                                <h4 class="font-bold text-sm text-green-800 mb-2">1st Renewal Action (Recommended by Reviewer)</h4>
-                                <div class="flex gap-4">
-                                    <label class="flex items-center gap-2 cursor-pointer font-bold text-green-700">
-                                        <input type="radio" name="AppRenAction" value="approve" class="w-4 h-4 accent-green-600"> Approve Renewal
-                                    </label>
-                                    <label class="flex items-center gap-2 cursor-pointer font-bold text-red-700">
-                                        <input type="radio" name="AppRenAction" value="reject" class="w-4 h-4 accent-red-600"> Reject Renewal
-                                    </label>
-                                </div>
-                            </div>
+                             <div id="app-renewal-decision" class="mb-4 hidden p-4 bg-green-50 border border-green-200 rounded">
+    <h4 class="font-bold text-sm text-green-900 mb-2">1st Renewal: Accept and forward?</h4>
+    <div class="flex gap-6">
+        <label class="flex items-center gap-2 cursor-pointer font-bold text-gray-700">
+            <input type="radio" name="AppRenAction" value="approve" class="w-5 h-5 accent-green-600"> Yes
+        </label>
+        <label class="flex items-center gap-2 cursor-pointer font-bold text-gray-700">
+            <input type="radio" name="AppRenAction" value="reject" class="w-5 h-5 accent-red-600"> No
+        </label>
+    </div>
+</div>
 
                             <div class="mb-4 hidden" id="iocl-approver-wrapper">
                                 <label class="font-bold text-sm text-gray-700">Authorized IOCL Supervisors</label>
@@ -734,111 +734,126 @@
             
             loadStats(res);
         }
-        /* 6. CORE PERMIT LOGIC */
-     /* 6. CORE PERMIT LOGIC */
+
         /* 6. CORE PERMIT LOGIC */
         async function openPermit(id) {
             const p = await apiCall('/permit-data', 'POST', { permitId: id });
             
-            // 1. Check for Archived/Closed State
             if (!p || p.Status === 'Closed' || !p.WorkType) {
                 alert("📂 Permit Archived. Downloading PDF...");
                 return downloadSecurePDF(id);
             }
 
-            // 2. Setup Global State
             currentPermitId = id;
             currentPermitIOCLData = p.IOCLSupervisors || [];
             permitRequirePhoto = (p.RequireRenewalPhotos === 'Y');
 
-            // 3. UI Switching
+            // UI Reset
             document.getElementById('view-dashboard').classList.add('hidden');
             document.getElementById('view-form').classList.remove('hidden');
             document.getElementById('permit-title').innerText = `Permit: ${id}`;
             document.getElementById('permit-header-display').innerText = `Status: ${p.Status}`;
-
-            // 4. Reset Action UI Sections
+            
             ['fs-reviewer-section', 'fs-approver-section', 'rev-renewal-decision', 'app-renewal-decision', 'action-renewal', 'pending-renewal-display', 'odd-hour-approval-controls']
                 .forEach(id => document.getElementById(id).classList.add('hidden'));
             
             const actionsDiv = document.getElementById("actions-bar");
             actionsDiv.innerHTML = "";
 
-            // 5. Form Logic & Disabling Fields
+            // --- Form Field Logic ---
             const isMainPending = (p.Status === 'Pending Review' || p.Status === 'Pending Approval');
             const isAuthority = (currentUser.Role === 'Reviewer' || currentUser.Role === 'Approver');
 
             document.querySelectorAll('#pf input, #pf textarea, #pf select').forEach(el => {
                 let shouldDisable = true;
-
-                // Authorities can edit Hazards/PPE during main review
-                if (isAuthority && isMainPending && (el.name && (el.name.startsWith('H_') || el.name.startsWith('P_')) || el.id === 'H_Others_Detail')) {
-                    shouldDisable = false;
-                }
-
-                // Reviewer can edit remarks during their turn
-                if (isMainPending && currentUser.Role === 'Reviewer' && (el.id === 'Reviewer_Remarks' || el.id === 'AdditionalPrecautions')) {
-                    shouldDisable = false;
-                }
-
-                // Approver can edit remarks during their turn
-                if (isMainPending && currentUser.Role === 'Approver' && el.id === 'Approver_Remarks') {
-                    shouldDisable = false;
-                }
-
-                // Configuration exceptions
+                if (isAuthority && isMainPending && (el.name && (el.name.startsWith('H_') || el.name.startsWith('P_')) || el.id === 'H_Others_Detail')) shouldDisable = false;
+                if (isMainPending && currentUser.Role === 'Reviewer' && (el.id === 'Reviewer_Remarks' || el.id === 'AdditionalPrecautions' || el.name === 'RevRenAction')) shouldDisable = false;
+                if (isMainPending && currentUser.Role === 'Approver' && (el.id === 'Approver_Remarks' || el.name === 'AppRenAction')) shouldDisable = false;
                 if (currentUser.Role === 'Approver' && el.id === 'RequireRenewalPhotos') shouldDisable = false;
-                if (el.name === 'RevRenAction' || el.name === 'AppRenAction') shouldDisable = false;
-
-                // Populate Data
+                
                 if (el.type === 'checkbox') el.checked = (p[el.name] === 'Y');
+                else if (el.type === 'radio') el.checked = false; // Reset radios
                 else if (el.type !== 'file') el.value = p[el.name] || '';
-
                 el.disabled = shouldDisable;
             });
 
-            // Toggle PPE Section visibility
             if (currentUser.Role === 'Requester') document.getElementById('ppe-section-wrapper').classList.add('hidden');
             else document.getElementById('ppe-section-wrapper').classList.remove('hidden');
 
-            // 6. Workers Table
+            // --- Workers ---
             let wData = p.SelectedWorkers;
             if (typeof wData === 'string') { try { wData = JSON.parse(wData); } catch (e) { wData = []; } }
             currentPermitWorkers = Array.isArray(wData) ? wData : [];
-            
             const wTbody = document.getElementById('worker-display-body');
             document.getElementById('worker-display-table').classList.toggle('hidden', currentPermitWorkers.length === 0);
             if (wTbody) wTbody.innerHTML = currentPermitWorkers.map(w => `<tr><td class="p-2 font-bold">${escapeHtml(w.Name)}</td><td class="p-2">${escapeHtml(w.IDType)}: ${escapeHtml(w.ID)}</td><td class="p-2 font-mono">${escapeHtml(w.Contact)}</td></tr>`).join('');
             
-            // 7. IOCL Supervisors Table
             renderIOCLTable(p.Status);
 
-            // 8. Main Workflow Actions (Permit Creation)
+            // --- 1st Renewal Logic ---
+            const rens = JSON.parse(p.RenewalsJSON || "[]");
+            const lastRen = rens.length > 0 ? rens[rens.length - 1] : null;
+            // Check if this is the very first renewal request bundled with the permit
+            const isFirstRenRequest = (rens.length === 1 && p.InitRen === 'Y');
+
+            // --- Reviewer View ---
             if (p.Status === 'Pending Review' && currentUser.Role === 'Reviewer') {
                 document.getElementById('fs-reviewer-section').classList.remove('hidden');
-                const b1 = document.createElement("button"); b1.className = "bg-red-600 text-white px-4 py-2 rounded font-bold mr-2"; b1.innerText = "Reject"; b1.onclick = () => upd('reject');
+                
+                // Show Yes/No radios ONLY if there is a pending 1st renewal
+                if (isFirstRenRequest && lastRen.status === 'pending_review') {
+                    document.getElementById('rev-renewal-decision').classList.remove('hidden');
+                }
+
+                const b1 = document.createElement("button"); b1.className = "bg-red-600 text-white px-4 py-2 rounded font-bold mr-2"; b1.innerText = "Reject Permit"; b1.onclick = () => upd('reject');
                 const b2 = document.createElement("button"); b2.className = "bg-green-600 text-white px-4 py-2 rounded font-bold"; b2.innerText = "Review & Forward"; b2.onclick = () => upd('review');
                 actionsDiv.append(b1, b2);
             }
+
+            // --- Approver View ---
             if (p.Status === 'Pending Approval' && currentUser.Role === 'Approver') {
                 document.getElementById('fs-approver-section').classList.remove('hidden');
-                const b1 = document.createElement("button"); b1.className = "bg-red-600 text-white px-4 py-2 rounded font-bold mr-2"; b1.innerText = "Reject"; b1.onclick = () => upd('reject');
+
+                // Show Yes/No radios ONLY if Reviewer said YES (status is pending_approval)
+                // If Reviewer said NO (status is rejected), Approver sees nothing (Auto-rejected)
+                if (isFirstRenRequest && lastRen.status === 'pending_approval') {
+                    document.getElementById('app-renewal-decision').classList.remove('hidden');
+                }
+
+                const b1 = document.createElement("button"); b1.className = "bg-red-600 text-white px-4 py-2 rounded font-bold mr-2"; b1.innerText = "Reject Permit"; b1.onclick = () => upd('reject');
                 const b2 = document.createElement("button"); b2.className = "bg-green-600 text-white px-4 py-2 rounded font-bold"; b2.innerText = "Final Approve"; b2.onclick = () => upd('approve');
                 actionsDiv.append(b1, b2);
             }
 
-            // 9. Renewal History & Requester Logic
-            const rens = JSON.parse(p.RenewalsJSON || "[]");
-            const lastRen = rens.length > 0 ? rens[rens.length - 1] : null;
+            // --- Subsequent Renewals (Standalone) ---
+            if (!isFirstRenRequest && lastRen && lastRen.status.includes('pending')) {
+                if (currentUser.Role !== 'Requester') document.getElementById('pending-renewal-display').classList.remove('hidden');
+                
+                const isRevTurn = (currentUser.Role === 'Reviewer' && p.Status.includes('Renewal Pending Review'));
+                const isAppTurn = (currentUser.Role === 'Approver' && p.Status.includes('Renewal Pending Approval'));
 
+                if (isRevTurn || isAppTurn) {
+                    document.getElementById('action-renewal').classList.remove('hidden');
+                    document.getElementById('btn-approve-renewal').onclick = () => submitRenewal('approve');
+                    document.getElementById('btn-reject-renewal').onclick = () => submitRenewal('reject');
+                    
+                    if (lastRen.oddHourReq === 'Y' && isAppTurn) {
+                        document.getElementById('odd-hour-approval-controls').classList.remove('hidden');
+                        document.getElementById('btn-approve-renewal').disabled = true;
+                        window.toggleRenewalApproveBtn = () => { document.getElementById('btn-approve-renewal').disabled = !document.getElementById('odd-hour-allow-check').checked; };
+                    } else {
+                        document.getElementById('btn-approve-renewal').disabled = false;
+                    }
+                }
+            }
+
+            // --- Requester View (Renewals) ---
             if (rens.length > 0 || (currentUser.Role === 'Requester' && p.Status === 'Active')) {
                 document.getElementById('renewals-section').classList.remove('hidden');
                 document.getElementById('renewal-history-body').innerHTML = rens.map(r => `<tr class="border-b text-[10px]"><td class="p-2">${r.valid_from}<br>to ${r.valid_to}</td><td class="p-2">${r.hc}/${r.toxic}/${r.oxygen}</td><td class="p-2">${r.req_name}</td><td class="p-2">${r.rev_name || '-'}</td><td class="p-2">${r.app_name || '-'}</td><td class="p-2">${r.photoUrl ? 'YES' : 'NO'}</td></tr>`).join('');
                 
-                // Show "Request Renewal" form if Active and not currently pending
                 const showRenForm = (currentUser.Role === 'Requester' && p.Status === 'Active' && (!lastRen || !lastRen.status.includes('pending')));
                 document.getElementById('form-renewal').classList.toggle('hidden', !showRenForm);
-                
                 if(showRenForm) {
                     document.querySelectorAll('#form-renewal input').forEach(inp => inp.disabled = false);
                     document.getElementById('renewal-worker-select').innerHTML = currentPermitWorkers.map(w => `<label class="flex items-center gap-1 text-xs bg-white p-1 rounded border"><input type="checkbox" value="${escapeHtml(w.Name)}" checked class="ren-worker-cb"> ${escapeHtml(w.Name)}</label>`).join('');
@@ -846,43 +861,6 @@
                 }
             }
 
-            // 10. Pending Renewal Action Logic (Reviewer/Approver)
-            if (lastRen && lastRen.status && lastRen.status.includes('pending')) {
-                if (currentUser.Role !== 'Requester') document.getElementById('pending-renewal-display').classList.remove('hidden');
-                
-                const isRevTurn = (currentUser.Role === 'Reviewer' && (p.Status === 'Renewal Pending Review' || p.Status === 'Pending Review'));
-                const isAppTurn = (currentUser.Role === 'Approver' && (p.Status === 'Renewal Pending Approval' || p.Status === 'Pending Approval'));
-
-                if (isRevTurn || isAppTurn) {
-                    // Scenario A: First Renewal (Use Integrated Decision Radio Buttons)
-                    if (rens.length === 1 && p.Status.includes('Renewal')) {
-                        if (isRevTurn) document.getElementById('rev-renewal-decision').classList.remove('hidden');
-                        if (isAppTurn) document.getElementById('app-renewal-decision').classList.remove('hidden');
-                        const b = document.createElement("button"); 
-                        b.className = "bg-purple-600 text-white px-4 py-2 rounded font-bold"; 
-                        b.innerText = "Confirm Decision"; 
-                        b.onclick = () => upd('approve_1st_ren');
-                        actionsDiv.appendChild(b);
-                    } 
-                    // Scenario B: Subsequent Renewals (Use Standard Approve/Reject Box)
-                    else {
-                        document.getElementById('action-renewal').classList.remove('hidden');
-                        document.getElementById('btn-approve-renewal').onclick = () => submitRenewal('approve');
-                        document.getElementById('btn-reject-renewal').onclick = () => submitRenewal('reject');
-                        
-                        // Night Shift Logic
-                        if (lastRen.oddHourReq === 'Y' && isAppTurn) {
-                            document.getElementById('odd-hour-approval-controls').classList.remove('hidden');
-                            document.getElementById('btn-approve-renewal').disabled = true;
-                            window.toggleRenewalApproveBtn = () => { document.getElementById('btn-approve-renewal').disabled = !document.getElementById('odd-hour-allow-check').checked; };
-                        } else {
-                            document.getElementById('btn-approve-renewal').disabled = false;
-                        }
-                    }
-                }
-            } 
-
-            // 11. Closure Logic & Cleanup
             handleClosureUI(p, actionsDiv);
             attachFileValidators();
         }
@@ -919,7 +897,7 @@
             }
         }
 
-        async function upd(act) {
+  async function upd(act) {
             if (act === 'initiate_closure' && !document.getElementById("Site_Restored_Check").checked) return alert("Please confirm site restoration.");
             
             let ioclData = [];
@@ -941,14 +919,22 @@
                 Site_Restored_Check: document.getElementById("Site_Restored_Check").checked ? 'Y' : 'N'
             };
 
-            if (act === 'review' || act === 'approve' || act === 'approve_1st_ren') {
+            // CAPTURE 1st RENEWAL DECISION
+            if (act === 'review' || act === 'approve') {
                 const revDec = document.querySelector('input[name="RevRenAction"]:checked');
                 const appDec = document.querySelector('input[name="AppRenAction"]:checked');
-                if (currentUser.Role === 'Reviewer' && revDec) body.FirstRenewalAction = revDec.value;
-                if (currentUser.Role === 'Approver' && appDec) body.FirstRenewalAction = appDec.value;
-                if (act === 'approve_1st_ren') {
-                    if (currentUser.Role === 'Reviewer') body.action = (revDec && revDec.value === 'reject') ? 'reject' : 'review';
-                    if (currentUser.Role === 'Approver') body.action = (appDec && appDec.value === 'reject') ? 'reject' : 'approve';
+                
+                // If Reviewer selected Yes/No, send it. If not, don't send (might be standard permit).
+                if (currentUser.Role === 'Reviewer' && revDec) {
+                    body.FirstRenewalAction = revDec.value; // 'recommend' or 'reject'
+                    // Trigger the backend to process this decision alongside the review
+                    body.action = 'approve_1st_ren'; 
+                }
+                
+                // If Approver selected Yes/No
+                if (currentUser.Role === 'Approver' && appDec) {
+                    body.FirstRenewalAction = appDec.value; // 'approve' or 'reject'
+                    body.action = 'approve_1st_ren';
                 }
             }
 
@@ -1171,6 +1157,7 @@
     </script>
 </body>
 </html>
+
 
 
 
