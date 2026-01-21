@@ -217,14 +217,18 @@
                         </div>
 
                         <div class="glass border-t-4 border-red-500">
-                            <h3 class="font-bold text-red-600 border-b pb-2 mb-4">4. Hazards & PPE</h3>
-                            <div id="hazards-grid" class="grid grid-cols-2 md:grid-cols-4 gap-2 mb-4"></div>
-                            <div id="other-hazard-div" class="hidden mb-2"><input id="H_Others_Detail" name="H_Others_Detail" placeholder="Specify other hazards..." class="w-full"></div>
-                            <div id="ppe-section-wrapper" class="hidden">
-                                <h4 class="font-bold text-gray-500 text-xs uppercase mb-2">PPE Required (Reviewer)</h4>
-                                <div id="ppe-grid" class="grid grid-cols-2 md:grid-cols-4 gap-2"></div>
-                            </div>
-                        </div>
+    <h3 class="font-bold text-red-600 border-b pb-2 mb-4">4. Hazards & PPE</h3>
+    <div id="hazards-grid" class="grid grid-cols-2 md:grid-cols-4 gap-2 mb-4"></div>
+    <div id="other-hazard-div" class="hidden mb-2">
+        <input id="H_Others_Detail" name="H_Others_Detail" placeholder="Specify other hazards..." class="w-full">
+    </div>
+    
+    <div id="ppe-section-wrapper" class="hidden">
+        <h4 class="font-bold text-gray-500 text-xs uppercase mb-2">PPE Required (Reviewer/Approver)</h4>
+        <div id="ppe-grid" class="grid grid-cols-2 md:grid-cols-4 gap-2 mb-2"></div>
+        <textarea name="AdditionalPrecautions" id="AdditionalPrecautions" placeholder="Additional PPE / Precautions..." class="w-full text-sm p-2 border rounded" rows="2"></textarea>
+    </div>
+</div>
 
                         <div id="fs-reviewer-section" class="glass hidden border-l-4 border-yellow-500">
                             <h3 class="font-bold text-yellow-700 border-b pb-2 mb-4">4. Reviewer</h3>
@@ -247,7 +251,7 @@
                                 <button type="button" id="btn-add-rev-sup" class="mt-2 text-xs bg-gray-200 px-2 py-1 rounded font-bold">+ Add Supervisor</button>
                             </div>
                             <textarea name="Reviewer_Remarks" id="Reviewer_Remarks" placeholder="Reviewer Remarks" class="w-full"></textarea>
-                            <textarea name="AdditionalPrecautions" id="AdditionalPrecautions" placeholder="Additional Precautions" class="w-full mt-2"></textarea>
+                            
                         </div>
 
                         <div id="fs-approver-section" class="glass hidden border-l-4 border-green-500">
@@ -504,7 +508,6 @@
 
     <script nonce="NONCE_PLACEHOLDER">
         /* 1. CONSTANTS */
-/* 1. CONSTANTS */
         const API = "/api";
         let authToken = null, currentUser = null;
         let mapInstance = null, chartS = null, chartT = null;
@@ -754,14 +757,18 @@
             const actionsDiv = document.getElementById("actions-bar");
             actionsDiv.innerHTML = "";
 
+            // --- Form Field Logic ---
             const isMainPending = (p.Status.includes('Pending Review') || p.Status.includes('Pending Approval'));
             const isAuthority = (currentUser.Role === 'Reviewer' || currentUser.Role === 'Approver');
 
             document.querySelectorAll('#pf input, #pf textarea, #pf select').forEach(el => {
                 let shouldDisable = true;
+                
+                // [Requirement C] Enable AdditionalPrecautions for Approver too
                 if (isAuthority && isMainPending && (el.name && (el.name.startsWith('H_') || el.name.startsWith('P_')) || el.id === 'H_Others_Detail')) shouldDisable = false;
                 if (isMainPending && currentUser.Role === 'Reviewer' && (el.id === 'Reviewer_Remarks' || el.id === 'AdditionalPrecautions' || el.name === 'RevRenAction')) shouldDisable = false;
-                if (isMainPending && currentUser.Role === 'Approver' && (el.id === 'Approver_Remarks' || el.name === 'AppRenAction')) shouldDisable = false;
+                if (isMainPending && currentUser.Role === 'Approver' && (el.id === 'Approver_Remarks' || el.id === 'AdditionalPrecautions' || el.name === 'AppRenAction')) shouldDisable = false;
+                
                 if (currentUser.Role === 'Approver' && el.id === 'RequireRenewalPhotos') shouldDisable = false;
                 
                 if (el.type === 'checkbox') el.checked = (p[el.name] === 'Y');
@@ -786,6 +793,7 @@
             const lastRen = rens.length > 0 ? rens[rens.length - 1] : null;
             const isFirstRenRequest = (rens.length === 1 && p.InitRen === 'Y');
 
+            // --- Reviewer View ---
             if ((p.Status === 'Pending Review' || p.Status === 'Renewal Pending Review') && currentUser.Role === 'Reviewer') {
                 document.getElementById('fs-reviewer-section').classList.remove('hidden');
                 
@@ -798,6 +806,7 @@
                 actionsDiv.append(b1, b2);
             }
 
+            // --- Approver View ---
             if ((p.Status === 'Pending Approval' || p.Status === 'Renewal Pending Approval') && currentUser.Role === 'Approver') {
                 document.getElementById('fs-approver-section').classList.remove('hidden');
 
@@ -810,6 +819,21 @@
                 actionsDiv.append(b1, b2);
             }
 
+            // --- [Requirement B] Active View for Approver (Update Supervisors) ---
+            if (p.Status === 'Active' && currentUser.Role === 'Approver') {
+                document.getElementById('fs-approver-section').classList.remove('hidden');
+                // Hide decision UI, just show supervisors & remarks
+                document.getElementById('app-renewal-decision').classList.add('hidden');
+                
+                const b = document.createElement("button"); 
+                b.type = "button"; 
+                b.className = "bg-blue-600 text-white px-4 py-2 rounded font-bold"; 
+                b.innerText = "💾 Update Supervisors / PPE"; 
+                b.onclick = () => upd('update_data');
+                actionsDiv.appendChild(b);
+            }
+
+            // --- Subsequent Renewals ---
             if (!isFirstRenRequest && lastRen && lastRen.status.includes('pending')) {
                 if (currentUser.Role !== 'Requester') document.getElementById('pending-renewal-display').classList.remove('hidden');
                 
@@ -831,6 +855,7 @@
                 }
             }
 
+            // --- Requester View (Renewals) ---
             if (rens.length > 0 || (currentUser.Role === 'Requester' && p.Status === 'Active')) {
                 document.getElementById('renewals-section').classList.remove('hidden');
                 document.getElementById('renewal-history-body').innerHTML = rens.map(r => `
@@ -903,10 +928,17 @@
             if (act === 'initiate_closure' && !document.getElementById("Site_Restored_Check").checked) return alert("Please confirm site restoration.");
             
             let ioclData = [];
+            // Reviewer Logic
             if (currentUser.Role === 'Reviewer') ioclData = getIOCLData('iocl-sup-container-rev');
+            // Approver Logic (Merges existing with any new ones they added)
             if (currentUser.Role === 'Approver') {
-                 const exist = getIOCLData('iocl-sup-container-app');
-                 ioclData = [...currentPermitIOCLData, ...exist];
+                 const newOnes = getIOCLData('iocl-sup-container-app');
+                 // For Update action, we reconstruct the list: existing visible (minus deleted) + new ones
+                 // But since 'delete' removes from currentPermitIOCLData array immediately, we just send that
+                 // WAIT: renderIOCLTable doesn't put existing ones into input fields. It puts them in table.
+                 // So we must combine: Remaining in Table + New Input Fields.
+                 // Actually, simplify: We only ever add NEW via input fields. Deletions happen on the main list.
+                 ioclData = [...currentPermitIOCLData, ...newOnes];
             }
 
             const body = {
@@ -985,10 +1017,11 @@
             const t = document.querySelector('#table-iocl-display tbody'); t.innerHTML = '';
             if(!currentPermitIOCLData.length) { t.innerHTML = '<tr><td colspan="4">None</td></tr>'; }
             else {
-                currentPermitIOCLData.forEach(x => {
+                currentPermitIOCLData.forEach((x, idx) => {
                     let delBtn = '';
+                    // [Requirement B] Allow delete if Approver and Active
                     if(currentUser.Role === 'Approver' && status === 'Active') {
-                         delBtn = `<button class="text-red-500 text-[10px] font-bold ml-2" onclick="alert('TODO: Implement direct delete')">🗑️</button>`;
+                         delBtn = `<button class="text-red-500 text-[10px] font-bold ml-2" onclick="deleteIOCLSup(${idx}, '${status}')">🗑️</button>`;
                     }
                     t.innerHTML += `<tr><td>${x.name}</td><td>${x.desig}</td><td>${x.contact}</td><td class="text-xs text-gray-500">Added by ${x.added_by} on ${x.added_at} ${delBtn}</td></tr>`;
                 });
@@ -998,10 +1031,21 @@
             document.getElementById('btn-add-rev-sup').parentElement.classList.add('hidden');
             document.getElementById('btn-add-app-sup').parentElement.classList.add('hidden');
 
-            if(currentUser.Role === 'Reviewer' && status === 'Pending Review') document.getElementById('btn-add-rev-sup').parentElement.classList.remove('hidden');
-            if(currentUser.Role === 'Approver' && (status === 'Pending Approval' || status === 'Active')) {
+            // [Requirement A] Reviewer can add when Pending Review
+            if(currentUser.Role === 'Reviewer' && status.includes('Pending Review')) 
+                document.getElementById('btn-add-rev-sup').parentElement.classList.remove('hidden');
+            
+            // [Requirement A, B] Approver can add when Pending Approval OR Active
+            if(currentUser.Role === 'Approver' && (status.includes('Pending Approval') || status === 'Active')) {
                 document.getElementById('btn-add-app-sup').parentElement.classList.remove('hidden');
             }
+        }
+        
+        // [Requirement B] Delete Supervisor Function
+        function deleteIOCLSup(index, status) {
+            if(!confirm("Remove this supervisor?")) return;
+            currentPermitIOCLData.splice(index, 1);
+            renderIOCLTable(status);
         }
 
         function renderChecklists() {
@@ -1150,8 +1194,6 @@
 
         initLogin();
     </script>
-</body>
-</html>
 
 
 
