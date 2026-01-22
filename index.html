@@ -523,7 +523,7 @@
         /* 1. CONSTANTS */
         const API = "/api";
         let authToken = null, currentUser = null;
-        let mapInstance = null;
+        let mapInstance = null, chartS = null, chartT = null;
         let currentPermitId = null, currentPermitWorkers = [], permitRequirePhoto = false, currentPermitIOCLData = [];
 
         const CL_DATA = {
@@ -552,6 +552,7 @@
         function escapeHtml(text) { if (!text) return text; return String(text).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
         function getVal(id) { const el = document.getElementById(id); return el ? el.value : ''; }
         function safeSet(id, val) { const el = document.getElementById(id); if(el) el.value = val; }
+        function setText(id, val) { const el = document.getElementById(id); if(el) el.innerText = val; }
         function getNow() { return new Date().toLocaleString("en-GB").replace(',',''); }
 
         function attachFileValidators() {
@@ -675,7 +676,7 @@
             }
             
             if(viewName === 'dashboard') loadDashboard();
-            if(viewName === 'new-permit') { showNewPermit(); }
+            if(viewName === 'new-permit') { showNewPermit(); loadMappedApprovers(); }
             if(viewName === 'users') loadManageUsers();
             if(viewName === 'workers') loadWorkers('mgmt');
             if(viewName === 'map') { setTimeout(initMap, 200); }
@@ -761,7 +762,7 @@
             loadStats(res);
         }
 
-        /* 6. CORE PERMIT LOGIC (FIXED) */
+        /* 6. CORE PERMIT LOGIC */
         async function openPermit(id) {
             const p = await apiCall('/permit-data', 'POST', { permitId: id });
 
@@ -1203,6 +1204,105 @@
             const res = await apiCall('/save-worker', 'POST', body);
             if(res.success) { alert("Worker Saved"); document.getElementById('modal-worker').classList.add('hidden'); loadWorkers('mgmt'); } else alert(res.error);
         });
+
+        async function loadStats(data) {
+            // 1. Ensure the stats view is actually visible before drawing
+            // If this function is called while view-stats is hidden, just return
+            if(document.getElementById('view-stats').classList.contains('hidden')) return;
+
+            // 2. Fetch data if missing
+            if (!data) {
+                 try {
+                     const fetchedData = await apiCall('/dashboard', 'POST', {role: currentUser.Role, email: currentUser.Email});
+                     if(!fetchedData) return;
+                     data = fetchedData;
+                 } catch(e) { console.error("Stats fetch failed", e); return; }
+            }
+            
+            const counts = {}; const types = {};
+            data.forEach(d => {
+                counts[d.Status] = (counts[d.Status]||0)+1;
+                types[d.WorkType] = (types[d.WorkType]||0)+1;
+            });
+
+            // 3. Destroy existing charts before creating new ones (Prevent Crash)
+            if(chartS) { chartS.destroy(); chartS = null; }
+            if(chartT) { chartT.destroy(); chartT = null; }
+
+            // 4. Create Charts
+            const ctxS = document.getElementById('chartStatus');
+            const ctxT = document.getElementById('chartType');
+
+            if(ctxS && Object.keys(counts).length > 0) {
+                chartS = new Chart(ctxS.getContext('2d'), {
+                    type: 'doughnut',
+                    data: {
+                        labels: Object.keys(counts),
+                        datasets: [{ data: Object.values(counts), backgroundColor: ['#f87171', '#4ade80', '#94a3b8', '#fbbf24', '#60a5fa'] }]
+                    },
+                    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right' } } }
+                });
+            }
+
+            if(ctxT && Object.keys(types).length > 0) {
+                chartT = new Chart(ctxT.getContext('2d'), {
+                    type: 'bar',
+                    data: {
+                        labels: Object.keys(types),
+                        datasets: [{ label: 'Work Types', data: Object.values(types), backgroundColor: '#60a5fa' }]
+                    },
+                    options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true } } }
+                });
+            }
+        }
+        
+        function logout() { location.reload(); }
+        
+        async function loadMappedApprovers() {
+             const reviewers = await apiCall('/get-users-by-loc', 'POST', { region: currentUser.Region, unit: currentUser.Unit, location: currentUser.Location, role: 'Reviewer' });
+             const approvers = await apiCall('/get-users-by-loc', 'POST', { region: currentUser.Region, unit: currentUser.Unit, location: currentUser.Location, role: 'Approver' });
+             document.getElementById("ReviewerEmail").innerHTML = reviewers.map(u => `<option value="${u.Email}">${u.Name}</option>`).join('');
+             document.getElementById("ApproverEmail").innerHTML = approvers.map(u => `<option value="${u.Email}">${u.Name}</option>`).join('');
+        }
+
+        async function downloadSecurePDF(id) { try { document.getElementById('loader').style.display = 'flex'; const res = await fetch(`${API}/download-pdf/${id}`, { headers: {'Authorization': `Bearer ${authToken}`} }); if(!res.ok) throw new Error("Err"); const blob = await res.blob(); const a = document.createElement('a'); a.href = window.URL.createObjectURL(blob); a.download = `${id}.pdf`; document.body.appendChild(a); a.click(); document.body.removeChild(a); } catch(e) { alert("Download Failed"); } finally { document.getElementById('loader').style.display = 'none'; } }
+        async function downloadSecureExcel() { try { document.getElementById('loader').style.display = 'flex'; const res = await fetch(`${API}/download-excel`, { headers: {'Authorization': `Bearer ${authToken}`} }); if(!res.ok) throw new Error("Err"); const blob = await res.blob(); const a = document.createElement('a'); a.href = window.URL.createObjectURL(blob); a.download = "Permits.xlsx"; document.body.appendChild(a); a.click(); document.body.removeChild(a); } catch(e) { alert("Failed"); } finally { document.getElementById('loader').style.display = 'none'; } }
+        
+        
+        window.viewSecurePhoto = async function(url) {
+    if (!url) return alert("No photo");
+    // Fix: Extract filename and encode it
+    const rawFilename = url.replace(/^.*[\\\/]/, '');
+    const filename = encodeURIComponent(rawFilename);
+
+    document.getElementById('loader').style.display = 'flex';
+    try {
+        const res = await fetch(`${API}/view-photo/${filename}`, { method: 'GET', headers: {'Authorization': `Bearer ${authToken}`} });
+        if (!res.ok) throw new Error("Err");
+        const blob = await res.blob();
+        window.open(window.URL.createObjectURL(blob), '_blank');
+    } catch (e) {
+        alert("Load Failed: " + e.message);
+    } finally {
+        document.getElementById('loader').style.display = 'none';
+    }
+}
+        
+        document.getElementById('btn-add-rev-sup').onclick = () => addIOCLRow('iocl-sup-container-rev');
+        document.getElementById('btn-add-app-sup').onclick = () => addIOCLRow('iocl-sup-container-app');
+        
+        async function loadManageUsers() {
+            const t = document.querySelector('#table-manage-users tbody'); t.innerHTML = '<tr><td colspan="5" class="p-4 text-center">Loading...</td></tr>';
+            const roles = ['Requester', 'Reviewer', 'Approver']; let allUsers = [];
+            for(let r of roles) { const u = await apiCall('/get-users-by-loc', 'POST', { region: currentUser.Region, unit: currentUser.Unit, location: currentUser.Location, role: r }); if(Array.isArray(u)) allUsers = [...allUsers, ...u]; }
+            t.innerHTML = '';
+            if(allUsers.length === 0) t.innerHTML = `<tr><td colspan="5" class="text-center p-4">No users found.</td></tr>`;
+            else allUsers.forEach(u => { const delBtn = u.Email !== currentUser.Email ? `<button class="text-red-600 font-bold text-xs" onclick="deleteUser('${u.Email}')">Delete</button>` : '-'; t.innerHTML += `<tr class="hover:bg-gray-50 border-b"><td class="p-3 font-bold">${u.Name}</td><td class="p-3 text-xs">${u.Email}</td><td class="p-3 text-xs uppercase">${u.Role}</td><td class="p-3 text-xs">${currentUser.Location}</td><td class="p-3">${delBtn}</td></tr>`; });
+        }
+        async function deleteUser(email) { if(!confirm("Delete user?")) return; const res = await apiCall('/delete-user', 'POST', {email: email}); if(res.success) { alert("Deleted"); loadManageUsers(); } else alert(res.error); }
+        async function uploadBulkUsers() { const file = document.getElementById('bulk-excel').files[0]; if(!file) return alert("Select file"); const fd = new FormData(); fd.append('excelFile', file); document.getElementById('loader').style.display = 'flex'; const res = await fetch(API+'/admin/bulk-upload', { method: 'POST', headers: {'Authorization': `Bearer ${authToken}`}, body: fd }); const json = await res.json(); document.getElementById('loader').style.display = 'none'; alert(json.success ? "Success" : json.error); }
+        async function resetUserPassword() { const email = document.getElementById('reset-email').value; const pass = document.getElementById('reset-temp-pass').value; const res = await apiCall('/admin/reset-password', 'POST', {targetEmail: email, newTempPass: pass}); alert(res.success ? "Reset Done" : res.error); }
+        document.getElementById('adduser-form').addEventListener('submit', async (e) => { e.preventDefault(); const body = { name: document.getElementById("new-user-name").value, email: document.getElementById("new-user-email").value, role: document.getElementById("new-user-role").value, password: document.getElementById("new-user-pass").value, region: document.getElementById("new-user-region").value, unit: document.getElementById("new-user-unit").value, location: document.getElementById("new-user-location").value }; const res = await apiCall('/add-user', 'POST', body); if(res.success) { alert("User Created"); document.getElementById('view-add-user').classList.add('hidden'); document.getElementById('adduser-form').reset(); loadManageUsers(); } else alert(res.error); });
 
         function getGeo() { if(!navigator.geolocation) return alert("Geo not supported"); navigator.geolocation.getCurrentPosition(p => { document.getElementById('ExactLocation').value = `${p.coords.latitude.toFixed(6)}, ${p.coords.longitude.toFixed(6)}`; document.getElementById('Latitude').value = p.coords.latitude; document.getElementById('Longitude').value = p.coords.longitude; }); }
         document.getElementById('btn-get-geo').onclick = getGeo;
