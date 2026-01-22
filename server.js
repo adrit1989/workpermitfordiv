@@ -948,7 +948,7 @@ app.post('/api/renewal', authenticateAccess, upload.single('RenewalImage'), asyn
         
         if (action === 'reject') {
             last.status = 'rejected';
-            last.rejection_reason = req.body.rejectionReason || '-';
+            last.rejection_reason = req.body.rejectionReason || comment || '-';
             last.rejected_by = req.user.name;
             newStatus = 'Active'; 
         }
