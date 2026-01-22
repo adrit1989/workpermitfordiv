@@ -906,10 +906,8 @@ app.post('/api/update-status', authenticateAccess, async(req, res) => {
     res.json({success: true});
 });
 
-// 6. Renewal (Code B Logic - ROBUST ROLE-BASED)
 app.post('/api/renewal', authenticateAccess, upload.single('RenewalImage'), async(req,res) => {
-    // We trust req.user.role (from Token) more than req.body.action for workflow logic
-    const { PermitID, action } = req.body; 
+    const { PermitID, action, comment } = req.body; // Extract comment
     const userRole = req.user.role; 
     const pool = await getConnection();
     
@@ -919,19 +917,24 @@ app.post('/api/renewal', authenticateAccess, upload.single('RenewalImage'), asyn
 
     let rens = JSON.parse(cur.recordset[0].RenewalsJSON || "[]");
     let currentStatus = cur.recordset[0].Status;
-    let newStatus = currentStatus; // Default to no change
+    let newStatus = currentStatus;
     
     // 2. INITIATE (Requester)
     if(action === 'initiate') {
         let url = null;
         if(req.file) url = await uploadToAzure(req.file.buffer, `${PermitID}-REN-${Date.now()}.jpg`);
         
+        // Parse the worker list sent from frontend
+        let workerList = [];
+        try { workerList = JSON.parse(req.body.renewalWorkers || "[]"); } catch(e){}
+
         rens.push({
             status: 'pending_review',
             valid_from: req.body.RenewalValidFrom,
             valid_to: req.body.RenewalValidTo,
             hc: req.body.hc, toxic: req.body.toxic, oxygen: req.body.oxygen,
             precautions: req.body.precautions,
+            workers: workerList, // <--- SAVE WORKERS HERE
             req_name: req.user.name, req_at: getNowIST(),
             photoUrl: url,
             oddHourReq: req.body.oddHourReq || 'N'
@@ -943,31 +946,28 @@ app.post('/api/renewal', authenticateAccess, upload.single('RenewalImage'), asyn
         if(rens.length === 0) return res.status(400).json({error: "No renewals found"});
         let last = rens[rens.length - 1]; 
         
-        // REJECTION (Available to both Reviewer and Approver)
         if (action === 'reject') {
             last.status = 'rejected';
             last.rejection_reason = req.body.rejectionReason || '-';
             last.rejected_by = req.user.name;
-            newStatus = 'Active'; // Revert to Active (kill the renewal request)
+            newStatus = 'Active'; 
         }
-        // APPROVAL FLOW
         else if (action === 'approve' || action === 'forward_to_approver') {
             
             if (userRole === 'Reviewer') {
-                // Reviewer Logic: ALWAYS forward to Approver
                 last.status = 'pending_approval';
                 last.rev_name = req.user.name;
                 last.rev_at = getNowIST();
+                last.rev_rem = comment || ''; // <--- SAVE REVIEWER REMARK
                 newStatus = 'Renewal Pending Approval';
             } 
             else if (userRole === 'Approver') {
-                // Approver Logic: ALWAYS Finalize
                 last.status = 'approved';
                 last.app_name = req.user.name;
                 last.app_at = getNowIST();
+                last.app_rem = comment || ''; // <--- SAVE APPROVER REMARK
                 newStatus = 'Active';
 
-                // CRITICAL: Extend Permit Validity in Main Table
                 await pool.request()
                     .input('p', PermitID)
                     .input('vt', new Date(last.valid_to)) 
@@ -976,7 +976,7 @@ app.post('/api/renewal', authenticateAccess, upload.single('RenewalImage'), asyn
         }
     }
 
-    // 4. Commit to DB
+    // 4. Commit
     await pool.request()
         .input('p', PermitID).input('r', JSON.stringify(rens)).input('s', newStatus)
         .query("UPDATE Permits SET RenewalsJSON=@r, Status=@s WHERE PermitID=@p");
