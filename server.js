@@ -906,14 +906,19 @@ app.post('/api/update-status', authenticateAccess, async(req, res) => {
     res.json({success: true});
 });
 
-// 6. Renewal (Code B Logic)
+// 6. Renewal (Code B Logic - FIXED)
 app.post('/api/renewal', authenticateAccess, upload.single('RenewalImage'), async(req,res) => {
-    const { PermitID, action } = req.body;
+    const { PermitID, action, role } = req.body;
     const pool = await getConnection();
-    const cur = await pool.request().input('p', PermitID).query("SELECT RenewalsJSON FROM Permits WHERE PermitID=@p");
     
+    // 1. Fetch current permit data
+    const cur = await pool.request().input('p', PermitID).query("SELECT RenewalsJSON, ValidTo FROM Permits WHERE PermitID=@p");
+    if (!cur.recordset.length) return res.status(404).json({error: "Permit not found"});
+
     let rens = JSON.parse(cur.recordset[0].RenewalsJSON || "[]");
+    let st = 'Active'; // Default fallback status
     
+    // 2. Handle New Request (INITIATE)
     if(action === 'initiate') {
         let url = null;
         if(req.file) url = await uploadToAzure(req.file.buffer, `${PermitID}-REN-${Date.now()}.jpg`);
@@ -923,14 +928,60 @@ app.post('/api/renewal', authenticateAccess, upload.single('RenewalImage'), asyn
             valid_from: req.body.RenewalValidFrom,
             valid_to: req.body.RenewalValidTo,
             hc: req.body.hc, toxic: req.body.toxic, oxygen: req.body.oxygen,
+            precautions: req.body.precautions, // Added precautions
             req_name: req.user.name, req_at: getNowIST(),
-            photoUrl: url
+            photoUrl: url,
+            oddHourReq: req.body.oddHourReq || 'N'
         });
         
+        st = 'Renewal Pending Review';
+
         await pool.request()
-            .input('p', PermitID).input('r', JSON.stringify(rens)).input('s', 'Renewal Pending Review')
+            .input('p', PermitID).input('r', JSON.stringify(rens)).input('s', st)
             .query("UPDATE Permits SET RenewalsJSON=@r, Status=@s WHERE PermitID=@p");
     }
+    // 3. Handle WORKFLOW ACTIONS (Review/Approve/Reject)
+    else {
+        if(rens.length === 0) return res.status(400).json({error: "No renewals found"});
+        
+        // Target the last renewal request
+        let last = rens[rens.length - 1]; 
+        
+        if (action === 'forward_to_approver') {
+            // Reviewer Logic: Forward to Approver
+            last.status = 'pending_approval';
+            last.rev_name = req.user.name;
+            last.rev_at = getNowIST();
+            st = 'Renewal Pending Approval'; // This moves it to Approver Dashboard
+        }
+        else if (action === 'approve') {
+            // Approver Logic: Final Approval
+            last.status = 'approved';
+            last.app_name = req.user.name;
+            last.app_at = getNowIST();
+            st = 'Active'; // Back to Active state
+
+            // CRITICAL: Update the main Permit ValidTo date to match the renewal
+            // This ensures the dashboard shows the new validity
+            await pool.request()
+                .input('p', PermitID)
+                .input('vt', new Date(last.valid_to)) 
+                .query("UPDATE Permits SET ValidTo=@vt WHERE PermitID=@p");
+        }
+        else if (action === 'reject') {
+            // Rejection Logic (Used by Reviewer or Approver)
+            last.status = 'rejected';
+            last.rejection_reason = req.body.rejectionReason || '-';
+            // Revert status to Active (kill the renewal request, keep permit active)
+            st = 'Active'; 
+        }
+
+        // Commit changes to DB
+        await pool.request()
+            .input('p', PermitID).input('r', JSON.stringify(rens)).input('s', st)
+            .query("UPDATE Permits SET RenewalsJSON=@r, Status=@s WHERE PermitID=@p");
+    }
+
     res.json({success: true});
 });
 
