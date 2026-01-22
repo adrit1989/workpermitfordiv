@@ -696,18 +696,12 @@
 
                             </div>
 
-                         <div id="action-renewal" class="hidden p-4 bg-yellow-50 mt-2 rounded border border-yellow-200">
-
+                     <div id="action-renewal" class="hidden p-4 bg-yellow-50 mt-2 rounded border border-yellow-200">
     <textarea id="RenewalRemark" placeholder="Remarks (Mandatory for Rejection)" class="w-full mb-2"></textarea>
-
     <div class="grid grid-cols-2 gap-2">
-
-        <button type="button" id="btn-approve-renewal" class="bg-green-600 text-white py-2 rounded font-bold shadow">Submit Renewal Decision</button>
-
+        <button type="button" id="btn-approve-renewal" class="bg-green-600 text-white py-2 rounded font-bold shadow disabled:opacity-50 disabled:cursor-not-allowed">Submit Renewal Decision</button>
         <button type="button" id="btn-reject-renewal" class="bg-red-600 text-white py-2 rounded font-bold shadow">Reject Renewal</button>
-
     </div>
-
 </div>
 
                         </div>
@@ -1706,43 +1700,46 @@ async function openPermit(id) {
 
  
 
-        if (isRevTurn || isAppTurn) {
+        // --- PASTE THIS NEW BLOCK ---
+if (isRevTurn || isAppTurn) {
+    document.getElementById('action-renewal').classList.remove('hidden');
+    document.getElementById('RenewalRemark').disabled = false;
 
-            document.getElementById('action-renewal').classList.remove('hidden');
+    const btnApprove = document.getElementById('btn-approve-renewal');
+    const btnReject = document.getElementById('btn-reject-renewal');
 
-            document.getElementById('RenewalRemark').disabled = false;
+    // 1. FORCE RESET BUTTON STATE (Fixes "Unresponsive" bug)
+    btnApprove.disabled = false;
+    btnApprove.classList.remove('opacity-50', 'cursor-not-allowed');
 
-           
+    btnApprove.onclick = () => submitRenewal('approve');
+    btnReject.onclick = () => submitRenewal('reject');
 
-            // FIX: Wire up the buttons explicitly here
-
-            const btnApprove = document.getElementById('btn-approve-renewal');
-
-            const btnReject = document.getElementById('btn-reject-renewal');
-
-           
-
-            btnApprove.onclick = () => submitRenewal('approve');
-
-            btnReject.onclick = () => submitRenewal('reject');
-
-           
-
-            if (lastRen.oddHourReq === 'Y' && isAppTurn) {
-
-                document.getElementById('odd-hour-approval-controls').classList.remove('hidden');
-
-                btnApprove.disabled = true;
-
-                window.toggleRenewalApproveBtn = () => { btnApprove.disabled = !document.getElementById('odd-hour-allow-check').checked; };
-
-            } else {
-
-                btnApprove.disabled = false;
-
-            }
-
-        }
+    // 2. Handle Odd Hour Logic (If applicable)
+if (lastRen && lastRen.oddHourReq === 'Y' && (isAppTurn || isRevTurn)) {
+        document.getElementById('odd-hour-approval-controls').classList.remove('hidden');
+        
+        // Reset checkbox to unchecked every time the modal opens (Safety)
+        document.getElementById('odd-hour-allow-check').checked = false;
+        
+        // Disable submit button initially until checked
+        btnApprove.disabled = true;
+        btnApprove.classList.add('opacity-50', 'cursor-not-allowed'); 
+        
+        window.toggleRenewalApproveBtn = () => { 
+            const isChecked = document.getElementById('odd-hour-allow-check').checked;
+            btnApprove.disabled = !isChecked;
+            // Toggle visual style
+            if(!isChecked) btnApprove.classList.add('opacity-50', 'cursor-not-allowed');
+            else btnApprove.classList.remove('opacity-50', 'cursor-not-allowed');
+        };
+    } else {
+        document.getElementById('odd-hour-approval-controls').classList.add('hidden');
+        // Ensure button is enabled if Odd Hour logic is NOT required
+        btnApprove.disabled = false;
+        btnApprove.classList.remove('opacity-50', 'cursor-not-allowed');
+    }
+}
 
     }
 
@@ -1986,128 +1983,72 @@ const revRemarkHtml = r.rev_rem
 
  
 
-        async function submitRenewal(act) {
+        // REPLACE your existing submitRenewal function with this:
+async function submitRenewal(act) {
+    // Case 1: Reviewer/Approver Processing (Approve/Reject)
+    if(act === 'approve' || act === 'reject') {
+        const remark = document.getElementById('RenewalRemark').value;
+        
+        // Validation: Reject requires remarks
+        if (act === 'reject' && !remark) return alert("Please provide remarks for rejection.");
 
-            // Case 1: Reviewer/Approver Processing (Approve/Reject)
-
-            if(act === 'approve' || act === 'reject') {
-
-                const remark = document.getElementById('RenewalRemark').value;
-
-                if (act === 'reject' && !remark) return alert("Please provide remarks for rejection.");
-
-               
-
-                // Determine next status based on current role
-
-                let actionType = act;
-
-                if (currentUser.Role === 'Reviewer' && act === 'approve') {
-
-                    actionType = 'forward_to_approver'; // Custom action for Reviewer -> Approver
-
-                }
-
- 
-
-                const res = await apiCall('/renewal', 'POST', {
-
-                    PermitID: currentPermitId,
-
-                    action: actionType,
-
-                    rejectionReason: remark,
-
-                    role: currentUser.Role
-
-                });
-
-               
-
-                if(res.success) {
-
-                    alert("Renewal Decision Submitted!");
-
-                    switchView('dashboard');
-
-                } else {
-
-                    alert("Error: " + res.error);
-
-                }
-
-                return;
-
-            }
-
- 
-
-            // Case 2: Requester Submitting New Request
-
-            const fd = new FormData();
-
-            fd.append('PermitID', currentPermitId);
-
-            fd.append('action', 'initiate');
-
-            fd.append('RenewalValidFrom', getVal("RenewalValidFrom"));
-
-            fd.append('RenewalValidTo', getVal("RenewalValidTo"));
-
-            fd.append('hc', getVal("RenewalHC"));
-
-            fd.append('toxic', getVal("RenewalToxic"));
-
-            fd.append('oxygen', getVal("RenewalOxygen"));
-
-            fd.append('precautions', getVal("RenewalPrec"));
-
-           
-
-            const selWorkers = [];
-
-            document.querySelectorAll('.ren-worker-cb:checked').forEach(c => selWorkers.push(c.value));
-
-            fd.append('renewalWorkers', JSON.stringify(selWorkers));
-
-           
-
-            if(!document.getElementById("odd-hour-agreement").classList.contains("hidden")) {
-
-                if(!document.getElementById("OddHourSafetyCheck").checked) return alert("Accept Odd Hour safety terms.");
-
-                fd.append('oddHourReq', 'Y');
-
-            }
-
-           
-
-            const fileInput = document.getElementById("ren-cam-sub");
-
-            if(!document.getElementById('renewal-photo-wrapper').classList.contains('hidden') && fileInput.files.length === 0) return alert("⛔ Site photo is mandatory.");
-
-            if(fileInput.files.length > 0) fd.append('RenewalImage', fileInput.files[0]);
-
- 
-
-            const res = await fetch(API+'/renewal', {method:'POST', body:fd, headers: {'Authorization': `Bearer ${authToken}`}});
-
-            const json = await res.json();
-
-            if(json.success) {
-
-                alert("Renewal Request Submitted!");
-
-                switchView('dashboard');
-
-            } else {
-
-                alert(json.error || "Submission failed");
-
-            }
-
+        // Determine workflow action
+        let actionType = act;
+        if (currentUser.Role === 'Reviewer' && act === 'approve') {
+            actionType = 'forward_to_approver'; 
         }
 
+        // API Call
+        const res = await apiCall('/renewal', 'POST', {
+            PermitID: currentPermitId,
+            action: actionType,
+            comment: remark, // <--- FIX: Sending 'comment' so it saves to DB
+            rejectionReason: remark,
+            role: currentUser.Role
+        });
+        
+        if(res.success) {
+            alert("Renewal Decision Submitted!");
+            switchView('dashboard');
+        } else {
+            alert("Error: " + res.error);
+        }
+        return;
+    }
+
+    // Case 2: Requester Submitting New Request (Existing Logic)
+    const fd = new FormData();
+    fd.append('PermitID', currentPermitId);
+    fd.append('action', 'initiate');
+    fd.append('RenewalValidFrom', getVal("RenewalValidFrom"));
+    fd.append('RenewalValidTo', getVal("RenewalValidTo"));
+    fd.append('hc', getVal("RenewalHC"));
+    fd.append('toxic', getVal("RenewalToxic"));
+    fd.append('oxygen', getVal("RenewalOxygen"));
+    fd.append('precautions', getVal("RenewalPrec"));
+    
+    const selWorkers = [];
+    document.querySelectorAll('.ren-worker-cb:checked').forEach(c => selWorkers.push(c.value));
+    fd.append('renewalWorkers', JSON.stringify(selWorkers));
+    
+    if(!document.getElementById("odd-hour-agreement").classList.contains("hidden")) {
+        if(!document.getElementById("OddHourSafetyCheck").checked) return alert("Accept Odd Hour safety terms.");
+        fd.append('oddHourReq', 'Y');
+    }
+    
+    const fileInput = document.getElementById("ren-cam-sub");
+    if(!document.getElementById('renewal-photo-wrapper').classList.contains('hidden') && fileInput.files.length === 0) return alert("⛔ Site photo is mandatory.");
+    if(fileInput.files.length > 0) fd.append('RenewalImage', fileInput.files[0]);
+
+    const res = await fetch(API+'/renewal', {method:'POST', body:fd, headers: {'Authorization': `Bearer ${authToken}`}});
+    const json = await res.json();
+    if(json.success) {
+        alert("Renewal Request Submitted!");
+        switchView('dashboard');
+    } else {
+        alert(json.error || "Submission failed");
+    }
+}
         function checkRenewalTime() {
 
             const fVal = document.getElementById("RenewalValidFrom").value; const tVal = document.getElementById("RenewalValidTo").value;
@@ -2677,6 +2618,7 @@ const revRemarkHtml = r.rev_rem
 </body>
 
 </html>
+
 
 
 
