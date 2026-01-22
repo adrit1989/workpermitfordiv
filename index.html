@@ -625,35 +625,22 @@
 
  
 
-                            <div class="overflow-x-auto mb-4 bg-white rounded shadow-sm border">
-
-                                <table class="mobile-table w-full text-xs text-left data-table" id="table-renewals">
-
-                                    <thead class="bg-purple-100">
-
-                                        <tr>
-
-                                            <th>Validity</th>
-
-                                            <th>Gas (HC/Tox/O2)</th>
-
-                                            <th>Precautions</th> <th>Requester</th>
-
-                                            <th>Reviewer</th>
-
-                                            <th>Approver</th>
-
-                                            <th>Photo</th>
-
-                                        </tr>
-
-                                    </thead>
-
-                                    <tbody id="renewal-history-body"></tbody>
-
-                                </table>
-
-                            </div>
+  <div class="overflow-x-auto mb-4 bg-white rounded shadow-sm border">
+    <table class="mobile-table w-full text-xs text-left data-table" id="table-renewals">
+        <thead class="bg-purple-100">
+            <tr>
+                <th>Validity</th>
+                <th>Gas (HC/Tox/O2)</th>
+                <th>Precautions</th> 
+                <th>Workers</th> <th>Requester</th>
+                <th>Reviewer</th>
+                <th>Approver</th>
+                <th>Photo</th>
+            </tr>
+        </thead>
+        <tbody id="renewal-history-body"></tbody>
+    </table>
+</div>
 
                             <div id="form-renewal" class="hidden bg-white p-4 rounded border border-purple-200 shadow-sm">
 
@@ -1763,55 +1750,45 @@ async function openPermit(id) {
 
     // --- Requester View (Renewals) ---
 
-    if (rens.length > 0 || (currentUser.Role === 'Requester' && p.Status === 'Active')) {
+   // Inside openPermit(id) function...
 
-        document.getElementById('renewals-section').classList.remove('hidden');
+if (rens.length > 0 || (currentUser.Role === 'Requester' && p.Status === 'Active')) {
+    document.getElementById('renewals-section').classList.remove('hidden');
+    
+    document.getElementById('renewal-history-body').innerHTML = rens.map(r => {
+        // Format Worker List (Array of strings to comma-separated)
+        let workerDisplay = '-';
+        if(r.workers && Array.isArray(r.workers) && r.workers.length > 0) {
+            workerDisplay = r.workers.join(', ');
+        }
 
-       
+        // Format Remarks
+        const revRemark = r.rev_rem ? `<div class="italic text-gray-500 mt-1 bg-yellow-50 p-1 rounded border border-yellow-100">"${escapeHtml(r.rev_rem)}"</div>` : '';
+        const appRemark = r.app_rem ? `<div class="italic text-gray-500 mt-1 bg-green-50 p-1 rounded border border-green-100">"${escapeHtml(r.app_rem)}"</div>` : '';
 
-        document.getElementById('renewal-history-body').innerHTML = rens.map(r => `
-
-            <tr class="border-b text-[10px]">
-
-                <td class="p-2">${r.valid_from}<br>to ${r.valid_to}</td>
-
-                <td class="p-2">${r.hc}/${r.toxic}/${r.oxygen}</td>
-
-                <td class="p-2 text-gray-600 italic">${r.precautions || '-'}</td>
-
-                <td class="p-2">
-
-                    <div class="font-bold">${r.req_name}</div>
-
-                    <div class="text-[9px] text-gray-500">${r.req_at || r.RequestedAt || ''}</div>
-
-                </td>
-
-                <td class="p-2">
-
-                    <div class="font-bold">${r.rev_name || '-'}</div>
-
-                    <div class="text-[9px] text-gray-500">${r.rev_at || r.ReviewedAt || ''}</div>
-
-                </td>
-
-                <td class="p-2">
-
-                    <div class="font-bold">${r.app_name || '-'}</div>
-
-                    <div class="text-[9px] text-gray-500">${r.app_at || r.ApprovedAt || ''}</div>
-
-                </td>
-
-                <td class="p-2">
-
-                        ${r.photoUrl ? `<button type="button" class="text-blue-600 underline font-bold" onclick="viewSecurePhoto('${r.photoUrl.replace(/\\/g, '/')}')">View Photo</button>` : 'NO'}
-
-                </td>
-
-            </tr>
-
-        `).join('');
+        return `
+        <tr class="border-b text-[10px]">
+            <td class="p-2">${r.valid_from}<br>to ${r.valid_to}</td>
+            <td class="p-2">${r.hc}/${r.toxic}/${r.oxygen}</td>
+            <td class="p-2 text-gray-600 italic">${r.precautions || '-'}</td>
+            <td class="p-2 font-bold text-gray-700">${escapeHtml(workerDisplay)}</td> <td class="p-2">
+                <div class="font-bold">${r.req_name}</div>
+                <div class="text-[9px] text-gray-500">${r.req_at || ''}</div>
+            </td>
+            <td class="p-2">
+                <div class="font-bold">${r.rev_name || '-'}</div>
+                <div class="text-[9px] text-gray-500">${r.rev_at || ''}</div>
+                ${revRemark} </td>
+            <td class="p-2">
+                <div class="font-bold">${r.app_name || '-'}</div>
+                <div class="text-[9px] text-gray-500">${r.app_at || ''}</div>
+                ${appRemark} </td>
+            <td class="p-2">
+                ${r.photoUrl ? `<button type="button" class="text-blue-600 underline font-bold" onclick="viewSecurePhoto('${r.photoUrl.replace(/\\/g, '/')}')">View Photo</button>` : 'NO'}
+            </td>
+        </tr>`;
+    }).join('');
+    
 
        
 
@@ -2686,4 +2663,5 @@ async function openPermit(id) {
 </body>
 
 </html>
+
 
