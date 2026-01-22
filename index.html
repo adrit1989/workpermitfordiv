@@ -915,11 +915,47 @@
                 }
                 
                 if (isRevTurn || isAppTurn) {
-                     document.getElementById('action-renewal').classList.remove('hidden');
-                     document.getElementById('btn-approve-renewal').onclick = () => submitRenewal('approve');
-                     document.getElementById('btn-reject-renewal').onclick = () => submitRenewal('reject');
-                }
+    document.getElementById('action-renewal').classList.remove('hidden');
+    
+    // 1. Define the elements
+    const btnApprove = document.getElementById('btn-approve-renewal');
+    const btnReject = document.getElementById('btn-reject-renewal');
+
+    // 2. Set the click handlers
+    btnApprove.onclick = () => submitRenewal('approve');
+    btnReject.onclick = () => submitRenewal('reject');
+
+    // 3. Odd Hour Logic (Insert this here)
+    if (lastRen.oddHourReq === 'Y') {
+        document.getElementById('odd-hour-approval-controls').classList.remove('hidden');
+
+        const chk = document.getElementById('odd-hour-allow-check');
+        
+        // Unlock the checkbox so they can click it
+        chk.disabled = false;
+        chk.checked = false; 
+
+        // Initial State: Disable the Approve button & Grey it out
+        btnApprove.disabled = true;
+        btnApprove.classList.add('opacity-50', 'cursor-not-allowed');
+
+        // Define the toggle function
+        window.toggleRenewalApproveBtn = () => { 
+            const isChecked = chk.checked;
+            btnApprove.disabled = !isChecked;
+            
+            if(!isChecked) {
+                btnApprove.classList.add('opacity-50', 'cursor-not-allowed');
+            } else {
+                btnApprove.classList.remove('opacity-50', 'cursor-not-allowed');
             }
+        };
+    } else {
+        // Normal Case (No Odd Hours): Ensure button is fully active
+        btnApprove.disabled = false;
+        btnApprove.classList.remove('opacity-50', 'cursor-not-allowed');
+    }
+}
 
             if (rens.length > 0 || (currentUser.Role === 'Requester' && p.Status === 'Active')) {
                 document.getElementById('renewals-section').classList.remove('hidden');
@@ -1327,4 +1363,5 @@
     </script>
 </body>
 </html>
+
 
