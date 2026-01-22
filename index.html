@@ -10,7 +10,7 @@
 
     <title>ERPL Mainline Permit System</title>
 
-   
+    
 
     <script src=https://cdn.tailwindcss.com></script>
 
@@ -221,7 +221,7 @@
 
         <div id="main-wrapper">
 
-           
+            
 
             <div class="sidebar-left" id="sidebar">
 
@@ -267,7 +267,7 @@
 
                 <button class="md:hidden mb-4 text-gray-600 bg-white p-2 rounded shadow" onclick="document.getElementById('sidebar').classList.toggle('open')">☰ Menu</button>
 
-               
+                
 
                 <div id="view-dashboard">
 
@@ -345,7 +345,7 @@
 
                         <input type="hidden" id="Status" name="Status">
 
-                       
+                        
 
                         <div class="glass border-t-4 border-orange-500">
 
@@ -361,11 +361,11 @@
 
                                 <div><label class="text-xs font-bold text-gray-500">Location Details</label><input name="WorkLocationDetail" id="WorkLocationDetail"></div>
 
-                               
+                                
 
                                 <div><label class="text-xs font-bold text-gray-500">Region/Unit/Location</label><input name="LocationUnit" id="LocationUnit" readonly class="bg-gray-100"></div>
 
-                               
+                                
 
                                 <div><label class="text-xs font-bold text-gray-500">Valid From</label><input type="datetime-local" name="ValidFrom" id="ValidFrom"></div>
 
@@ -373,11 +373,11 @@
 
                                 <div><label class="text-xs font-bold text-gray-500">Vendor</label><input name="Vendor" id="Vendor" readonly class="bg-gray-100"></div>
 
-                               
+                                
 
                                 <div><label class="text-xs font-bold text-gray-500">Requester</label><input name="RequesterName" id="RequesterName" class="bg-white"></div>
 
-                               
+                                
 
                                 <div class="md:col-span-2"><label class="text-xs font-bold text-gray-500">Issued To Dept</label><input name="IssuedToDept" id="IssuedToDept"></div>
 
@@ -469,7 +469,7 @@
 
                             </div>
 
-                           
+                            
 
                             <div id="ppe-section-wrapper" class="hidden">
 
@@ -489,7 +489,7 @@
 
                             <h3 class="font-bold text-yellow-700 border-b pb-2 mb-4">4. Reviewer</h3>
 
-                           
+                            
 
                             <div id="rev-renewal-decision" class="mb-4 hidden p-4 bg-yellow-50 border border-yellow-200 rounded">
 
@@ -505,11 +505,11 @@
 
                                                   <label class="flex items-center gap-2 cursor-pointer font-bold text-gray-700">
 
-                                            <input type="radio" name="RevRenAction" value="reject" class="w-5 h-5 accent-red-600"> No
+                                              <input type="radio" name="RevRenAction" value="reject" class="w-5 h-5 accent-red-600"> No
 
-                                        </label>
+                                             </label>
 
-                                    </div>
+                                      </div>
 
                                  </div>
 
@@ -535,7 +535,7 @@
 
                             <h3 class="font-bold text-green-700 border-b pb-2 mb-4">5. Approval</h3>
 
-                           
+                            
 
                              <div id="app-renewal-decision" class="mb-4 hidden p-4 bg-green-50 border border-green-200 rounded">
 
@@ -545,13 +545,13 @@
 
                                     <label class="flex items-center gap-2 cursor-pointer font-bold text-gray-700">
 
-                                        <input type="radio" name="AppRenAction" value="approve" class="w-5 h-5 accent-green-600"> Accept
+                                            <input type="radio" name="AppRenAction" value="approve" class="w-5 h-5 accent-green-600"> Accept
 
                                     </label>
 
                                     <label class="flex items-center gap-2 cursor-pointer font-bold text-gray-700">
 
-                                        <input type="radio" name="AppRenAction" value="reject" class="w-5 h-5 accent-red-600"> Reject
+                                            <input type="radio" name="AppRenAction" value="reject" class="w-5 h-5 accent-red-600"> Reject
 
                                     </label>
 
@@ -601,7 +601,7 @@
 
                             <h3 class="font-bold text-purple-700 border-b pb-2 mb-4">📅 Renewal History</h3>
 
-                           
+                            
 
                             <div id="pending-renewal-display" class="hidden bg-yellow-50 p-4 rounded-lg mb-4 border border-yellow-200">
 
@@ -613,9 +613,9 @@
 
                                     <label class="flex items-center gap-2 cursor-pointer p-2 bg-white rounded border border-indigo-200">
 
-                                        <input type="checkbox" id="odd-hour-allow-check" onchange="toggleRenewalApproveBtn()" class="w-5 h-5 accent-indigo-600">
+                                            <input type="checkbox" id="odd-hour-allow-check" onchange="toggleRenewalApproveBtn()" class="w-5 h-5 accent-indigo-600">
 
-                                        <span class="text-sm font-bold text-indigo-800">I allow work during Odd Hours</span>
+                                            <span class="text-sm font-bold text-indigo-800">I allow work during Odd Hours</span>
 
                                     </label>
 
@@ -666,9 +666,9 @@
 
                                     <label class="flex items-start gap-2 cursor-pointer">
 
-                                        <input type="checkbox" id="OddHourSafetyCheck" class="mt-1 w-5 h-5 accent-indigo-600">
+                                            <input type="checkbox" id="OddHourSafetyCheck" class="mt-1 w-5 h-5 accent-indigo-600">
 
-                                        <span class="text-xs font-bold text-indigo-900">I agree to ensure proper lighting and safety for odd-hour work.</span>
+                                            <span class="text-xs font-bold text-indigo-900">I agree to ensure proper lighting and safety for odd-hour work.</span>
 
                                     </label>
 
@@ -696,7 +696,7 @@
 
                             </div>
 
-                     <div id="action-renewal" class="hidden p-4 bg-yellow-50 mt-2 rounded border border-yellow-200">
+                             <div id="action-renewal" class="hidden p-4 bg-yellow-50 mt-2 rounded border border-yellow-200">
     <textarea id="RenewalRemark" placeholder="Remarks (Mandatory for Rejection)" class="w-full mb-2"></textarea>
     <div class="grid grid-cols-2 gap-2">
         <button type="button" id="btn-approve-renewal" class="bg-green-600 text-white py-2 rounded font-bold shadow disabled:opacity-50 disabled:cursor-not-allowed">Submit Renewal Decision</button>
@@ -782,7 +782,7 @@
 
                         </div>
 
-                       
+                        
 
                         <div id="signature-history" class="glass hidden">
 
@@ -1098,7 +1098,7 @@
 
             rSel.innerHTML = `<option value="">Select Region</option>` + regions.map(r=>`<option>${r}</option>`).join('');
 
-           
+            
 
             rSel.addEventListener('change', async (e) => {
 
@@ -1124,7 +1124,7 @@
 
             });
 
-           
+            
 
             const loadUsers = async () => {
 
@@ -1154,7 +1154,7 @@
 
             document.getElementById('login-role').addEventListener('change', loadUsers);
 
-           
+            
 
             document.getElementById('chk-init-renewal').addEventListener('change', (e) => {
 
@@ -1162,7 +1162,7 @@
 
             });
 
-           
+            
 
             const rFrom = document.getElementById('RenewalValidFrom');
 
@@ -1234,7 +1234,7 @@
 
             document.getElementById('user-display').innerHTML = `<div class="font-bold text-white text-lg">${currentUser.Name}</div><div class="text-orange-400 font-bold uppercase text-xs">${currentUser.Role}</div><div class="text-xs mt-1 text-gray-500 font-mono">${currentUser.Location}</div>`;
 
-           
+            
 
             if(currentUser.Role === 'Requester') document.getElementById('nav-new-permit').classList.remove('hidden');
 
@@ -1248,7 +1248,7 @@
 
             if(currentUser.Role !== 'Requester') document.getElementById('nav-map').classList.remove('hidden');
 
-           
+            
 
             renderChecklists(); renderHazards(); switchView('dashboard');
 
@@ -1266,7 +1266,7 @@
 
             const viewMap = {'dashboard': 'view-dashboard', 'new-permit': 'view-form', 'workers': 'view-workers', 'users': 'view-users', 'map': 'view-map', 'admin': 'view-admin', 'stats': 'view-stats'};
 
-           
+            
 
             if(document.getElementById(viewMap[viewName])) {
 
@@ -1280,7 +1280,7 @@
 
             }
 
-           
+            
 
             if(viewName === 'dashboard') loadDashboard();
 
@@ -1320,7 +1320,7 @@
 
                 const center = validPoints.length > 0 ? { lat: parseFloat(validPoints[0].lat), lng: parseFloat(validPoints[0].lng) } : { lat: 20.5937, lng: 78.9629 };
 
-               
+                
 
                 mapInstance = new google.maps.Map(mapEl, { zoom: 5, center: center });
 
@@ -1352,7 +1352,7 @@
 
             container.innerHTML = '';
 
-           
+            
 
             const pending = res.filter(p => {
 
@@ -1460,7 +1460,7 @@
 
  
 
-      
+       
 
         /* 6. CORE PERMIT LOGIC */
 
@@ -1468,7 +1468,7 @@ async function openPermit(id) {
 
     const p = await apiCall('/permit-data', 'POST', { permitId: id });
 
-   
+    
 
     if (!p || p.Status === 'Closed' || !p.WorkType) {
 
@@ -1498,13 +1498,13 @@ async function openPermit(id) {
 
     document.getElementById('permit-header-display').innerText = `Status: ${p.Status}`;
 
-   
+    
 
     ['fs-reviewer-section', 'fs-approver-section', 'rev-renewal-decision', 'app-renewal-decision', 'action-renewal', 'pending-renewal-display', 'odd-hour-approval-controls']
 
         .forEach(id => document.getElementById(id).classList.add('hidden'));
 
-   
+    
 
     const actionsDiv = document.getElementById("actions-bar");
 
@@ -1524,7 +1524,7 @@ async function openPermit(id) {
 
         let shouldDisable = true;
 
-       
+        
 
         // FIX: Hazards & PPE are editable ONLY during Initial Pending stages. LOCKED if Active.
 
@@ -1534,7 +1534,7 @@ async function openPermit(id) {
 
         }
 
-       
+        
 
         // Remarks fields
 
@@ -1542,7 +1542,7 @@ async function openPermit(id) {
 
         if ((isMainPending || p.Status === 'Active') && currentUser.Role === 'Approver' && (el.id === 'Approver_Remarks' || el.name === 'AppRenAction')) shouldDisable = false;
 
-       
+        
 
         // Require Photo Checkbox
 
@@ -1552,7 +1552,7 @@ async function openPermit(id) {
 
         }
 
-       
+        
 
         if (el.type === 'checkbox') el.checked = (p[el.name] === 'Y');
 
@@ -1584,7 +1584,7 @@ async function openPermit(id) {
 
     if (wTbody) wTbody.innerHTML = currentPermitWorkers.map(w => `<tr><td class="p-2 font-bold">${escapeHtml(w.Name)}</td><td class="p-2">${escapeHtml(w.IDType)}: ${escapeHtml(w.ID)}</td><td class="p-2 font-mono">${escapeHtml(w.Contact)}</td></tr>`).join('');
 
-   
+    
 
     renderIOCLTable(p.Status);
 
@@ -1604,7 +1604,7 @@ async function openPermit(id) {
 
         document.getElementById('fs-reviewer-section').classList.remove('hidden');
 
-       
+        
 
         if (isFirstRenRequest && lastRen && lastRen.status === 'pending_review') {
 
@@ -1666,7 +1666,7 @@ async function openPermit(id) {
 
         document.getElementById('app-renewal-decision').classList.add('hidden');
 
-       
+        
 
         const b = document.createElement("button");
 
@@ -1692,7 +1692,7 @@ async function openPermit(id) {
 
         if (currentUser.Role !== 'Requester') document.getElementById('pending-renewal-display').classList.remove('hidden');
 
-       
+        
 
         const isRevTurn = (currentUser.Role === 'Reviewer' && p.Status.includes('Renewal Pending Review'));
 
@@ -1700,23 +1700,7 @@ async function openPermit(id) {
 
  
 
-        // --- PASTE THIS NEW BLOCK ---
-if (isRevTurn || isAppTurn) {
-    document.getElementById('action-renewal').classList.remove('hidden');
-    document.getElementById('RenewalRemark').disabled = false;
-
-    const btnApprove = document.getElementById('btn-approve-renewal');
-    const btnReject = document.getElementById('btn-reject-renewal');
-
-    // 1. FORCE RESET BUTTON STATE (Fixes "Unresponsive" bug)
-    btnApprove.disabled = false;
-    btnApprove.classList.remove('opacity-50', 'cursor-not-allowed');
-
-    btnApprove.onclick = () => submitRenewal('approve');
-    btnReject.onclick = () => submitRenewal('reject');
-
-    // 2. Handle Odd Hour Logic (If applicable)
-// 2. Handle Odd Hour Logic (Final Version)
+        // 2. Handle Odd Hour Logic (Final Version)
     if (lastRen && lastRen.oddHourReq === 'Y' && (isAppTurn || isRevTurn)) {
         const oddHourDiv = document.getElementById('odd-hour-approval-controls');
         oddHourDiv.classList.remove('hidden');
@@ -1750,14 +1734,13 @@ if (isRevTurn || isAppTurn) {
             if(!isChecked) btnApprove.classList.add('opacity-50', 'cursor-not-allowed');
             else btnApprove.classList.remove('opacity-50', 'cursor-not-allowed');
         };
-} else {
+    } else {
         // CASE: Normal Request (Daytime)
         document.getElementById('odd-hour-approval-controls').classList.add('hidden');
         // Ensure button is enabled immediately
         btnApprove.disabled = false;
         btnApprove.classList.remove('opacity-50', 'cursor-not-allowed');
     }
-
 }
 
  
@@ -1818,7 +1801,7 @@ const revRemarkHtml = r.rev_rem
     }).join('');
     
 
-       
+        
 
         const showRenForm = (currentUser.Role === 'Requester' && p.Status === 'Active' && (!lastRen || !lastRen.status.includes('pending')));
 
@@ -1872,7 +1855,7 @@ const revRemarkHtml = r.rev_rem
 
                 safeSet("Closure_Requestor_Remarks", p.Closure_Requestor_Remarks || "");
 
-               
+                
 
                 if (p.Status === 'Closure Pending Review' && currentUser.Role === 'Reviewer') {
 
@@ -1912,7 +1895,7 @@ const revRemarkHtml = r.rev_rem
 
             if (act === 'initiate_closure' && !document.getElementById("Site_Restored_Check").checked) return alert("Please confirm site restoration.");
 
-           
+            
 
             let ioclData = [];
 
@@ -1962,7 +1945,7 @@ const revRemarkHtml = r.rev_rem
 
                 const appDec = document.querySelector('input[name="AppRenAction"]:checked');
 
-               
+                
 
                 if (currentUser.Role === 'Reviewer' && revDec) {
 
@@ -1972,7 +1955,7 @@ const revRemarkHtml = r.rev_rem
 
                 }
 
-               
+                
 
                 if (currentUser.Role === 'Approver' && appDec) {
 
@@ -2084,7 +2067,7 @@ async function submitRenewal(act) {
 
         }
 
-       
+        
 
         function getIOCLData(id) {
 
@@ -2118,13 +2101,13 @@ async function submitRenewal(act) {
 
         }
 
-       
+        
 
         function renderIOCLTable(status) {
 
             const t = document.querySelector('#table-iocl-display tbody'); t.innerHTML = '';
 
-           
+            
 
             if(!currentPermitIOCLData || currentPermitIOCLData.length === 0) {
 
@@ -2138,7 +2121,7 @@ async function submitRenewal(act) {
 
                     const rowClass = isDeleted ? "bg-red-50 text-gray-400 line-through" : "";
 
-                   
+                    
 
                     let auditText = `Added by ${x.added_by} on ${x.added_at}`;
 
@@ -2148,7 +2131,7 @@ async function submitRenewal(act) {
 
                     }
 
-                   
+                    
 
                     let actionBtn = '';
 
@@ -2194,7 +2177,7 @@ async function submitRenewal(act) {
 
                 document.getElementById('btn-add-rev-sup').parentElement.classList.remove('hidden');
 
-           
+            
 
             if(currentUser.Role === 'Approver' && (status === 'Pending Approval' || status === 'Active')) {
 
@@ -2204,7 +2187,7 @@ async function submitRenewal(act) {
 
         }
 
-       
+        
 
         function deleteIOCLSup(index, status) {
 
@@ -2312,7 +2295,7 @@ async function submitRenewal(act) {
 
             document.querySelectorAll('input[type="checkbox"]').forEach(c => { if(c.name) fd.set(c.name, c.checked ? "Y" : "N"); });
 
-           
+            
 
             const selectedWorkers = [];
 
@@ -2350,7 +2333,7 @@ async function submitRenewal(act) {
 
         }
 
-       
+        
 
         async function loadWorkers(context) {
 
@@ -2388,7 +2371,7 @@ async function submitRenewal(act) {
 
                     }
 
-                   
+                    
 
                     let approvedInfo = w.ApprovedBy ? `${w.ApprovedBy}<br><span class="text-[9px]">${w.ApprovedAt}</span>` : '-';
 
@@ -2400,7 +2383,7 @@ async function submitRenewal(act) {
 
         }
 
-       
+        
 
         function editWorker(wid) { alert("Edit functionality ready. Pre-fill modal for " + wid); openWorkerModal(); }
 
@@ -2408,7 +2391,7 @@ async function submitRenewal(act) {
 
         function openWorkerModal() { document.getElementById('worker-form-real').reset(); window.currentWorkerAction = 'create'; document.getElementById('modal-worker').classList.remove('hidden'); }
 
-       
+        
 
         document.getElementById('worker-form-real').addEventListener('submit', async (e) => {
 
@@ -2426,202 +2409,6 @@ async function submitRenewal(act) {
 
  
 
-        async function loadStats(data) {
-
-            // 1. Ensure the stats view is actually visible before drawing
-
-            // If this function is called while view-stats is hidden, just return
-
-            if(document.getElementById('view-stats').classList.contains('hidden')) return;
-
- 
-
-            // 2. Fetch data if missing
-
-            if (!data) {
-
-                 try {
-
-                     const fetchedData = await apiCall('/dashboard', 'POST', {role: currentUser.Role, email: currentUser.Email});
-
-                     if(!fetchedData) return;
-
-                     data = fetchedData;
-
-                 } catch(e) { console.error("Stats fetch failed", e); return; }
-
-            }
-
-           
-
-            const counts = {}; const types = {};
-
-            data.forEach(d => {
-
-                counts[d.Status] = (counts[d.Status]||0)+1;
-
-                types[d.WorkType] = (types[d.WorkType]||0)+1;
-
-            });
-
- 
-
-            // 3. Destroy existing charts before creating new ones (Prevent Crash)
-
-            if(chartS) { chartS.destroy(); chartS = null; }
-
-            if(chartT) { chartT.destroy(); chartT = null; }
-
- 
-
-            // 4. Create Charts
-
-            const ctxS = document.getElementById('chartStatus');
-
-            const ctxT = document.getElementById('chartType');
-
- 
-
-            if(ctxS && Object.keys(counts).length > 0) {
-
-                chartS = new Chart(ctxS.getContext('2d'), {
-
-                    type: 'doughnut',
-
-                    data: {
-
-                        labels: Object.keys(counts),
-
-                        datasets: [{ data: Object.values(counts), backgroundColor: ['#f87171', '#4ade80', '#94a3b8', '#fbbf24', '#60a5fa'] }]
-
-                    },
-
-                    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right' } } }
-
-                });
-
-            }
-
- 
-
-            if(ctxT && Object.keys(types).length > 0) {
-
-                chartT = new Chart(ctxT.getContext('2d'), {
-
-                    type: 'bar',
-
-                    data: {
-
-                        labels: Object.keys(types),
-
-                        datasets: [{ label: 'Work Types', data: Object.values(types), backgroundColor: '#60a5fa' }]
-
-                    },
-
-                    options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true } } }
-
-                });
-
-            }
-
-        }
-
-       
-
-        function logout() { location.reload(); }
-
-       
-
-        async function loadMappedApprovers() {
-
-             const reviewers = await apiCall('/get-users-by-loc', 'POST', { region: currentUser.Region, unit: currentUser.Unit, location: currentUser.Location, role: 'Reviewer' });
-
-             const approvers = await apiCall('/get-users-by-loc', 'POST', { region: currentUser.Region, unit: currentUser.Unit, location: currentUser.Location, role: 'Approver' });
-
-             document.getElementById("ReviewerEmail").innerHTML = reviewers.map(u => `<option value="${u.Email}">${u.Name}</option>`).join('');
-
-             document.getElementById("ApproverEmail").innerHTML = approvers.map(u => `<option value="${u.Email}">${u.Name}</option>`).join('');
-
-        }
-
- 
-
-        async function downloadSecurePDF(id) { try { document.getElementById('loader').style.display = 'flex'; const res = await fetch(`${API}/download-pdf/${id}`, { headers: {'Authorization': `Bearer ${authToken}`} }); if(!res.ok) throw new Error("Err"); const blob = await res.blob(); const a = document.createElement('a'); a.href = window.URL.createObjectURL(blob); a.download = `${id}.pdf`; document.body.appendChild(a); a.click(); document.body.removeChild(a); } catch(e) { alert("Download Failed"); } finally { document.getElementById('loader').style.display = 'none'; } }
-
-        async function downloadSecureExcel() { try { document.getElementById('loader').style.display = 'flex'; const res = await fetch(`${API}/download-excel`, { headers: {'Authorization': `Bearer ${authToken}`} }); if(!res.ok) throw new Error("Err"); const blob = await res.blob(); const a = document.createElement('a'); a.href = window.URL.createObjectURL(blob); a.download = "Permits.xlsx"; document.body.appendChild(a); a.click(); document.body.removeChild(a); } catch(e) { alert("Failed"); } finally { document.getElementById('loader').style.display = 'none'; } }
-
-       
-
-        
-
-        window.viewSecurePhoto = async function(url) {
-
-    if (!url) return alert("No photo");
-
-    // Fix: Extract filename and encode it
-
-    const rawFilename = url.replace(/^.*[\\\/]/, '');
-
-    const filename = encodeURIComponent(rawFilename);
-
- 
-
-    document.getElementById('loader').style.display = 'flex';
-
-    try {
-
-        const res = await fetch(`${API}/view-photo/${filename}`, { method: 'GET', headers: {'Authorization': `Bearer ${authToken}`} });
-
-        if (!res.ok) throw new Error("Err");
-
-        const blob = await res.blob();
-
-        window.open(window.URL.createObjectURL(blob), '_blank');
-
-    } catch (e) {
-
-        alert("Load Failed: " + e.message);
-
-    } finally {
-
-        document.getElementById('loader').style.display = 'none';
-
-    }
-
-}
-
-       
-
-        document.getElementById('btn-add-rev-sup').onclick = () => addIOCLRow('iocl-sup-container-rev');
-
-        document.getElementById('btn-add-app-sup').onclick = () => addIOCLRow('iocl-sup-container-app');
-
-       
-
-        async function loadManageUsers() {
-
-            const t = document.querySelector('#table-manage-users tbody'); t.innerHTML = '<tr><td colspan="5" class="p-4 text-center">Loading...</td></tr>';
-
-            const roles = ['Requester', 'Reviewer', 'Approver']; let allUsers = [];
-
-            for(let r of roles) { const u = await apiCall('/get-users-by-loc', 'POST', { region: currentUser.Region, unit: currentUser.Unit, location: currentUser.Location, role: r }); if(Array.isArray(u)) allUsers = [...allUsers, ...u]; }
-
-            t.innerHTML = '';
-
-            if(allUsers.length === 0) t.innerHTML = `<tr><td colspan="5" class="text-center p-4">No users found.</td></tr>`;
-
-            else allUsers.forEach(u => { const delBtn = u.Email !== currentUser.Email ? `<button class="text-red-600 font-bold text-xs" onclick="deleteUser('${u.Email}')">Delete</button>` : '-'; t.innerHTML += `<tr class="hover:bg-gray-50 border-b"><td class="p-3 font-bold">${u.Name}</td><td class="p-3 text-xs">${u.Email}</td><td class="p-3 text-xs uppercase">${u.Role}</td><td class="p-3 text-xs">${currentUser.Location}</td><td class="p-3">${delBtn}</td></tr>`; });
-
-        }
-
-        async function deleteUser(email) { if(!confirm("Delete user?")) return; const res = await apiCall('/delete-user', 'POST', {email: email}); if(res.success) { alert("Deleted"); loadManageUsers(); } else alert(res.error); }
-
-        async function uploadBulkUsers() { const file = document.getElementById('bulk-excel').files[0]; if(!file) return alert("Select file"); const fd = new FormData(); fd.append('excelFile', file); document.getElementById('loader').style.display = 'flex'; const res = await fetch(API+'/admin/bulk-upload', { method: 'POST', headers: {'Authorization': `Bearer ${authToken}`}, body: fd }); const json = await res.json(); document.getElementById('loader').style.display = 'none'; alert(json.success ? "Success" : json.error); }
-
-        async function resetUserPassword() { const email = document.getElementById('reset-email').value; const pass = document.getElementById('reset-temp-pass').value; const res = await apiCall('/admin/reset-password', 'POST', {targetEmail: email, newTempPass: pass}); alert(res.success ? "Reset Done" : res.error); }
-
-        document.getElementById('adduser-form').addEventListener('submit', async (e) => { e.preventDefault(); const body = { name: document.getElementById("new-user-name").value, email: document.getElementById("new-user-email").value, role: document.getElementById("new-user-role").value, password: document.getElementById("new-user-pass").value, region: document.getElementById("new-user-region").value, unit: document.getElementById("new-user-unit").value, location: document.getElementById("new-user-location").value }; const res = await apiCall('/add-user', 'POST', body); if(res.success) { alert("User Created"); document.getElementById('view-add-user').classList.add('hidden'); document.getElementById('adduser-form').reset(); loadManageUsers(); } else alert(res.error); });
-
         function getGeo() { if(!navigator.geolocation) return alert("Geo not supported"); navigator.geolocation.getCurrentPosition(p => { document.getElementById('ExactLocation').value = `${p.coords.latitude.toFixed(6)}, ${p.coords.longitude.toFixed(6)}`; document.getElementById('Latitude').value = p.coords.latitude; document.getElementById('Longitude').value = p.coords.longitude; }); }
 
         document.getElementById('btn-get-geo').onclick = getGeo;
@@ -2635,9 +2422,3 @@ async function submitRenewal(act) {
 </body>
 
 </html>
-
-
-
-
-
-
