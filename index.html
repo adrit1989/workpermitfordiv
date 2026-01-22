@@ -75,6 +75,7 @@
         .btn-pdf { background-color: #eff6ff; color: #2563eb; padding: 4px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: bold; border: 1px solid #bfdbfe; transition: 0.2s; }
 
         .btn-pdf:hover { background-color: #2563eb; color: white; }
+        .chart-wrapper {position: relative;height: 300px; width: 100%;}
 
     </style>
 
@@ -291,30 +292,22 @@
  
 
                 <div id="view-stats" class="hidden">
-
-                    <h2 class="text-2xl font-bold mb-6 text-gray-800">Live Statistics</h2>
-
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-
-                        <div class="glass">
-
-                            <h3 class="font-bold text-gray-500 mb-4 uppercase text-sm">Permit Status Distribution</h3>
-
-                            <canvas id="chartStatus"></canvas>
-
-                        </div>
-
-                        <div class="glass">
-
-                            <h3 class="font-bold text-gray-500 mb-4 uppercase text-sm">Work Type Distribution</h3>
-
-                            <canvas id="chartType"></canvas>
-
-                        </div>
-
-                    </div>
-
-                </div>
+    <h2 class="text-2xl font-bold mb-6 text-gray-800">Live Statistics</h2>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div class="glass">
+            <h3 class="font-bold text-gray-500 mb-4 uppercase text-sm">Permit Status Distribution</h3>
+            <div class="chart-wrapper">
+                <canvas id="chartStatus"></canvas>
+            </div>
+        </div>
+        <div class="glass">
+            <h3 class="font-bold text-gray-500 mb-4 uppercase text-sm">Work Type Distribution</h3>
+             <div class="chart-wrapper">
+                <canvas id="chartType"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
 
  
 
@@ -2693,3 +2686,4 @@ async function openPermit(id) {
 </body>
 
 </html>
+
