@@ -44,7 +44,7 @@ app.use(helmet({ contentSecurityPolicy: false }));
 
 const allowedOrigins = [
   "https://workpermitdivision-dwcahkbpbnc4fyah.centralindia-01.azurewebsites.net/"
-  http://localhost:3000
+  "http://localhost:3000"
 ];
 
 app.use(cors({
