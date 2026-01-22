@@ -1735,15 +1735,10 @@ async function openPermit(id) {
             else btnApprove.classList.remove('opacity-50', 'cursor-not-allowed');
         };
     } else {
-        // CASE: Normal Request (Daytime)
-        document.getElementById('odd-hour-approval-controls').classList.add('hidden');
-        // Ensure button is enabled immediately
-        btnApprove.disabled = false;
-        btnApprove.classList.remove('opacity-50', 'cursor-not-allowed');
-    }
-}
-
- 
+                document.getElementById('odd-hour-approval-controls').classList.add('hidden');
+            }
+        } 
+    } 
 
     // --- Requester View (Renewals) ---
 
@@ -2422,3 +2417,4 @@ async function submitRenewal(act) {
 </body>
 
 </html>
+
