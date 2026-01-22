@@ -868,7 +868,7 @@ app.post('/api/update-status', authenticateAccess, async(req, res) => {
                  if(st.includes('Renewal')) st = 'Active'; 
              }
              else if(req.user.role === 'Reviewer') { 
-                 last.status = 'pending_approval'; last.rev_name = usr; st = 'Renewal Pending Approval'; 
+                 last.status = 'pending_approval'; last.rev_name = usr; st = 'Pending Approval'; 
              }
              else if(req.user.role === 'Approver') { 
                  last.status = 'approved'; last.app_name = usr; st = 'Active'; 
