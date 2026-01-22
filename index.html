@@ -1716,13 +1716,30 @@ if (isRevTurn || isAppTurn) {
     btnReject.onclick = () => submitRenewal('reject');
 
     // 2. Handle Odd Hour Logic (If applicable)
-if (lastRen && lastRen.oddHourReq === 'Y' && (isAppTurn || isRevTurn)) {
-        document.getElementById('odd-hour-approval-controls').classList.remove('hidden');
+// 2. Handle Odd Hour Logic (Final Version)
+    if (lastRen && lastRen.oddHourReq === 'Y' && (isAppTurn || isRevTurn)) {
+        const oddHourDiv = document.getElementById('odd-hour-approval-controls');
+        oddHourDiv.classList.remove('hidden');
         
-        // Reset checkbox to unchecked every time the modal opens (Safety)
+        // --- NEW: Show badge to Approver if Reviewer already agreed ---
+        const badgeContainer = oddHourDiv.querySelector('div'); // The div holding "NIGHT SHIFT REQUEST"
+        const existingBadge = document.getElementById('rev-agreed-badge');
+        if (existingBadge) existingBadge.remove(); // Cleanup previous badge
+
+        // Check if we are the Approver AND the Reviewer previously accepted odd hours
+        if (isAppTurn && lastRen.rev_odd_hour_accepted === 'Y') {
+             const badge = document.createElement('span');
+             badge.id = 'rev-agreed-badge';
+             badge.className = "bg-green-100 text-green-800 text-xs px-2 py-1 rounded font-bold ml-2 border border-green-200";
+             badge.innerHTML = "✔ Reviewer Agreed";
+             badgeContainer.appendChild(badge);
+        }
+        // -----------------------------------------------------------
+
+        // Reset checkbox to unchecked (Safety: User must manually check it every time)
         document.getElementById('odd-hour-allow-check').checked = false;
         
-        // Disable submit button initially until checked
+        // Disable submit button initially until they check the box
         btnApprove.disabled = true;
         btnApprove.classList.add('opacity-50', 'cursor-not-allowed'); 
         
@@ -1733,6 +1750,13 @@ if (lastRen && lastRen.oddHourReq === 'Y' && (isAppTurn || isRevTurn)) {
             if(!isChecked) btnApprove.classList.add('opacity-50', 'cursor-not-allowed');
             else btnApprove.classList.remove('opacity-50', 'cursor-not-allowed');
         };
+    } else {
+        // CASE: Normal Request (Daytime)
+        document.getElementById('odd-hour-approval-controls').classList.add('hidden');
+        // Ensure button is enabled immediately
+        btnApprove.disabled = false;
+        btnApprove.classList.remove('opacity-50', 'cursor-not-allowed');
+    };
     } else {
         document.getElementById('odd-hour-approval-controls').classList.add('hidden');
         // Ensure button is enabled if Odd Hour logic is NOT required
@@ -2618,6 +2642,7 @@ async function submitRenewal(act) {
 </body>
 
 </html>
+
 
 
 
