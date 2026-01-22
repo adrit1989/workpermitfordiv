@@ -835,17 +835,33 @@
                 }
             }
 
-            if ((p.Status === 'Pending Approval' || p.Status === 'Renewal Pending Approval') && currentUser.Role === 'Approver') {
-                document.getElementById('fs-approver-section').classList.remove('hidden');
-                if (isFirstRenRequest && lastRen && lastRen.status === 'pending_approval') {
-                    document.getElementById('app-renewal-decision').classList.remove('hidden');
-                }
-                if (p.Status === 'Pending Approval') {
-                    const b1 = document.createElement("button"); b1.type = "button"; b1.className = "bg-red-600 text-white px-4 py-2 rounded font-bold mr-2"; b1.innerText = "Reject Permit"; b1.onclick = () => upd('reject');
-                    const b2 = document.createElement("button"); b2.type = "button"; b2.className = "bg-green-600 text-white px-4 py-2 rounded font-bold"; b2.innerText = "Final Approve"; b2.onclick = () => upd('approve');
-                    actionsDiv.append(b1, b2);
-                }
-            }
+             // --- Approver View ---
+    // STRICT RULE: Only show main buttons if status is exactly 'Pending Approval'.
+    // This prevents buttons from reappearing during subsequent renewals (which use 'Renewal Pending Approval').
+    if (p.Status === 'Pending Approval' && currentUser.Role === 'Approver') {
+        
+        document.getElementById('fs-approver-section').classList.remove('hidden');
+
+        // Logic for 1st Renewal Radio Buttons (Only relevant during initial approval)
+        if (isFirstRenRequest && lastRen && lastRen.status === 'pending_approval') {
+            document.getElementById('app-renewal-decision').classList.remove('hidden');
+        }
+
+        // Render Main Buttons (Accept/Reject Permit)
+        const b1 = document.createElement("button"); 
+        b1.type = "button"; 
+        b1.className = "bg-red-600 text-white px-4 py-2 rounded font-bold mr-2"; 
+        b1.innerText = "Reject Permit"; 
+        b1.onclick = () => upd('reject');
+
+        const b2 = document.createElement("button"); 
+        b2.type = "button"; 
+        b2.className = "bg-green-600 text-white px-4 py-2 rounded font-bold"; 
+        b2.innerText = "Final Approve"; 
+        b2.onclick = () => upd('approve');
+
+        actionsDiv.append(b1, b2);
+    }
 
             if (p.Status === 'Active' && currentUser.Role === 'Approver') {
                 document.getElementById('fs-approver-section').classList.remove('hidden');
@@ -1311,3 +1327,4 @@
     </script>
 </body>
 </html>
+
