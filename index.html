@@ -985,11 +985,26 @@
                 safeSet("Closure_Requestor_Remarks", p.Closure_Requestor_Remarks || "");
                 
                 if (p.Status === 'Closure Pending Review' && currentUser.Role === 'Reviewer') {
-                    document.getElementById('div-closure-rev').classList.remove('hidden');
-                    document.getElementById('Closure_Reviewer_Remarks').disabled = false;
-                    const b = document.createElement("button"); b.type = "button"; b.className = "bg-green-600 text-white px-4 py-2 rounded font-bold"; b.innerText = "Verify Closure"; b.onclick = () => upd('approve_closure');
-                    actionsDiv.appendChild(b);
-                }
+            document.getElementById('div-closure-rev').classList.remove('hidden');
+            document.getElementById('Closure_Reviewer_Remarks').disabled = false;
+            
+            // 1. Create Reject Button (Red)
+            const bReject = document.createElement("button"); 
+            bReject.type = "button"; 
+            bReject.className = "bg-red-600 text-white px-4 py-2 rounded font-bold mr-2"; 
+            bReject.innerText = "Reject Closure"; 
+            bReject.onclick = () => upd('reject_closure'); // Sends 'Active' status back to server
+
+            // 2. Create Approve Button (Green)
+            const bApprove = document.createElement("button"); 
+            bApprove.type = "button"; 
+            bApprove.className = "bg-green-600 text-white px-4 py-2 rounded font-bold"; 
+            bApprove.innerText = "Verify Closure"; 
+            bApprove.onclick = () => upd('approve_closure');
+
+            // 3. Add both to the bar
+            actionsDiv.append(bReject, bApprove);
+        }
                 if (p.Status === 'Closure Pending Approval' && currentUser.Role === 'Approver') {
                     document.getElementById('div-closure-rev').classList.remove('hidden');
                     document.getElementById('div-closure-app').classList.remove('hidden');
@@ -1323,3 +1338,4 @@
     </script>
 </body>
 </html>
+
