@@ -257,13 +257,13 @@ app.post('/api/admin/reset-password', authenticateAccess, async (req, res) => {
 });
 
 /* =====================================================
-   CRASH-PROOF PDF GENERATOR
+   CRASH-PROOF PDF GENERATOR (UPDATED)
 ===================================================== */
 async function drawPermitPDF(doc, p, d, renewalsList) {
     const workType = (d.WorkType || "PERMIT").toUpperCase();
     const status = p.Status || "Active";
     
-    // Safety Helper: Prevents "null" or "undefined" from crashing PDFKit
+    // Safety Helper
     const safeText = (t) => (t === null || t === undefined) ? '-' : String(t);
 
     let watermarkText = (status === 'Closed' || status.includes('Closure')) ? `CLOSED - ${workType}` : `ACTIVE - ${workType}`;
@@ -480,7 +480,8 @@ async function drawPermitPDF(doc, p, d, renewalsList) {
         rows.forEach(row => {
             x = 30;
             let h = 25; 
-            if (row[3] && row[3].length > 25) h = 40; 
+            // Dynamic height adjustment for audit column if text is long
+            if (row[3] && row[3].length > 40) h = 45; 
             if (y + h > 750) { doc.addPage(); drawHeaderOnAll(); y = 135; }
             
             row.forEach((cell, idx) => {
@@ -498,13 +499,14 @@ async function drawPermitPDF(doc, p, d, renewalsList) {
         else if(typeof d.IOCLSupervisors === 'string') try { ioclSups = JSON.parse(d.IOCLSupervisors); } catch(e){}
     }
 
+    // [MODIFICATION A] Enhanced Audit Trail
     let ioclRows = ioclSups.map(s => {
-        let audit = `Add: ${s.added_by || 'Admin'}`;
-        if (s.is_deleted) audit += ` (Del)`;
+        let audit = `Added: ${s.added_by || 'Admin'} (${s.added_at || '-'})`;
+        if (s.is_deleted) audit += `\nDel: ${s.deleted_by || 'Admin'} (${s.deleted_at || '-'})`;
         return [s.name, s.desig, s.contact, audit];
     });
     if(ioclRows.length === 0) ioclRows.push(["-", "-", "-", "-"]);
-    drawSupTable("IOCL Supervisors", [{t:"Name",w:120}, {t:"Designation",w:120}, {t:"Contact",w:100}, {t:"Audit",w:195}], ioclRows);
+    drawSupTable("IOCL Supervisors", [{t:"Name",w:120}, {t:"Designation",w:120}, {t:"Contact",w:100}, {t:"Audit (Added/Deleted)",w:195}], ioclRows);
 
     const contRows = [[d.RequesterName, "Requester", d.EmergencyContact]];
     drawSupTable("Contractor Supervisors", [{t:"Name",w:180}, {t:"Designation",w:180}, {t:"Contact",w:175}], contRows);
@@ -548,24 +550,34 @@ async function drawPermitPDF(doc, p, d, renewalsList) {
     doc.font('Helvetica').fontSize(8);
     workers.forEach(w => {
         if (wy > 750) { doc.addPage(); drawHeaderOnAll(); wy = 135; }
+        // [MODIFICATION B] Added Approved timestamp
+        const approvedAudit = `${safeText(w.ApprovedBy)}\n${safeText(w.ApprovedOn || w.ApprovedAt || '')}`;
+
         doc.rect(30, wy, 100, 30).stroke().text(safeText(w.Name), 32, wy+5);
         doc.rect(130, wy, 50, 30).stroke().text(safeText(w.Gender), 132, wy+5);
         doc.rect(180, wy, 40, 30).stroke().text(safeText(w.Age), 182, wy+5);
         doc.rect(220, wy, 100, 30).stroke().text(`${safeText(w.IDType)}: ${safeText(w.ID)}`, 222, wy+5);
         doc.rect(320, wy, 80, 30).stroke().text(safeText(w.RequestorName), 322, wy+5);
-        doc.rect(400, wy, 165, 30).stroke().text(`${safeText(w.ApprovedBy)}`, 402, wy+5);
+        doc.rect(400, wy, 165, 30).stroke().text(approvedAudit, 402, wy+5);
         wy += 30;
     });
     doc.y = wy + 20;
 
-    // 10. SIGNATURES
+    // 10. SIGNATURES / APPROVALS
+    // [MODIFICATION C] Renamed Title & Added Explicit Fields
     if (doc.y > 650) { doc.addPage(); drawHeaderOnAll(); }
-    doc.font('Helvetica-Bold').fontSize(10).text("SIGNATURES", 30, doc.y);
+    doc.font('Helvetica-Bold').fontSize(10).text("PERMIT APPROVAL", 30, doc.y);
     doc.y += 15;
     const sY = doc.y;
-    doc.rect(30, sY, 178, 45).stroke().text(`REQ: ${safeText(d.RequesterName)}\n${safeText(d.CreatedDate)}`, 35, sY+5);
-    doc.rect(208, sY, 178, 45).stroke().text(`REV: ${safeText(d.Reviewer_Sig)}\nRem: ${safeText(d.Reviewer_Remarks)}`, 213, sY+5);
-    doc.rect(386, sY, 179, 45).stroke().text(`APP: ${safeText(d.Approver_Sig)}\nRem: ${safeText(d.Approver_Remarks)}`, 391, sY+5);
+
+    // Format helpers
+    const reqText = `REQ: ${safeText(d.RequesterName)}\nDate: ${safeText(d.CreatedDate)}`;
+    const revText = `REV: ${safeText(d.Reviewer_Sig)}\nRem: ${safeText(d.Reviewer_Remarks)}`;
+    const appText = `APP: ${safeText(d.Approver_Sig)}\nRem: ${safeText(d.Approver_Remarks)}`;
+
+    doc.rect(30, sY, 178, 45).stroke().text(reqText, 35, sY+5);
+    doc.rect(208, sY, 178, 45).stroke().text(revText, 213, sY+5);
+    doc.rect(386, sY, 179, 45).stroke().text(appText, 391, sY+5);
     doc.y += 60;
 
     // 11. RENEWALS
@@ -573,6 +585,7 @@ async function drawPermitPDF(doc, p, d, renewalsList) {
     doc.font('Helvetica-Bold').text("CLEARANCE RENEWAL", 30, doc.y);
     doc.y += 15;
     let ry = doc.y;
+    // [MODIFICATION D] Updated Headers
     const rCols = [ {t:"From", w:50}, {t:"To", w:50}, {t:"Gas", w:80}, {t:"Workers", w:80}, {t:"Photo", w:60}, {t:"Req", w:70}, {t:"Rev", w:70}, {t:"App", w:75} ];
     let rx = 30;
     rCols.forEach(h => { doc.rect(rx, ry, h.w, 20).stroke().text(h.t, rx+2, ry+6); rx += h.w; });
@@ -583,10 +596,8 @@ async function drawPermitPDF(doc, p, d, renewalsList) {
 
     for (const r of finalRenewals) {
         if (ry > 700) { doc.addPage(); drawHeaderOnAll(); ry = 135; }
-        const rH = 60;
+        const rH = 65; // Increased height for stacked data
         
-        // --- FIX FOR 503 CRASH ---
-        // Handle variable key names safely
         let rawFrom = r.valid_from || r.ValidFrom;
         let rawTo = r.valid_till || r.valid_to || r.ValidTo;
         
@@ -602,7 +613,7 @@ async function drawPermitPDF(doc, p, d, renewalsList) {
         
         let wNames = 'All';
         if(r.worker_list && Array.isArray(r.worker_list)) wNames = r.worker_list.join(', ');
-        doc.rect(210, ry, 80, rH).stroke().text(wNames, 212, ry+5, {width:78});
+        doc.rect(210, ry, 80, rH).stroke().text(wNames, 212, ry+5, {width:78}); // Wrapped text
 
         doc.rect(290, ry, 60, rH).stroke();
         if (r.photoUrl && containerClient) {
@@ -616,12 +627,25 @@ async function drawPermitPDF(doc, p, d, renewalsList) {
                 for await (const chunk of response.readableStreamBody) { chunks.push(chunk); }
                 const imgBuff = Buffer.concat(chunks);
                 doc.image(imgBuff, 292, ry+2, {fit: [56, 56], align:'center', valign:'center'});
-            } catch (e) { doc.text("Img Err", 292, ry+25, {align:'center'}); }
-        } else { doc.text("No Photo", 292, ry+25, {align:'center'}); }
+            } catch (e) { doc.text("Img Err", 290, ry+25, {width: 60, align:'center'}); }
+        } else { 
+            // [MODIFICATION D] Fixed Photo Text Alignment
+            doc.text("No Photo", 290, ry+25, {width: 60, align:'center'}); 
+        }
 
-        doc.rect(350, ry, 70, rH).stroke().text(safeText(r.req_name), 352, ry+5, {width:68});
-        doc.rect(420, ry, 70, rH).stroke().text(safeText(r.rev_name), 422, ry+5, {width:68});
-        doc.rect(490, ry, 75, rH).stroke().text(safeText(r.app_name), 492, ry+5, {width:73});
+        // [MODIFICATION D] Stacked Name / Date / Rem
+        // Req Column
+        const reqStack = `${safeText(r.req_name)}\n${safeText(r.req_at)}\n${safeText(r.req_rem || '')}`;
+        doc.rect(350, ry, 70, rH).stroke().text(reqStack, 352, ry+5, {width:68});
+
+        // Rev Column
+        const revStack = `${safeText(r.rev_name)}\n${safeText(r.rev_at || '')}\n${safeText(r.rev_rem || '')}`;
+        doc.rect(420, ry, 70, rH).stroke().text(revStack, 422, ry+5, {width:68});
+
+        // App Column
+        const appStack = `${safeText(r.app_name)}\n${safeText(r.app_at || '')}\n${safeText(r.app_rem || '')}`;
+        doc.rect(490, ry, 75, rH).stroke().text(appStack, 492, ry+5, {width:73});
+
         ry += rH;
     }
     doc.y = ry + 20;
