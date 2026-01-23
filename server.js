@@ -263,11 +263,14 @@ app.post('/api/admin/reset-password', authenticateAccess, async (req, res) => {
    COMPLIANCE PDF GENERATOR (Restored High-End Logic from Code A)
    Includes: Watermarks, Legal Tables, Annexure III
 ===================================================== */
+/* =====================================================
+   COMPLIANCE PDF GENERATOR (MATCHING WP-1082 FORMAT)
+===================================================== */
 async function drawPermitPDF(doc, p, d, renewalsList) {
     const workType = (d.WorkType || "PERMIT").toUpperCase();
     const status = p.Status || "Active";
     
-    // 1. DYNAMIC WATERMARK (Visual Status Indicator)
+    // 1. DYNAMIC WATERMARK
     let watermarkText = (status === 'Closed' || status.includes('Closure')) ? `CLOSED - ${workType}` : `ACTIVE - ${workType}`;
 
     const drawWatermark = () => {
@@ -280,243 +283,451 @@ async function drawPermitPDF(doc, p, d, renewalsList) {
         doc.opacity(1);
     };
 
-    const compositePermitNo = `${d.IssuedToDept || 'DEPT'}/${p.PermitID}`;
+    const bgColor = d.PdfBgColor || 'White';
+    // Format Permit No to match PDF: "Beb/WP-1082" (Assuming 'Beb' is Unit/Loc prefix, referencing source 8)
+    const permitPrefix = d.Unit || 'LOC'; 
+    const compositePermitNo = `${permitPrefix}/${p.PermitID}`;
 
-    const drawHeader = (doc) => {
+    const drawHeader = (doc, bgColor, permitNoStr) => {
+        // Background Color Logic
+        if (bgColor && bgColor !== 'Auto' && bgColor !== 'White') {
+            const colorMap = { 'Red': '#fee2e2', 'Green': '#dcfce7', 'Yellow': '#fef9c3' };
+            doc.save();
+            doc.fillColor(colorMap[bgColor] || 'white');
+            doc.rect(0, 0, doc.page.width, doc.page.height).fill();
+            doc.restore();
+        }
+
         drawWatermark();
+
         const startX = 30, startY = 30;
         doc.lineWidth(1);
-        
-        // Logo Box
+        doc.strokeColor('black');
+
+        // Main Header Container
+        doc.rect(startX, startY, 535, 95).stroke(); // Outer box
+
+        // 1. Logo Box (Left)
         doc.rect(startX, startY, 80, 95).stroke();
         const logoPath = path.join(__dirname, 'public', 'logo.png');
         if (fs.existsSync(logoPath)) {
-            try { doc.image(logoPath, startX, startY, { fit: [80, 95], align: 'center', valign: 'center' }); } catch (err) { }
+            try { 
+                doc.image(logoPath, startX + 5, startY + 10, { fit: [70, 75], align: 'center', valign: 'center' }); 
+            } catch (err) { }
         }
 
-        // Title Box
+        // 2. Title Box (Center)
         doc.rect(startX + 80, startY, 320, 95).stroke();
         doc.font('Helvetica-Bold').fontSize(11).fillColor('black').text('INDIAN OIL CORPORATION LIMITED', startX + 80, startY + 15, { width: 320, align: 'center' });
         doc.fontSize(9).text('EASTERN REGION PIPELINES', startX + 80, startY + 30, { width: 320, align: 'center' });
         doc.text('HSE DEPT.', startX + 80, startY + 45, { width: 320, align: 'center' });
-        doc.fontSize(8).text('COMPOSITE WORK PERMIT SYSTEM', startX + 80, startY + 65, { width: 320, align: 'center' });
+        doc.fontSize(8).text('COMPOSITE WORK/ COLD WORK/HOT WORK/ENTRY TO CONFINED SPACE/\nVEHICLE ENTRY / EXCAVATION WORK AT MAINLINE/RCP/SV', startX + 85, startY + 60, { width: 310, align: 'center' });
 
-        // Meta Box
+        // 3. Meta Box (Right)
         doc.rect(startX + 400, startY, 135, 95).stroke();
-        doc.text(`Doc No: ERPL/HS&E/25-26`, startX + 405, startY + 60);
-        doc.text(`Date: ${getNowIST().split(' ')[0]}`, startX + 405, startY + 80);
+        doc.fontSize(8).font('Helvetica-Bold');
         
-        doc.font('Helvetica-Bold').fontSize(10).fillColor('red');
-        doc.text(`Permit No: ${compositePermitNo}`, startX + 405, startY + 15, { width: 130, align: 'left' });
-        doc.fillColor('black');
+        // Permit No (Red & Bold)
+        if (permitNoStr) {
+            doc.fillColor('red');
+            doc.text(`Permit No: ${permitNoStr}`, startX + 405, startY + 15, { width: 130, align: 'left' });
+            doc.fillColor('black');
+        }
+
+        doc.font('Helvetica').fontSize(8);
+        doc.text('Doc No: ERPL/HS&E/25-26', startX + 405, startY + 55);
+        doc.text('Issue No: 01', startX + 405, startY + 70);
+        // Use current date or static date as per format
+        doc.text(`Date: ${getNowIST().split(' ')[0]}`, startX + 405, startY + 85);
     };
 
     const drawHeaderOnAll = () => {
-        drawHeader(doc);
-        doc.y = 135;
+        drawHeader(doc, bgColor, compositePermitNo);
+        doc.y = 135; // Reset Y position below header
         doc.fontSize(9).font('Helvetica');
     };
 
+    // --- PAGE 1 CONTENT ---
     drawHeaderOnAll();
 
-    // 2. LEGAL DISCLAIMER (Golden Safety Rules)
+    // 2. SAFETY BANNER (MANDATORY PPE / GOLDEN RULES)
+    // Try to load image first, matching the visual from source 14-38
+    const bannerPath = path.join(__dirname, 'public', 'safety_banner.png');
+    if (fs.existsSync(bannerPath)) {
+        try {
+            doc.image(bannerPath, 30, doc.y, { width: 535, height: 120 });
+            doc.y += 125;
+        } catch (err) { }
+    } else {
+        // Fallback text if image missing (mimics source 14-38)
+        doc.rect(30, doc.y, 535, 60).stroke();
+        doc.font('Helvetica-Bold').fontSize(10).text("MANDATORY PPE & GOLDEN SAFETY RULES", 35, doc.y + 10, {align:'center'});
+        doc.fontSize(8).font('Helvetica').text("1. Safety Helmet, Shoes, Coverall required. 2. No Mobile Phones. 3. Safe Driving.", 35, doc.y + 25, {align:'center'});
+        doc.y += 65;
+    }
+
+    // 3. GSR DECLARATION (Green Box)
     if (d.GSR_Accepted === 'Y') {
-        doc.rect(30, doc.y, 535, 20).fillColor('#e6fffa').fill();
-        doc.fillColor('black').stroke();
-        doc.rect(30, doc.y, 535, 20).stroke();
-        doc.font('Helvetica-Bold').fontSize(9).fillColor('#047857')
-           .text("✓ I have read, understood and accepted the IOCL Golden Safety Rules terms and penalties.", 35, doc.y + 5);
+        doc.rect(30, doc.y, 535, 20).fillColor('#e6fffa').fill(); // Light green fill
+        doc.fillColor('black').stroke(); // Reset stroke
+        doc.rect(30, doc.y, 535, 20).stroke(); // Border
+        doc.font('Helvetica-Bold').fontSize(9).fillColor('#047857') // Dark green text
+           .text("I have read, understood and accepted the IOCL Golden Safety Rules terms and penalties.", 35, doc.y + 6);
         doc.y += 25;
         doc.fillColor('black');
     }
 
-    // 3. MAIN DETAILS
+    // 4. MAIN PERMIT DETAILS (Matching Source 40-49)
+    doc.font('Helvetica-Bold').fontSize(10).text(`Permit No: ${compositePermitNo}`, 30, doc.y);
+    doc.fontSize(9).font('Helvetica');
+    doc.y += 5;
+    
     const startY = doc.y;
-    doc.text(`(i) Work clearance from: ${formatDate(p.ValidFrom)}    To    ${formatDate(p.ValidTo)}`, 30, doc.y);
+    // (i) Validity
+    doc.text(`(i) Work clearance from: ${formatDate(p.ValidFrom)}    To    ${formatDate(p.ValidTo)} (Valid for the shift unless renewed).`, 35, doc.y);
+    doc.y += 12;
+    // (ii) Issued To
+    doc.text(`(ii) Issued to (Dept/Section/Contractor): ${d.IssuedToDept || '-'} / ${d.Vendor || '-'}`, 35, doc.y);
+    doc.y += 12;
+    // (iii) Location
+    doc.text(`(iii) Exact Location of work (Area/RCP/SV/Chainage): ${d.WorkLocationDetail || '-'} [GPS: ${d.ExactLocation || 'No GPS Data'}]`, 35, doc.y);
+    doc.y += 12;
+    // (iv) Description
+    doc.text(`(iv) Description of work: ${d.Desc || '-'}`, 35, doc.y, { width: 525 });
+    doc.y += 12;
+    // (v) Site Contact
+    doc.text(`(v) Person from Contractor / Dept. at site (Name & Contact): ${d.RequesterName} / ${d.EmergencyContact || 'Not Provided'}`, 35, doc.y);
+    doc.y += 12;
+    // (vi) Security Guard
+    doc.text(`(vi) Patrolling/security Guard at site (Name & Contact): ${d.SecurityGuard || '-'}`, 35, doc.y);
+    doc.y += 12;
+    // (vii) References
+    doc.text(`(vii) JSA Ref. No: ${d.JsaNo || '-'} | Cross-Reference/WO: ${d.WorkOrder || '-'}`, 35, doc.y);
+    doc.y += 12;
+    // (viii) Emergency Contact
+    doc.text(`(viii) Name & contact no. of person in case of emergency: ${d.EmergencyContact || '-'}`, 35, doc.y);
+    doc.y += 12;
+    // (ix) Fire/Hosp
+    doc.text(`(ix) Nearest Fire station and Hospital: ${d.FireStation || '-'}`, 35, doc.y);
     doc.y += 15;
-    doc.text(`(ii) Issued to: ${d.IssuedToDept || '-'} / ${d.Vendor || '-'}`, 30, doc.y);
-    doc.y += 15;
-    doc.text(`(iii) Location: ${d.WorkLocationDetail || '-'} [GPS: ${d.ExactLocation || 'No GPS'}]`, 30, doc.y);
-    doc.y += 15;
-    doc.text(`(iv) Description: ${d.Desc || '-'}`, 30, doc.y, { width: 535 });
-    doc.y += 20;
-    doc.rect(25, startY - 5, 545, doc.y - startY + 5).stroke();
+
+    // Draw box around details
+    doc.rect(30, startY - 5, 535, doc.y - startY).stroke();
     doc.y += 10;
 
-    // 4. CATEGORIZED CHECKLISTS (Restored A/B/C/D Sections)
-    // Map simplified keys (A_0) to questions if needed, or use stored text
-    const CHECKLIST_SECTIONS = {
-        'A': 'SECTION A: GENERAL SAFETY CHECKS',
-        'B': 'SECTION B: HOT WORK / CONFINED SPACE',
-        'C': 'SECTION C: VEHICLE ENTRY',
-        'D': 'SECTION D: EXCAVATION'
+    // 5. CHECKLISTS (Matching Source 50-114)
+    const CHECKLIST_DATA = {
+        A: [ "1. Equipment/Work Area inspected.", "2. Surrounding area checked, cleaned and covered. Oil/RAGS/Grass Etc removed.", "3. Manholes, Sewers, CBD etc. and hot nearby surface covered.", "4. Considered hazards from other routine, non-routine operations and concerned person alerted", "5. Equipment blinded/disconnected/ closed/ isolated/wedge opened.", "6. Equipment properly drained and depressurized.", "7. Equipment properly steamed/purged.", "8. Equipment water flushed.", "9. Access for Free approach of Fire Tender.", "10. Iron Sulfide removed/ Kept wet.", "11. Equipment electrically isolated and tagged vide Permit no.", "12. Gas Test: HC/Toxic / O2 checked.", "13. Running water hose / Fire extinguisher provided. Fire water system available.", "14. Area cordoned off and Precautionary tag/Board provided.", "15. CCTV monitoring facility available at site.", "16. Proper ventilation and Lighting provided." ],
+        B: [ "1. Proper means of exit / escape provided.", "2. Standby personnel provided from Mainline/ Maint./Contractor/HSE.", "3. Checked for oil and Gas trapped behind the lining in equipment.", "4. Shield provided against spark.", "5. Portable equipment/nozzle properly grounded.", "6. Standby persons provided for entry to confined space.", "7. Adequate Communication Provided to Stand by Person.", "8. Attendant Trained Provided With Rescue Equipment/SCABA.", "9. Space Adequately Cooled for Safe Entry Of Person.", "10. Continuous Inert Gas Flow Arranged.", "11. Check For Earthing/ELCB of all Temporary Electrical Connections being used for welding.", "12. Gas Cylinders are kept outside the confined Space.", "13. Spark arrestor Checked on mobile Equipments.", "14. Welding Machine Checked for Safe Location.", "15. Permit taken for working at height Vide Permit No." ],
+        C: ["1. PESO approved spark elimination system provided on the mobile equipment/ vehicle provided."],
+        D: [ "1. For excavated trench/ pit proper slop/shoring/ shuttering provided to prevent soil collapse.", "2. Excavated soil kept at safe distance from trench/pit edge (min. pit depth).", "3. Safe means of access provided inside trench/pit.", "4. Movement of heavy vehicle prohibited." ]
     };
 
-    Object.keys(CHECKLIST_SECTIONS).forEach(prefix => {
-        // Find keys starting with this prefix (e.g. A_Q1, A_Q2)
-        const relevantKeys = Object.keys(d).filter(k => k.startsWith(`${prefix}_Q`) && !k.includes('Detail'));
+    const drawChecklistSection = (title, items, prefix) => {
+        if (doc.y > 680) { doc.addPage(); drawHeaderOnAll(); }
+        doc.font('Helvetica-Bold').fillColor('black').fontSize(9).text(title, 30, doc.y + 10); 
+        doc.y += 25;
         
-        if (relevantKeys.length > 0 && relevantKeys.some(k => d[k] !== 'NA')) {
-            if (doc.y > 650) { doc.addPage(); drawHeaderOnAll(); }
+        let y = doc.y;
+        // Table Header
+        doc.rect(30, y, 350, 20).stroke().text("Item", 35, y + 6); 
+        doc.rect(380, y, 60, 20).stroke().text("Sts", 385, y + 6); 
+        doc.rect(440, y, 125, 20).stroke().text("Rem", 445, y + 6); 
+        y += 20;
+        
+        doc.font('Helvetica').fontSize(8);
+        items.forEach((text, idx) => {
+            const key = `${prefix}_Q${idx + 1}`;
+            const statusVal = d[key] || 'NA';
             
-            doc.font('Helvetica-Bold').fillColor('black').fontSize(9).text(CHECKLIST_SECTIONS[prefix], 30, doc.y + 10); 
-            doc.y += 25;
+            // Calc row height
+            let rowHeight = 20;
+            // Special case for Gas Test (Item 12 in Section A)
+            if (prefix === 'A' && idx === 11) rowHeight = 55;
             
-            let y = doc.y;
-            doc.rect(30, y, 350, 20).stroke().text("Checklist Item", 35, y + 5); 
-            doc.rect(380, y, 60, 20).stroke().text("Status", 385, y + 5); 
-            doc.rect(440, y, 125, 20).stroke().text("Remarks", 445, y + 5); 
-            y += 20;
-            
-            doc.font('Helvetica').fontSize(8);
-            
-            relevantKeys.forEach(key => {
-                if (d[key] && d[key] !== 'NA') {
-                    if (y > 750) { doc.addPage(); drawHeaderOnAll(); y = 135; }
-                    
-                    // Specific logic for Gas Tests (A_Q12 usually)
-                    let detailTxt = d[`${key}_Detail`] || d[`${key}_Rem`] || '';
-                    if (prefix === 'A' && key.includes('12')) {
-                        detailTxt = `HC:${d.GP_Q12_HC||'-'} / Tox:${d.GP_Q12_ToxicGas||'-'} / O2:${d.GP_Q12_Oxygen||'-'}`;
-                    }
+            // Check Page Break
+            if (y + rowHeight > 760) { 
+                doc.addPage(); 
+                drawHeaderOnAll(); 
+                y = 135; 
+            }
 
-                    doc.rect(30, y, 350, 20).stroke().text(key, 35, y + 5); // Using key code as label for brevity in merge
-                    doc.rect(380, y, 60, 20).stroke().text(d[key], 385, y + 5);
-                    doc.rect(440, y, 125, 20).stroke().text(detailTxt, 445, y + 5);
-                    y += 20;
-                }
-            });
-            doc.y = y;
-        }
-    });
+            // Draw Row
+            doc.rect(30, y, 350, rowHeight).stroke().text(text, 35, y + 6, { width: 340 });
+            doc.rect(380, y, 60, rowHeight).stroke().text(statusVal, 385, y + 6);
+            
+            // Remarks / Gas Details
+            let remarkVal = d[`${key}_Rem`] || '';
+            if (prefix === 'A' && idx === 11) {
+                // Formatting Gas Test Values [cite: 74, 75, 76]
+                remarkVal = `HC: ${d.GP_Q12_HC || '0'}% LEL\nTox: ${d.GP_Q12_ToxicGas || '0'} PPM\nO2: ${d.GP_Q12_Oxygen || '20.9'}%`;
+            }
+            doc.rect(440, y, 125, rowHeight).stroke().text(remarkVal, 445, y + 6);
+            
+            y += rowHeight;
+        });
+        doc.y = y;
+    };
 
-    // 5. ANNEXURE III TABLE
-    if (doc.y > 600) { doc.addPage(); drawHeaderOnAll(); }
+    drawChecklistSection("SECTION A: GENERAL", CHECKLIST_DATA.A, 'A');
+    drawChecklistSection("SECTION B: For Hot work / Entry to confined Space", CHECKLIST_DATA.B, 'B');
+    drawChecklistSection("SECTION C: For vehicle Entry in Hazardous area", CHECKLIST_DATA.C, 'C'); 
+    drawChecklistSection("SECTION D: EXCAVATION", CHECKLIST_DATA.D, 'D');
+
+    // 6. ANNEXURE III (Page 3) [cite: 115, 116]
+    if (doc.y > 650) { doc.addPage(); drawHeaderOnAll(); }
     doc.y += 10;
-    doc.font('Helvetica-Bold').fontSize(9).text("Annexure III: REFERENCES", 30, doc.y); doc.y += 15;
+    doc.font('Helvetica-Bold').fontSize(9).text("Annexure III: ATTACHMENT TO MAINLINE WORK PERMIT", 30, doc.y); 
+    doc.y += 15;
 
     const annexData = [
-        ["SOP / SWP No", d.SopNo || '-'],
-        ["JSA No", d.JsaNo || '-'],
+        ["Approved SOP/SWP/SMP No", d.SopNo || '-'],
+        ["Approved Site Specific JSA No", d.JsaNo || '-'],
+        ["IOCL Equipment", d.IoclEquip || '-'],
+        ["Contractor Equipment", d.ContEquip || '-'],
         ["Work Order", d.WorkOrder || '-'],
         ["Tool Box Talk", d.ToolBoxTalk || '-']
     ];
 
     let axY = doc.y;
-    doc.font('Helvetica').fontSize(9);
+    // Header
+    doc.font('Helvetica-Bold').fontSize(9);
+    doc.fillColor('#eee');
+    doc.rect(30, axY, 200, 20).fillAndStroke('black');
+    doc.fillColor('black').text("Parameter", 35, axY + 6);
+    
+    doc.fillColor('#eee');
+    doc.rect(230, axY, 335, 20).fillAndStroke('black');
+    doc.fillColor('black').text("Details", 235, axY + 6);
+    axY += 20;
+
+    // Rows
+    doc.font('Helvetica');
     annexData.forEach(row => {
-        doc.rect(30, axY, 200, 20).stroke().text(row[0], 35, axY + 5);
-        doc.rect(230, axY, 335, 20).stroke().text(row[1], 235, axY + 5);
+        doc.rect(30, axY, 200, 20).stroke().text(row[0], 35, axY + 6);
+        doc.rect(230, axY, 335, 20).stroke().text(row[1], 235, axY + 6);
         axY += 20;
     });
-    doc.y = axY + 20;
+    doc.y = axY + 15;
 
-    // 6. WORKERS & SUPERVISORS (Using Helper)
-    const drawTable = (title, headers, rows) => {
+    // 7. SUPERVISORS TABLES [cite: 117, 118]
+    const drawSupTable = (title, headers, rows) => {
         if (doc.y > 650) { doc.addPage(); drawHeaderOnAll(); }
-        doc.font('Helvetica-Bold').text(title, 30, doc.y); doc.y += 15;
-        let y = doc.y;
+        doc.font('Helvetica-Bold').text(title, 30, doc.y);
+        doc.y += 15;
         
-        // Header
+        let y = doc.y;
         let x = 30;
+        // Headers
         headers.forEach(h => {
-            doc.rect(x, y, h.w, 20).stroke().text(h.t, x+2, y+5);
+            doc.rect(x, y, h.w, 20).stroke().text(h.t, x + 2, y + 6);
             x += h.w;
         });
         y += 20;
-        
+
         // Rows
         doc.font('Helvetica');
-        rows.forEach(r => {
-             if (y > 750) { doc.addPage(); drawHeaderOnAll(); y = 135; }
-             x = 30;
-             r.forEach((cell, i) => {
-                 doc.rect(x, y, headers[i].w, 20).stroke().text(cell, x+2, y+5, {width: headers[i].w-4});
-                 x += headers[i].w;
-             });
-             y += 20;
+        rows.forEach(row => {
+            x = 30;
+            // Determine max height for wrapping text
+            let h = 25; 
+            if (row[3] && row[3].length > 20) h = 40; // Expand for Audit Trail
+
+            if (y + h > 750) { doc.addPage(); drawHeaderOnAll(); y = 135; }
+            
+            row.forEach((cell, idx) => {
+                doc.rect(x, y, headers[idx].w, h).stroke().text(cell, x + 2, y + 6, { width: headers[idx].w - 4 });
+                x += headers[idx].w;
+            });
+            y += h;
         });
         doc.y = y + 15;
     };
 
-    // Workers
-    let workers = []; try { workers = JSON.parse(d.SelectedWorkers || p.SelectedWorkers || "[]"); } catch(e){}
-    let workerRows = workers.map(w => [w.Name, w.ID || '-', w.ApprovedBy || '-']);
-    if(workerRows.length > 0) drawTable("WORKERS DEPLOYED", [{t:"Name",w:200}, {t:"ID",w:100}, {t:"Approved By",w:235}], workerRows);
+    // IOCL Data
+    const ioclSups = d.IOCLSupervisors || [];
+    let ioclRows = ioclSups.map(s => {
+        let audit = `Add: ${s.added_by || 'Admin'} (${s.added_at || '-'})`;
+        if (s.is_deleted) audit += `\nDel: ${s.deleted_by} (${s.deleted_at})`;
+        return [s.name, s.desig, s.contact, audit];
+    });
+    if(ioclRows.length === 0) ioclRows.push(["-", "-", "-", "-"]);
+    drawSupTable("Authorized Work Supervisor (IOCL)", [{t:"Name",w:120}, {t:"Designation",w:120}, {t:"Contact",w:100}, {t:"Audit Trail",w:195}], ioclRows);
 
-    // IOCL Supervisors
-    let ioclSups = d.IOCLSupervisors || [];
-    let ioclRows = ioclSups.map(s => [s.name, s.desig, s.contact]);
-    if(ioclRows.length > 0) drawTable("IOCL SUPERVISORS", [{t:"Name",w:200}, {t:"Designation",w:200}, {t:"Contact",w:135}], ioclRows);
+    // Contractor Data [cite: 127, 128]
+    const contRows = [[d.RequesterName, "Site In-Charge / Requester", d.EmergencyContact || '-']];
+    drawSupTable("Authorized Work Supervisor (Contractor)", [{t:"Name",w:180}, {t:"Designation",w:180}, {t:"Contact",w:175}], contRows);
 
-    // 7. RENEWALS (With Images)
-    const finalRenewals = renewalsList || JSON.parse(p.RenewalsJSON || "[]");
-    if(finalRenewals.length > 0) {
-        if (doc.y > 600) { doc.addPage(); drawHeaderOnAll(); }
-        doc.font('Helvetica-Bold').text("CLEARANCE RENEWALS", 30, doc.y); doc.y += 15;
+    // 8. HAZARDS & PPE [cite: 129, 130, 131]
+    if (doc.y > 650) { doc.addPage(); drawHeaderOnAll(); }
+    doc.font('Helvetica-Bold').text("HAZARDS & PRECAUTIONS", 30, doc.y);
+    doc.y += 15;
+    doc.rect(30, doc.y, 535, 60).stroke();
+    
+    // Hazards Logic
+    const hazKeys = ["Lack of Oxygen", "H2S", "Toxic Gases", "Combustible gases", "Pyrophoric Iron", "Corrosive Chemicals", "cave in formation"];
+    let foundHaz = hazKeys.filter(k => d[`H_${k.replace(/ /g, '')}`] === 'Y');
+    if (d.H_Others === 'Y') foundHaz.push(`Others: ${d.H_Others_Detail}`);
+    doc.font('Helvetica').fontSize(9).text(`1. The activity has the following expected residual hazards: ${foundHaz.join(', ')}`, 35, doc.y + 6, {width: 520});
+    
+    // PPE Logic
+    const ppeKeys = ["Helmet", "Safety Shoes", "Hand gloves", "Boiler suit", "Face Shield", "Apron", "Goggles", "Dust Respirator", "Fresh Air Mask", "Lifeline", "Safety Harness", "Airline", "Earmuff", "IFR"];
+    let foundPPE = ppeKeys.filter(k => d[`P_${k.replace(/ /g, '')}`] === 'Y');
+    if (d.AdditionalPrecautions) foundPPE.push(`(Other: ${d.AdditionalPrecautions})`);
+    doc.text(`2. Following additional PPE to be used in addition to standards PPE: ${foundPPE.join(', ')}`, 35, doc.y + 25, {width: 520});
+    doc.y += 70;
+
+    // 9. WORKERS DEPLOYED (Page 4) [cite: 132-161]
+    if (doc.y > 650) { doc.addPage(); drawHeaderOnAll(); }
+    doc.font('Helvetica-Bold').text("WORKERS DEPLOYED", 30, doc.y);
+    doc.y += 15;
+    
+    let wy = doc.y;
+    // Worker Headers
+    const wHeaders = [
+        {t:"Name", w:100}, {t:"Gender", w:50}, {t:"Age", w:40}, 
+        {t:"ID Details", w:100}, {t:"Requestor", w:80}, {t:"Approved On / By", w:165}
+    ];
+    let wx = 30;
+    wHeaders.forEach(h => {
+        doc.rect(wx, wy, h.w, 20).stroke().text(h.t, wx+2, wy+6);
+        wx += h.w;
+    });
+    wy += 20;
+
+    let workers = d.SelectedWorkers || [];
+    if(typeof workers === 'string') { try { workers = JSON.parse(workers); } catch(e){ workers=[]; } }
+    
+    doc.font('Helvetica').fontSize(8);
+    workers.forEach(w => {
+        if (wy > 750) { doc.addPage(); drawHeaderOnAll(); wy = 135; }
         
-        // Table Header
-        let ry = doc.y;
-        const rHeaders = [
-            {t:"Time", w:90}, {t:"Gas", w:90}, {t:"Req", w:70}, 
-            {t:"Rev", w:70}, {t:"App", w:70}, {t:"Photo", w:145}
-        ];
-        let rx = 30;
-        rHeaders.forEach(h => { doc.rect(rx, ry, h.w, 20).stroke().text(h.t, rx+2, ry+5); rx += h.w; });
-        ry += 20;
+        doc.rect(30, wy, 100, 30).stroke().text(w.Name, 32, wy+5);
+        doc.rect(130, wy, 50, 30).stroke().text(w.Gender || '-', 132, wy+5);
+        doc.rect(180, wy, 40, 30).stroke().text(w.Age, 182, wy+5);
+        doc.rect(220, wy, 100, 30).stroke().text(`${w.IDType || ''}: ${w.ID || '-'}`, 222, wy+5);
+        doc.rect(320, wy, 80, 30).stroke().text(w.RequestorName || '-', 322, wy+5);
+        doc.rect(400, wy, 165, 30).stroke().text(`${w.ApprovedAt || '-'}\nby ${w.ApprovedBy || '-'}`, 402, wy+5);
+        
+        wy += 30;
+    });
+    doc.y = wy + 20;
 
-        for (const r of finalRenewals) {
-            if (ry > 700) { doc.addPage(); drawHeaderOnAll(); ry = 135; }
-            const h = 60;
-            
-            doc.rect(30, ry, 90, h).stroke().text(`${r.valid_from}\nTo\n${r.valid_to}`, 32, ry+5, {width:85});
-            doc.rect(120, ry, 90, h).stroke().text(`HC:${r.hc}\nTox:${r.toxic}\nO2:${r.oxygen}`, 122, ry+5, {width:85});
-            doc.rect(210, ry, 70, h).stroke().text(r.req_name, 212, ry+5, {width:65});
-            doc.rect(280, ry, 70, h).stroke().text(r.rev_name||'-', 282, ry+5, {width:65});
-            doc.rect(350, ry, 70, h).stroke().text(r.app_name||'-', 352, ry+5, {width:65});
-            
-            // Photo Logic
-            doc.rect(420, ry, 145, h).stroke();
-            if(r.photoUrl && containerClient) {
-                try {
-                    const blobName = r.photoUrl.split('/').pop();
-                    const blockBlob = containerClient.getBlockBlobClient(blobName);
-                    // Timeout protection
-                    const downloadPromise = blockBlob.download(0);
-                    const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 3000));
-                    
-                    const response = await Promise.race([downloadPromise, timeoutPromise]);
-                    const chunks = [];
-                    for await (const chunk of response.readableStreamBody) { chunks.push(chunk); }
-                    const imgBuffer = Buffer.concat(chunks);
-                    doc.image(imgBuffer, 425, ry+2, {fit: [135, 56], align:'center'});
-                } catch(e) { doc.text("Image Unavailable", 425, ry+25); }
-            } else { doc.text("No Photo", 425, ry+25); }
-            ry += h;
+    // 10. SIGNATURES [cite: 162-165]
+    if (doc.y > 650) { doc.addPage(); drawHeaderOnAll(); }
+    doc.font('Helvetica-Bold').fontSize(10).text("SIGNATURES", 30, doc.y);
+    doc.y += 15;
+    const sY = doc.y;
+    
+    // Requester Box
+    doc.rect(30, sY, 178, 45).stroke().text(`REQ: ${d.RequesterName}\non ${d.CreatedDate || getNowIST()}`, 35, sY+5);
+    
+    // Reviewer Box
+    doc.rect(208, sY, 178, 45).stroke().text(`REV: ${d.Reviewer_Sig || '-'}\nRem: ${d.Reviewer_Remarks || '-'}`, 213, sY+5);
+    
+    // Approver Box
+    doc.rect(386, sY, 179, 45).stroke().text(`APP: ${d.Approver_Sig || '-'}\nRem: ${d.Approver_Remarks || '-'}`, 391, sY+5);
+    doc.y += 60;
+
+    // 11. RENEWAL HISTORY TABLE (Page 5) [cite: 176, 177]
+    if (doc.y > 650) { doc.addPage(); drawHeaderOnAll(); }
+    doc.font('Helvetica-Bold').text("CLEARANCE RENEWAL", 30, doc.y);
+    doc.y += 15;
+    
+    let ry = doc.y;
+    const rCols = [
+        {t:"From", w:50}, {t:"To", w:50}, {t:"Gas/Prec", w:80}, 
+        {t:"Workers", w:80}, {t:"Photo", w:60}, {t:"Req", w:70}, 
+        {t:"Rev", w:70}, {t:"App", w:75}
+    ]; // Reason col implicit or merged if rejected
+
+    let rx = 30;
+    rCols.forEach(h => {
+        doc.rect(rx, ry, h.w, 20).stroke().text(h.t, rx+2, ry+6);
+        rx += h.w;
+    });
+    ry += 20;
+
+    const finalRenewals = renewalsList || JSON.parse(p.RenewalsJSON || "[]");
+    doc.font('Helvetica').fontSize(8);
+
+    for (const r of finalRenewals) {
+        if (ry > 700) { doc.addPage(); drawHeaderOnAll(); ry = 135; }
+        const rH = 60; // Row Height
+
+        // Dates
+        let startT = r.valid_from.replace('T', '\n');
+        let endT = r.valid_till.replace('T', '\n');
+        if (r.odd_hour_req) { 
+            doc.fillColor('purple'); 
+            endT += '\n(Night)'; 
+        } else doc.fillColor('black');
+
+        doc.rect(30, ry, 50, rH).stroke().text(startT, 32, ry+5, {width:48});
+        doc.rect(80, ry, 50, rH).stroke().text(endT, 82, ry+5, {width:48});
+        doc.fillColor('black');
+
+        // Gas & Prec
+        doc.rect(130, ry, 80, rH).stroke().text(`HC: ${r.hc}\nTox: ${r.toxic}\nO2: ${r.oxygen}\nPrec: ${r.precautions || '-'}`, 132, ry+5, {width:78});
+
+        // Workers
+        const wNames = r.worker_list ? r.worker_list.join(', ') : 'All';
+        doc.rect(210, ry, 80, rH).stroke().text(wNames, 212, ry+5, {width:78});
+
+        // Photo (Async Download)
+        doc.rect(290, ry, 60, rH).stroke();
+        if (r.photoUrl && containerClient) {
+            try {
+                const blobName = r.photoUrl.split('/').pop();
+                const blockBlob = containerClient.getBlockBlobClient(blobName);
+                
+                const downloadPromise = blockBlob.download(0);
+                const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 3000));
+                
+                const response = await Promise.race([downloadPromise, timeoutPromise]);
+                const chunks = [];
+                for await (const chunk of response.readableStreamBody) { chunks.push(chunk); }
+                const imgBuff = Buffer.concat(chunks);
+                
+                doc.image(imgBuff, 292, ry+2, {fit: [56, 56], align:'center', valign:'center'});
+            } catch (e) { 
+                doc.text("Img Err", 292, ry+25, {align:'center'}); 
+            }
+        } else {
+            doc.text("No Photo", 292, ry+25, {align:'center'});
         }
-        doc.y = ry + 20;
-    }
 
-    // 8. CLOSURE SECTION
+        // Signatures
+        doc.rect(350, ry, 70, rH).stroke().text(`${r.req_name}\n${r.req_at}`, 352, ry+5, {width:68});
+        doc.rect(420, ry, 70, rH).stroke().text(`${r.rev_name || '-'}\n${r.rev_at || ''}`, 422, ry+5, {width:68});
+        doc.rect(490, ry, 75, rH).stroke().text(`${r.app_name || '-'}\n${r.app_at || ''}`, 492, ry+5, {width:73});
+
+        ry += rH;
+    }
+    doc.y = ry + 20;
+
+    // 12. CLOSURE (Matches source 178 logic implied)
     if (p.Status === 'Closed' || p.Status.includes('Closure') || d.Closure_Issuer_Sig) {
         if (doc.y > 650) { doc.addPage(); drawHeaderOnAll(); }
         doc.font('Helvetica-Bold').fontSize(10).text("WORK COMPLETION & CLOSURE", 30, doc.y);
         doc.y += 15;
-        const cY = doc.y;
-
+        
+        // Site Restored Checkbox
         const boxColor = d.Site_Restored_Check === 'Y' ? '#dcfce7' : '#fee2e2';
-        doc.rect(30, cY, 535, 25).fillColor(boxColor).fill().stroke();
-        doc.fillColor('black').text(`Site Restored & Housekeeping Done?  [ ${d.Site_Restored_Check === 'Y' ? 'YES' : 'NO'} ]`, 35, cY + 8);
+        const checkMark = d.Site_Restored_Check === 'Y' ? 'YES' : 'NO';
+        
+        doc.rect(30, doc.y, 535, 25).fillColor(boxColor).fill().stroke();
+        doc.fillColor('black').text(`Site Restored, Materials Removed & Housekeeping Done?  [ ${checkMark} ]`, 35, doc.y + 8);
         doc.y += 35;
 
-        const closureY = doc.y;
-        if (closureY > 700) { doc.addPage(); drawHeaderOnAll(); }
-        doc.rect(30, closureY, 178, 60).stroke().text(`REQUESTOR:\n${d.Closure_Receiver_Sig || '-'}\nDate: ${d.Closure_Requestor_Date || '-'}\nRem: ${d.Closure_Requestor_Remarks || '-'}`, 35, closureY + 5, { width: 168 });
-        doc.rect(208, closureY, 178, 60).stroke().text(`REVIEWER:\n${d.Closure_Reviewer_Sig || '-'}\nDate: ${d.Closure_Reviewer_Date || '-'}\nRem: ${d.Closure_Reviewer_Remarks || '-'}`, 213, closureY + 5, { width: 168 });
-        doc.rect(386, closureY, 179, 60).stroke().text(`APPROVER:\n${d.Closure_Issuer_Sig || '-'}\nDate: ${d.Closure_Approver_Date || '-'}\nRem: ${d.Closure_Approver_Remarks || '-'}`, 391, closureY + 5, { width: 169 });
+        const cY = doc.y;
+        if (cY > 700) { doc.addPage(); drawHeaderOnAll(); }
+        
+        doc.rect(30, cY, 178, 50).stroke().text(`REQUESTOR:\n${d.Closure_Receiver_Sig || '-'}\nDate: ${d.Closure_Requestor_Date || '-'}\nRem: ${d.Closure_Requestor_Remarks || '-'}`, 35, cY+5, {width:168});
+        doc.rect(208, cY, 178, 50).stroke().text(`REVIEWER:\n${d.Closure_Reviewer_Sig || '-'}\nDate: ${d.Closure_Reviewer_Date || '-'}\nRem: ${d.Closure_Reviewer_Remarks || '-'}`, 213, cY+5, {width:168});
+        doc.rect(386, cY, 179, 50).stroke().text(`APPROVER:\n${d.Closure_Issuer_Sig || '-'}\nDate: ${d.Closure_Approver_Date || '-'}\nRem: ${d.Closure_Approver_Remarks || '-'}`, 391, cY+5, {width:169});
     }
 }
-
 /* =====================================================
    ADMINISTRATION & HIERARCHY (Restored from Code A)
 ===================================================== */
