@@ -1006,13 +1006,28 @@
             actionsDiv.append(bReject, bApprove);
         }
                 if (p.Status === 'Closure Pending Approval' && currentUser.Role === 'Approver') {
-                    document.getElementById('div-closure-rev').classList.remove('hidden');
-                    document.getElementById('div-closure-app').classList.remove('hidden');
-                    document.getElementById('Closure_Approver_Remarks').disabled = false;
-                    safeSet("Closure_Reviewer_Remarks", p.Closure_Reviewer_Remarks || "");
-                    const b = document.createElement("button"); b.type = "button"; b.className = "bg-black text-white px-4 py-2 rounded font-bold"; b.innerText = "Final Permit Close"; b.onclick = () => upd('approve');
-                    actionsDiv.appendChild(b);
-                }
+            document.getElementById('div-closure-rev').classList.remove('hidden');
+            document.getElementById('div-closure-app').classList.remove('hidden');
+            document.getElementById('Closure_Approver_Remarks').disabled = false;
+            safeSet("Closure_Reviewer_Remarks", p.Closure_Reviewer_Remarks || "");
+
+            // 1. Create Reject Button (Red)
+            const bReject = document.createElement("button"); 
+            bReject.type = "button"; 
+            bReject.className = "bg-red-600 text-white px-4 py-2 rounded font-bold mr-2"; 
+            bReject.innerText = "Reject Closure"; 
+            bReject.onclick = () => upd('reject_closure'); // Sends 'Active' status back to server
+
+            // 2. Create Final Close Button (Black)
+            const bApprove = document.createElement("button"); 
+            bApprove.type = "button"; 
+            bApprove.className = "bg-black text-white px-4 py-2 rounded font-bold"; 
+            bApprove.innerText = "Final Permit Close"; 
+            bApprove.onclick = () => upd('approve');
+
+            // 3. Add both to the bar
+               actionsDiv.append(bReject, bApprove);
+              }
             }
         }
 
@@ -1338,4 +1353,5 @@
     </script>
 </body>
 </html>
+
 
