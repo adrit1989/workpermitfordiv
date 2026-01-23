@@ -279,7 +279,7 @@ async function drawPermitPDF(doc, p, d, renewalsList) {
     };
 
     const bgColor = d.PdfBgColor || 'White';
-    const permitPrefix = safeText(d.Unit || 'LOC'); 
+    const permitPrefix = safeText(d.LocationUnit || 'LOC'); 
     const compositePermitNo = `${permitPrefix}/${p.PermitID}`;
 
     const drawHeader = (doc, bgColor, permitNoStr) => {
