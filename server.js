@@ -10,6 +10,7 @@ const PDFDocument = require('pdfkit');
 const ExcelJS = require('exceljs');
 const { BlobServiceClient } = require('@azure/storage-blob');
 const { getConnection, sql } = require('./db');
+
 // SECURITY PACKAGES
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs'); 
@@ -39,18 +40,18 @@ app.use((req, res, next) => {
   next(); 
 });
 
-// Using simplified CSP (Code B style) to prevent UI breakage, but keeping security tools
+// Using simplified CSP (Code B style) to prevent UI breakage
 app.use(helmet({ contentSecurityPolicy: false })); 
 
 const allowedOrigins = [
-  "https://workpermitdivision-dwcahkbpbnc4fyah.centralindia-01.azurewebsites.net/",
+  "https://workpermitdivision-dwcahkbpbnc4fyah.centralindia-01.azurewebsites.net",
   "http://localhost:3000"
 ];
 
 app.use(cors({
   origin: (origin, cb) => {
     if (!origin) return cb(null, true);
-    if (!allowedOrigins.includes(origin)) return cb(null, true); // Permissive for dev
+    if (!allowedOrigins.includes(origin)) return cb(null, true); 
     cb(null, true);
   },
   credentials: true
@@ -119,7 +120,7 @@ const log = (msg, type = 'INFO') => {
 };
 
 /* =====================================================
-   ADVANCED AUTHENTICATION (Restored from Code A)
+   ADVANCED AUTHENTICATION
 ===================================================== */
 
 function createAccessToken(user) {
@@ -132,11 +133,11 @@ function createAccessToken(user) {
     unit: user.Unit,
     location: user.Location,
     lastPwd: pwdTime
-  }, JWT_SECRET, { expiresIn: "15m" }); // Short lived
+  }, JWT_SECRET, { expiresIn: "15m" }); 
 }
 
 function createRefreshToken(user) {
-  return jwt.sign({ email: user.Email }, REFRESH_SECRET, { expiresIn: "30d" }); // Long lived
+  return jwt.sign({ email: user.Email }, REFRESH_SECRET, { expiresIn: "30d" }); 
 }
 
 async function saveRefreshToken(email, token) {
@@ -154,7 +155,6 @@ async function authenticateAccess(req, res, next) {
     jwt.verify(token, JWT_SECRET, async (err, decodedUser) => {
         if (err) return res.status(403).json({ error: "Invalid Token" });
 
-        // Security: Check if password changed since token issue
         const pool = await getConnection();
         const r = await pool.request()
             .input('e', sql.NVarChar, decodedUser.email)
@@ -166,7 +166,7 @@ async function authenticateAccess(req, res, next) {
         const dbLast = dbTimeRaw ? Math.floor(new Date(dbTimeRaw).getTime() / 1000) : 0;
         const tokenLast = decodedUser.lastPwd || 0;
 
-        if (dbLast > (tokenLast + 120)) { // 2 min buffer
+        if (dbLast > (tokenLast + 120)) { 
             return res.status(401).json({ error: "Session expired due to password change" });
         }
 
@@ -175,7 +175,7 @@ async function authenticateAccess(req, res, next) {
     });
 }
 
-// 1. ROBUST LOGIN ROUTE
+// 1. LOGIN
 app.post('/api/login', async (req, res) => {
     try {
         const pool = await getConnection();
@@ -190,7 +190,6 @@ app.post('/api/login', async (req, res) => {
         
         if (!valid) return res.json({ success: false, msg: "Invalid credentials" });
         
-        // CHECK: Force Password Change
         if (user.ForcePwdChange === 'Y') {
             return res.json({ success: false, forceChange: true, email: user.Email });
         }
@@ -202,7 +201,6 @@ app.post('/api/login', async (req, res) => {
         const refreshToken = createRefreshToken(user);
         await saveRefreshToken(user.Email, refreshToken);
 
-        // Send Refresh Token as HttpOnly Cookie
         res.cookie("refreshToken", refreshToken, {
             httpOnly: true,
             secure: true,
@@ -241,7 +239,6 @@ app.post('/api/admin/reset-password', authenticateAccess, async (req, res) => {
         const { targetEmail, newTempPass } = req.body;
         const pool = await getConnection();
         
-        // Check permissions
         const target = await pool.request().input('e', targetEmail).query("SELECT CreatedBy FROM Users WHERE Email=@e");
         if(!target.recordset.length) return res.status(404).json({error: "User not found"});
         
@@ -259,10 +256,7 @@ app.post('/api/admin/reset-password', authenticateAccess, async (req, res) => {
         res.json({ success: true });
     } catch(e) { res.status(500).json({ error: e.message }); }
 });
-/* =====================================================
-   COMPLIANCE PDF GENERATOR (Restored High-End Logic from Code A)
-   Includes: Watermarks, Legal Tables, Annexure III
-===================================================== */
+
 /* =====================================================
    COMPLIANCE PDF GENERATOR (MATCHING WP-1082 FORMAT)
 ===================================================== */
@@ -459,7 +453,7 @@ async function drawPermitPDF(doc, p, d, renewalsList) {
             // Remarks / Gas Details
             let remarkVal = d[`${key}_Rem`] || '';
             if (prefix === 'A' && idx === 11) {
-                // Formatting Gas Test Values [cite: 74, 75, 76]
+                // Formatting Gas Test Values
                 remarkVal = `HC: ${d.GP_Q12_HC || '0'}% LEL\nTox: ${d.GP_Q12_ToxicGas || '0'} PPM\nO2: ${d.GP_Q12_Oxygen || '20.9'}%`;
             }
             doc.rect(440, y, 125, rowHeight).stroke().text(remarkVal, 445, y + 6);
@@ -474,7 +468,7 @@ async function drawPermitPDF(doc, p, d, renewalsList) {
     drawChecklistSection("SECTION C: For vehicle Entry in Hazardous area", CHECKLIST_DATA.C, 'C'); 
     drawChecklistSection("SECTION D: EXCAVATION", CHECKLIST_DATA.D, 'D');
 
-    // 6. ANNEXURE III (Page 3) [cite: 115, 116]
+    // 6. ANNEXURE III (Page 3)
     if (doc.y > 650) { doc.addPage(); drawHeaderOnAll(); }
     doc.y += 10;
     doc.font('Helvetica-Bold').fontSize(9).text("Annexure III: ATTACHMENT TO MAINLINE WORK PERMIT", 30, doc.y); 
@@ -510,7 +504,7 @@ async function drawPermitPDF(doc, p, d, renewalsList) {
     });
     doc.y = axY + 15;
 
-    // 7. SUPERVISORS TABLES [cite: 117, 118]
+    // 7. SUPERVISORS TABLES
     const drawSupTable = (title, headers, rows) => {
         if (doc.y > 650) { doc.addPage(); drawHeaderOnAll(); }
         doc.font('Helvetica-Bold').text(title, 30, doc.y);
@@ -554,11 +548,11 @@ async function drawPermitPDF(doc, p, d, renewalsList) {
     if(ioclRows.length === 0) ioclRows.push(["-", "-", "-", "-"]);
     drawSupTable("Authorized Work Supervisor (IOCL)", [{t:"Name",w:120}, {t:"Designation",w:120}, {t:"Contact",w:100}, {t:"Audit Trail",w:195}], ioclRows);
 
-    // Contractor Data [cite: 127, 128]
+    // Contractor Data
     const contRows = [[d.RequesterName, "Site In-Charge / Requester", d.EmergencyContact || '-']];
     drawSupTable("Authorized Work Supervisor (Contractor)", [{t:"Name",w:180}, {t:"Designation",w:180}, {t:"Contact",w:175}], contRows);
 
-    // 8. HAZARDS & PPE [cite: 129, 130, 131]
+    // 8. HAZARDS & PPE
     if (doc.y > 650) { doc.addPage(); drawHeaderOnAll(); }
     doc.font('Helvetica-Bold').text("HAZARDS & PRECAUTIONS", 30, doc.y);
     doc.y += 15;
@@ -577,7 +571,7 @@ async function drawPermitPDF(doc, p, d, renewalsList) {
     doc.text(`2. Following additional PPE to be used in addition to standards PPE: ${foundPPE.join(', ')}`, 35, doc.y + 25, {width: 520});
     doc.y += 70;
 
-    // 9. WORKERS DEPLOYED (Page 4) [cite: 132-161]
+    // 9. WORKERS DEPLOYED (Page 4)
     if (doc.y > 650) { doc.addPage(); drawHeaderOnAll(); }
     doc.font('Helvetica-Bold').text("WORKERS DEPLOYED", 30, doc.y);
     doc.y += 15;
@@ -613,7 +607,7 @@ async function drawPermitPDF(doc, p, d, renewalsList) {
     });
     doc.y = wy + 20;
 
-    // 10. SIGNATURES [cite: 162-165]
+    // 10. SIGNATURES
     if (doc.y > 650) { doc.addPage(); drawHeaderOnAll(); }
     doc.font('Helvetica-Bold').fontSize(10).text("SIGNATURES", 30, doc.y);
     doc.y += 15;
@@ -629,7 +623,7 @@ async function drawPermitPDF(doc, p, d, renewalsList) {
     doc.rect(386, sY, 179, 45).stroke().text(`APP: ${d.Approver_Sig || '-'}\nRem: ${d.Approver_Remarks || '-'}`, 391, sY+5);
     doc.y += 60;
 
-    // 11. RENEWAL HISTORY TABLE (Page 5) [cite: 176, 177]
+    // 11. RENEWAL HISTORY TABLE (Page 5)
     if (doc.y > 650) { doc.addPage(); drawHeaderOnAll(); }
     doc.font('Helvetica-Bold').text("CLEARANCE RENEWAL", 30, doc.y);
     doc.y += 15;
@@ -728,8 +722,9 @@ async function drawPermitPDF(doc, p, d, renewalsList) {
         doc.rect(386, cY, 179, 50).stroke().text(`APPROVER:\n${d.Closure_Issuer_Sig || '-'}\nDate: ${d.Closure_Approver_Date || '-'}\nRem: ${d.Closure_Approver_Remarks || '-'}`, 391, cY+5, {width:169});
     }
 }
+
 /* =====================================================
-   ADMINISTRATION & HIERARCHY (Restored from Code A)
+   ADMINISTRATION
 ===================================================== */
 
 // 1. Get Dropdown Hierarchy
@@ -865,11 +860,12 @@ app.post('/api/admin/bulk-upload', authenticateAccess, upload.single('excelFile'
         res.json({ success: true, count: usersToInsert.length });
     } catch (e) { res.status(500).json({ error: "Bulk Upload Failed: " + e.message }); }
 });
+
 /* =====================================================
-   CORE PERMIT ROUTES (Stable Logic + Compliance Features)
+   CORE PERMIT ROUTES
 ===================================================== */
 
-// 1. Get Workers (Code B Logic: Strict Filtering)
+// 1. Get Workers
 app.post('/api/get-workers', authenticateAccess, async(req, res) => {
     const { role, email } = req.user;
     const pool = await getConnection();
@@ -878,7 +874,6 @@ app.post('/api/get-workers', authenticateAccess, async(req, res) => {
     let workers = r.recordset.map(w => {
         let d = {}; 
         try { 
-            // Handle both Pending and Current structures
             d = JSON.parse(w.DataJSON).Current || JSON.parse(w.DataJSON).Pending || {}; 
         } catch(e){}
         
@@ -898,21 +893,20 @@ app.post('/api/get-workers', authenticateAccess, async(req, res) => {
     res.json(workers);
 });
 
-// 2. Save Worker (Edit/Create/Approve/Delete)
+// 2. Save Worker
 app.post('/api/save-worker', authenticateAccess, async (req, res) => {
     const { WorkerID, Action, Details, RequestorEmail } = req.body;
     const pool = await getConnection();
     
     try {
         if(Action === 'create') {
-            // Restore Code A Check: Age < 18
             if (Details && parseInt(Details.Age) < 18) {
                 return res.status(400).json({ error: "Worker must be 18+" });
             }
 
             const idRes = await pool.request().query("SELECT TOP 1 WorkerID FROM Workers ORDER BY WorkerID DESC");
             const nextNum = parseInt(idRes.recordset.length ? idRes.recordset[0].WorkerID.split('-')[1] : 1000) + 1;
-            const wid = `W-${nextNum}`; // Sequential ID restored
+            const wid = `W-${nextNum}`; 
             
             const data = { Pending: { ...Details } };
             await pool.request()
@@ -923,7 +917,7 @@ app.post('/api/save-worker', authenticateAccess, async (req, res) => {
         } else if (Action === 'edit_request') {
             const cur = await pool.request().input('w', WorkerID).query("SELECT DataJSON FROM Workers WHERE WorkerID=@w");
             let d = JSON.parse(cur.recordset[0].DataJSON);
-            d.Pending = { ...d.Current, ...Details }; // Merge updates into Pending
+            d.Pending = { ...d.Current, ...Details }; 
             await pool.request()
                 .input('w', WorkerID).input('j', JSON.stringify(d)).input('s', 'Pending Review')
                 .query("UPDATE Workers SET DataJSON=@j, Status=@s WHERE WorkerID=@w");
@@ -934,7 +928,7 @@ app.post('/api/save-worker', authenticateAccess, async (req, res) => {
         } else if (Action === 'approve') {
             const cur = await pool.request().input('w', WorkerID).query("SELECT DataJSON FROM Workers WHERE WorkerID=@w");
             let d = JSON.parse(cur.recordset[0].DataJSON);
-            d.Current = d.Pending; // Promote Pending to Current
+            d.Current = d.Pending; 
             d.Pending = null;
             
             await pool.request()
@@ -952,24 +946,21 @@ app.post('/api/dashboard', authenticateAccess, async (req, res) => {
     const pool = await getConnection();
     const r = await pool.request().query("SELECT PermitID, Status, ValidFrom, ValidTo, RequesterEmail, ReviewerEmail, ApproverEmail, FullDataJSON, FinalPdfUrl FROM Permits");
     
-const data = r.recordset.map(x => {
-    let parsed = {};
-    try {
-        parsed = JSON.parse(x.FullDataJSON || "{}");
-    } catch (e) {
-        // If JSON is invalid, keep parsed as empty object and log for debugging
-        console.warn("Invalid FullDataJSON for PermitID", x.PermitID);
-        parsed = {};
-    }
-    // Spread parsed first (client-supplied), then DB columns override them so DB is authoritative.
-    return {
-        ...parsed,
-        ...x,
-        FinalPdfUrl: x.FinalPdfUrl // Include archival link
-    };
-});
+    const data = r.recordset.map(x => {
+        let parsed = {};
+        try {
+            parsed = JSON.parse(x.FullDataJSON || "{}");
+        } catch (e) {
+            console.warn("Invalid FullDataJSON for PermitID", x.PermitID);
+            parsed = {};
+        }
+        return {
+            ...parsed,
+            ...x,
+            FinalPdfUrl: x.FinalPdfUrl 
+        };
+    });
     
-    // Filter based on Role
     const filtered = data.filter(p => {
         if(role === 'MasterAdmin') return true; 
         if(role === 'Requester') return p.RequesterEmail === email;
@@ -979,14 +970,13 @@ const data = r.recordset.map(x => {
     });
     
     res.json(filtered.sort((a,b) => {
-         // Sort by Sequential ID (WP-1002 > WP-1001)
          const numA = parseInt(a.PermitID.split('-')[1] || 0);
          const numB = parseInt(b.PermitID.split('-')[1] || 0);
          return numB - numA; 
     }));
 });
 
-// 4. Save Permit (Sequential ID Restored)
+// 4. Save Permit
 app.post('/api/save-permit', authenticateAccess, upload.any(), async(req, res) => {
     const pool = await getConnection();
     const fd = req.body;
@@ -995,7 +985,6 @@ app.post('/api/save-permit', authenticateAccess, upload.any(), async(req, res) =
     
     let pid = fd.PermitID;
     
-    // SEQUENTIAL ID GENERATION (Code A Logic)
     if (!pid || pid === 'undefined' || pid === '' || pid === 'null') {
         const idRes = await pool.request().query("SELECT MAX(CAST(SUBSTRING(PermitID, 4, 10) AS INT)) as MaxVal FROM Permits WHERE PermitID LIKE 'WP-%'");
         let nextNum = 1000;
@@ -1017,7 +1006,6 @@ app.post('/api/save-permit', authenticateAccess, upload.any(), async(req, res) =
         });
     }
 
-    // Merge Logic (Insert or Update)
     const q = pool.request()
         .input('p', pid).input('s', 'Pending Review').input('w', fd.WorkType)
         .input('re', req.user.email).input('rv', fd.ReviewerEmail).input('ap', fd.ApproverEmail)
@@ -1038,7 +1026,7 @@ app.post('/api/save-permit', authenticateAccess, upload.any(), async(req, res) =
     res.json({success: true, permitId: pid});
 });
 
-// 5. Update Status & ARCHIVAL (Code A Logic Restored)
+// 5. Update Status
 app.post('/api/update-status', authenticateAccess, async(req, res) => {
     const { PermitID, action, ...extras } = req.body;
     const pool = await getConnection();
@@ -1055,29 +1043,23 @@ app.post('/api/update-status', authenticateAccess, async(req, res) => {
 
     Object.assign(d, extras);
 
-    // STATUS TRANSITIONS
     if (action === 'reject') st = 'Rejected';
     else if (action === 'review') { 
         st = 'Pending Approval'; 
         d.Reviewer_Sig = `${usr} on ${now}`; 
     }
 
-    // --- FIX: CHECK CLOSURE APPROVAL FIRST ---
-    // If we don't check this first, the generic 'approve' block below catches it 
-    // and sets status to 'Active' instead of 'Closed'.
     else if (action === 'approve' && st.includes('Closure')) { 
         st = 'Closed'; 
         d.Closure_Approver_Date = now; 
         d.Closure_Issuer_Sig = `${usr} on ${now}`;
     }
     
-    // --- GENERAL APPROVAL (Creation) ---
     else if (action === 'approve') { 
         st = 'Active'; 
         d.Approver_Sig = `${usr} on ${now}`; 
     }
 
-    // --- CLOSURE INITIATION/REVIEW ---
     else if (action === 'initiate_closure') { 
         st = 'Closure Pending Review'; 
         d.Closure_Requestor_Date = now; 
@@ -1092,7 +1074,6 @@ app.post('/api/update-status', authenticateAccess, async(req, res) => {
         d.Closure_Reviewer_Sig = `${usr} on ${now}`; 
     }
 
-    // RENEWAL WORKFLOW
     if(action === 'approve_1st_ren' || action === 'approve' || action === 'review') {
         if(rens.length > 0 && rens[rens.length-1].status.includes('pending')) {
              let last = rens[rens.length-1];
@@ -1109,8 +1090,7 @@ app.post('/api/update-status', authenticateAccess, async(req, res) => {
         }
     }
 
-    // *** CRITICAL ARCHIVAL STEP (From Code A) ***
-    // If Status becomes Closed, generate Final PDF and freeze record
+    // *** PDF ARCHIVAL ***
     if (st === 'Closed') {
         const pdfRecord = { ...p, Status: 'Closed', PermitID: PermitID, ValidFrom: p.ValidFrom, ValidTo: p.ValidTo };
         
@@ -1139,7 +1119,7 @@ app.post('/api/update-status', authenticateAccess, async(req, res) => {
     res.json({success: true});
 });
 
-// 6. Renewal (Code B Logic - UPDATED FOR ODD HOUR TRACKING)
+// 6. Renewal
 app.post('/api/renewal', authenticateAccess, upload.single('RenewalImage'), async(req,res) => {
     const { PermitID, action, comment } = req.body; 
     const userRole = req.user.role; 
@@ -1189,7 +1169,6 @@ app.post('/api/renewal', authenticateAccess, upload.single('RenewalImage'), asyn
                 last.rev_name = req.user.name;
                 last.rev_at = getNowIST();
                 last.rev_rem = comment || '';
-                // NEW: Explicitly save that Reviewer accepted Odd Hours
                 if(last.oddHourReq === 'Y') last.rev_odd_hour_accepted = 'Y';
                 newStatus = 'Renewal Pending Approval';
             } 
@@ -1214,7 +1193,8 @@ app.post('/api/renewal', authenticateAccess, upload.single('RenewalImage'), asyn
 
     res.json({success: true});
 });
-// 7. EXCEL EXPORT (Restored from Code A)
+
+// 7. EXCEL EXPORT
 app.get('/api/download-excel', authenticateAccess, async (req, res) => {
   try {
     const pool = await getConnection();
@@ -1246,7 +1226,7 @@ app.get('/api/download-excel', authenticateAccess, async (req, res) => {
   } catch (err) { res.status(500).send("Export Error"); }
 });
 
-// 8. PDF Download (Supports Final Archival)
+// 8. PDF Download (Updated with Archival Check & New Logic)
 app.get('/api/download-pdf/:id', authenticateAccess, async(req, res) => {
     const pool = await getConnection();
     const r = await pool.request().input('p', req.params.id).query("SELECT * FROM Permits WHERE PermitID=@p");
@@ -1301,8 +1281,8 @@ app.post('/api/map-data', async(req,res) => {
         ...JSON.parse(x.FullDataJSON)
     })));
 });
+
 app.get('/', (req, res) => {
-    // Ensure you save your HTML code as 'index.html' in the same folder
     const indexPath = path.join(__dirname, 'index.html');
     
     fs.readFile(indexPath, 'utf8', (err, html) => {
@@ -1310,11 +1290,11 @@ app.get('/', (req, res) => {
             console.error("HTML File missing!", err);
             return res.status(500).send('Error loading System UI. Is index.html present?');
         }
-        // This replaces the NONCE_PLACEHOLDER in your HTML with a secure random key
         const finalHtml = html.replace(/NONCE_PLACEHOLDER/g, res.locals.nonce);
         res.send(finalHtml);
     });
 });
+
 // SERVER START
 const PORT = process.env.PORT || 8080;
 app.listen(PORT, () => console.log("Server Started on Port " + PORT));
