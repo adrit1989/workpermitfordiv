@@ -1227,7 +1227,7 @@
                 }); 
             });
         }
-        }
+        
 
         function renderHazards() {
             document.getElementById('hazards-grid').innerHTML = HAZARDS.map(h => `<label class="flex items-center gap-2 p-3 border rounded-lg bg-gray-50 text-xs cursor-pointer hover:bg-orange-100 font-bold"><input type="checkbox" name="H_${h.replace(/ /g,'')}" value="Y" ${h==='Others'?'id="chk-haz-others"':''} class="accent-orange-600 w-4 h-4"> ${h}</label>`).join('');
@@ -1403,6 +1403,7 @@
     </script>
 </body>
 </html>
+
 
 
 
