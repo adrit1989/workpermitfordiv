@@ -846,17 +846,39 @@ app.post('/api/update-status', authenticateAccess, async(req, res) => {
 
     // STATUS TRANSITIONS
     if (action === 'reject') st = 'Rejected';
-    else if (action === 'review') { st = 'Pending Approval'; d.Reviewer_Sig = `${usr} on ${now}`; }
-    else if (action === 'approve') { st = 'Active'; d.Approver_Sig = `${usr} on ${now}`; }
+    else if (action === 'review') { 
+        st = 'Pending Approval'; 
+        d.Reviewer_Sig = `${usr} on ${now}`; 
+    }
 
-    // CLOSURE WORKFLOW
-    else if (action === 'initiate_closure') { st = 'Closure Pending Review'; d.Closure_Requestor_Date = now; d.Closure_Receiver_Sig = `${usr} on ${now}`; }
-    else if (action === 'reject_closure') { st = 'Active'; } 
-    else if (action === 'approve_closure') { st = 'Closure Pending Approval'; d.Closure_Reviewer_Date = now; d.Closure_Reviewer_Sig = `${usr} on ${now}`; }
+    // --- FIX: CHECK CLOSURE APPROVAL FIRST ---
+    // If we don't check this first, the generic 'approve' block below catches it 
+    // and sets status to 'Active' instead of 'Closed'.
     else if (action === 'approve' && st.includes('Closure')) { 
         st = 'Closed'; 
         d.Closure_Approver_Date = now; 
         d.Closure_Issuer_Sig = `${usr} on ${now}`;
+    }
+    
+    // --- GENERAL APPROVAL (Creation) ---
+    else if (action === 'approve') { 
+        st = 'Active'; 
+        d.Approver_Sig = `${usr} on ${now}`; 
+    }
+
+    // --- CLOSURE INITIATION/REVIEW ---
+    else if (action === 'initiate_closure') { 
+        st = 'Closure Pending Review'; 
+        d.Closure_Requestor_Date = now; 
+        d.Closure_Receiver_Sig = `${usr} on ${now}`; 
+    }
+    else if (action === 'reject_closure') { 
+        st = 'Active'; 
+    } 
+    else if (action === 'approve_closure') { 
+        st = 'Closure Pending Approval'; 
+        d.Closure_Reviewer_Date = now; 
+        d.Closure_Reviewer_Sig = `${usr} on ${now}`; 
     }
 
     // RENEWAL WORKFLOW
