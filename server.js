@@ -1344,5 +1344,34 @@ app.get('/api/view-blob', authenticateAccess, async (req, res) => {
         res.status(500).send("Error loading file");
     }
 });
+// --- MISSING MAP ROUTE ---
+app.post('/api/map-data', authenticateAccess, async (req, res) => {
+    try {
+        const pool = await getConnection();
+        // Only fetch Active or Pending permits for the map
+        const r = await pool.request().query("SELECT PermitID, Status, FullDataJSON FROM Permits WHERE Status NOT IN ('Closed', 'Rejected')");
+        
+        const points = r.recordset.map(p => {
+            let d = {};
+            try { d = JSON.parse(p.FullDataJSON); } catch (e) {}
+            
+            // Logic: Parse "26.1234, 85.5678" string into Lat/Lng numbers
+            if (d.ExactLocation && d.ExactLocation.includes(',')) {
+                const parts = d.ExactLocation.split(',');
+                return {
+                    PermitID: p.PermitID,
+                    Status: p.Status,
+                    lat: parseFloat(parts[0].trim()),
+                    lng: parseFloat(parts[1].trim())
+                };
+            }
+            return null;
+        }).filter(x => x !== null); // Filter out permits with no GPS data
+
+        res.json(points);
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
 const PORT = process.env.PORT || 8080;
 app.listen(PORT, () => console.log("Server Started on Port " + PORT));
