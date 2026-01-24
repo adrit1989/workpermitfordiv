@@ -969,25 +969,38 @@
     };
 
     // 2. Load Data
-    if(p.JsaLinkedId) {
-        document.querySelector('input[name="jsa_mode"][value="link"]').checked = true;
-        toggleJsaMode('link');
-        // Add a "View" button for the linked ID
-        jsaLinkSel.innerHTML = `<option value="${p.JsaLinkedId}" selected>${p.JsaLinkedId}</option>`;
-        
-        // Create a view button if not exists
-        let viewBtn = document.getElementById('btn-view-linked-jsa');
-        if(!viewBtn) {
-            viewBtn = document.createElement('button');
-            viewBtn.id = 'btn-view-linked-jsa';
-            viewBtn.className = "ml-2 text-blue-600 font-bold underline text-xs";
-            viewBtn.innerText = "View JSA PDF";
-            jsaLinkSel.parentNode.appendChild(viewBtn);
-        }
-        viewBtn.onclick = (e) => { e.preventDefault(); downloadJsaPdf(p.JsaLinkedId.split('-').pop()); }; // Extract numeric ID
-        viewBtn.classList.remove('hidden');
+            // Add a Remove Button and View Button for Linked JSA if it exists
+        if(p.JsaLinkedId) {
+             let removeLinkBtn = document.getElementById('btn-del-link-jsa');
+             if(!removeLinkBtn) {
+                 removeLinkBtn = document.createElement('button');
+                 removeLinkBtn.id = 'btn-del-link-jsa';
+                 removeLinkBtn.type = 'button'; // <--- CRITICAL FIX FOR LOGOUT ISSUE
+                 removeLinkBtn.className = "ml-2 text-red-500 font-bold text-xs";
+                 removeLinkBtn.innerText = "[Change]";
+                 removeLinkBtn.onclick = window.clearJsaSelection;
+                 jsaLinkSel.parentNode.appendChild(removeLinkBtn);
+             }
+             removeLinkBtn.classList.remove('hidden');
 
-    } else if (p.JsaFileUrl) {
+             // View Button Logic (Fixes Problem B)
+             let viewBtn = document.getElementById('btn-view-linked-jsa');
+             if(!viewBtn) {
+                viewBtn = document.createElement('button');
+                viewBtn.id = 'btn-view-linked-jsa';
+                viewBtn.type = 'button'; // <--- CRITICAL FIX FOR LOGOUT ISSUE
+                viewBtn.className = "ml-2 text-blue-600 font-bold underline text-xs";
+                viewBtn.innerText = "View Details";
+                jsaLinkSel.parentNode.appendChild(viewBtn);
+             }
+             // Call openNewJsaForm with refNumber to open frontend view
+             viewBtn.onclick = (e) => { 
+                 e.preventDefault(); 
+                 openNewJsaForm(null, p.JsaLinkedId); 
+             };
+             viewBtn.classList.remove('hidden');
+        }
+ else if (p.JsaFileUrl) {
         document.querySelector('input[name="jsa_mode"][value="upload"]').checked = true;
         toggleJsaMode('upload');
         const link = document.getElementById('jsa-file-link');
@@ -1736,59 +1749,77 @@ async function upd(act) {
             tbody.appendChild(tr);
         }
 
-        async function openNewJsaForm(jsaId = null) {
-            switchView('jsa-form');
-            document.getElementById('jsa-form').reset();
-            document.querySelector('#table-jsa-team tbody').innerHTML = '';
-            document.querySelector('#table-jsa-risk tbody').innerHTML = '';
-            
-            // Load dropdowns (using existing Permit function)
-            await loadMappedApprovers(); 
-            // Clone options to JSA specific selects
-            document.getElementById('jsa-reviewer').innerHTML = document.getElementById('ReviewerEmail').innerHTML;
-            document.getElementById('jsa-approver').innerHTML = document.getElementById('ApproverEmail').innerHTML;
+/* Updated to support RefNumber lookup */
+async function openNewJsaForm(jsaId = null, refNumber = null) {
+    switchView('jsa-form');
+    document.getElementById('jsa-form').reset();
+    document.querySelector('#table-jsa-team tbody').innerHTML = '';
+    document.querySelector('#table-jsa-risk tbody').innerHTML = '';
+    
+    // UI Tweaks for "Back" navigation
+    const backBtn = document.querySelector('#view-jsa-form button');
+    if(refNumber) {
+        // If viewing from Permit, back button goes to Permit Form
+        backBtn.innerText = "← Back to Permit";
+        backBtn.onclick = () => { document.getElementById('view-jsa-form').classList.add('hidden'); document.getElementById('view-form').classList.remove('hidden'); };
+    } else {
+        // Standard behavior
+        backBtn.innerText = "← Back to List";
+        backBtn.onclick = () => switchView('jsa');
+    }
 
-            safeSet('jsa-region', currentUser.Region);
-            safeSet('jsa-unit', currentUser.Unit);
-            safeSet('jsa-loc', currentUser.Location);
+    await loadMappedApprovers(); 
+    document.getElementById('jsa-reviewer').innerHTML = document.getElementById('ReviewerEmail').innerHTML;
+    document.getElementById('jsa-approver').innerHTML = document.getElementById('ApproverEmail').innerHTML;
 
-            if(jsaId) {
-                // Edit Mode
-                const j = await apiCall('/jsa/get', 'POST', { id: jsaId });
-                currentJsaData = j;
-                safeSet('JSAID', j.JSAID);
-                safeSet('jsa-job-title', j.JobTitle);
-                safeSet('jsa-executed-by', j.ExecutedBy);
-                safeSet('jsa-reviewer', j.ReviewerEmail);
-                safeSet('jsa-approver', j.ApproverEmail);
-                
-                const data = JSON.parse(j.DataJSON || '{}');
-                (data.team || []).forEach(p => addJsaPersonRow(p));
-                (data.steps || []).forEach(s => addJsaRiskRow(s));
-                safeSet('jsa-additional-prec', data.additionalPrecautions);
+    safeSet('jsa-region', currentUser.Region);
+    safeSet('jsa-unit', currentUser.Unit);
+    safeSet('jsa-loc', currentUser.Location);
 
-                // Workflow UI
-                const isRev = currentUser.Role === 'Reviewer' && j.Status === 'Pending Review';
-                const isApp = currentUser.Role === 'Approver' && j.Status === 'Pending Approval';
-                
-                if (isRev || isApp) {
-                    document.getElementById('jsa-workflow-actions').classList.remove('hidden');
-                    document.getElementById('jsa-submit-bar').classList.add('hidden');
-                    document.getElementById('btn-jsa-approve').onclick = () => processJsaAction(jsaId, 'approve');
-                    document.getElementById('btn-jsa-reject').onclick = () => processJsaAction(jsaId, 'reject');
-                } else if (j.Status === 'Approved') {
-                    document.getElementById('jsa-submit-bar').classList.add('hidden');
-                    // Disable all inputs
-                    document.querySelectorAll('#jsa-form input, #jsa-form textarea, #jsa-form select').forEach(e => e.disabled = true);
-                }
-            } else {
-                // Create Mode
-                addJsaPersonRow({name: currentUser.Name, dept: 'Operations'}); // Default
-                addJsaRiskRow();
-                document.getElementById('jsa-workflow-actions').classList.add('hidden');
-                document.getElementById('jsa-submit-bar').classList.remove('hidden');
-            }
+    if(jsaId || refNumber) {
+        // Edit/View Mode: Fetch by ID OR Ref
+        const payload = jsaId ? { id: jsaId } : { ref: refNumber };
+        const j = await apiCall('/jsa/get', 'POST', payload);
+        
+        if(!j) { alert("JSA Details not found."); return switchView('jsa'); }
+
+        currentJsaData = j;
+        safeSet('JSAID', j.JSAID);
+        safeSet('jsa-job-title', j.JobTitle);
+        safeSet('jsa-executed-by', j.ExecutedBy);
+        safeSet('jsa-reviewer', j.ReviewerEmail);
+        safeSet('jsa-approver', j.ApproverEmail);
+        
+        const data = JSON.parse(j.DataJSON || '{}');
+        (data.team || []).forEach(p => addJsaPersonRow(p));
+        (data.steps || []).forEach(s => addJsaRiskRow(s));
+        safeSet('jsa-additional-prec', data.additionalPrecautions);
+
+        // Permissions Logic
+        const isRev = currentUser.Role === 'Reviewer' && j.Status === 'Pending Review';
+        const isApp = currentUser.Role === 'Approver' && j.Status === 'Pending Approval';
+        
+        if (isRev || isApp) {
+            document.getElementById('jsa-workflow-actions').classList.remove('hidden');
+            document.getElementById('jsa-submit-bar').classList.add('hidden');
+            document.getElementById('btn-jsa-approve').onclick = () => processJsaAction(j.JSAID, 'approve');
+            document.getElementById('btn-jsa-reject').onclick = () => processJsaAction(j.JSAID, 'reject');
+        } else {
+            // View Only (Approved or viewing linked from permit)
+            document.getElementById('jsa-workflow-actions').classList.add('hidden');
+            document.getElementById('jsa-submit-bar').classList.add('hidden');
+            document.querySelectorAll('#jsa-form input, #jsa-form textarea, #jsa-form select').forEach(e => e.disabled = true);
+            // Hide delete buttons in table rows
+            document.querySelectorAll('#jsa-form button.text-red-500').forEach(b => b.classList.add('hidden'));
         }
+    } else {
+        // Create Mode
+        addJsaPersonRow({name: currentUser.Name, dept: 'Operations'}); 
+        addJsaRiskRow();
+        document.getElementById('jsa-workflow-actions').classList.add('hidden');
+        document.getElementById('jsa-submit-bar').classList.remove('hidden');
+    }
+}
 
         async function loadJsaDashboard() {
             const res = await apiCall('/jsa/list-my', 'POST', { email: currentUser.Email, role: currentUser.Role });
@@ -1882,6 +1913,7 @@ async function upd(act) {
     </script>
 </body>
 </html>
+
 
 
 
