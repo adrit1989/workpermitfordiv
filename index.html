@@ -558,7 +558,7 @@
                 <div id="view-users" class="hidden">
                     <div class="flex justify-between items-center mb-6">
                         <h2 class="text-2xl font-bold text-gray-800">User Management</h2>
-                        <button onclick="document.getElementById('view-add-user').classList.remove('hidden')" class="bg-purple-600 text-white px-4 py-2 rounded shadow font-bold">+ Add User</button>
+                        <button type="button" onclick="document.getElementById('view-add-user').classList.remove('hidden')" class="bg-purple-600 text-white px-4 py-2 rounded shadow font-bold">+ Add User</button>
                     </div>
                     <div class="glass overflow-x-auto p-0"><table class="w-full text-sm text-left data-table" id="table-manage-users"><thead class="bg-gray-100"><tr><th>Name</th><th>Email</th><th>Role</th><th>Location</th><th>Action</th></tr></thead><tbody class="divide-y"></tbody></table></div>
                 </div>
@@ -569,7 +569,7 @@
                         <div class="glass border-t-4 border-green-600">
                              <h3 class="font-bold text-lg mb-2 text-green-800">👤 Add Single User</h3>
                              <p class="text-xs text-gray-500 mb-4 bg-green-50 p-2 rounded">Create a single user manually.</p>
-                             <button onclick="document.getElementById('view-add-user').classList.remove('hidden')" class="w-full bg-green-600 text-white py-2 rounded font-bold hover:bg-green-700">+ Create User</button>
+                             <button type="button" onclick="document.getElementById('view-add-user').classList.remove('hidden')" class="w-full bg-green-600 text-white py-2 rounded font-bold hover:bg-green-700">+ Create User</button>
                         </div>
                         <div class="glass border-t-4 border-purple-600">
                             <h3 class="font-bold text-lg mb-2 text-purple-800">📂 Bulk User Upload</h3>
@@ -1700,5 +1700,6 @@
     </script>
 </body>
 </html>
+
 
 
