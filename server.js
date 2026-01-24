@@ -1094,12 +1094,11 @@ app.post('/api/jsa/save', authenticateAccess, async(req, res) => {
         
         let targetID = JSAID;
         if (!targetID) {
-            const idRes = await pool.request().query("SELECT MAX(JSAID) as maxId FROM JSAs");
-            const nextId = (idRes.recordset[0].maxId || 1000) + 1;
+            // Let the Database generate the ID and return it using OUTPUT INSERTED.JSAID
+            const r = await pool.request().input('reqE', fields.RequesterEmail)
+                .query("INSERT INTO JSAs (Status, RequesterEmail, CreatedAt) OUTPUT INSERTED.JSAID VALUES ('Draft', @reqE, GETDATE())");
             
-            await pool.request().input('id', nextId).input('reqE', fields.RequesterEmail)
-                .query("INSERT INTO JSAs (JSAID, Status, RequesterEmail, CreatedAt) VALUES (@id, 'Draft', @reqE, GETDATE())");
-            targetID = nextId;
+            targetID = r.recordset[0].JSAID;
         }
 
         const status = 'Pending Review'; 
