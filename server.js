@@ -898,6 +898,7 @@ app.post('/api/save-permit', authenticateAccess, upload.any(), async(req, res) =
 
     res.json({success: true, permitId: pid});
 });
+// UPDATE STATUS (With Override Logic)
 app.post('/api/update-status', authenticateAccess, upload.any(), async(req, res) => {
     const { PermitID, action, ...extras } = req.body;
     const pool = await getConnection();
@@ -912,15 +913,27 @@ app.post('/api/update-status', authenticateAccess, upload.any(), async(req, res)
     const usr = req.user.name;
     Object.assign(d, extras);
 
-    // --- HANDLE JSA FILE UPDATE ---
+    // --- HANDLE JSA FILE UPDATE (OVERRIDE LOGIC) ---
     let newJsaUrl = null;
+    let sqlSetJsa = ""; // Dynamic SQL part to handle overrides
+
+    // 1. Check for New File Upload (Overrides Link and Old File)
     if (req.files) {
         const jsaFile = req.files.find(f => f.fieldname === 'JsaFile');
         if(jsaFile) {
             newJsaUrl = await uploadToAzure(jsaFile.buffer, `permit-jsa/${PermitID}-${Date.now()}.pdf`, 'application/pdf');
+            // If we have a new URL, we must NULL out the Linked ID so the system knows to use the file
+            sqlSetJsa += ", JsaFileUrl=@jsaUrl, JsaLinkedId=NULL"; 
         }
     }
+
+    // 2. Check for New Linked ID (Overrides File)
+    // We only update this if NO file was uploaded in this request
     const newJsaId = req.body.JsaLinkedId || null;
+    if (newJsaId && !newJsaUrl) {
+         // If linking an existing JSA, we NULL out the File URL
+         sqlSetJsa += ", JsaLinkedId=@jsaId, JsaFileUrl=NULL";
+    }
     // -----------------------------
 
     if (action === 'reject') st = 'Rejected';
@@ -931,7 +944,6 @@ app.post('/api/update-status', authenticateAccess, upload.any(), async(req, res)
     else if (action === 'reject_closure') { st = 'Active'; } 
     else if (action === 'approve_closure') { st = 'Closure Pending Approval'; d.Closure_Reviewer_Date = now; d.Closure_Reviewer_Sig = `${usr} on ${now}`; }
 
-    // (Existing Renewal Logic preserved...)
     if(action === 'approve_1st_ren' || action === 'approve' || action === 'review') {
         if(rens.length > 0 && rens[rens.length-1].status.includes('pending')) {
              let last = rens[rens.length-1];
@@ -941,7 +953,6 @@ app.post('/api/update-status', authenticateAccess, upload.any(), async(req, res)
         }
     }
 
-    // ARCHIVAL
     if (st === 'Closed') {
         try {
             const pdfRecord = { ...p, Status: 'Closed', PermitID: PermitID, ValidFrom: p.ValidFrom, ValidTo: p.ValidTo };
@@ -962,8 +973,15 @@ app.post('/api/update-status', authenticateAccess, upload.any(), async(req, res)
         } catch(e) { console.error("PDF Fail", e); }
     }
 
-    await pool.request().input('p', PermitID).input('s', st).input('j', JSON.stringify(d)).input('r', JSON.stringify(rens))
-        .query("UPDATE Permits SET Status=@s, FullDataJSON=@j, RenewalsJSON=@r WHERE PermitID=@p");
+    const q = pool.request()
+        .input('p', PermitID).input('s', st)
+        .input('j', JSON.stringify(d)).input('r', JSON.stringify(rens))
+        .input('jsaUrl', newJsaUrl)
+        .input('jsaId', newJsaId);
+
+    // Apply the sqlSetJsa override logic here
+    await q.query(`UPDATE Permits SET Status=@s, FullDataJSON=@j, RenewalsJSON=@r ${sqlSetJsa} WHERE PermitID=@p`);
+    
     res.json({success: true});
 });
 
