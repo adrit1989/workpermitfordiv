@@ -1083,53 +1083,7 @@ async function openPermit(id) {
         const b2 = document.createElement("button"); b2.type = "button"; 
         b2.className = "bg-green-600 text-white px-4 py-2 rounded font-bold shadow hover:bg-green-700"; 
         b2.innerText = "Review & Forward"; 
-        b2.onclick = () => upd('review');
 
-        actionsDiv.append(b1, b2);
-    }
-
-    // B. Approver Main Permit Action
-    if (p.Status === 'Pending Approval' && currentUser.Role === 'Approver') {
-        document.getElementById('fs-approver-section').classList.remove('hidden');
-        document.getElementById('app-renewal-decision').classList.add('hidden'); // Ensure renewal box is hidden for main permit
-
-        const b1 = document.createElement("button"); b1.type = "button"; 
-        b1.className = "bg-red-600 text-white px-4 py-2 rounded font-bold mr-2 shadow hover:bg-red-700"; 
-        b1.innerText = "Reject Permit"; 
-        b1.onclick = () => upd('reject');
-
-        const b2 = document.createElement("button"); b2.type = "button"; 
-        b2.className = "bg-green-600 text-white px-4 py-2 rounded font-bold shadow hover:bg-green-700"; 
-        b2.innerText = "Final Approve"; 
-        b2.onclick = () => upd('approve');
-
-        actionsDiv.append(b1, b2);
-    }
-
-    // C. Renewal Actions
-    if (!isFirstRenRequest && lastRen && lastRen.status.includes('pending')) {
-        if (currentUser.Role !== 'Requester') document.getElementById('pending-renewal-display').classList.remove('hidden');
-
-        const isRevTurn = (currentUser.Role === 'Reviewer' && p.Status.includes('Renewal Pending Review'));
-        const isAppTurn = (currentUser.Role === 'Approver' && p.Status.includes('Renewal Pending Approval'));
-
-        if (isRevTurn || isAppTurn) {
-             if(isRevTurn) document.getElementById('fs-reviewer-section').classList.remove('hidden');
-             if(isAppTurn) document.getElementById('fs-approver-section').classList.remove('hidden');
-             
-             document.getElementById('action-renewal').classList.remove('hidden');
-             document.getElementById('RenewalRemark').disabled = false;
-             const btnApprove = document.getElementById('btn-approve-renewal');
-             const btnReject = document.getElementById('btn-reject-renewal');
-             btnApprove.onclick = () => submitRenewal('approve');
-             btnReject.onclick = () => submitRenewal('reject');
-
-             // Odd Hour Logic
-             if (lastRen && lastRen.oddHourReq === 'Y') {
-                 document.getElementById('odd-hour-approval-controls').classList.remove('hidden');
-                 const badgeContainer = document.getElementById('rev-agreed-badge-container');
-                 const existingBadge = document.getElementById('rev-agreed-badge');
-                 if (existingBadge) existingBadge.remove();
 
 /* 6. CORE PERMIT LOGIC (FIXED) */
 async function openPermit(id) {
@@ -2114,4 +2068,5 @@ async function openPermit(id) {
     </script>
 </body>
 </html>
+
 
