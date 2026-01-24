@@ -910,7 +910,7 @@ app.post('/api/update-status', authenticateAccess, upload.any(), async(req, res)
     let st = p.Status;
     const now = getNowIST(); 
     const usr = req.user.name;
-    Object.assign(d, extras); // Merge text fields
+    Object.assign(d, extras);
 
     // --- HANDLE JSA FILE UPDATE ---
     let newJsaUrl = null;
@@ -1062,7 +1062,7 @@ app.post('/api/permit-data', authenticateAccess, async(req, res) => {
         Status: p.Status, 
         RenewalsJSON: p.RenewalsJSON, 
         IOCLSupervisors: JSON.parse(p.FullDataJSON).IOCLSupervisors || [],
-        // CRITICAL FIX: Send these columns to frontend
+        // CRITICAL FIX: Send these columns to frontend so the link appears
         JsaFileUrl: p.JsaFileUrl, 
         JsaLinkedId: p.JsaLinkedId 
     });
