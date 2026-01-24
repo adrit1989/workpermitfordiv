@@ -916,36 +916,36 @@
         }
 
 
-/* 6. CORE PERMIT LOGIC (FIXED) */
+/* 6. CORE PERMIT LOGIC (FIXED ARRAY PARSING) */
 async function openPermit(id) {
     try {
         // 1. Fetch Data
         const p = await apiCall('/permit-data', 'POST', { permitId: id });
-
-        // DEBUG: Check what the system sees
-        console.log(`%c Opening Permit: ${id}`, 'background: #222; color: #bada55');
-        console.log("Raw Status:", p.Status);
-        console.log("User Role:", currentUser.Role);
+        
+        console.log("Opening Permit:", id);
 
         if (!p || p.Status === 'Closed' || !p.WorkType) {
             alert("📂 Permit Archived. Downloading PDF...");
             return downloadSecurePDF(id);
         }
 
-        // 2. Setup Variables & View
         currentPermitId = id;
-        currentPermitIOCLData = p.IOCLSupervisors || [];
-        permitRequirePhoto = (p.RequireRenewalPhotos === 'Y');
-        
-        // Normalize Strings for Comparison (Fixes whitespace/case issues)
-        const currentStatus = (p.Status || '').trim();
-        const userRole = (currentUser.Role || '').trim();
-        const userEmail = (currentUser.Email || '').toLowerCase().trim();
 
+        // --- FIX 1: SAFE ARRAY PARSING (Prevents the Crash) ---
+        let rawIOCL = p.IOCLSupervisors;
+        if (typeof rawIOCL === 'string') {
+            try { rawIOCL = JSON.parse(rawIOCL); } catch(e) { rawIOCL = []; }
+        }
+        currentPermitIOCLData = Array.isArray(rawIOCL) ? rawIOCL : [];
+        // -------------------------------------------------------
+
+        permitRequirePhoto = (p.RequireRenewalPhotos === 'Y');
+
+        // 2. Setup View
         document.getElementById('view-dashboard').classList.add('hidden');
         document.getElementById('view-form').classList.remove('hidden');
         document.getElementById('permit-title').innerText = `Permit: ${id}`;
-        document.getElementById('permit-header-display').innerText = `Status: ${currentStatus}`;
+        document.getElementById('permit-header-display').innerText = `Status: ${p.Status}`;
 
         // 3. Reset All Sections to Hidden
         const sectionsToReset = [
@@ -964,8 +964,10 @@ async function openPermit(id) {
         actionsDiv.innerHTML = "";
 
         // 5. Populate Basic Fields & Disable Logic
-        const isMainPending = (currentStatus.includes('Pending Review') || currentStatus.includes('Pending Approval'));
-        const isAuthority = (userRole === 'Reviewer' || userRole === 'Approver');
+        // Trim allows for sloppy database values like "Pending Review "
+        const statusClean = p.Status ? p.Status.trim() : '';
+        const isMainPending = (statusClean === 'Pending Review' || statusClean === 'Pending Approval');
+        const isAuthority = (currentUser.Role === 'Reviewer' || currentUser.Role === 'Approver');
 
         document.querySelectorAll('#pf input, #pf textarea, #pf select').forEach(el => {
             let shouldDisable = true;
@@ -974,9 +976,9 @@ async function openPermit(id) {
                 shouldDisable = false;
             }
             // Allow Specific Remarks editing
-            if (isMainPending && userRole === 'Reviewer' && (el.id === 'Reviewer_Remarks' || el.id === 'AdditionalPrecautions' || el.name === 'RevRenAction')) shouldDisable = false;
-            if ((isMainPending || currentStatus === 'Active') && userRole === 'Approver' && (el.id === 'Approver_Remarks' || el.name === 'AppRenAction')) shouldDisable = false;
-            if (userRole === 'Approver' && el.id === 'RequireRenewalPhotos') shouldDisable = (currentStatus === 'Active');
+            if (isMainPending && currentUser.Role === 'Reviewer' && (el.id === 'Reviewer_Remarks' || el.id === 'AdditionalPrecautions' || el.name === 'RevRenAction')) shouldDisable = false;
+            if ((isMainPending || statusClean === 'Active') && currentUser.Role === 'Approver' && (el.id === 'Approver_Remarks' || el.name === 'AppRenAction')) shouldDisable = false;
+            if (currentUser.Role === 'Approver' && el.id === 'RequireRenewalPhotos') shouldDisable = (statusClean === 'Active');
 
             // Set Values
             if (el.type === 'checkbox') el.checked = (p[el.name] === 'Y');
@@ -987,32 +989,37 @@ async function openPermit(id) {
         });
 
         // PPE Section Visibility
-        if (userRole === 'Requester') document.getElementById('ppe-section-wrapper').classList.add('hidden');
+        if (currentUser.Role === 'Requester') document.getElementById('ppe-section-wrapper').classList.add('hidden');
         else document.getElementById('ppe-section-wrapper').classList.remove('hidden');
 
-        // 6. JSA Logic 
-        // ... (Keep existing JSA Logic logic essentially same, just ensuring variables exist)
+        // 6. JSA Logic
         const existDisplay = document.getElementById('jsa-existing-file-display');
         const jsaFileInp = document.getElementById('JsaFile');
         const jsaLinkSel = document.getElementById('JsaLinkedId');
         const jsaRadios = document.querySelectorAll('input[name="jsa_mode"]');
 
+        // Reset JSA UI
         existDisplay.classList.add('hidden');
         jsaFileInp.value = '';
         
+        // Helper to clear JSA
         window.clearJsaSelection = function() {
-            if(!confirm("Remove current JSA?")) return;
+            if(!confirm("Remove current JSA? You will need to select or upload a new one.")) return;
             p.JsaLinkedId = null; p.JsaFileUrl = null;
             jsaLinkSel.value = ""; jsaFileInp.value = "";
             existDisplay.classList.add('hidden');
             document.querySelector('input[name="jsa_mode"][value="upload"]').checked = true;
             toggleJsaMode('upload');
+            // Hide view buttons
+            if(document.getElementById('btn-view-linked-jsa')) document.getElementById('btn-view-linked-jsa').classList.add('hidden');
         };
 
+        // Load Existing JSA Data
         if(p.JsaLinkedId) {
             document.querySelector('input[name="jsa_mode"][value="link"]').checked = true;
             toggleJsaMode('link');
             jsaLinkSel.innerHTML = `<option value="${p.JsaLinkedId}" selected>${p.JsaLinkedId}</option>`;
+            
             let viewBtn = document.getElementById('btn-view-linked-jsa');
             if(!viewBtn) {
                 viewBtn = document.createElement('button'); viewBtn.id = 'btn-view-linked-jsa'; viewBtn.type = 'button';
@@ -1021,6 +1028,7 @@ async function openPermit(id) {
             }
             viewBtn.onclick = (e) => { e.preventDefault(); openNewJsaForm(null, p.JsaLinkedId); };
             viewBtn.classList.remove('hidden');
+
         } else if (p.JsaFileUrl) {
             document.querySelector('input[name="jsa_mode"][value="upload"]').checked = true;
             toggleJsaMode('upload');
@@ -1031,42 +1039,53 @@ async function openPermit(id) {
             if(document.getElementById('btn-view-linked-jsa')) document.getElementById('btn-view-linked-jsa').classList.add('hidden');
         }
 
+        // JSA Edit Permissions
         let canEditJsa = false;
-        if (userRole === 'Requester' && (currentStatus === 'Draft' || currentStatus.includes('Rejected') || currentStatus === 'Pending Review')) canEditJsa = true;
-        if (userRole === 'Reviewer' && currentStatus === 'Pending Review') canEditJsa = true;
-        if (userRole === 'Approver' && currentStatus === 'Pending Approval') canEditJsa = true;
+        if (currentUser.Role === 'Requester' && (statusClean === 'Draft' || statusClean.includes('Rejected') || statusClean === 'Pending Review')) canEditJsa = true;
+        if (currentUser.Role === 'Reviewer' && statusClean === 'Pending Review') canEditJsa = true;
+        if (currentUser.Role === 'Approver' && statusClean === 'Pending Approval') canEditJsa = true;
 
         if (canEditJsa) {
-            jsaFileInp.disabled = false; jsaLinkSel.disabled = false; jsaRadios.forEach(r => r.disabled = false);
+            jsaFileInp.disabled = false;
+            jsaLinkSel.disabled = false;
+            jsaRadios.forEach(r => r.disabled = false);
             document.getElementById('btn-del-jsa').classList.remove('hidden');
             document.getElementById('btn-del-jsa').onclick = window.clearJsaSelection;
-            if(p.JsaLinkedId) loadApprovedJsas(); 
+
+            if(p.JsaLinkedId) {
+                let removeLinkBtn = document.getElementById('btn-del-link-jsa');
+                if(!removeLinkBtn) {
+                    removeLinkBtn = document.createElement('button'); removeLinkBtn.id = 'btn-del-link-jsa'; removeLinkBtn.type = 'button';
+                    removeLinkBtn.className = "ml-2 text-red-500 font-bold text-xs"; removeLinkBtn.innerText = "[Change]";
+                    removeLinkBtn.onclick = window.clearJsaSelection;
+                    jsaLinkSel.parentNode.appendChild(removeLinkBtn);
+                }
+                removeLinkBtn.classList.remove('hidden');
+            }
+            loadApprovedJsas(); 
         } else {
             jsaFileInp.disabled = true; jsaLinkSel.disabled = true; jsaRadios.forEach(r => r.disabled = true);
             document.getElementById('btn-del-jsa').classList.add('hidden');
+            if(document.getElementById('btn-del-link-jsa')) document.getElementById('btn-del-link-jsa').classList.add('hidden');
         }
 
         // 7. Render Sub-Tables
-        let currentPermitWorkers = [];
-        try {
-            if (typeof p.SelectedWorkers === 'string') currentPermitWorkers = JSON.parse(p.SelectedWorkers);
-            else if (Array.isArray(p.SelectedWorkers)) currentPermitWorkers = p.SelectedWorkers;
-        } catch (e) { console.warn("Worker Parse Error", e); }
-
+        let wData = p.SelectedWorkers;
+        if (typeof wData === 'string') { try { wData = JSON.parse(wData); } catch (e) { wData = []; } }
+        currentPermitWorkers = Array.isArray(wData) ? wData : [];
         const wTbody = document.getElementById('worker-display-body');
         document.getElementById('worker-display-table').classList.toggle('hidden', currentPermitWorkers.length === 0);
         if (wTbody) wTbody.innerHTML = currentPermitWorkers.map(w => `<tr><td class="p-2 font-bold">${escapeHtml(w.Name)}</td><td class="p-2">${escapeHtml(w.IDType)}: ${escapeHtml(w.ID)}</td><td class="p-2 font-mono">${escapeHtml(w.Contact)}</td></tr>`).join('');
         
-        renderIOCLTable(currentStatus);
+        // NOW IT IS SAFE TO CALL THIS
+        renderIOCLTable(p.Status);
 
-        // 8. Renewal & Closure Parsing
-        let rens = [];
-        try { rens = JSON.parse(p.RenewalsJSON || "[]"); } catch (e) { rens = []; }
-        
+        // 8. Renewal & Closure Section Visibility
+        const rens = JSON.parse(p.RenewalsJSON || "[]");
         const lastRen = rens.length > 0 ? rens[rens.length - 1] : null;
         const isFirstRenRequest = (rens.length === 1 && p.InitRen === 'Y');
 
-        if (rens.length > 0 || (userRole === 'Requester' && currentStatus === 'Active')) {
+        if (rens.length > 0 || (currentUser.Role === 'Requester' && statusClean === 'Active')) {
             document.getElementById('renewals-section').classList.remove('hidden');
             document.getElementById('renewal-history-body').innerHTML = rens.map(r => `
                 <tr class="border-b text-[10px]">
@@ -1077,10 +1096,10 @@ async function openPermit(id) {
                     <td class="p-2"><b>${r.req_name}</b><br>${r.req_at||''}</td>
                     <td class="p-2"><b>${r.rev_name||'-'}</b><br>${r.rev_at||''}</td>
                     <td class="p-2"><b>${r.app_name||'-'}</b><br>${r.app_at||''}</td>
-                    <td class="p-2">${r.photoUrl ? `<button type="button" class="text-blue-600 underline" onclick="viewSecurePhoto('${r.photoUrl.replace(/\\/g, '/')}')">View</button>` : 'NO'}</td>
+                    <td class="p-2">${r.photoUrl ? `<button type="button" class="text-blue-600 underline" onclick="viewSecureFile('${r.photoUrl.replace(/\\/g, '/')}')">View</button>` : 'NO'}</td>
                 </tr>`).join('');
-            
-            const showRenForm = (userRole === 'Requester' && currentStatus === 'Active' && (!lastRen || !lastRen.status.includes('pending')));
+                
+            const showRenForm = (currentUser.Role === 'Requester' && statusClean === 'Active' && (!lastRen || !lastRen.status.includes('pending')));
             document.getElementById('form-renewal').classList.toggle('hidden', !showRenForm);
             if(showRenForm) {
                 document.querySelectorAll('#form-renewal input').forEach(inp => inp.disabled = false);
@@ -1092,13 +1111,11 @@ async function openPermit(id) {
         handleClosureUI(p, actionsDiv);
 
         // ============================================================
-        // 9. ACTION BUTTONS LOGIC (ROBUST VERSION)
+        // 9. ACTION BUTTONS LOGIC
         // ============================================================
-        console.log("Evaluation Actions for:", currentStatus, userRole);
 
         // A. Reviewer Main Permit Action
-        if (currentStatus === 'Pending Review' && userRole === 'Reviewer') {
-            console.log(">>> Rendering Reviewer Buttons");
+        if (statusClean === 'Pending Review' && currentUser.Role === 'Reviewer') {
             document.getElementById('fs-reviewer-section').classList.remove('hidden');
             
             const b1 = document.createElement("button"); b1.type = "button"; 
@@ -1115,8 +1132,8 @@ async function openPermit(id) {
         }
 
         // B. Approver Main Permit Action
-        if (currentStatus === 'Pending Approval' && userRole === 'Approver') {
-            console.log(">>> Rendering Approver Buttons");
+        // Added MasterAdmin just in case
+        if (statusClean === 'Pending Approval' && (currentUser.Role === 'Approver' || currentUser.Role === 'MasterAdmin')) {
             document.getElementById('fs-approver-section').classList.remove('hidden');
             document.getElementById('app-renewal-decision').classList.add('hidden'); 
 
@@ -1135,10 +1152,10 @@ async function openPermit(id) {
 
         // C. Renewal Actions
         if (!isFirstRenRequest && lastRen && lastRen.status.includes('pending')) {
-            if (userRole !== 'Requester') document.getElementById('pending-renewal-display').classList.remove('hidden');
+            if (currentUser.Role !== 'Requester') document.getElementById('pending-renewal-display').classList.remove('hidden');
 
-            const isRevTurn = (userRole === 'Reviewer' && currentStatus.includes('Renewal Pending Review'));
-            const isAppTurn = (userRole === 'Approver' && currentStatus.includes('Renewal Pending Approval'));
+            const isRevTurn = (currentUser.Role === 'Reviewer' && statusClean.includes('Renewal Pending Review'));
+            const isAppTurn = (currentUser.Role === 'Approver' && statusClean.includes('Renewal Pending Approval'));
 
             if (isRevTurn || isAppTurn) {
                 if(isRevTurn) document.getElementById('fs-reviewer-section').classList.remove('hidden');
@@ -1155,12 +1172,13 @@ async function openPermit(id) {
                 if (lastRen && lastRen.oddHourReq === 'Y') {
                     document.getElementById('odd-hour-approval-controls').classList.remove('hidden');
                     const badgeContainer = document.getElementById('rev-agreed-badge-container');
-                    badgeContainer.innerHTML = '';
+                    const existingBadge = document.getElementById('rev-agreed-badge');
+                    if (existingBadge) existingBadge.remove();
 
                     if (isAppTurn && lastRen.rev_odd_hour_accepted === 'Y') {
-                        const badge = document.createElement('span'); 
+                        const badge = document.createElement('span'); badge.id = 'rev-agreed-badge';
                         badge.className = "bg-green-100 text-green-800 text-xs px-2 py-1 rounded font-bold ml-2 border border-green-200";
-                        badge.innerText = "✔ Reviewer Agreed";
+                        badge.innerHTML = "✔ Reviewer Agreed";
                         badgeContainer.appendChild(badge);
                     }
                     const chk = document.getElementById('odd-hour-allow-check');
@@ -1180,17 +1198,17 @@ async function openPermit(id) {
         }
 
         // D. First Renewal with Permit
-        if (isFirstRenRequest && (currentStatus === 'Pending Review' || currentStatus === 'Pending Approval')) {
-             if (userRole === 'Reviewer' && currentStatus === 'Pending Review') {
-                 document.getElementById('rev-renewal-decision').classList.remove('hidden');
-             }
-             if (userRole === 'Approver' && currentStatus === 'Pending Approval') {
-                 document.getElementById('app-renewal-decision').classList.remove('hidden');
-             }
+        if (isFirstRenRequest && (statusClean === 'Pending Review' || statusClean === 'Pending Approval')) {
+            if (currentUser.Role === 'Reviewer' && statusClean === 'Pending Review') {
+                document.getElementById('rev-renewal-decision').classList.remove('hidden');
+            }
+            if (currentUser.Role === 'Approver' && statusClean === 'Pending Approval') {
+                document.getElementById('app-renewal-decision').classList.remove('hidden');
+            }
         }
 
         // E. Approver Update (When Active)
-        if (currentStatus === 'Active' && userRole === 'Approver') {
+        if (statusClean === 'Active' && currentUser.Role === 'Approver') {
             document.getElementById('fs-approver-section').classList.remove('hidden');
             const b = document.createElement("button"); b.type = "button"; 
             b.className = "bg-blue-600 text-white px-4 py-2 rounded font-bold shadow"; 
@@ -1201,10 +1219,9 @@ async function openPermit(id) {
 
     } catch (e) {
         console.error("Critical Error in openPermit:", e);
-        alert("An error occurred loading the permit. Please check console.");
+        alert("System Error: Check Console");
     }
 }
- 
         function handleClosureUI(p, actionsDiv) {
             const isClosable = (p.Status === 'Active');
             if (currentUser.Role === 'Requester' && isClosable) {
@@ -1899,6 +1916,7 @@ async function openPermit(id) {
     </script>
 </body>
 </html>
+
 
 
 
