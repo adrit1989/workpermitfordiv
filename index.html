@@ -1012,6 +1012,7 @@
                         removeLinkBtn.classList.remove('hidden');
                     }
                     loadApprovedJsas(); 
+      
                 } else {
                     jsaFileInp.disabled = true; jsaLinkSel.disabled = true; jsaRadios.forEach(r => r.disabled = true);
                     document.getElementById('btn-del-jsa').classList.add('hidden');
@@ -1123,7 +1124,18 @@
                 alert("System Error: Check Console");
             }
         }
-
+        function toggleJsaMode(mode) {
+            const uploadDiv = document.getElementById('jsa-mode-upload');
+            const linkDiv = document.getElementById('jsa-mode-link');
+            
+            if(uploadDiv && linkDiv) {
+                uploadDiv.classList.toggle('hidden', mode !== 'upload');
+                linkDiv.classList.toggle('hidden', mode !== 'link');
+                
+                // If switching to link mode, ensure we load the list
+                if(mode === 'link') loadApprovedJsas();
+            }
+        }
         /* HELPER: Toggle Critical Dropdown */
         window.toggleCritical = function(isCrit) {
             document.getElementById('critical-options').classList.toggle('hidden', !isCrit);
@@ -1426,16 +1438,14 @@
             currentPermitIOCLData[index].deleted_at = getNow();
             renderIOCLTable(status);
         }
+               
         function renderChecklists() {
             const container = document.getElementById('checklists-container'); 
             container.innerHTML = '';
 
             Object.keys(CL_DATA).forEach(sec => {
                 let itemsHtml = CL_DATA[sec].map((item, i) => {
-                    // Unique name for text input remarks
                     let extra = `<input class="w-full text-xs border-b mt-1" placeholder="Remarks" name="${sec}_Q${i+1}_Rem">`;
-                    
-                    // Special case for Gas Test (Section A, Item 12) to match PDF requirements
                     if(sec==='A' && i===11) {
                         extra = `<div class="grid grid-cols-3 gap-2 mt-2">
                             <input name="GP_Q12_HC" id="GP_Q12_HC" placeholder="HC % LEL" onkeyup="syncGasToRenewal()">
@@ -1443,25 +1453,16 @@
                             <input name="GP_Q12_Oxygen" id="GP_Q12_Oxygen" placeholder="O2 %" onkeyup="syncGasToRenewal()">
                         </div>`;
                     }
-
                     return `<div class="p-3 border rounded-lg bg-gray-50 text-xs hover:shadow-md">
                         <p class="mb-2 font-semibold text-gray-700 min-h-[30px]">${item}</p>
                         <div class="flex gap-2 justify-center">
-                            <label class="cursor-pointer flex items-center gap-1">
-                                <input type="radio" name="${sec}_Q${i+1}" value="Y" checked class="accent-green-600"> Y
-                            </label>
-                            <label class="cursor-pointer flex items-center gap-1">
-                                <input type="radio" name="${sec}_Q${i+1}" value="N" class="accent-red-600"> N
-                            </label>
-                            <label class="cursor-pointer flex items-center gap-1">
-                                <input type="radio" name="${sec}_Q${i+1}" value="NA" class="accent-gray-600"> NA
-                            </label>
+                            <label class="cursor-pointer flex items-center gap-1"><input type="radio" name="${sec}_Q${i+1}" value="Y" checked class="accent-green-600"> Y</label>
+                            <label class="cursor-pointer flex items-center gap-1"><input type="radio" name="${sec}_Q${i+1}" value="N" class="accent-red-600"> N</label>
+                            <label class="cursor-pointer flex items-center gap-1"><input type="radio" name="${sec}_Q${i+1}" value="NA" class="accent-gray-600"> NA</label>
                         </div>
                         ${extra}
                     </div>`;
                 });
-
-                // Add the Section Container with "Select All" buttons
                 container.innerHTML += `
                 <div class="glass border-t-4 border-gray-400">
                     <div class="flex justify-between items-center border-b pb-2 mb-4 bg-gray-50 p-2 rounded">
@@ -1475,16 +1476,104 @@
                     <div class="checklist-grid">${itemsHtml.join('')}</div>
                 </div>`;
             });
-
-            // Re-attach "Select All" listeners
             document.querySelectorAll('.sec-toggle').forEach(el => { 
                 el.addEventListener('change', (e) => { 
-                    document.querySelectorAll(`input[name^="${e.target.dataset.sec}_"]`).forEach(rb => { 
-                        if(rb.value === e.target.value) rb.checked = true; 
-                    }); 
+                    document.querySelectorAll(`input[name^="${e.target.dataset.sec}_"]`).forEach(rb => { if(rb.value === e.target.value) rb.checked = true; }); 
                 }); 
             });
         }
+        // --- MISSING FUNCTION FIXED: renderHazards ---
+        function renderHazards() {
+            document.getElementById('hazards-grid').innerHTML = HAZARDS.map(h => `<label class="flex items-center gap-2 p-3 border rounded-lg bg-gray-50 text-xs cursor-pointer hover:bg-orange-100 font-bold"><input type="checkbox" name="H_${h.replace(/ /g,'')}" value="Y" ${h==='Others'?'id="chk-haz-others"':''} class="accent-orange-600 w-4 h-4"> ${h}</label>`).join('');
+            const otherChk = document.getElementById('chk-haz-others');
+            if(otherChk) otherChk.addEventListener('change', (e) => document.getElementById('other-hazard-div').classList.toggle('hidden', !e.target.checked));
+            document.getElementById('ppe-grid').innerHTML = PPE.map(p => `<label class="flex items-center gap-2 p-3 border rounded-lg bg-gray-50 text-xs cursor-pointer hover:bg-blue-100 font-bold"><input type="checkbox" name="P_${p.replace(/ /g,'')}" value="Y" class="accent-blue-600 w-4 h-4"> ${p}</label>`).join('');
+            const idTypeEl = document.getElementById('w-id-type');
+            if(idTypeEl) idTypeEl.addEventListener('change', (e) => document.getElementById('w-id-type-other').classList.toggle('hidden', e.target.value !== 'Other'));
+        }
+
+        // --- MISSING FUNCTION FIXED: showNewPermit ---
+        function showNewPermit() {
+            document.getElementById("pf").reset();
+            currentPermitId = null;
+            document.querySelectorAll('#pf input, #pf select, #pf textarea').forEach(e => e.disabled = false);
+            if(currentUser) {
+                safeSet("RequesterName", currentUser.Name); 
+                safeSet("Vendor", currentUser.Name); 
+                safeSet("LocationUnit", `${currentUser.Region}/${currentUser.Unit}/${currentUser.Location}`);
+            }
+            const vendorInput = document.getElementById("Vendor");
+            if(vendorInput) vendorInput.readOnly = true;
+            document.getElementById("init-renewal-wrapper").classList.remove('hidden');
+            document.getElementById("actions-bar").innerHTML = `<button type="button" onclick="savePermit()" class="w-full bg-blue-600 text-white px-6 py-3 rounded-lg font-bold shadow-lg">Submit Application</button>`;
+            loadWorkers('permit_dropdown');
+        }
+
+        // --- MISSING FUNCTION FIXED: savePermit ---
+        async function savePermit() {
+            if(!document.getElementById('gsr-check').checked) return alert("Accept GSR.");
+            if(!getVal('WorkType') || !getVal('ValidFrom') || !getVal('ValidTo')) {
+                return alert("Missing Mandatory Fields: Work Type, Valid From, or Valid To.");
+            }
+            const fd = new FormData(document.getElementById("pf"));
+            document.querySelectorAll('input[type="checkbox"]').forEach(c => { if(c.name) fd.set(c.name, c.checked ? "Y" : "N"); });
+            const selectedWorkers = [];
+            document.querySelectorAll('#worker-select-area input:checked').forEach(c => { try { selectedWorkers.push(JSON.parse(c.value)); } catch(e){} });
+            fd.append("SelectedWorkers", JSON.stringify(selectedWorkers));
+            if(currentUser) fd.append("RequesterEmail", currentUser.Email);
+            
+            // Gas Values
+            const hcEl = document.getElementById('GP_Q12_HC'); const toxEl = document.getElementById('GP_Q12_ToxicGas'); const o2El = document.getElementById('GP_Q12_Oxygen');
+            fd.append("GP_Q12_HC", hcEl ? hcEl.value : ""); fd.append("GP_Q12_ToxicGas", toxEl ? toxEl.value : ""); fd.append("GP_Q12_Oxygen", o2El ? o2El.value : "");
+            document.querySelectorAll('input[name$="_Rem"]').forEach(rem => { if(rem.value) fd.append(rem.name, rem.value); });
+            
+            // JSA Logic
+            const jsaMode = document.querySelector('input[name="jsa_mode"]:checked').value;
+            if (jsaMode === 'upload') {
+                const jsaFile = document.getElementById('JsaFile').files[0];
+                if(jsaFile) fd.append('JsaFile', jsaFile);
+            } else {
+                fd.append('JsaLinkedId', document.getElementById('JsaLinkedId').value);
+            }
+
+            const res = await fetch(API+'/save-permit', {method:'POST', body:fd, headers: {'Authorization': `Bearer ${authToken}`}});
+            const json = await res.json();
+            if(json.success) { alert("Permit Created: "+json.permitId); switchView('dashboard'); } else alert(json.error);
+        }
+
+        // --- MISSING FUNCTION FIXED: loadMappedApprovers ---
+        async function loadMappedApprovers() {
+             const reviewers = await apiCall('/get-users-by-loc', 'POST', { region: currentUser.Region, unit: currentUser.Unit, location: currentUser.Location, role: 'Reviewer' });
+             const approvers = await apiCall('/get-users-by-loc', 'POST', { region: currentUser.Region, unit: currentUser.Unit, location: currentUser.Location, role: 'Approver' });
+             document.getElementById("ReviewerEmail").innerHTML = reviewers.map(u => `<option value="${u.Email}">${u.Name}</option>`).join('');
+             document.getElementById("ApproverEmail").innerHTML = approvers.map(u => `<option value="${u.Email}">${u.Name}</option>`).join('');
+        }
+
+        function downloadSecurePDF(id) { 
+            // Simple wrapper to call the backend route
+            window.location.href = `${API}/download-pdf/${id}?token=${authToken}`; 
+            // Better implementation would fetch blob like viewSecureFile, but for download
+             try { 
+                document.getElementById('loader').style.display = 'flex'; 
+                fetch(`${API}/download-pdf/${id}`, { headers: {'Authorization': `Bearer ${authToken}`} })
+                .then(res => { if(!res.ok) throw new Error("Err"); return res.blob(); })
+                .then(blob => {
+                    const a = document.createElement('a'); a.href = window.URL.createObjectURL(blob); a.download = `${id}.pdf`; 
+                    document.body.appendChild(a); a.click(); document.body.removeChild(a); 
+                })
+                .catch(e => alert("Download Failed"))
+                .finally(() => document.getElementById('loader').style.display = 'none');
+             } catch(e) {}
+        }
+
+        async function downloadSecureExcel() { try { document.getElementById('loader').style.display = 'flex'; const res = await fetch(`${API}/download-excel`, { headers: {'Authorization': `Bearer ${authToken}`} }); if(!res.ok) throw new Error("Err"); const blob = await res.blob(); const a = document.createElement('a'); a.href = window.URL.createObjectURL(blob); a.download = "Permits.xlsx"; document.body.appendChild(a); a.click(); document.body.removeChild(a); } catch(e) { alert("Failed"); } finally { document.getElementById('loader').style.display = 'none'; } }
+        
+        // Sync Helper
+        window.syncGasToRenewal = function() {
+            if(document.getElementById('chk-init-renewal').checked) {
+                safeSet('InitRenHC', getVal('GP_Q12_HC')); safeSet('InitRenTox', getVal('GP_Q12_ToxicGas')); safeSet('InitRenO2', getVal('GP_Q12_Oxygen'));
+            }
+            };
  
         document.getElementById('btn-add-rev-sup').onclick = () => addIOCLRow('iocl-sup-container-rev');
         document.getElementById('btn-add-app-sup').onclick = () => addIOCLRow('iocl-sup-container-app');
@@ -1493,5 +1582,3 @@
     </script>
 </body>
 </html>
-
-
