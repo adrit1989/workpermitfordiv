@@ -1663,19 +1663,39 @@ async function openPermit(id) {
         async function downloadSecureExcel() { try { document.getElementById('loader').style.display = 'flex'; const res = await fetch(`${API}/download-excel`, { headers: {'Authorization': `Bearer ${authToken}`} }); if(!res.ok) throw new Error("Err"); const blob = await res.blob(); const a = document.createElement('a'); a.href = window.URL.createObjectURL(blob); a.download = "Permits.xlsx"; document.body.appendChild(a); a.click(); document.body.removeChild(a); } catch(e) { alert("Failed"); } finally { document.getElementById('loader').style.display = 'none'; } }
          
          
-        window.viewSecurePhoto = async function(url) {
-            if (!url) return alert("No photo");
-            const rawFilename = url.replace(/^.*[\\\/]/, '');
-            const filename = encodeURIComponent(rawFilename);
- 
+/* --- UNIVERSAL FILE VIEWER (PDFs & PHOTOS) --- */
+        window.viewSecureFile = async function(fullUrl) {
+            if (!fullUrl) return alert("No file linked");
+            
+            // 1. Extract the specific filename/path that the server needs
+            // The DB stores the full Azure URL, but the Proxy needs just the path inside the container.
+            let blobName = fullUrl;
+            
+            if(fullUrl.includes('/permit-attachments/')) {
+                // Extracts "permit-jsa/filename.pdf" from the full URL
+                blobName = fullUrl.split('/permit-attachments/')[1];
+            }
+
+            console.log("Requesting File:", blobName); // Debugging
+
             document.getElementById('loader').style.display = 'flex';
+
             try {
-                const res = await fetch(`${API}/view-photo/${filename}`, { method: 'GET', headers: {'Authorization': `Bearer ${authToken}`} });
-                if (!res.ok) throw new Error("Err");
+                // 2. Call the new Backend Proxy Route
+                const res = await fetch(`${API}/view-blob?name=${encodeURIComponent(blobName)}`, { 
+                    method: 'GET', 
+                    headers: {'Authorization': `Bearer ${authToken}`} 
+                });
+                
+                if (!res.ok) throw new Error("File retrieval failed (404)");
+                
+                // 3. Create a temporary local URL for the downloaded blob and open it
                 const blob = await res.blob();
-                window.open(window.URL.createObjectURL(blob), '_blank');
+                const localUrl = window.URL.createObjectURL(blob);
+                window.open(localUrl, '_blank');
             } catch (e) {
-                alert("Load Failed: " + e.message);
+                console.error(e);
+                alert("Error opening file: " + e.message);
             } finally {
                 document.getElementById('loader').style.display = 'none';
             }
@@ -1916,6 +1936,7 @@ async function openPermit(id) {
     </script>
 </body>
 </html>
+
 
 
 
