@@ -898,18 +898,30 @@ app.post('/api/save-permit', authenticateAccess, upload.any(), async(req, res) =
 
     res.json({success: true, permitId: pid});
 });
-app.post('/api/update-status', authenticateAccess, async(req, res) => {
+app.post('/api/update-status', authenticateAccess, upload.any(), async(req, res) => {
     const { PermitID, action, ...extras } = req.body;
     const pool = await getConnection();
     const cur = await pool.request().input('p', PermitID).query("SELECT * FROM Permits WHERE PermitID=@p");
     if(!cur.recordset.length) return res.status(404).json({error: "Permit Not Found"});
+    
     let p = cur.recordset[0];
     let d = JSON.parse(p.FullDataJSON);
     let rens = JSON.parse(p.RenewalsJSON || "[]");
     let st = p.Status;
     const now = getNowIST(); 
     const usr = req.user.name;
-    Object.assign(d, extras);
+    Object.assign(d, extras); // Merge text fields
+
+    // --- HANDLE JSA FILE UPDATE ---
+    let newJsaUrl = null;
+    if (req.files) {
+        const jsaFile = req.files.find(f => f.fieldname === 'JsaFile');
+        if(jsaFile) {
+            newJsaUrl = await uploadToAzure(jsaFile.buffer, `permit-jsa/${PermitID}-${Date.now()}.pdf`, 'application/pdf');
+        }
+    }
+    const newJsaId = req.body.JsaLinkedId || null;
+    // -----------------------------
 
     if (action === 'reject') st = 'Rejected';
     else if (action === 'review') { st = 'Pending Approval'; d.Reviewer_Sig = `${usr} on ${now}`; }
@@ -919,6 +931,7 @@ app.post('/api/update-status', authenticateAccess, async(req, res) => {
     else if (action === 'reject_closure') { st = 'Active'; } 
     else if (action === 'approve_closure') { st = 'Closure Pending Approval'; d.Closure_Reviewer_Date = now; d.Closure_Reviewer_Sig = `${usr} on ${now}`; }
 
+    // (Existing Renewal Logic preserved...)
     if(action === 'approve_1st_ren' || action === 'approve' || action === 'review') {
         if(rens.length > 0 && rens[rens.length-1].status.includes('pending')) {
              let last = rens[rens.length-1];
@@ -1042,13 +1055,17 @@ app.post('/api/permit-data', authenticateAccess, async(req, res) => {
     const r = await pool.request().input('p', req.body.permitId).query("SELECT * FROM Permits WHERE PermitID=@p");
     if(!r.recordset.length) return res.json({error:"404"});
     const p = r.recordset[0];
-    res.json({ ...JSON.parse(p.FullDataJSON), Status: p.Status, RenewalsJSON: p.RenewalsJSON, IOCLSupervisors: JSON.parse(p.FullDataJSON).IOCLSupervisors || [] });
-});
-
-app.post('/api/map-data', async(req,res) => {
-    const pool = await getConnection();
-    const r = await pool.request().query("SELECT PermitID, FullDataJSON, Status, Latitude, Longitude FROM Permits WHERE Status='Active' OR Status LIKE '%Renewal%'");
-    res.json(r.recordset.map(x => ({ PermitID: x.PermitID, Status: x.Status, lat: x.Latitude, lng: x.Longitude, ...JSON.parse(x.FullDataJSON) })));
+    
+    // MERGE JSON DATA WITH SQL COLUMNS
+    res.json({ 
+        ...JSON.parse(p.FullDataJSON), 
+        Status: p.Status, 
+        RenewalsJSON: p.RenewalsJSON, 
+        IOCLSupervisors: JSON.parse(p.FullDataJSON).IOCLSupervisors || [],
+        // CRITICAL FIX: Send these columns to frontend
+        JsaFileUrl: p.JsaFileUrl, 
+        JsaLinkedId: p.JsaLinkedId 
+    });
 });
 /* =====================================================
    JSA PORTAL ROUTES
