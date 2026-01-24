@@ -1073,27 +1073,39 @@
                 }
             }
  
-            // --- Approver View (STRICT 'Pending Approval' CHECK) ---
-            if (p.Status === 'Pending Approval' && currentUser.Role === 'Approver') {
+            // --- Approver View ---
+            // LOGIC FIX: Ensure buttons show for 'Pending Approval' or if Status includes 'Renewal' and is assigned to Approver
+            const isApproverPending = (p.Status === 'Pending Approval' || p.Status === 'Renewal Pending Approval' || p.Status === 'Closure Pending Approval');
+            
+            if (isApproverPending && currentUser.Role === 'Approver') {
                 document.getElementById('fs-approver-section').classList.remove('hidden');
+                
+                // Show Renewal Decision Box only if it's a renewal workflow
                 if (isFirstRenRequest && lastRen && lastRen.status === 'pending_approval') {
                     document.getElementById('app-renewal-decision').classList.remove('hidden');
+                } else if (p.Status === 'Closure Pending Approval') {
+                     // Closure logic is handled in handleClosureUI, hide renewal box here
+                     document.getElementById('app-renewal-decision').classList.add('hidden');
                 }
-                const b1 = document.createElement("button"); 
-                b1.type = "button"; 
-                b1.className = "bg-red-600 text-white px-4 py-2 rounded font-bold mr-2"; 
-                b1.innerText = "Reject Permit"; 
-                b1.onclick = () => upd('reject');
- 
-                const b2 = document.createElement("button"); 
-                b2.type = "button"; 
-                b2.className = "bg-green-600 text-white px-4 py-2 rounded font-bold"; 
-                b2.innerText = "Final Approve"; 
-                b2.onclick = () => upd('approve');
- 
-                actionsDiv.append(b1, b2);
+
+                // CLEAR and RE-ADD Buttons to avoid duplicates
+                // Only add main Approve/Reject buttons if it's the MAIN PERMIT approval (not closure/renewal specific)
+                if (p.Status === 'Pending Approval') {
+                    const b1 = document.createElement("button"); 
+                    b1.type = "button"; 
+                    b1.className = "bg-red-600 text-white px-4 py-2 rounded font-bold mr-2 shadow hover:bg-red-700"; 
+                    b1.innerText = "Reject Permit"; 
+                    b1.onclick = () => upd('reject');
+    
+                    const b2 = document.createElement("button"); 
+                    b2.type = "button"; 
+                    b2.className = "bg-green-600 text-white px-4 py-2 rounded font-bold shadow hover:bg-green-700"; 
+                    b2.innerText = "Final Approve"; 
+                    b2.onclick = () => upd('approve');
+    
+                    actionsDiv.append(b1, b2);
+                }
             }
- 
             if (p.Status === 'Active' && currentUser.Role === 'Approver') {
                 document.getElementById('fs-approver-section').classList.remove('hidden');
                 document.getElementById('app-renewal-decision').classList.add('hidden');
@@ -1299,14 +1311,20 @@ async function upd(act) {
             fd.append('IOCLSupervisors', JSON.stringify(ioclData));
 
             // Handle JSA File Changes
+            // Handle JSA File Changes (Reviewer/Approver Override)
             const jsaMode = document.querySelector('input[name="jsa_mode"]:checked').value;
             if (jsaMode === 'upload') {
                 const f = document.getElementById('JsaFile').files[0];
-                if(f) fd.append('JsaFile', f); // Only sends if new file selected
+                if(f) {
+                    fd.append('JsaFile', f); // Appending file will trigger upload on server
+                    // Backend will treat this as the NEW authoritative file
+                }
             } else {
-                fd.append('JsaLinkedId', document.getElementById('JsaLinkedId').value);
+                const linkedId = document.getElementById('JsaLinkedId').value;
+                if(linkedId) {
+                    fd.append('JsaLinkedId', linkedId); // Backend will update the Link ID
+                }
             }
-
             // Handle Radios/CheckBoxes
             if (act === 'review' || act === 'approve') {
                 const revDec = document.querySelector('input[name="RevRenAction"]:checked');
@@ -1913,6 +1931,7 @@ async function openNewJsaForm(jsaId = null, refNumber = null) {
     </script>
 </body>
 </html>
+
 
 
 
