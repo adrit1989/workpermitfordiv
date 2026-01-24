@@ -10,6 +10,38 @@
     <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyADwuqMDCwNSaZKBnWURDCYdqlMxfiWBnU" async></script>
  
     <style nonce="NONCE_PLACEHOLDER">
+        
+        /* --- MOBILE DEBUGGER (Added for you) --- */
+        (function() {
+            if (window.innerWidth < 768) { 
+                // Create the black box if it doesn't exist in HTML
+                if(!document.getElementById('mobile-debug')) {
+                    const dbg = document.createElement('div');
+                    dbg.id = 'mobile-debug';
+                    dbg.className = 'fixed bottom-0 left-0 w-full h-48 bg-black/90 text-green-400 text-[10px] font-mono p-2 overflow-y-auto z-[10000] border-t-2 border-green-600 hidden';
+                    document.body.appendChild(dbg);
+                }
+                const debugBox = document.getElementById('mobile-debug');
+                debugBox.classList.remove('hidden');
+                
+                const oldLog = console.log;
+                console.log = function(...args) {
+                    oldLog.apply(console, args);
+                    const msg = args.map(arg => typeof arg === 'object' ? JSON.stringify(arg) : String(arg)).join(' ');
+                    debugBox.innerHTML += `<div class="border-b border-gray-700 py-1">➤ ${msg}</div>`;
+                    debugBox.scrollTop = debugBox.scrollHeight;
+                };
+
+                const oldErr = console.error;
+                console.error = function(...args) {
+                    oldErr.apply(console, args);
+                    const msg = args.map(arg => typeof arg === 'object' ? JSON.stringify(arg) : String(arg)).join(' ');
+                    debugBox.innerHTML += `<div class="text-red-400 font-bold border-b border-gray-700 py-1">❌ ${msg}</div>`;
+                    debugBox.scrollTop = debugBox.scrollHeight;
+                };
+                console.log("MOBILE DEBUGGER ACTIVE. Tap a permit to see logs.");
+            }
+        })();
         body { background-color: #f3f4f6; font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; overflow: hidden; margin: 0; padding: 0; }
         .hidden { display: none !important; }
         .glass { background: white; padding: 1.5rem; border-radius: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); margin-bottom: 1.5rem; border: 1px solid #e5e7eb; }
@@ -1867,6 +1899,7 @@ async function openPermit(id) {
     </script>
 </body>
 </html>
+
 
 
 
