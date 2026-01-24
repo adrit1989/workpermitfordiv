@@ -863,6 +863,16 @@ app.post('/api/save-permit', authenticateAccess, upload.any(), async(req, res) =
         if (idRes.recordset[0].MaxVal) nextNum = idRes.recordset[0].MaxVal + 1;
         pid = `WP-${nextNum}`;
     }
+    /* --- NEW JSA LOGIC START --- */
+    let jsaUrl = null;
+    if (req.files) {
+        const jsaFile = req.files.find(f => f.fieldname === 'JsaFile');
+        if(jsaFile) {
+            jsaUrl = await uploadToAzure(jsaFile.buffer, `permit-jsa/${pid}-${Date.now()}.pdf`, 'application/pdf');
+        }
+    }
+    const jsaLinkedId = fd.JsaLinkedId || null;
+    /* --- NEW JSA LOGIC END --- */
     let rens = [];
     if(fd.InitRen === 'Y') {
         rens.push({ status: 'pending_review', valid_from: fd.InitRenFrom, valid_to: fd.InitRenTo, hc: fd.InitRenHC, toxic: fd.InitRenTox, oxygen: fd.InitRenO2, req_name: req.user.name, req_at: getNowIST() });
@@ -870,17 +880,24 @@ app.post('/api/save-permit', authenticateAccess, upload.any(), async(req, res) =
     const q = pool.request().input('p', pid).input('s', 'Pending Review').input('w', fd.WorkType)
         .input('re', req.user.email).input('rv', fd.ReviewerEmail).input('ap', fd.ApproverEmail)
         .input('vf', new Date(fd.ValidFrom)).input('vt', new Date(fd.ValidTo))
-        .input('j', JSON.stringify(fd)).input('ren', JSON.stringify(rens));
+        .input('j', JSON.stringify(fd)).input('ren', JSON.stringify(rens))
+        /* NEW INPUTS */
+        .input('jsaUrl', jsaUrl)
+        .input('jsaId', jsaLinkedId);
+
     await q.query(`
         MERGE Permits AS target USING (SELECT @p as PermitID) AS source ON (target.PermitID = source.PermitID) 
-        WHEN MATCHED THEN UPDATE SET FullDataJSON=@j, Status=@s, RenewalsJSON=@ren 
-        WHEN NOT MATCHED THEN INSERT (PermitID, Status, WorkType, RequesterEmail, ReviewerEmail, ApproverEmail, ValidFrom, ValidTo, FullDataJSON, RenewalsJSON) 
-        VALUES (@p, @s, @w, @re, @rv, @ap, @vf, @vt, @j, @ren);
+        WHEN MATCHED THEN 
+            UPDATE SET FullDataJSON=@j, Status=@s, RenewalsJSON=@ren,
+            JsaFileUrl = COALESCE(@jsaUrl, JsaFileUrl), -- Update only if new file
+            JsaLinkedId = @jsaId
+        WHEN NOT MATCHED THEN 
+            INSERT (PermitID, Status, WorkType, RequesterEmail, ReviewerEmail, ApproverEmail, ValidFrom, ValidTo, FullDataJSON, RenewalsJSON, JsaFileUrl, JsaLinkedId) 
+            VALUES (@p, @s, @w, @re, @rv, @ap, @vf, @vt, @j, @ren, @jsaUrl, @jsaId);
     `);
+
     res.json({success: true, permitId: pid});
 });
-
-// UPDATE STATUS
 app.post('/api/update-status', authenticateAccess, async(req, res) => {
     const { PermitID, action, ...extras } = req.body;
     const pool = await getConnection();
@@ -1033,6 +1050,178 @@ app.post('/api/map-data', async(req,res) => {
     const r = await pool.request().query("SELECT PermitID, FullDataJSON, Status, Latitude, Longitude FROM Permits WHERE Status='Active' OR Status LIKE '%Renewal%'");
     res.json(r.recordset.map(x => ({ PermitID: x.PermitID, Status: x.Status, lat: x.Latitude, lng: x.Longitude, ...JSON.parse(x.FullDataJSON) })));
 });
+/* =====================================================
+   JSA PORTAL ROUTES
+===================================================== */
+
+// 1. List JSAs for Dashboard
+app.post('/api/jsa/list-my', authenticateAccess, async(req, res) => {
+    const { role, email } = req.body;
+    const pool = await getConnection();
+    let q = "SELECT JSAID, RefNumber, JobTitle, Location, Status, RequesterName FROM JSAs ";
+    
+    // Filter logic
+    if (role === 'Requester') q += "WHERE RequesterEmail = @e";
+    else if (role === 'Reviewer') q += "WHERE ReviewerEmail = @e OR Status = 'Pending Review' OR Status = 'Approved'";
+    else if (role === 'Approver') q += "WHERE ApproverEmail = @e OR Status = 'Pending Approval' OR Status = 'Approved'";
+    else if (role !== 'MasterAdmin') q += "WHERE 1=0"; // Safety fallback
+    
+    const r = await pool.request().input('e', email).query(q + " ORDER BY JSAID DESC");
+    res.json(r.recordset);
+});
+
+// 2. List Approved JSAs for Linking in Permit
+app.post('/api/jsa/list-approved', authenticateAccess, async(req, res) => {
+    const pool = await getConnection();
+    const r = await pool.request()
+        .input('r', req.body.region).input('u', req.body.unit)
+        .query("SELECT RefNumber, JobTitle FROM JSAs WHERE Status='Approved' AND Region=@r AND Unit=@u ORDER BY JSAID DESC");
+    res.json(r.recordset);
+});
+
+// 3. Get Single JSA Data
+app.post('/api/jsa/get', authenticateAccess, async(req, res) => {
+    const pool = await getConnection();
+    const r = await pool.request().input('id', req.body.id).query("SELECT * FROM JSAs WHERE JSAID=@id");
+    res.json(r.recordset[0]);
+});
+
+// 4. Save JSA (Create or Edit Draft)
+app.post('/api/jsa/save', authenticateAccess, async(req, res) => {
+    const { JSAID, DataJSON, ...fields } = req.body;
+    const pool = await getConnection();
+    
+    let targetID = JSAID;
+    if (!targetID) {
+        // Create new ID (Simple logic, ideally use Sequence or Identity)
+        const idRes = await pool.request().query("SELECT MAX(JSAID) as maxId FROM JSAs");
+        const nextId = (idRes.recordset[0].maxId || 1000) + 1;
+        
+        await pool.request().input('id', nextId).input('reqE', fields.RequesterEmail)
+            .query("INSERT INTO JSAs (JSAID, Status, RequesterEmail, CreatedAt) VALUES (@id, 'Draft', @reqE, GETDATE())");
+        targetID = nextId;
+    }
+
+    const status = 'Pending Review'; 
+    
+    await pool.request()
+        .input('id', targetID)
+        .input('jt', fields.JobTitle).input('ex', fields.ExecutedBy)
+        .input('re', fields.ReviewerEmail).input('ae', fields.ApproverEmail)
+        .input('reqE', fields.RequesterEmail).input('reqN', fields.RequesterName)
+        .input('reg', fields.Region).input('u', fields.Unit).input('l', fields.Location)
+        .input('d', DataJSON).input('s', status)
+        .query(`UPDATE JSAs SET JobTitle=@jt, ExecutedBy=@ex, ReviewerEmail=@re, ApproverEmail=@ae, 
+                RequesterEmail=@reqE, RequesterName=@reqN, Region=@reg, Unit=@u, Location=@l, 
+                DataJSON=@d, Status=@s WHERE JSAID=@id`);
+                
+    res.json({ success: true });
+});
+
+// 5. Action (Review/Approve/Reject)
+app.post('/api/jsa/action', authenticateAccess, async(req, res) => {
+    const { id, action, remarks, updatedData } = req.body;
+    const pool = await getConnection();
+    
+    let newStatus = '';
+    let extraSql = ''; 
+    const now = getNowIST();
+
+    if (action === 'reject') newStatus = 'Rejected';
+    else if (action === 'approve' && req.user.role === 'Reviewer') newStatus = 'Pending Approval';
+    else if (action === 'approve' && req.user.role === 'Approver') newStatus = 'Approved';
+
+    if (newStatus === 'Approved') {
+        const ref = `JSA-${req.user.unit}-${id}`;
+        
+        // Generate PDF
+        const r = await pool.request().input('id', id).query("SELECT * FROM JSAs WHERE JSAID=@id");
+        const jsaData = r.recordset[0];
+        jsaData.DataJSON = updatedData; 
+        
+        const pdfBuffer = await generateJsaPdfBuffer(jsaData, ref, req.user.name, now);
+        const url = await uploadToAzure(pdfBuffer, `jsa/${ref}.pdf`, 'application/pdf');
+        
+        extraSql = `, RefNumber='${ref}', FinalPdfUrl='${url}', ApprovedBy='${req.user.name}', ApprovedAt='${now}'`;
+    } else if (req.user.role === 'Reviewer' && action === 'approve') {
+        extraSql = `, ReviewedBy='${req.user.name}', ReviewedAt='${now}'`;
+    }
+
+    await pool.request()
+        .input('id', id).input('s', newStatus).input('d', updatedData) 
+        .query(`UPDATE JSAs SET Status=@s, DataJSON=@d ${extraSql} WHERE JSAID=@id`);
+        
+    res.json({ success: true });
+});
+
+// 6. Download JSA PDF
+app.get('/api/jsa/download/:id', authenticateAccess, async(req, res) => {
+    const pool = await getConnection();
+    const r = await pool.request().input('id', req.params.id).query("SELECT FinalPdfUrl FROM JSAs WHERE JSAID=@id");
+    if(r.recordset[0] && r.recordset[0].FinalPdfUrl) {
+         // Assuming you have a function to fetch from Azure, or just redirect
+         // Ideally use the same logic as download-pdf permit to stream securely
+         const blobName = r.recordset[0].FinalPdfUrl.split('/').pop();
+         // ... (Insert Blob Download Stream Logic Here) ...
+         // For now, if public access allowed: res.redirect(r.recordset[0].FinalPdfUrl);
+         res.json({url: r.recordset[0].FinalPdfUrl}); // Simplified
+    } else {
+        res.status(404).send("PDF not found");
+    }
+});
+
+async function generateJsaPdfBuffer(jsa, refNo, approverName, approvedDate) {
+    return new Promise((resolve, reject) => {
+        const doc = new PDFDocument({ margin: 30, size: 'A4' });
+        const chunks = [];
+        doc.on('data', chunks.push.bind(chunks));
+        doc.on('end', () => resolve(Buffer.concat(chunks)));
+
+        const data = JSON.parse(jsa.DataJSON);
+        const team = data.team || [];
+        const steps = data.steps || [];
+
+        // Header
+        doc.font('Helvetica-Bold').fontSize(14).text('JOB SAFETY ANALYSIS', { align: 'center' });
+        doc.fontSize(10).text('IndianOil Corporation Limited', { align: 'center' });
+        doc.moveDown();
+        
+        // Info Box
+        const startY = doc.y;
+        doc.rect(30, startY, 535, 70).stroke();
+        doc.fontSize(9).text(`Ref: ${refNo}`, 35, startY+10);
+        doc.text(`Date: ${approvedDate}`, 400, startY+10);
+        doc.text(`Job: ${jsa.JobTitle}`, 35, startY+25);
+        doc.text(`Loc: ${jsa.Location}`, 35, startY+40);
+        doc.text(`Executed By: ${jsa.ExecutedBy}`, 35, startY+55);
+
+        // Team
+        doc.y = startY + 80;
+        doc.font('Helvetica-Bold').text('JSA DONE BY:', 30, doc.y);
+        doc.y += 15;
+        team.forEach(p => doc.font('Helvetica').text(`- ${p.name} (${p.desig}, ${p.dept})`));
+
+        // Table
+        doc.moveDown();
+        doc.font('Helvetica-Bold').text('RISK ASSESSMENT:', 30, doc.y);
+        doc.moveDown();
+        
+        // Risk Steps
+        steps.forEach((s, i) => {
+            if(doc.y > 700) doc.addPage();
+            doc.font('Helvetica-Bold').text(`Step ${i+1}: ${s.activity}`);
+            doc.font('Helvetica').fillColor('red').text(`   Hazard: ${s.hazard}`);
+            doc.fillColor('green').text(`   Control: ${s.control}`);
+            doc.fillColor('black').moveDown(0.5);
+        });
+
+        // Signatures
+        doc.moveDown();
+        doc.font('Helvetica-Bold').text(`Approved By: ${approverName} on ${approvedDate}`);
+        
+        doc.end();
+    });
+}
 
 app.get('/', (req, res) => {
     const indexPath = path.join(__dirname, 'index.html');
