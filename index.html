@@ -1008,20 +1008,7 @@
         // Update to use the new viewSecureFile function
         link.onclick = (e) => { e.preventDefault(); viewSecureFile(p.JsaFileUrl); };
         existDisplay.classList.remove('hidden');
-        // Hide the linked view button if we are in upload mode
-        if(document.getElementById('btn-view-linked-jsa')) document.getElementById('btn-view-linked-jsa').classList.add('hidden');
-    }
 
-    // 3. Permissions (Editing / Deleting)
-    let canEditJsa = false;
-    // Allow Requestor to edit if Draft/Rejected
-    if (currentUser.Role === 'Requester' && (p.Status === 'Draft' || p.Status.includes('Rejected') || p.Status === 'Pending Review')) canEditJsa = true; 
-    // Allow Reviewer to edit in Pending Review
-    if (currentUser.Role === 'Reviewer' && p.Status === 'Pending Review') canEditJsa = true;
-    // Allow Approver to edit in Pending Approval
-    if (currentUser.Role === 'Approver' && p.Status === 'Pending Approval') canEditJsa = true;
-
-    if (canEditJsa) {
 /* 6. CORE PERMIT LOGIC (FIXED BUTTONS & OVERRIDE) */
 async function openPermit(id) {
     // 1. Fetch Data
@@ -2127,6 +2114,7 @@ async function openNewJsaForm(jsaId = null, refNumber = null) {
     </script>
 </body>
 </html>
+
 
 
 
