@@ -1073,8 +1073,7 @@
                 }
             }
  
-            // --- Approver View ---
-            // LOGIC FIX: Ensure buttons show for 'Pending Approval' or if Status includes 'Renewal' and is assigned to Approver
+            // --- Approver View (Corrected Logic) ---
             const isApproverPending = (p.Status === 'Pending Approval' || p.Status === 'Renewal Pending Approval' || p.Status === 'Closure Pending Approval');
             
             if (isApproverPending && currentUser.Role === 'Approver') {
@@ -1084,12 +1083,12 @@
                 if (isFirstRenRequest && lastRen && lastRen.status === 'pending_approval') {
                     document.getElementById('app-renewal-decision').classList.remove('hidden');
                 } else if (p.Status === 'Closure Pending Approval') {
-                     // Closure logic is handled in handleClosureUI, hide renewal box here
+                     // Closure logic handles its own buttons, hide renewal box here
                      document.getElementById('app-renewal-decision').classList.add('hidden');
                 }
 
-                // CLEAR and RE-ADD Buttons to avoid duplicates
-                // Only add main Approve/Reject buttons if it's the MAIN PERMIT approval (not closure/renewal specific)
+                // ADD BUTTONS FOR MAIN PERMIT APPROVAL
+                // We check strictly for 'Pending Approval' so these buttons don't duplicate on Renewal/Closure screens
                 if (p.Status === 'Pending Approval') {
                     const b1 = document.createElement("button"); 
                     b1.type = "button"; 
@@ -1931,6 +1930,7 @@ async function openNewJsaForm(jsaId = null, refNumber = null) {
     </script>
 </body>
 </html>
+
 
 
 
