@@ -123,6 +123,7 @@
                     <div class="nav-item hidden" id="nav-users" onclick="switchView('users')"><span>👥</span> User Mgmt</div>
                     <div class="nav-item hidden" onclick="switchView('map')" id="nav-map"><span>🗺️</span> Map View</div>
                     <div class="nav-item" onclick="switchView('stats')" id="nav-stats"><span>📈</span> Live Stats</div>
+                    <div class="nav-item" onclick="switchView('jsa')" id="nav-jsa"><span>📋</span> JSA Portal</div>
                     <div class="nav-item hidden" id="nav-admin" onclick="switchView('admin')"><span>🔐</span> Admin Console</div>
                 </nav>
                 <div class="p-4 border-t border-gray-700 bg-gray-900 flex flex-col gap-2">
@@ -132,6 +133,91 @@
             </div>
  
             <div class="content-area">
+                <div id="view-jsa" class="hidden">
+    <div class="flex justify-between items-center mb-6">
+        <h2 class="text-2xl font-bold text-gray-800">Job Safety Analysis (JSA)</h2>
+        <button onclick="openNewJsaForm()" class="bg-blue-600 text-white px-4 py-2 rounded shadow font-bold">+ Create New JSA</button>
+    </div>
+    <div class="glass overflow-x-auto">
+        <table class="w-full text-sm text-left data-table" id="table-jsa">
+            <thead class="bg-gray-100">
+                <tr><th>JSA Ref</th><th>Job Title</th><th>Location</th><th>Status</th><th>Requestor</th><th>Action</th></tr>
+            </thead>
+            <tbody class="divide-y" id="tbody-jsa"></tbody>
+        </table>
+    </div>
+</div>
+
+<div id="view-jsa-form" class="hidden">
+    <div class="flex justify-between items-center mb-4 sticky top-0 bg-gray-50/95 backdrop-blur z-20 py-2 border-b">
+        <button onclick="switchView('jsa')" class="text-blue-600 font-bold">← Back to List</button>
+        <h2 class="text-xl font-bold text-gray-800" id="jsa-form-title">New JSA</h2>
+    </div>
+
+    <form id="jsa-form" class="max-w-6xl mx-auto pb-20 space-y-4">
+        <input type="hidden" id="JSAID" name="JSAID">
+        
+        <div class="glass border-t-4 border-blue-500">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div><label class="text-xs font-bold text-gray-500">Region</label><input id="jsa-region" readonly class="bg-gray-100"></div>
+                <div><label class="text-xs font-bold text-gray-500">Unit</label><input id="jsa-unit" readonly class="bg-gray-100"></div>
+                <div><label class="text-xs font-bold text-gray-500">Location</label><input id="jsa-loc" readonly class="bg-gray-100"></div>
+                <div class="md:col-span-3"><label class="text-xs font-bold text-gray-500">Job Title</label><input id="jsa-job-title" name="JobTitle" required placeholder="Description of Job"></div>
+                <div class="md:col-span-3">
+                    <label class="text-xs font-bold text-gray-500">Job Executed By (Dept / Contractor)</label>
+                    <input id="jsa-executed-by" name="ExecutedBy" required placeholder="e.g. Mechanical Maint / ABC Const.">
+                </div>
+            </div>
+        </div>
+
+        <div class="glass border-t-4 border-indigo-500">
+            <div class="flex justify-between items-center border-b pb-2 mb-2">
+                <h3 class="font-bold text-indigo-700">JSA Done By (Team)</h3>
+                <button type="button" onclick="addJsaPersonRow()" class="bg-indigo-100 text-indigo-700 px-2 py-1 rounded text-xs font-bold">+ Add Person</button>
+            </div>
+            <table class="w-full text-xs text-left" id="table-jsa-team">
+                <thead class="bg-gray-50"><tr><th>Name</th><th>Designation</th><th>Department</th><th>Action</th></tr></thead>
+                <tbody></tbody>
+            </table>
+        </div>
+
+        <div class="glass border-t-4 border-orange-500">
+            <div class="flex justify-between items-center border-b pb-2 mb-2">
+                <h3 class="font-bold text-orange-700">Risk Assessment</h3>
+                <button type="button" onclick="addJsaRiskRow()" class="bg-orange-100 text-orange-700 px-2 py-1 rounded text-xs font-bold">+ Add Activity Step</button>
+            </div>
+            <table class="w-full text-xs text-left" id="table-jsa-risk">
+                <thead class="bg-gray-50"><tr><th width="5%">#</th><th width="25%">Activity</th><th width="25%">Hazards</th><th width="40%">Control Measures</th><th width="5%">Del</th></tr></thead>
+                <tbody></tbody>
+            </table>
+        </div>
+
+        <div class="glass border-t-4 border-green-500">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label class="text-xs font-bold text-gray-500">Reviewer</label>
+                    <select id="jsa-reviewer" name="ReviewerEmail" class="w-full"></select>
+                </div>
+                <div>
+                    <label class="text-xs font-bold text-gray-500">Approver</label>
+                    <select id="jsa-approver" name="ApproverEmail" class="w-full"></select>
+                </div>
+            </div>
+            
+            <div id="jsa-workflow-actions" class="mt-4 pt-4 border-t hidden">
+                <textarea id="jsa-remarks" placeholder="Reviewer/Approver Remarks" class="w-full mb-2"></textarea>
+                <div class="flex gap-2 justify-end">
+                    <button type="button" id="btn-jsa-reject" class="bg-red-600 text-white px-4 py-2 rounded font-bold">Reject</button>
+                    <button type="button" id="btn-jsa-approve" class="bg-green-600 text-white px-4 py-2 rounded font-bold">Approve / Verify</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="flex justify-end pt-4" id="jsa-submit-bar">
+            <button type="submit" class="bg-blue-600 text-white px-6 py-3 rounded-lg font-bold shadow-lg">Submit JSA</button>
+        </div>
+    </form>
+</div>
                 <button class="md:hidden mb-4 text-gray-600 bg-white p-2 rounded shadow" onclick="document.getElementById('sidebar').classList.toggle('open')">☰ Menu</button>
                  
                 <div id="view-dashboard">
@@ -397,14 +483,56 @@
                             </div>
                         </div>
  
-                        <div class="glass" id="section-e">
-                            <h3 class="font-bold text-gray-600 border-b pb-2 mb-4">E. References</h3>
-                            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-                                <input name="SopNo" id="SopNo" placeholder="SOP/SWP/SMP No"><input name="JsaNo" id="JsaNo" placeholder="JSA No">
-                                <input name="IoclEquip" id="IoclEquip" placeholder="IOCL Equip"><input name="ContEquip" id="ContEquip" placeholder="Contractor Equip">
-                                <input name="WorkOrder" id="WorkOrder" placeholder="Work Order No"><input name="ToolBoxTalk" id="ToolBoxTalk" placeholder="Tool Box Talk Ref">
-                            </div>
-                        </div>
+<div class="glass" id="section-e">
+    <h3 class="font-bold text-gray-600 border-b pb-2 mb-4">E. References</h3>
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <input name="SopNo" id="SopNo" placeholder="SOP/SWP/SMP No">
+
+        <div class="md:col-span-2 p-2 border rounded bg-gray-50">
+            <label class="text-xs font-bold text-gray-500 block mb-1">Job Safety Analysis (JSA)</label>
+            <div class="flex gap-4 mb-2">
+                <label class="flex items-center gap-1 text-xs cursor-pointer">
+                    <input type="radio" name="jsa_mode" value="upload" checked onclick="toggleJsaMode('upload')"> Upload PDF
+                </label>
+                <label class="flex items-center gap-1 text-xs cursor-pointer">
+                    <input type="radio" name="jsa_mode" value="link" onclick="toggleJsaMode('link')"> Link Approved JSA
+                </label>
+            </div>
+            
+            <div id="jsa-mode-upload">
+                <input type="file" id="JsaFile" accept="application/pdf" class="text-xs">
+                <div id="jsa-existing-file-display" class="hidden text-xs mt-1 text-blue-600">
+                    <a href="#" target="_blank" id="jsa-file-link" class="underline font-bold">View Attached JSA</a>
+                    <button type="button" id="btn-del-jsa" class="ml-2 text-red-500 font-bold" onclick="removeAttachedJsa()">[Remove]</button>
+                </div>
+            </div>
+
+            <div id="jsa-mode-link" class="hidden">
+                <select id="JsaLinkedId" class="text-xs w-full bg-white border">
+                    <option value="">Select Approved JSA...</option>
+                </select>
+                <input type="hidden" name="JsaNo" id="JsaNo"> 
+            </div>
+        </div>
+        <input name="IoclEquip" id="IoclEquip" placeholder="IOCL Equip">
+        <input name="ContEquip" id="ContEquip" placeholder="Contractor Equip">
+        <input name="WorkOrder" id="WorkOrder" placeholder="Work Order No">
+        <input name="ToolBoxTalk" id="ToolBoxTalk" placeholder="Tool Box Talk Ref">
+    </div>
+</div>
+            <div id="jsa-mode-link" class="hidden">
+                <select id="JsaLinkedId" class="text-xs w-full bg-white border">
+                    <option value="">Select Approved JSA...</option>
+                </select>
+                <input type="hidden" name="JsaNo" id="JsaNo"> 
+            </div>
+        </div>
+        <input name="IoclEquip" id="IoclEquip" placeholder="IOCL Equip">
+        <input name="ContEquip" id="ContEquip" placeholder="Contractor Equip">
+        <input name="WorkOrder" id="WorkOrder" placeholder="Work Order No">
+        <input name="ToolBoxTalk" id="ToolBoxTalk" placeholder="Tool Box Talk Ref">
+    </div>
+</div>
  
                         <div id="gsr-container" class="glass border-l-4 border-orange-600 bg-orange-50">
                             <label class="flex items-start gap-3 p-2 cursor-pointer">
@@ -682,6 +810,8 @@
             if(viewName === 'workers') loadWorkers('mgmt');
             if(viewName === 'map') { setTimeout(initMap, 200); }
             if(viewName === 'stats') { setTimeout(() => loadStats(null), 100);}
+            if(viewName === 'jsa') { loadJsaDashboard(); }
+            if(viewName === 'jsa-form') { /* handled by openNewJsaForm */ }
         }
 
         async function initMap() {
@@ -817,6 +947,28 @@
             const wTbody = document.getElementById('worker-display-body');
             document.getElementById('worker-display-table').classList.toggle('hidden', currentPermitWorkers.length === 0);
             if (wTbody) wTbody.innerHTML = currentPermitWorkers.map(w => `<tr><td class="p-2 font-bold">${escapeHtml(w.Name)}</td><td class="p-2">${escapeHtml(w.IDType)}: ${escapeHtml(w.ID)}</td><td class="p-2 font-mono">${escapeHtml(w.Contact)}</td></tr>`).join('');
+            // INSIDE openPermit(id) ... after loading basic data
+// Handle JSA Display
+if(p.JsaLinkedId) {
+    document.querySelector('input[name="jsa_mode"][value="link"]').checked = true;
+    toggleJsaMode('link');
+    document.getElementById('JsaLinkedId').innerHTML = `<option>${p.JsaLinkedId}</option>`; // Simple display for view-only
+    document.getElementById('JsaLinkedId').disabled = true;
+} else if (p.JsaFileUrl) {
+    document.querySelector('input[name="jsa_mode"][value="upload"]').checked = true;
+    toggleJsaMode('upload');
+    const link = document.getElementById('jsa-file-link');
+    link.href = '#'; 
+    link.onclick = () => viewSecurePhoto(p.JsaFileUrl); // Reuse viewSecurePhoto for PDF blob viewing logic or creates a new one
+    document.getElementById('jsa-existing-file-display').classList.remove('hidden');
+    
+    // Logic to allow Approver to delete
+    if(currentUser.Role === 'Approver' && p.Status === 'Pending Approval') {
+        document.getElementById('btn-del-jsa').classList.remove('hidden');
+    } else {
+        document.getElementById('btn-del-jsa').classList.add('hidden');
+    }
+}
 
             renderIOCLTable(p.Status);
 
@@ -1267,6 +1419,15 @@
             const hcEl = document.getElementById('GP_Q12_HC'); const toxEl = document.getElementById('GP_Q12_ToxicGas'); const o2El = document.getElementById('GP_Q12_Oxygen');
             fd.append("GP_Q12_HC", hcEl ? hcEl.value : ""); fd.append("GP_Q12_ToxicGas", toxEl ? toxEl.value : ""); fd.append("GP_Q12_Oxygen", o2El ? o2El.value : "");
             document.querySelectorAll('input[name$="_Rem"]').forEach(rem => { if(rem.value) fd.append(rem.name, rem.value); });
+            // INSIDE savePermit()
+const jsaMode = document.querySelector('input[name="jsa_mode"]:checked').value;
+if (jsaMode === 'upload') {
+    const jsaFile = document.getElementById('JsaFile').files[0];
+    if(jsaFile) fd.append('JsaFile', jsaFile);
+    // If we had an old file and didn't change it, backend handles retention unless explicit remove flag sent
+} else {
+    fd.append('JsaLinkedId', document.getElementById('JsaLinkedId').value);
+}
             const res = await fetch(API+'/save-permit', {method:'POST', body:fd, headers: {'Authorization': `Bearer ${authToken}`}});
             const json = await res.json();
             if(json.success) { alert("Permit Created: "+json.permitId); switchView('dashboard'); } else alert(json.error);
@@ -1398,12 +1559,192 @@
 
         function getGeo() { if(!navigator.geolocation) return alert("Geo not supported"); navigator.geolocation.getCurrentPosition(p => { document.getElementById('ExactLocation').value = `${p.coords.latitude.toFixed(6)}, ${p.coords.longitude.toFixed(6)}`; document.getElementById('Latitude').value = p.coords.latitude; document.getElementById('Longitude').value = p.coords.longitude; }); }
         document.getElementById('btn-get-geo').onclick = getGeo;
+        /* --- JSA MODULE --- */
+let currentJsaData = null;
+
+function toggleJsaMode(mode) {
+    document.getElementById('jsa-mode-upload').classList.toggle('hidden', mode !== 'upload');
+    document.getElementById('jsa-mode-link').classList.toggle('hidden', mode !== 'link');
+    if(mode === 'link') loadApprovedJsas();
+}
+
+async function loadApprovedJsas() {
+    const res = await apiCall('/jsa/list-approved', 'POST', { region: currentUser.Region, unit: currentUser.Unit });
+    const sel = document.getElementById('JsaLinkedId');
+    sel.innerHTML = '<option value="">Select Approved JSA...</option>' + 
+        res.map(j => `<option value="${j.RefNumber}">${j.RefNumber} - ${j.JobTitle}</option>`).join('');
+    
+    // Auto-fill hidden input on change
+    sel.onchange = (e) => document.getElementById('JsaNo').value = e.target.value;
+}
+
+function removeAttachedJsa() {
+    document.getElementById('JsaFile').value = ''; 
+    document.getElementById('jsa-existing-file-display').classList.add('hidden');
+    // Note: If editing an existing permit, this needs backend logic to flag deletion
+    if(currentPermitId) alert("Please save permit to confirm removal.");
+}
+
+/* JSA CRUD Logic */
+function addJsaPersonRow(data = {}) {
+    const tbody = document.querySelector('#table-jsa-team tbody');
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+        <td><input class="w-full border-none bg-transparent" placeholder="Name" value="${data.name||''}"></td>
+        <td><input class="w-full border-none bg-transparent" placeholder="Designation" value="${data.desig||''}"></td>
+        <td><input class="w-full border-none bg-transparent" placeholder="Department" value="${data.dept||''}"></td>
+        <td><button type="button" class="text-red-500 font-bold" onclick="this.closest('tr').remove()">x</button></td>
+    `;
+    tbody.appendChild(tr);
+}
+
+function addJsaRiskRow(data = {}) {
+    const tbody = document.querySelector('#table-jsa-risk tbody');
+    const idx = tbody.children.length + 1;
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+        <td class="p-2 text-center text-gray-500">${idx}</td>
+        <td><textarea class="w-full text-xs p-1 h-16" placeholder="Activity Step">${data.activity||''}</textarea></td>
+        <td><textarea class="w-full text-xs p-1 h-16" placeholder="Potential Hazards">${data.hazard||''}</textarea></td>
+        <td><textarea class="w-full text-xs p-1 h-16" placeholder="Controls / Actions">${data.control||''}</textarea></td>
+        <td><button type="button" class="text-red-500 font-bold" onclick="this.closest('tr').remove()">x</button></td>
+    `;
+    tbody.appendChild(tr);
+}
+
+async function openNewJsaForm(jsaId = null) {
+    switchView('jsa-form');
+    document.getElementById('jsa-form').reset();
+    document.querySelector('#table-jsa-team tbody').innerHTML = '';
+    document.querySelector('#table-jsa-risk tbody').innerHTML = '';
+    
+    // Load dropdowns (using existing Permit function)
+    await loadMappedApprovers(); 
+    // Clone options to JSA specific selects
+    document.getElementById('jsa-reviewer').innerHTML = document.getElementById('ReviewerEmail').innerHTML;
+    document.getElementById('jsa-approver').innerHTML = document.getElementById('ApproverEmail').innerHTML;
+
+    safeSet('jsa-region', currentUser.Region);
+    safeSet('jsa-unit', currentUser.Unit);
+    safeSet('jsa-loc', currentUser.Location);
+
+    if(jsaId) {
+        // Edit Mode
+        const j = await apiCall('/jsa/get', 'POST', { id: jsaId });
+        currentJsaData = j;
+        safeSet('JSAID', j.JSAID);
+        safeSet('jsa-job-title', j.JobTitle);
+        safeSet('jsa-executed-by', j.ExecutedBy);
+        safeSet('jsa-reviewer', j.ReviewerEmail);
+        safeSet('jsa-approver', j.ApproverEmail);
+        
+        const data = JSON.parse(j.DataJSON || '{}');
+        (data.team || []).forEach(p => addJsaPersonRow(p));
+        (data.steps || []).forEach(s => addJsaRiskRow(s));
+
+        // Workflow UI
+        const isRev = currentUser.Role === 'Reviewer' && j.Status === 'Pending Review';
+        const isApp = currentUser.Role === 'Approver' && j.Status === 'Pending Approval';
+        
+        if (isRev || isApp) {
+            document.getElementById('jsa-workflow-actions').classList.remove('hidden');
+            document.getElementById('jsa-submit-bar').classList.add('hidden');
+            document.getElementById('btn-jsa-approve').onclick = () => processJsaAction(jsaId, 'approve');
+            document.getElementById('btn-jsa-reject').onclick = () => processJsaAction(jsaId, 'reject');
+        } else if (j.Status === 'Approved') {
+            document.getElementById('jsa-submit-bar').classList.add('hidden');
+            // Disable all inputs
+            document.querySelectorAll('#jsa-form input, #jsa-form textarea, #jsa-form select').forEach(e => e.disabled = true);
+        }
+    } else {
+        // Create Mode
+        addJsaPersonRow({name: currentUser.Name, dept: 'Operations'}); // Default
+        addJsaRiskRow();
+        document.getElementById('jsa-workflow-actions').classList.add('hidden');
+        document.getElementById('jsa-submit-bar').classList.remove('hidden');
+    }
+}
+
+async function loadJsaDashboard() {
+    const res = await apiCall('/jsa/list-my', 'POST', { email: currentUser.Email, role: currentUser.Role });
+    const tbody = document.getElementById('tbody-jsa');
+    tbody.innerHTML = res.map(j => {
+        const downloadBtn = j.Status === 'Approved' ? `<button onclick="downloadJsaPdf('${j.JSAID}')" class="text-blue-600 underline text-xs font-bold mr-2">PDF</button>` : '';
+        return `<tr class="hover:bg-gray-50 border-b">
+            <td class="p-3 font-bold text-blue-600 cursor-pointer" onclick="openNewJsaForm('${j.JSAID}')">${j.RefNumber || 'DRAFT'}</td>
+            <td class="p-3">${j.JobTitle}</td>
+            <td class="p-3">${j.Location}</td>
+            <td class="p-3"><span class="px-2 py-1 rounded text-xs font-bold bg-gray-200">${j.Status}</span></td>
+            <td class="p-3 text-xs">${j.RequesterName}</td>
+            <td class="p-3">${downloadBtn}</td>
+        </tr>`;
+    }).join('');
+}
+
+async function downloadJsaPdf(id) {
+    // Similar to Permit PDF download logic
+     try { 
+        document.getElementById('loader').style.display = 'flex'; 
+        const res = await fetch(`${API}/jsa/download/${id}`, { headers: {'Authorization': `Bearer ${authToken}`} }); 
+        if(!res.ok) throw new Error("Err"); 
+        const blob = await res.blob(); 
+        const a = document.createElement('a'); a.href = window.URL.createObjectURL(blob); a.download = `JSA_${id}.pdf`; 
+        document.body.appendChild(a); a.click(); document.body.removeChild(a); 
+    } catch(e) { alert("Download Failed"); } finally { document.getElementById('loader').style.display = 'none'; } 
+}
+
+/* Event Listeners & Submit */
+document.getElementById('jsa-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const fd = new FormData(e.target);
+    
+    // Scrape dynamic tables
+    const team = [];
+    document.querySelectorAll('#table-jsa-team tbody tr').forEach(tr => {
+        const ins = tr.querySelectorAll('input');
+        if(ins[0].value) team.push({ name: ins[0].value, desig: ins[1].value, dept: ins[2].value });
+    });
+    
+    const steps = [];
+    document.querySelectorAll('#table-jsa-risk tbody tr').forEach(tr => {
+        const txts = tr.querySelectorAll('textarea');
+        if(txts[0].value) steps.push({ activity: txts[0].value, hazard: txts[1].value, control: txts[2].value });
+    });
+
+    const body = {
+        JSAID: fd.get('JSAID'),
+        JobTitle: fd.get('JobTitle'),
+        ExecutedBy: fd.get('ExecutedBy'),
+        ReviewerEmail: fd.get('ReviewerEmail'),
+        ApproverEmail: fd.get('ApproverEmail'),
+        Region: currentUser.Region, Unit: currentUser.Unit, Location: currentUser.Location,
+        RequesterEmail: currentUser.Email, RequesterName: currentUser.Name,
+        DataJSON: JSON.stringify({ team, steps })
+    };
+
+    const res = await apiCall('/jsa/save', 'POST', body);
+    if(res.success) { alert("JSA Saved"); switchView('jsa'); } else alert(res.error);
+});
+
+async function processJsaAction(id, action) {
+    const rem = document.getElementById('jsa-remarks').value;
+    if(action === 'reject' && !rem) return alert("Remarks mandatory for rejection");
+    
+    // Get updated table data in case Reviewer/Approver edited it
+    const team = [];
+    document.querySelectorAll('#table-jsa-team tbody tr').forEach(tr => { const ins = tr.querySelectorAll('input'); if(ins[0].value) team.push({ name: ins[0].value, desig: ins[1].value, dept: ins[2].value }); });
+    const steps = [];
+    document.querySelectorAll('#table-jsa-risk tbody tr').forEach(tr => { const txts = tr.querySelectorAll('textarea'); if(txts[0].value) steps.push({ activity: txts[0].value, hazard: txts[1].value, control: txts[2].value }); });
+
+    const res = await apiCall('/jsa/action', 'POST', { 
+        id, action, remarks: rem, role: currentUser.Role, user: currentUser.Name,
+        updatedData: JSON.stringify({ team, steps })
+    });
+    
+    if(res.success) { alert("Action Completed"); switchView('jsa'); } else alert(res.error);
+}
 
         initLogin();
     </script>
 </body>
 </html>
-
-
-
-
