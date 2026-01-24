@@ -641,9 +641,10 @@
         </div>
     </div>
  
-    <script nonce="NONCE_PLACEHOLDER">
+  <script nonce="NONCE_PLACEHOLDER">
+        /* 1. CONSTANTS */
         const API = "/api";
-        let currentUser = null, authToken = null;
+        let authToken = null, currentUser = null;
         let mapInstance = null, chartS = null, chartT = null;
         let currentPermitId = null, currentPermitWorkers = [], permitRequirePhoto = false, currentPermitIOCLData = [];
         let currentJsaData = null;
@@ -652,7 +653,7 @@
             A: ["1. Equipment / Work Area inspected.", "2. Surrounding area checked.", "3. Manholes covered.", "4. Hazards considered.", "5. Equipment blinded.", "6. Drained.", "7. Steamed.", "8. Flushed.", "9. Fire Access.", "10. Iron Sulfide.", "11. Electrical Isolation.", "12. Gas Test: HC / Toxic / O2 checked.", "13. Firefighting.", "14. Cordoned.", "15. CCTV.", "16. Ventilation."],
             B: ["1. Exit.", "2. Standby.", "3. Gas trap.", "4. Spark shield.", "5. Grounding.", "6. Standby (Confined).", "7. Communication.", "8. Rescue.", "9. Cooling.", "10. Inert Gas.", "11. ELCB.", "12. Cylinders.", "13. Spark arrestor.", "14. Welding loc.", "15. Height."],
             C: ["1. PESO spark elimination."],
-            D: ["1. Shoring.", "2. Soil distance.", "3. Access.", "4. Vehicle ban."]
+            D: [ "1. Shoring.", "2. Soil distance.", "3. Access.", "4. Vehicle ban." ]
         };
         const HAZARDS = ["Lack of Oxygen", "H2S", "Toxic Gases", "Combustible gases", "Pyrophoric Iron", "Corrosive Chemicals", "cave in formation", "Others"];
         const PPE = ["Helmet", "Safety Shoes", "Hand gloves", "Boiler suit", "Face Shield", "Apron", "Goggles", "Dust Respirator", "Fresh Air Mask", "Lifeline", "Safety Harness", "Airline", "Earmuff", "IFR"];
@@ -688,13 +689,13 @@
             } catch(e) { console.warn("Network Error:", e.message); return { aborted: true }; }
             finally { document.getElementById('loader').style.display = 'none'; }
         }
- 
+        function logout() {location.reload();        }
         function escapeHtml(text) { if (!text) return text; return String(text).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
         function getVal(id) { const el = document.getElementById(id); return el ? el.value : ''; }
         function safeSet(id, val) { const el = document.getElementById(id); if(el) el.value = val; }
         function setText(id, val) { const el = document.getElementById(id); if(el) el.innerText = val; }
         function getNow() { return new Date().toLocaleString("en-GB").replace(',',''); }
- 
+
         function attachFileValidators() {
             document.querySelectorAll('input[type="file"]').forEach(input => {
                 input.addEventListener('change', function() {
@@ -709,7 +710,7 @@
                 });
             });
         }
- 
+        
         /* 3. INIT & LOGIN */
         async function initLogin() {
             try {
@@ -746,7 +747,7 @@
                 }
                 document.getElementById('login-loc').addEventListener('change', loadUsers);
                 document.getElementById('login-role').addEventListener('change', loadUsers);
-                 
+                
                 document.getElementById('chk-init-renewal').addEventListener('change', (e) => {
                     document.getElementById('div-init-renewal').classList.toggle('hidden', !e.target.checked);
                 });
@@ -758,7 +759,7 @@
 
             } catch(e) { console.error(e); }
         }
- 
+
         document.getElementById('login-form').addEventListener('submit', async (e) => {
             e.preventDefault();
             const res = await apiCall('/login', 'POST', {email: document.getElementById('login-user').value, password: document.getElementById('login-pass').value});
@@ -769,7 +770,7 @@
                 authToken = res.token; currentUser = res.user; enterApp();
             } else alert(res.msg);
         });
- 
+
         function showChangePassword() {
             document.getElementById('view-pwd-change').classList.remove('hidden');
             document.getElementById('view-pwd-change').dataset.email = currentUser.Email;
@@ -782,34 +783,38 @@
             const res = await apiCall('/force-password-change', 'POST', {email, newPassword: p1});
             if(res.success) { alert("Updated. Please login."); location.reload(); }
         });
- 
+
         function enterApp() {
             document.getElementById('view-login').classList.add('hidden');
             document.getElementById('app-container').classList.remove('hidden');
             document.getElementById('user-display').innerHTML = `<div class="font-bold text-white text-lg">${currentUser.Name}</div><div class="text-orange-400 font-bold uppercase text-xs">${currentUser.Role}</div><div class="text-xs mt-1 text-gray-500 font-mono">${currentUser.Location}</div>`;
-             
+            
             if(currentUser.Role === 'Requester') document.getElementById('nav-new-permit').classList.remove('hidden');
             else document.getElementById('btn-export-excel').classList.remove('hidden');
- 
+
             if(currentUser.Role === 'MasterAdmin') document.getElementById('nav-admin').classList.remove('hidden');
             if(currentUser.Role === 'Approver' || currentUser.Role === 'MasterAdmin') document.getElementById('nav-users').classList.remove('hidden');
             if(currentUser.Role !== 'Requester') document.getElementById('nav-map').classList.remove('hidden');
-             
-            renderChecklists(); renderHazards(); switchView('dashboard');
+            
+            // Render UI Components
+            try { renderChecklists(); } catch(e){ console.error(e); }
+            try { renderHazards(); } catch(e){ console.error(e); }
+            
+            switchView('dashboard');
         }
- 
+
         function switchView(viewName) {
             document.querySelectorAll('.content-area > div').forEach(d => d.classList.add('hidden'));
             document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
             const viewMap = {'dashboard': 'view-dashboard', 'new-permit': 'view-form', 'workers': 'view-workers', 'users': 'view-users', 'map': 'view-map', 'admin': 'view-admin', 'stats': 'view-stats', 'jsa': 'view-jsa', 'jsa-form': 'view-jsa-form'};
-             
+            
             if(document.getElementById(viewMap[viewName])) {
                 document.getElementById(viewMap[viewName]).classList.remove('hidden');
                 let navId = (viewName === 'dashboard') ? 'nav-dashboard' : (viewName === 'stats' ? 'nav-stats' : (viewName === 'jsa' || viewName === 'jsa-form' ? 'nav-jsa' : 'nav-' + viewName));
                 const navItem = document.getElementById(navId);
                 if(navItem) navItem.classList.add('active');
             }
-             
+            
             if(viewName === 'dashboard') loadDashboard();
             if(viewName === 'new-permit') { showNewPermit(); loadMappedApprovers(); }
             if(viewName === 'users') loadManageUsers();
@@ -819,8 +824,9 @@
             if(viewName === 'jsa') { loadJsaDashboard(); }
             if(viewName === 'jsa-form') { /* Handled by openNewJsaForm */ }
         }
- 
-        // ... (Keep existing Map, Dashboard logic) ...
+
+        // --- GLOBAL FUNCTIONS DEFINITIONS ---
+
         async function initMap() {
             try {
                 const mapData = await apiCall('/map-data', 'POST', {});
@@ -842,7 +848,7 @@
             if(!Array.isArray(res)) return; 
             const container = document.getElementById('dashboard-content');
             container.innerHTML = '';
-             
+            
             const pending = res.filter(p => {
                 const s = p.Status;
                 if (currentUser.Role === 'MasterAdmin') return s.includes('Pending') || s === 'Submitted';
@@ -852,7 +858,7 @@
             });
             const active = res.filter(p => p.Status === 'Active' || (p.Status.includes('Renewal') && !p.Status.includes('Pending')));
             const closed = res.filter(p => p.Status === 'Closed' || p.Status === 'Rejected');
- 
+
             const renderTable = (title, items, color) => {
                 let rowsHtml = items.length === 0 ? `<tr><td colspan="6" class="p-4 text-center text-gray-400 italic bg-gray-50">No permits found.</td></tr>` : items.map(p => {
                     let action = (p.Status === 'Closed' || p.Status === 'Active' || p.Status.includes('Renewal')) ? `<button class="btn-pdf" onclick="event.stopPropagation(); downloadSecurePDF('${p.PermitID}')">📥 PDF</button>` : '';
@@ -865,7 +871,7 @@
                         <td>${action}</td>
                     </tr>`;
                 }).join('');
- 
+
                 return `<div class="glass border-l-4 border-${color}-500 mb-6">
                     <div class="flex justify-between items-center border-b pb-2 mb-3">
                         <h3 class="font-bold text-${color}-700 uppercase text-sm">${title}</h3>
@@ -880,10 +886,69 @@
             loadStats(res);
         }
 
-        /* 6. CORE PERMIT LOGIC (FULL UPDATE) */
+        async function loadStats(data) {
+            if(document.getElementById('view-stats').classList.contains('hidden')) return;
+            
+            if (!data) {
+                 try {
+                     const fetchedData = await apiCall('/dashboard', 'POST', {role: currentUser.Role, email: currentUser.Email});
+                     if(!fetchedData) return;
+                     data = fetchedData;
+                 } catch(e) { console.error("Stats fetch failed", e); return; }
+            }
+            
+            const counts = {}; const types = {};
+            data.forEach(d => {
+                counts[d.Status] = (counts[d.Status]||0)+1;
+                types[d.WorkType] = (types[d.WorkType]||0)+1;
+            });
+
+            if(chartS) { chartS.destroy(); chartS = null; }
+            if(chartT) { chartT.destroy(); chartT = null; }
+
+            const ctxS = document.getElementById('chartStatus');
+            const ctxT = document.getElementById('chartType');
+
+            if(ctxS && Object.keys(counts).length > 0) {
+                chartS = new Chart(ctxS.getContext('2d'), {
+                    type: 'doughnut',
+                    data: {
+                        labels: Object.keys(counts),
+                        datasets: [{ data: Object.values(counts), backgroundColor: ['#f87171', '#4ade80', '#94a3b8', '#fbbf24', '#60a5fa'] }]
+                    },
+                    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right' } } }
+                });
+            }
+
+            if(ctxT && Object.keys(types).length > 0) {
+                chartT = new Chart(ctxT.getContext('2d'), {
+                    type: 'bar',
+                    data: {
+                        labels: Object.keys(types),
+                        datasets: [{ label: 'Work Types', data: Object.values(types), backgroundColor: '#60a5fa' }]
+                    },
+                    options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true } } }
+                });
+            }
+        }
+
+        function toggleJsaMode(mode) {
+            const uploadDiv = document.getElementById('jsa-mode-upload');
+            const linkDiv = document.getElementById('jsa-mode-link');
+            
+            if(uploadDiv && linkDiv) {
+                uploadDiv.classList.toggle('hidden', mode !== 'upload');
+                linkDiv.classList.toggle('hidden', mode !== 'link');
+                if(mode === 'link') loadApprovedJsas();
+            }
+        }
+        
+        window.toggleCritical = function(isCrit) {
+            document.getElementById('critical-options').classList.toggle('hidden', !isCrit);
+        }
+
         async function openPermit(id) {
             try {
-                // 1. Fetch Data
                 const p = await apiCall('/permit-data', 'POST', { permitId: id });
                 console.log("Opening Permit:", id);
 
@@ -893,26 +958,19 @@
                 }
 
                 currentPermitId = id;
-
-                // FIX: SAFE ARRAY PARSING
                 let rawIOCL = p.IOCLSupervisors;
                 if (typeof rawIOCL === 'string') { try { rawIOCL = JSON.parse(rawIOCL); } catch(e) { rawIOCL = []; } }
                 currentPermitIOCLData = Array.isArray(rawIOCL) ? rawIOCL : [];
                 permitRequirePhoto = (p.RequireRenewalPhotos === 'Y');
 
-                // 2. Setup View
                 document.getElementById('view-dashboard').classList.add('hidden');
                 document.getElementById('view-form').classList.remove('hidden');
                 document.getElementById('permit-title').innerText = `Permit: ${id}`;
                 document.getElementById('permit-header-display').innerText = `Status: ${p.Status}`;
 
-                // 3. Reset Sections
                 ['fs-reviewer-section', 'fs-approver-section', 'rev-renewal-decision', 'app-renewal-decision', 'action-renewal', 'pending-renewal-display', 'odd-hour-approval-controls', 'renewals-section', 'closure-section', 'div-closure-rev', 'div-closure-app'].forEach(sid => { document.getElementById(sid).classList.add('hidden'); });
-
-                // 4. Clear Action Bar
                 const actionsDiv = document.getElementById("actions-bar"); actionsDiv.innerHTML = "";
 
-                // 5. Populate Basic Fields
                 const statusClean = p.Status ? p.Status.trim() : '';
                 const isMainPending = (statusClean === 'Pending Review' || statusClean === 'Pending Approval');
                 const isAuthority = (currentUser.Role === 'Reviewer' || currentUser.Role === 'Approver');
@@ -920,7 +978,6 @@
                 document.querySelectorAll('#pf input, #pf textarea, #pf select').forEach(el => {
                     let shouldDisable = true;
                     if (isAuthority && isMainPending && (el.name && (el.name.startsWith('H_') || el.name.startsWith('P_')) || el.id === 'H_Others_Detail')) shouldDisable = false;
-                    // J: Critical Field editable by authority
                     if (isAuthority && isMainPending && (el.name === 'IsCritical' || el.name === 'CriticalActivityType')) shouldDisable = false;
                     
                     if (isMainPending && currentUser.Role === 'Reviewer' && (el.id === 'Reviewer_Remarks' || el.id === 'AdditionalPrecautions' || el.name === 'RevRenAction')) shouldDisable = false;
@@ -936,23 +993,15 @@
                     el.disabled = shouldDisable;
                 });
 
-                // J: Critical Logic
                 toggleCritical(p.IsCritical === 'Y');
-
-                // PPE Section Visibility
                 if (currentUser.Role === 'Requester') document.getElementById('ppe-section-wrapper').classList.add('hidden');
                 else document.getElementById('ppe-section-wrapper').classList.remove('hidden');
 
-                // 6. JSA Logic
                 const existDisplay = document.getElementById('jsa-existing-file-display');
                 const jsaFileInp = document.getElementById('JsaFile');
                 const jsaLinkSel = document.getElementById('JsaLinkedId');
-                const jsaRadios = document.querySelectorAll('input[name="jsa_mode"]');
-
-                // Reset UI
                 existDisplay.classList.add('hidden'); jsaFileInp.value = '';
                 
-                // Helper to clear JSA
                 window.clearJsaSelection = function() {
                     if(!confirm("Remove current JSA? You will need to select or upload a new one.")) return;
                     p.JsaLinkedId = null; p.JsaFileUrl = null;
@@ -963,7 +1012,6 @@
                     if(document.getElementById('btn-view-linked-jsa')) document.getElementById('btn-view-linked-jsa').classList.add('hidden');
                 };
 
-                // Load Data
                 const auditLine = document.getElementById('jsa-audit-line');
                 auditLine.classList.add('hidden');
                 
@@ -978,7 +1026,6 @@
                     }
                     viewBtn.onclick = (e) => { e.preventDefault(); openNewJsaForm(null, p.JsaLinkedId); };
                     viewBtn.classList.remove('hidden');
-                    // H: Audit Line
                     auditLine.innerText = `JSA Done: ${p.JsaLinkedId}`; auditLine.classList.remove('hidden');
 
                 } else if (p.JsaFileUrl) {
@@ -987,18 +1034,17 @@
                     link.onclick = (e) => { e.preventDefault(); viewSecureFile(p.JsaFileUrl); };
                     existDisplay.classList.remove('hidden');
                     if(document.getElementById('btn-view-linked-jsa')) document.getElementById('btn-view-linked-jsa').classList.add('hidden');
-                    // H: Audit Line
                     auditLine.innerText = `JSA Done: Uploaded PDF`; auditLine.classList.remove('hidden');
                 }
 
-                // Edit Permissions
                 let canEditJsa = false;
                 if (currentUser.Role === 'Requester' && (statusClean === 'Draft' || statusClean.includes('Rejected'))) canEditJsa = true;
                 if (currentUser.Role === 'Reviewer' && statusClean === 'Pending Review') canEditJsa = true;
                 if (currentUser.Role === 'Approver' && statusClean === 'Pending Approval') canEditJsa = true;
 
                 if (canEditJsa) {
-                    jsaFileInp.disabled = false; jsaLinkSel.disabled = false; jsaRadios.forEach(r => r.disabled = false);
+                    jsaFileInp.disabled = false; jsaLinkSel.disabled = false; 
+                    document.querySelectorAll('input[name="jsa_mode"]').forEach(r => r.disabled = false);
                     document.getElementById('btn-del-jsa').classList.remove('hidden');
                     document.getElementById('btn-del-jsa').onclick = window.clearJsaSelection;
                     if(p.JsaLinkedId) {
@@ -1012,14 +1058,13 @@
                         removeLinkBtn.classList.remove('hidden');
                     }
                     loadApprovedJsas(); 
-      
                 } else {
-                    jsaFileInp.disabled = true; jsaLinkSel.disabled = true; jsaRadios.forEach(r => r.disabled = true);
+                    jsaFileInp.disabled = true; jsaLinkSel.disabled = true; 
+                    document.querySelectorAll('input[name="jsa_mode"]').forEach(r => r.disabled = true);
                     document.getElementById('btn-del-jsa').classList.add('hidden');
                     if(document.getElementById('btn-del-link-jsa')) document.getElementById('btn-del-link-jsa').classList.add('hidden');
                 }
 
-                // 7. Render Sub-Tables
                 let wData = p.SelectedWorkers;
                 if (typeof wData === 'string') { try { wData = JSON.parse(wData); } catch (e) { wData = []; } }
                 currentPermitWorkers = Array.isArray(wData) ? wData : [];
@@ -1029,7 +1074,6 @@
                 
                 renderIOCLTable(p.Status);
 
-                // 8. Renewals
                 const rens = JSON.parse(p.RenewalsJSON || "[]");
                 const lastRen = rens.length > 0 ? rens[rens.length - 1] : null;
                 const isFirstRenRequest = (rens.length === 1 && p.InitRen === 'Y');
@@ -1059,7 +1103,6 @@
                 
                 handleClosureUI(p, actionsDiv);
 
-                // 9. Buttons
                 if (statusClean === 'Pending Review' && currentUser.Role === 'Reviewer') {
                     document.getElementById('fs-reviewer-section').classList.remove('hidden');
                     const b1 = document.createElement("button"); b1.type="button"; b1.className = "bg-red-600 text-white px-4 py-2 rounded font-bold mr-2"; b1.innerText = "Reject Permit"; b1.onclick = () => upd('reject');
@@ -1092,7 +1135,6 @@
 
                         if (lastRen && lastRen.oddHourReq === 'Y') {
                             document.getElementById('odd-hour-approval-controls').classList.remove('hidden');
-                            // ... (Keep existing odd hour badge logic if desired) ...
                             const chk = document.getElementById('odd-hour-allow-check');
                             chk.checked = false; chk.disabled = false; 
                             btnApprove.disabled = true; btnApprove.classList.add('opacity-50', 'cursor-not-allowed');
@@ -1124,24 +1166,7 @@
                 alert("System Error: Check Console");
             }
         }
-        function toggleJsaMode(mode) {
-            const uploadDiv = document.getElementById('jsa-mode-upload');
-            const linkDiv = document.getElementById('jsa-mode-link');
-            
-            if(uploadDiv && linkDiv) {
-                uploadDiv.classList.toggle('hidden', mode !== 'upload');
-                linkDiv.classList.toggle('hidden', mode !== 'link');
-                
-                // If switching to link mode, ensure we load the list
-                if(mode === 'link') loadApprovedJsas();
-            }
-        }
-        /* HELPER: Toggle Critical Dropdown */
-        window.toggleCritical = function(isCrit) {
-            document.getElementById('critical-options').classList.toggle('hidden', !isCrit);
-        }
 
-        /* HELPER: Closure Checklist Logic (I) */
         function renderClosureSection(data = {}) {
             const div = document.getElementById('closure-checks-container');
             const items = [
@@ -1170,7 +1195,6 @@
             if (currentUser.Role === 'Requester' && isClosable) {
                 document.getElementById('closure-section').classList.remove('hidden');
                 document.getElementById('div-closure-req').classList.remove('hidden');
-                // Render Checkboxes
                 renderClosureSection({});
                 document.getElementById('Closure_Requestor_Remarks').disabled = false;
                 document.getElementById('Site_Restored_Check').disabled = false;
@@ -1179,15 +1203,14 @@
             }
             if (p.Status.includes('Closure')) {
                 document.getElementById('closure-section').classList.remove('hidden');
-                renderClosureSection(p); // Render saved state
-                // Disable checkboxes if not active requestor
+                renderClosureSection(p); 
                 document.querySelectorAll('.clos-chk').forEach(c => c.disabled = true);
                 document.getElementById('Closure_Deviation_Reason').value = p.Closure_Deviation_Reason || '';
                 document.getElementById('Closure_Deviation_Reason').disabled = true;
 
                 document.getElementById('div-closure-req').classList.remove('hidden');
                 safeSet("Closure_Requestor_Remarks", p.Closure_Requestor_Remarks || "");
-                 
+                
                 if (p.Status === 'Closure Pending Review' && currentUser.Role === 'Reviewer') {
                     document.getElementById('div-closure-rev').classList.remove('hidden');
                     document.getElementById('Closure_Reviewer_Remarks').disabled = false;
@@ -1206,10 +1229,8 @@
                 }
             }
         }
- 
-        /* --- UPDATED UPD FUNCTION --- */
+
         async function upd(act) {
-            // Validation I: Closure
             if (act === 'initiate_closure') {
                 if(!document.getElementById("Site_Restored_Check").checked) return alert("Please confirm site restoration checkbox.");
                 const devReason = document.getElementById('Closure_Deviation_Reason').value;
@@ -1223,7 +1244,6 @@
             fd.append('role', currentUser.Role);
             fd.append('user', currentUser.Name);
 
-            // Collect Text Fields & Critical
             const comments = (currentUser.Role === 'Reviewer' ? getVal("Reviewer_Remarks") : getVal("Approver_Remarks"));
             fd.append('comment', comments);
             fd.append('AdditionalPrecautions', getVal("AdditionalPrecautions"));
@@ -1234,16 +1254,13 @@
             fd.append('Closure_Approver_Remarks', getVal("Closure_Approver_Remarks"));
             fd.append('Site_Restored_Check', document.getElementById("Site_Restored_Check").checked ? 'Y' : 'N');
             
-            // Critical Work
             const isCrit = document.querySelector('input[name="IsCritical"]:checked');
             if(isCrit) fd.append('IsCritical', isCrit.value);
             fd.append('CriticalActivityType', getVal('CriticalActivityType'));
 
-            // Closure Checkboxes
             document.querySelectorAll('.clos-chk').forEach(c => fd.append(c.name, c.checked ? 'Y' : 'N'));
             fd.append('Closure_Deviation_Reason', getVal('Closure_Deviation_Reason'));
 
-            // Collect IOCL Data
             let ioclData = [];
             if (currentUser.Role === 'Reviewer') ioclData = getIOCLData('iocl-sup-container-rev');
             if (currentUser.Role === 'Approver') {
@@ -1252,7 +1269,6 @@
             }
             fd.append('IOCLSupervisors', JSON.stringify(ioclData));
 
-            // Handle JSA File Changes
             const jsaMode = document.querySelector('input[name="jsa_mode"]:checked').value;
             if (jsaMode === 'upload') {
                 const f = document.getElementById('JsaFile').files[0];
@@ -1261,13 +1277,12 @@
                 fd.append('JsaLinkedId', document.getElementById('JsaLinkedId').value);
             }
 
-            // Handle Radios/CheckBoxes
             if (act === 'review' || act === 'approve') {
                 const revDec = document.querySelector('input[name="RevRenAction"]:checked');
                 const appDec = document.querySelector('input[name="AppRenAction"]:checked');
                 if (currentUser.Role === 'Reviewer' && revDec) {
                     fd.append('FirstRenewalAction', revDec.value);
-                    fd.append('action', 'approve_1st_ren'); // Override action
+                    fd.append('action', 'approve_1st_ren'); 
                 }
                 if (currentUser.Role === 'Approver' && appDec) {
                     fd.append('FirstRenewalAction', appDec.value);
@@ -1275,7 +1290,6 @@
                 }
             }
             
-            // Hazards/PPE (Send as individual fields)
             if (currentUser.Role === 'Reviewer' || currentUser.Role === 'Approver') {
                 document.querySelectorAll('#hazards-grid input, #ppe-grid input').forEach(c => { 
                     if (c.name) fd.append(c.name, c.checked ? 'Y' : 'N'); 
@@ -1285,9 +1299,7 @@
             document.getElementById('loader').style.display = 'flex';
             try {
                 const res = await fetch(API+'/update-status', {
-                    method: 'POST', 
-                    body: fd, 
-                    headers: {'Authorization': `Bearer ${authToken}`} 
+                    method: 'POST', body: fd, headers: {'Authorization': `Bearer ${authToken}`} 
                 });
                 const json = await res.json();
                 if (json.success) { alert("Success"); switchView('dashboard'); } 
@@ -1295,7 +1307,7 @@
             } catch(e) { console.error(e); alert("Network Error"); }
             finally { document.getElementById('loader').style.display = 'none'; }
         }
- 
+
         async function submitRenewal(act) {
             if(act === 'approve' || act === 'reject') {
                 const remark = document.getElementById('RenewalRemark').value;
@@ -1308,7 +1320,6 @@
                 if(res.success) { alert("Renewal Decision Submitted!"); switchView('dashboard'); } else { alert("Error: " + res.error); }
                 return;
             }
-            // VALIDATION G: TBT
             if(!document.getElementById('TBT_Renewal').checked) return alert("Tool Box Talk must be conducted for Renewal.");
 
             const fd = new FormData();
@@ -1320,7 +1331,7 @@
             fd.append('toxic', getVal("RenewalToxic"));
             fd.append('oxygen', getVal("RenewalOxygen"));
             fd.append('precautions', getVal("RenewalPrec"));
-            fd.append('TBT_Renewal', 'Y'); // G
+            fd.append('TBT_Renewal', 'Y');
 
             const selWorkers = [];
             document.querySelectorAll('.ren-worker-cb:checked').forEach(c => selWorkers.push(c.value));
@@ -1332,53 +1343,27 @@
             const fileInput = document.getElementById("ren-cam-sub");
             if(!document.getElementById('renewal-photo-wrapper').classList.contains('hidden') && fileInput.files.length === 0) return alert("⛔ Site photo is mandatory.");
             if(fileInput.files.length > 0) fd.append('RenewalImage', fileInput.files[0]);
- 
+
             const res = await fetch(API+'/renewal', {method:'POST', body:fd, headers: {'Authorization': `Bearer ${authToken}`}});
             const json = await res.json();
             if(json.success) { alert("Renewal Request Submitted!"); switchView('dashboard'); } else { alert(json.error || "Submission failed: " + json.error); }
         }
- 
-        /* --- UNIVERSAL FILE VIEWER (PDFs & PHOTOS) --- */
+
         window.viewSecureFile = async function(fullUrl) {
             if (!fullUrl) return alert("No file linked");
-            
-            // 1. Extract the specific filename/path that the server needs
-            // The DB stores the full Azure URL, but the Proxy needs just the path inside the container.
             let blobName = fullUrl;
-            
-            if(fullUrl.includes('/permit-attachments/')) {
-                // Extracts "permit-jsa/filename.pdf" from the full URL
-                blobName = fullUrl.split('/permit-attachments/')[1];
-            } else if (fullUrl.includes('/permit-jsa/')) {
-                blobName = 'permit-jsa/' + fullUrl.split('/permit-jsa/')[1];
-            }
-
-            console.log("Requesting File:", blobName); // Debugging
-
+            if(fullUrl.includes('/permit-attachments/')) { blobName = fullUrl.split('/permit-attachments/')[1]; }
+            else if (fullUrl.includes('/permit-jsa/')) { blobName = 'permit-jsa/' + fullUrl.split('/permit-jsa/')[1]; }
             document.getElementById('loader').style.display = 'flex';
-
             try {
-                // 2. Call the new Backend Proxy Route
-                const res = await fetch(`${API}/view-blob?name=${encodeURIComponent(blobName)}`, { 
-                    method: 'GET', 
-                    headers: {'Authorization': `Bearer ${authToken}`} 
-                });
-                
+                const res = await fetch(`${API}/view-blob?name=${encodeURIComponent(blobName)}`, { method: 'GET', headers: {'Authorization': `Bearer ${authToken}`} });
                 if (!res.ok) throw new Error("File retrieval failed (404)");
-                
-                // 3. Create a temporary local URL for the downloaded blob and open it
                 const blob = await res.blob();
                 const localUrl = window.URL.createObjectURL(blob);
                 window.open(localUrl, '_blank');
-            } catch (e) {
-                console.error(e);
-                alert("Error opening file: " + e.message);
-            } finally {
-                document.getElementById('loader').style.display = 'none';
-            }
+            } catch (e) { alert("Error opening file: " + e.message); } finally { document.getElementById('loader').style.display = 'none'; }
         }
-         
-        // ... (Keep existing helpers: checkRenewalTime, getIOCLData, deleteIOCLSup etc) ...
+          
         function checkRenewalTime() {
             const fVal = document.getElementById("RenewalValidFrom").value; const tVal = document.getElementById("RenewalValidTo").value;
             const div = document.getElementById("odd-hour-agreement");
@@ -1388,7 +1373,7 @@
                 else { div.classList.add('hidden'); document.getElementById("OddHourSafetyCheck").checked = false; }
             }
         }
-         
+          
         function getIOCLData(id) {
             return Array.from(document.querySelectorAll(`#${id} .iocl-row`)).map(r => ({
                 name: r.querySelector('.iocl-name').value,
@@ -1399,13 +1384,13 @@
                 status: 'active'
             })).filter(x => x.name.trim() !== '');
         }
- 
+
         function addIOCLRow(id) {
             const d=document.createElement('div'); d.className="flex gap-2 mb-2 iocl-row";
             d.innerHTML=`<input class="iocl-name border p-1 w-1/3 text-xs" placeholder="Name"><input class="iocl-desig border p-1 w-1/3 text-xs" placeholder="Desig"><input class="iocl-contact border p-1 w-1/3 text-xs" placeholder="Contact"><button type="button" class="text-red-500" onclick="this.parentElement.remove()">x</button>`;
             document.getElementById(id).appendChild(d);
         }
-         
+          
         function renderIOCLTable(status) {
             const t = document.querySelector('#table-iocl-display tbody'); t.innerHTML = '';
             if(!currentPermitIOCLData || currentPermitIOCLData.length === 0) {
@@ -1430,7 +1415,7 @@
             if(currentUser.Role === 'Reviewer' && status === 'Pending Review') document.getElementById('btn-add-rev-sup').parentElement.classList.remove('hidden');
             if(currentUser.Role === 'Approver' && (status === 'Pending Approval' || status === 'Active')) document.getElementById('btn-add-app-sup').parentElement.classList.remove('hidden');
         }
-         
+          
         function deleteIOCLSup(index, status) {
             if(!confirm("Remove this supervisor from active list?")) return;
             currentPermitIOCLData[index].status = 'inactive';
@@ -1438,11 +1423,42 @@
             currentPermitIOCLData[index].deleted_at = getNow();
             renderIOCLTable(status);
         }
-               
+
+        // --- MISSING FUNCTION FIXED: loadWorkers ---
+        async function loadWorkers(context) {
+            const res = await apiCall('/get-workers', 'POST', {role:currentUser.Role, email:currentUser.Email, context:context});
+            if(currentUser.Role === 'Requester') document.getElementById('btn-add-worker-main').classList.remove('hidden');
+            else document.getElementById('btn-add-worker-main').classList.add('hidden');
+
+            if(context === 'permit_dropdown') {
+                const con = document.getElementById('worker-select-area');
+                con.innerHTML = res.map(w => `<label class="flex items-center gap-3 border p-3 rounded-lg bg-white shadow-sm cursor-pointer hover:bg-blue-50"><input type="checkbox" name="Worker_${w.WorkerID}" value='${JSON.stringify(w)}' class="w-5 h-5 accent-blue-600 rounded"><div><div class="font-bold text-gray-800 text-sm">${escapeHtml(w.Name)}</div><div class="text-xs text-gray-500">${w.IDType}: ${w.ID}</div></div></label>`).join('');
+            } else {
+                const t = document.querySelector('#table-workers tbody'); t.innerHTML = "";
+                res.forEach(w => {
+                    let actions = '';
+                    if(currentUser.Role === 'Requester') actions = `<button class="text-blue-600 font-bold text-xs mr-2" onclick="editWorker('${w.WorkerID}')">Edit</button><button class="text-red-600 font-bold text-xs" onclick="workerAction('${w.WorkerID}', 'delete')">Delete</button>`;
+                    else if(w.Status.includes('Pending')) actions = `<button class="text-green-600 font-bold text-xs mr-2" onclick="workerAction('${w.WorkerID}', 'approve')">Approve</button><button class="text-red-600 font-bold text-xs" onclick="workerAction('${w.WorkerID}', 'reject')">Reject</button>`;
+                    let approvedInfo = w.ApprovedBy ? `${w.ApprovedBy}<br><span class="text-[9px]">${w.ApprovedAt}</span>` : '-';
+                    t.innerHTML += `<tr class="hover:bg-gray-50 border-b border-gray-100"><td class="p-3 font-bold">${escapeHtml(w.Name)}</td><td class="p-3 text-xs">${escapeHtml(w.Age)} / ${escapeHtml(w.Gender)}</td><td class="p-3 text-xs font-mono">${escapeHtml(w.Contact)}</td><td class="p-3 font-mono text-xs">${escapeHtml(w.IDType)}: ${escapeHtml(w.ID)}</td><td class="p-3 text-xs text-gray-500">${approvedInfo}</td><td class="p-3">${actions}</td></tr>`;
+                });
+            }
+        }
+        
+        async function workerAction(id, act) { await apiCall('/save-worker', 'POST', {WorkerID:id, Action:act, Role:currentUser.Role, ApproverName: currentUser.Name}); loadWorkers('mgmt'); }
+        function openWorkerModal() { document.getElementById('worker-form-real').reset(); window.currentWorkerAction = 'create'; document.getElementById('modal-worker').classList.remove('hidden'); }
+        
+        document.getElementById('worker-form-real').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const idTypeFinal = document.getElementById("w-id-type").value === "Other" ? document.getElementById("w-id-type-other").value : document.getElementById("w-id-type").value;
+            const body = { Action: window.currentWorkerAction, Role: currentUser.Role, RequestorEmail: currentUser.Email, RequestorName: currentUser.Name, WorkerID: document.getElementById('w-id').value, Details: { Name: document.getElementById("w-name").value, Age: document.getElementById("w-age").value, Father: document.getElementById("w-father").value, Address: document.getElementById("w-address").value, Contact: document.getElementById("w-contact").value, ID: document.getElementById("w-idcard").value, Gender: document.getElementById("w-gender").value, IDType: idTypeFinal } };
+            const res = await apiCall('/save-worker', 'POST', body);
+            if(res.success) { alert("Worker Saved"); document.getElementById('modal-worker').classList.add('hidden'); loadWorkers('mgmt'); } else alert(res.error);
+        });
+
         function renderChecklists() {
             const container = document.getElementById('checklists-container'); 
             container.innerHTML = '';
-
             Object.keys(CL_DATA).forEach(sec => {
                 let itemsHtml = CL_DATA[sec].map((item, i) => {
                     let extra = `<input class="w-full text-xs border-b mt-1" placeholder="Remarks" name="${sec}_Q${i+1}_Rem">`;
@@ -1463,26 +1479,11 @@
                         ${extra}
                     </div>`;
                 });
-                container.innerHTML += `
-                <div class="glass border-t-4 border-gray-400">
-                    <div class="flex justify-between items-center border-b pb-2 mb-4 bg-gray-50 p-2 rounded">
-                        <h4 class="font-bold text-gray-700">Section ${sec} Checks</h4>
-                        <div class="flex gap-2 text-xs">
-                            <label class="cursor-pointer font-bold"><input type="radio" name="Master_${sec}" value="Y" class="sec-toggle" data-sec="${sec}"> All Yes</label>
-                            <label class="cursor-pointer font-bold"><input type="radio" name="Master_${sec}" value="N" class="sec-toggle" data-sec="${sec}"> All No</label>
-                            <label class="cursor-pointer font-bold"><input type="radio" name="Master_${sec}" value="NA" class="sec-toggle" data-sec="${sec}"> All NA</label>
-                        </div>
-                    </div>
-                    <div class="checklist-grid">${itemsHtml.join('')}</div>
-                </div>`;
+                container.innerHTML += `<div class="glass border-t-4 border-gray-400"><div class="flex justify-between items-center border-b pb-2 mb-4 bg-gray-50 p-2 rounded"><h4 class="font-bold text-gray-700">Section ${sec} Checks</h4><div class="flex gap-2 text-xs"><label class="cursor-pointer font-bold"><input type="radio" name="Master_${sec}" value="Y" class="sec-toggle" data-sec="${sec}"> All Yes</label><label class="cursor-pointer font-bold"><input type="radio" name="Master_${sec}" value="N" class="sec-toggle" data-sec="${sec}"> All No</label><label class="cursor-pointer font-bold"><input type="radio" name="Master_${sec}" value="NA" class="sec-toggle" data-sec="${sec}"> All NA</label></div></div><div class="checklist-grid">${itemsHtml.join('')}</div></div>`;
             });
-            document.querySelectorAll('.sec-toggle').forEach(el => { 
-                el.addEventListener('change', (e) => { 
-                    document.querySelectorAll(`input[name^="${e.target.dataset.sec}_"]`).forEach(rb => { if(rb.value === e.target.value) rb.checked = true; }); 
-                }); 
-            });
+            document.querySelectorAll('.sec-toggle').forEach(el => { el.addEventListener('change', (e) => { document.querySelectorAll(`input[name^="${e.target.dataset.sec}_"]`).forEach(rb => { if(rb.value === e.target.value) rb.checked = true; }); }); });
         }
-        // --- MISSING FUNCTION FIXED: renderHazards ---
+
         function renderHazards() {
             document.getElementById('hazards-grid').innerHTML = HAZARDS.map(h => `<label class="flex items-center gap-2 p-3 border rounded-lg bg-gray-50 text-xs cursor-pointer hover:bg-orange-100 font-bold"><input type="checkbox" name="H_${h.replace(/ /g,'')}" value="Y" ${h==='Others'?'id="chk-haz-others"':''} class="accent-orange-600 w-4 h-4"> ${h}</label>`).join('');
             const otherChk = document.getElementById('chk-haz-others');
@@ -1492,15 +1493,12 @@
             if(idTypeEl) idTypeEl.addEventListener('change', (e) => document.getElementById('w-id-type-other').classList.toggle('hidden', e.target.value !== 'Other'));
         }
 
-        // --- MISSING FUNCTION FIXED: showNewPermit ---
         function showNewPermit() {
             document.getElementById("pf").reset();
             currentPermitId = null;
             document.querySelectorAll('#pf input, #pf select, #pf textarea').forEach(e => e.disabled = false);
             if(currentUser) {
-                safeSet("RequesterName", currentUser.Name); 
-                safeSet("Vendor", currentUser.Name); 
-                safeSet("LocationUnit", `${currentUser.Region}/${currentUser.Unit}/${currentUser.Location}`);
+                safeSet("RequesterName", currentUser.Name); safeSet("Vendor", currentUser.Name); safeSet("LocationUnit", `${currentUser.Region}/${currentUser.Unit}/${currentUser.Location}`);
             }
             const vendorInput = document.getElementById("Vendor");
             if(vendorInput) vendorInput.readOnly = true;
@@ -1509,39 +1507,26 @@
             loadWorkers('permit_dropdown');
         }
 
-        // --- MISSING FUNCTION FIXED: savePermit ---
         async function savePermit() {
             if(!document.getElementById('gsr-check').checked) return alert("Accept GSR.");
-            if(!getVal('WorkType') || !getVal('ValidFrom') || !getVal('ValidTo')) {
-                return alert("Missing Mandatory Fields: Work Type, Valid From, or Valid To.");
-            }
+            if(!getVal('WorkType') || !getVal('ValidFrom') || !getVal('ValidTo')) return alert("Missing Mandatory Fields: Work Type, Valid From, or Valid To.");
             const fd = new FormData(document.getElementById("pf"));
             document.querySelectorAll('input[type="checkbox"]').forEach(c => { if(c.name) fd.set(c.name, c.checked ? "Y" : "N"); });
             const selectedWorkers = [];
             document.querySelectorAll('#worker-select-area input:checked').forEach(c => { try { selectedWorkers.push(JSON.parse(c.value)); } catch(e){} });
             fd.append("SelectedWorkers", JSON.stringify(selectedWorkers));
             if(currentUser) fd.append("RequesterEmail", currentUser.Email);
-            
-            // Gas Values
             const hcEl = document.getElementById('GP_Q12_HC'); const toxEl = document.getElementById('GP_Q12_ToxicGas'); const o2El = document.getElementById('GP_Q12_Oxygen');
             fd.append("GP_Q12_HC", hcEl ? hcEl.value : ""); fd.append("GP_Q12_ToxicGas", toxEl ? toxEl.value : ""); fd.append("GP_Q12_Oxygen", o2El ? o2El.value : "");
             document.querySelectorAll('input[name$="_Rem"]').forEach(rem => { if(rem.value) fd.append(rem.name, rem.value); });
-            
-            // JSA Logic
             const jsaMode = document.querySelector('input[name="jsa_mode"]:checked').value;
-            if (jsaMode === 'upload') {
-                const jsaFile = document.getElementById('JsaFile').files[0];
-                if(jsaFile) fd.append('JsaFile', jsaFile);
-            } else {
-                fd.append('JsaLinkedId', document.getElementById('JsaLinkedId').value);
-            }
-
+            if (jsaMode === 'upload') { const jsaFile = document.getElementById('JsaFile').files[0]; if(jsaFile) fd.append('JsaFile', jsaFile); } 
+            else { fd.append('JsaLinkedId', document.getElementById('JsaLinkedId').value); }
             const res = await fetch(API+'/save-permit', {method:'POST', body:fd, headers: {'Authorization': `Bearer ${authToken}`}});
             const json = await res.json();
             if(json.success) { alert("Permit Created: "+json.permitId); switchView('dashboard'); } else alert(json.error);
         }
 
-        // --- MISSING FUNCTION FIXED: loadMappedApprovers ---
         async function loadMappedApprovers() {
              const reviewers = await apiCall('/get-users-by-loc', 'POST', { region: currentUser.Region, unit: currentUser.Unit, location: currentUser.Location, role: 'Reviewer' });
              const approvers = await apiCall('/get-users-by-loc', 'POST', { region: currentUser.Region, unit: currentUser.Unit, location: currentUser.Location, role: 'Approver' });
@@ -1549,35 +1534,114 @@
              document.getElementById("ApproverEmail").innerHTML = approvers.map(u => `<option value="${u.Email}">${u.Name}</option>`).join('');
         }
 
-        function downloadSecurePDF(id) { 
-            // Simple wrapper to call the backend route
-            window.location.href = `${API}/download-pdf/${id}?token=${authToken}`; 
-            // Better implementation would fetch blob like viewSecureFile, but for download
-             try { 
-                document.getElementById('loader').style.display = 'flex'; 
-                fetch(`${API}/download-pdf/${id}`, { headers: {'Authorization': `Bearer ${authToken}`} })
-                .then(res => { if(!res.ok) throw new Error("Err"); return res.blob(); })
-                .then(blob => {
-                    const a = document.createElement('a'); a.href = window.URL.createObjectURL(blob); a.download = `${id}.pdf`; 
-                    document.body.appendChild(a); a.click(); document.body.removeChild(a); 
-                })
-                .catch(e => alert("Download Failed"))
-                .finally(() => document.getElementById('loader').style.display = 'none');
-             } catch(e) {}
+        async function loadApprovedJsas() {
+            const res = await apiCall('/jsa/list-approved', 'POST', { region: currentUser.Region, unit: currentUser.Unit });
+            const sel = document.getElementById('JsaLinkedId');
+            sel.innerHTML = '<option value="">Select Approved JSA...</option>' + res.map(j => `<option value="${j.RefNumber}">${j.RefNumber} - ${j.JobTitle}</option>`).join('');
+            sel.onchange = (e) => document.getElementById('JsaNo').value = e.target.value;
         }
 
-        async function downloadSecureExcel() { try { document.getElementById('loader').style.display = 'flex'; const res = await fetch(`${API}/download-excel`, { headers: {'Authorization': `Bearer ${authToken}`} }); if(!res.ok) throw new Error("Err"); const blob = await res.blob(); const a = document.createElement('a'); a.href = window.URL.createObjectURL(blob); a.download = "Permits.xlsx"; document.body.appendChild(a); a.click(); document.body.removeChild(a); } catch(e) { alert("Failed"); } finally { document.getElementById('loader').style.display = 'none'; } }
-        
+        async function loadJsaDashboard() {
+            const res = await apiCall('/jsa/list-my', 'POST', { email: currentUser.Email, role: currentUser.Role });
+            const tbody = document.getElementById('tbody-jsa');
+            tbody.innerHTML = res.map(j => {
+                const downloadBtn = j.Status === 'Approved' ? `<button onclick="downloadJsaPdf('${j.JSAID}')" class="text-blue-600 underline text-xs font-bold mr-2">PDF</button>` : '';
+                return `<tr class="hover:bg-gray-50 border-b"><td class="p-3 font-bold text-blue-600 cursor-pointer" onclick="openNewJsaForm('${j.JSAID}')">${j.RefNumber || 'DRAFT'}</td><td class="p-3">${j.JobTitle}</td><td class="p-3">${j.Location}</td><td class="p-3"><span class="px-2 py-1 rounded text-xs font-bold bg-gray-200">${j.Status}</span></td><td class="p-3 text-xs">${j.RequesterName}</td><td class="p-3">${downloadBtn}</td></tr>`;
+            }).join('');
+        }
+
+        async function openNewJsaForm(jsaId = null, refNumber = null) {
+            switchView('jsa-form');
+            document.getElementById('jsa-form').reset();
+            document.querySelector('#table-jsa-team tbody').innerHTML = '';
+            document.querySelector('#table-jsa-risk tbody').innerHTML = '';
+            const backBtn = document.querySelector('#view-jsa-form button');
+            if(refNumber) { backBtn.innerText = "← Back to Permit"; backBtn.onclick = () => { document.getElementById('view-jsa-form').classList.add('hidden'); document.getElementById('view-form').classList.remove('hidden'); }; } 
+            else { backBtn.innerText = "← Back to List"; backBtn.onclick = () => switchView('jsa'); }
+            await loadMappedApprovers(); 
+            document.getElementById('jsa-reviewer').innerHTML = document.getElementById('ReviewerEmail').innerHTML;
+            document.getElementById('jsa-approver').innerHTML = document.getElementById('ApproverEmail').innerHTML;
+            safeSet('jsa-region', currentUser.Region); safeSet('jsa-unit', currentUser.Unit); safeSet('jsa-loc', currentUser.Location);
+            if(jsaId || refNumber) {
+                const payload = jsaId ? { id: jsaId } : { ref: refNumber };
+                const j = await apiCall('/jsa/get', 'POST', payload);
+                if(!j) { alert("JSA Details not found."); return switchView('jsa'); }
+                currentJsaData = j;
+                safeSet('JSAID', j.JSAID); safeSet('jsa-job-title', j.JobTitle); safeSet('jsa-executed-by', j.ExecutedBy);
+                safeSet('jsa-reviewer', j.ReviewerEmail); safeSet('jsa-approver', j.ApproverEmail);
+                const data = JSON.parse(j.DataJSON || '{}');
+                (data.team || []).forEach(p => addJsaPersonRow(p));
+                (data.steps || []).forEach(s => addJsaRiskRow(s));
+                safeSet('jsa-additional-prec', data.additionalPrecautions);
+                const isRev = currentUser.Role === 'Reviewer' && j.Status === 'Pending Review';
+                const isApp = currentUser.Role === 'Approver' && j.Status === 'Pending Approval';
+                if (isRev || isApp) {
+                    document.getElementById('jsa-workflow-actions').classList.remove('hidden');
+                    document.getElementById('jsa-submit-bar').classList.add('hidden');
+                    document.getElementById('btn-jsa-approve').onclick = () => processJsaAction(j.JSAID, 'approve');
+                    document.getElementById('btn-jsa-reject').onclick = () => processJsaAction(j.JSAID, 'reject');
+                } else {
+                    document.getElementById('jsa-workflow-actions').classList.add('hidden');
+                    document.getElementById('jsa-submit-bar').classList.add('hidden');
+                    document.querySelectorAll('#jsa-form input, #jsa-form textarea, #jsa-form select').forEach(e => e.disabled = true);
+                    document.querySelectorAll('#jsa-form button.text-red-500').forEach(b => b.classList.add('hidden'));
+                }
+            } else {
+                addJsaPersonRow({name: currentUser.Name, dept: 'Operations'}); 
+                addJsaRiskRow();
+                document.getElementById('jsa-workflow-actions').classList.add('hidden');
+                document.getElementById('jsa-submit-bar').classList.remove('hidden');
+            }
+        }
+        function addJsaPersonRow(data = {}) {
+            const tbody = document.querySelector('#table-jsa-team tbody');
+            const tr = document.createElement('tr');
+            tr.innerHTML = `<td><input class="w-full border-none bg-transparent" placeholder="Name" value="${data.name||''}"></td><td><input class="w-full border-none bg-transparent" placeholder="Designation" value="${data.desig||''}"></td><td><input class="w-full border-none bg-transparent" placeholder="Department" value="${data.dept||''}"></td><td><button type="button" class="text-red-500 font-bold" onclick="this.closest('tr').remove()">x</button></td>`;
+            tbody.appendChild(tr);
+        }
+        function addJsaRiskRow(data = {}) {
+            const tbody = document.querySelector('#table-jsa-risk tbody');
+            const idx = tbody.children.length + 1;
+            const tr = document.createElement('tr');
+            tr.innerHTML = `<td class="p-2 text-center text-gray-500">${idx}</td><td><textarea class="w-full text-xs p-1 h-16" placeholder="Activity Step">${data.activity||''}</textarea></td><td><textarea class="w-full text-xs p-1 h-16" placeholder="Potential Hazards">${data.hazard||''}</textarea></td><td><textarea class="w-full text-xs p-1 h-16" placeholder="Controls / Actions">${data.control||''}</textarea></td><td><button type="button" class="text-red-500 font-bold" onclick="this.closest('tr').remove()">x</button></td>`;
+            tbody.appendChild(tr);
+        }
+        document.getElementById('jsa-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const fd = new FormData(e.target);
+            const team = [];
+            document.querySelectorAll('#table-jsa-team tbody tr').forEach(tr => { const ins = tr.querySelectorAll('input'); if(ins[0].value) team.push({ name: ins[0].value, desig: ins[1].value, dept: ins[2].value }); });
+            const steps = [];
+            document.querySelectorAll('#table-jsa-risk tbody tr').forEach(tr => { const txts = tr.querySelectorAll('textarea'); if(txts[0].value) steps.push({ activity: txts[0].value, hazard: txts[1].value, control: txts[2].value }); });
+            const body = {
+                JSAID: fd.get('JSAID'), JobTitle: fd.get('JobTitle'), ExecutedBy: fd.get('ExecutedBy'), ReviewerEmail: fd.get('ReviewerEmail'), ApproverEmail: fd.get('ApproverEmail'),
+                Region: currentUser.Region, Unit: currentUser.Unit, Location: currentUser.Location, RequesterEmail: currentUser.Email, RequesterName: currentUser.Name,
+                DataJSON: JSON.stringify({ team, steps, additionalPrecautions: document.getElementById('jsa-additional-prec').value })
+            };
+            const res = await apiCall('/jsa/save', 'POST', body);
+            if(res.success) { alert("JSA Saved"); switchView('jsa'); } else alert(res.error);
+        });
+        async function processJsaAction(id, action) {
+            const rem = document.getElementById('jsa-remarks').value;
+            if(action === 'reject' && !rem) return alert("Remarks mandatory for rejection");
+            const team = [];
+            document.querySelectorAll('#table-jsa-team tbody tr').forEach(tr => { const ins = tr.querySelectorAll('input'); if(ins[0].value) team.push({ name: ins[0].value, desig: ins[1].value, dept: ins[2].value }); });
+            const steps = [];
+            document.querySelectorAll('#table-jsa-risk tbody tr').forEach(tr => { const txts = tr.querySelectorAll('textarea'); if(txts[0].value) steps.push({ activity: txts[0].value, hazard: txts[1].value, control: txts[2].value }); });
+            const res = await apiCall('/jsa/action', 'POST', { id, action, remarks: rem, role: currentUser.Role, user: currentUser.Name, updatedData: JSON.stringify({ team, steps, additionalPrecautions: document.getElementById('jsa-additional-prec').value }) });
+            if(res.success) { alert("Action Completed"); switchView('jsa'); } else alert(res.error);
+        }
+
         // Sync Helper
         window.syncGasToRenewal = function() {
             if(document.getElementById('chk-init-renewal').checked) {
                 safeSet('InitRenHC', getVal('GP_Q12_HC')); safeSet('InitRenTox', getVal('GP_Q12_ToxicGas')); safeSet('InitRenO2', getVal('GP_Q12_Oxygen'));
             }
-            };
- 
+        };
+
         document.getElementById('btn-add-rev-sup').onclick = () => addIOCLRow('iocl-sup-container-rev');
         document.getElementById('btn-add-app-sup').onclick = () => addIOCLRow('iocl-sup-container-app');
- 
+
         initLogin();
     </script>
 </body>
