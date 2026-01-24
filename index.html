@@ -932,7 +932,55 @@
             const wTbody = document.getElementById('worker-display-body');
             document.getElementById('worker-display-table').classList.toggle('hidden', currentPermitWorkers.length === 0);
             if (wTbody) wTbody.innerHTML = currentPermitWorkers.map(w => `<tr><td class="p-2 font-bold">${escapeHtml(w.Name)}</td><td class="p-2">${escapeHtml(w.IDType)}: ${escapeHtml(w.ID)}</td><td class="p-2 font-mono">${escapeHtml(w.Contact)}</td></tr>`).join('');
+            // ... inside openPermit(id) ...
             
+    // --- JSA DISPLAY & PERMISSION LOGIC ---
+    const jsaUploadDiv = document.getElementById('jsa-mode-upload');
+    const jsaLinkDiv = document.getElementById('jsa-mode-link');
+    const existDisplay = document.getElementById('jsa-existing-file-display');
+    const jsaFileInp = document.getElementById('JsaFile');
+    const jsaLinkSel = document.getElementById('JsaLinkedId');
+    const jsaRadios = document.querySelectorAll('input[name="jsa_mode"]');
+
+    // 1. Reset
+    existDisplay.classList.add('hidden');
+    jsaFileInp.value = '';
+
+    // 2. Set Values from DB
+    if(p.JsaLinkedId) {
+        document.querySelector('input[name="jsa_mode"][value="link"]').checked = true;
+        toggleJsaMode('link');
+        jsaLinkSel.innerHTML = `<option value="${p.JsaLinkedId}" selected>${p.JsaLinkedId}</option>`;
+    } else if (p.JsaFileUrl) {
+        document.querySelector('input[name="jsa_mode"][value="upload"]').checked = true;
+        toggleJsaMode('upload');
+        const link = document.getElementById('jsa-file-link');
+        link.href = '#'; 
+        // Use viewSecurePhoto to handle blob token auth
+        link.onclick = (e) => { e.preventDefault(); viewSecurePhoto(p.JsaFileUrl); };
+        existDisplay.classList.remove('hidden');
+    }
+
+    // 3. Permission Logic (Allow Editing for Rev/App in Pending stages)
+    let canEditJsa = false;
+    if (currentUser.Role === 'Reviewer' && p.Status === 'Pending Review') canEditJsa = true;
+    if (currentUser.Role === 'Approver' && p.Status === 'Pending Approval') canEditJsa = true;
+    if (currentUser.Role === 'Requester' && (p.Status === 'Draft' || p.Status.includes('Rejected'))) canEditJsa = true;
+
+    if (canEditJsa) {
+        jsaFileInp.disabled = false;
+        jsaLinkSel.disabled = false;
+        jsaRadios.forEach(r => r.disabled = false);
+        document.getElementById('btn-del-jsa').classList.remove('hidden');
+        // Load dropdown options for linking if in edit mode
+        loadApprovedJsas(); 
+    } else {
+        // Read Only Mode
+        jsaFileInp.disabled = true;
+        jsaLinkSel.disabled = true;
+        jsaRadios.forEach(r => r.disabled = true);
+        document.getElementById('btn-del-jsa').classList.add('hidden');
+    }
             // --- JSA DISPLAY LOGIC ---
             if(p.JsaLinkedId) {
                 document.querySelector('input[name="jsa_mode"][value="link"]').checked = true;
@@ -1168,44 +1216,80 @@
             }
         }
  
-        async function upd(act) {
-            if (act === 'initiate_closure' && !document.getElementById("Site_Restored_Check").checked) return alert("Please confirm site restoration.");
-            let ioclData = [];
-            if (currentUser.Role === 'Reviewer') ioclData = getIOCLData('iocl-sup-container-rev');
-            if (currentUser.Role === 'Approver') {
-                 const newOnes = getIOCLData('iocl-sup-container-app');
-                 ioclData = [...currentPermitIOCLData, ...newOnes];
-            }
-            const body = {
-                PermitID: currentPermitId, action: act, role: currentUser.Role, user: currentUser.Name, IOCLSupervisors: ioclData,
-                comment: (currentUser.Role === 'Reviewer' ? getVal("Reviewer_Remarks") : getVal("Approver_Remarks")),
-                AdditionalPrecautions: getVal("AdditionalPrecautions"),
-                RequireRenewalPhotos: document.getElementById('RequireRenewalPhotos').checked ? 'Y' : 'N',
-                PdfBgColor: getVal('PdfBgColor'),
-                Closure_Requestor_Remarks: getVal("Closure_Requestor_Remarks"),
-                Closure_Reviewer_Remarks: getVal("Closure_Reviewer_Remarks"),
-                Closure_Approver_Remarks: getVal("Closure_Approver_Remarks"),
-                Site_Restored_Check: document.getElementById("Site_Restored_Check").checked ? 'Y' : 'N'
-            };
-            if (act === 'review' || act === 'approve') {
-                const revDec = document.querySelector('input[name="RevRenAction"]:checked');
-                const appDec = document.querySelector('input[name="AppRenAction"]:checked');
-                if (currentUser.Role === 'Reviewer' && revDec) {
-                    body.FirstRenewalAction = revDec.value;
-                    body.action = 'approve_1st_ren';
-                }
-                if (currentUser.Role === 'Approver' && appDec) {
-                    body.FirstRenewalAction = appDec.value;
-                    body.action = 'approve_1st_ren';
-                }
-            }
-            if (currentUser.Role === 'Reviewer' || currentUser.Role === 'Approver') {
-                document.querySelectorAll('#hazards-grid input, #ppe-grid input').forEach(c => { if (c.name) body[c.name] = c.checked ? 'Y' : 'N'; });
-            }
-            const res = await apiCall('/update-status', 'POST', body);
-            if (res.success) { alert("Success"); switchView('dashboard'); } else { alert(res.error || "Update Failed"); }
+async function upd(act) {
+    if (act === 'initiate_closure' && !document.getElementById("Site_Restored_Check").checked) return alert("Please confirm site restoration.");
+    
+    // Create FormData instead of JSON
+    const fd = new FormData();
+    fd.append('PermitID', currentPermitId);
+    fd.append('action', act);
+    fd.append('role', currentUser.Role);
+    fd.append('user', currentUser.Name);
+
+    // Collect Text Fields
+    const comments = (currentUser.Role === 'Reviewer' ? getVal("Reviewer_Remarks") : getVal("Approver_Remarks"));
+    fd.append('comment', comments);
+    fd.append('AdditionalPrecautions', getVal("AdditionalPrecautions"));
+    fd.append('RequireRenewalPhotos', document.getElementById('RequireRenewalPhotos').checked ? 'Y' : 'N');
+    fd.append('PdfBgColor', getVal('PdfBgColor'));
+    fd.append('Closure_Requestor_Remarks', getVal("Closure_Requestor_Remarks"));
+    fd.append('Closure_Reviewer_Remarks', getVal("Closure_Reviewer_Remarks"));
+    fd.append('Closure_Approver_Remarks', getVal("Closure_Approver_Remarks"));
+    fd.append('Site_Restored_Check', document.getElementById("Site_Restored_Check").checked ? 'Y' : 'N');
+
+    // Collect IOCL Data
+    let ioclData = [];
+    if (currentUser.Role === 'Reviewer') ioclData = getIOCLData('iocl-sup-container-rev');
+    if (currentUser.Role === 'Approver') {
+            const newOnes = getIOCLData('iocl-sup-container-app');
+            ioclData = [...currentPermitIOCLData, ...newOnes];
+    }
+    fd.append('IOCLSupervisors', JSON.stringify(ioclData));
+
+    // Handle JSA File Changes
+    const jsaMode = document.querySelector('input[name="jsa_mode"]:checked').value;
+    if (jsaMode === 'upload') {
+        const f = document.getElementById('JsaFile').files[0];
+        if(f) fd.append('JsaFile', f); // Only sends if new file selected
+    } else {
+        fd.append('JsaLinkedId', document.getElementById('JsaLinkedId').value);
+    }
+
+    // Handle Radios/CheckBoxes
+    if (act === 'review' || act === 'approve') {
+        const revDec = document.querySelector('input[name="RevRenAction"]:checked');
+        const appDec = document.querySelector('input[name="AppRenAction"]:checked');
+        if (currentUser.Role === 'Reviewer' && revDec) {
+            fd.append('FirstRenewalAction', revDec.value);
+            fd.append('action', 'approve_1st_ren'); // Override action
         }
- 
+        if (currentUser.Role === 'Approver' && appDec) {
+            fd.append('FirstRenewalAction', appDec.value);
+            fd.append('action', 'approve_1st_ren');
+        }
+    }
+    
+    // Hazards/PPE (Send as individual fields)
+    if (currentUser.Role === 'Reviewer' || currentUser.Role === 'Approver') {
+        document.querySelectorAll('#hazards-grid input, #ppe-grid input').forEach(c => { 
+            if (c.name) fd.append(c.name, c.checked ? 'Y' : 'N'); 
+        });
+    }
+
+    // Send Request using Fetch (apiCall doesn't support FormData directly nicely)
+    document.getElementById('loader').style.display = 'flex';
+    try {
+        const res = await fetch(API+'/update-status', {
+            method: 'POST', 
+            body: fd, 
+            headers: {'Authorization': `Bearer ${authToken}`} // No Content-Type header for FormData
+        });
+        const json = await res.json();
+        if (json.success) { alert("Success"); switchView('dashboard'); } 
+        else { alert(json.error || "Update Failed"); }
+    } catch(e) { console.error(e); alert("Network Error"); }
+    finally { document.getElementById('loader').style.display = 'none'; }
+}
         async function submitRenewal(act) {
             if(act === 'approve' || act === 'reject') {
                 const remark = document.getElementById('RenewalRemark').value;
@@ -1746,3 +1830,4 @@
     </script>
 </body>
 </html>
+
