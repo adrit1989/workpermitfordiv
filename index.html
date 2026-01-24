@@ -10,38 +10,6 @@
     <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyADwuqMDCwNSaZKBnWURDCYdqlMxfiWBnU" async></script>
  
     <style nonce="NONCE_PLACEHOLDER">
-        
-        /* --- MOBILE DEBUGGER (Added for you) --- */
-        (function() {
-            if (window.innerWidth < 768) { 
-                // Create the black box if it doesn't exist in HTML
-                if(!document.getElementById('mobile-debug')) {
-                    const dbg = document.createElement('div');
-                    dbg.id = 'mobile-debug';
-                    dbg.className = 'fixed bottom-0 left-0 w-full h-48 bg-black/90 text-green-400 text-[10px] font-mono p-2 overflow-y-auto z-[10000] border-t-2 border-green-600 hidden';
-                    document.body.appendChild(dbg);
-                }
-                const debugBox = document.getElementById('mobile-debug');
-                debugBox.classList.remove('hidden');
-                
-                const oldLog = console.log;
-                console.log = function(...args) {
-                    oldLog.apply(console, args);
-                    const msg = args.map(arg => typeof arg === 'object' ? JSON.stringify(arg) : String(arg)).join(' ');
-                    debugBox.innerHTML += `<div class="border-b border-gray-700 py-1">➤ ${msg}</div>`;
-                    debugBox.scrollTop = debugBox.scrollHeight;
-                };
-
-                const oldErr = console.error;
-                console.error = function(...args) {
-                    oldErr.apply(console, args);
-                    const msg = args.map(arg => typeof arg === 'object' ? JSON.stringify(arg) : String(arg)).join(' ');
-                    debugBox.innerHTML += `<div class="text-red-400 font-bold border-b border-gray-700 py-1">❌ ${msg}</div>`;
-                    debugBox.scrollTop = debugBox.scrollHeight;
-                };
-                console.log("MOBILE DEBUGGER ACTIVE. Tap a permit to see logs.");
-            }
-        })();
         body { background-color: #f3f4f6; font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; overflow: hidden; margin: 0; padding: 0; }
         .hidden { display: none !important; }
         .glass { background: white; padding: 1.5rem; border-radius: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); margin-bottom: 1.5rem; border: 1px solid #e5e7eb; }
@@ -302,15 +270,11 @@
                                 <div><label class="text-xs font-bold text-gray-500">Specific Work</label><input name="WorkTypeOther" id="WorkTypeOther"></div>
                                 <div class="md:col-span-2"><label class="text-xs font-bold text-gray-500">Location (GPS)</label><div class="flex gap-2"><input name="ExactLocation" id="ExactLocation" class="flex-1" placeholder="Coords"><button type="button" id="btn-get-geo" class="bg-blue-100 text-blue-700 px-3 rounded font-bold">📍 GPS</button></div><input type="hidden" id="Latitude" name="Latitude"><input type="hidden" id="Longitude" name="Longitude"></div>
                                 <div><label class="text-xs font-bold text-gray-500">Location Details</label><input name="WorkLocationDetail" id="WorkLocationDetail"></div>
-                                 
                                 <div><label class="text-xs font-bold text-gray-500">Region/Unit/Location</label><input name="LocationUnit" id="LocationUnit" readonly class="bg-gray-100"></div>
-                                 
                                 <div><label class="text-xs font-bold text-gray-500">Valid From</label><input type="datetime-local" name="ValidFrom" id="ValidFrom"></div>
                                 <div><label class="text-xs font-bold text-gray-500">Valid To</label><input type="datetime-local" name="ValidTo" id="ValidTo"></div>
                                 <div><label class="text-xs font-bold text-gray-500">Vendor</label><input name="Vendor" id="Vendor" readonly class="bg-gray-100"></div>
-                                 
                                 <div><label class="text-xs font-bold text-gray-500">Requester</label><input name="RequesterName" id="RequesterName" class="bg-white"></div>
-                                 
                                 <div class="md:col-span-2"><label class="text-xs font-bold text-gray-500">Issued To Dept</label><input name="IssuedToDept" id="IssuedToDept"></div>
                                 <div><label class="text-xs font-bold text-gray-500">Security Guard</label><input name="SecurityGuard" id="SecurityGuard"></div>
                                 <div><label class="text-xs font-bold text-gray-500">Emergency Contact</label><input name="EmergencyContact" id="EmergencyContact"></div>
@@ -318,6 +282,25 @@
                                 <div class="md:col-span-4"><label class="text-xs font-bold text-gray-500">Description</label><textarea name="Desc" id="Desc" rows="2"></textarea></div>
                                 <div class="md:col-span-2"><label class="text-xs font-bold text-gray-500">Assign Reviewer</label><select name="ReviewerEmail" id="ReviewerEmail"></select></div>
                                 <div class="md:col-span-2"><label class="text-xs font-bold text-gray-500">Assign Approver</label><select name="ApproverEmail" id="ApproverEmail"></select></div>
+                                
+                                <div class="md:col-span-4 p-3 bg-red-50 border border-red-200 rounded mt-2">
+                                    <label class="font-bold text-red-700 text-sm block">Is this Critical Work?</label>
+                                    <div class="flex gap-4 mt-1 mb-2">
+                                        <label class="flex items-center gap-1 cursor-pointer font-bold"><input type="radio" name="IsCritical" value="Y" onchange="toggleCritical(true)"> Yes</label>
+                                        <label class="flex items-center gap-1 cursor-pointer font-bold"><input type="radio" name="IsCritical" value="N" onchange="toggleCritical(false)" checked> No</label>
+                                    </div>
+                                    <div id="critical-options" class="hidden">
+                                        <label class="text-xs font-bold text-gray-600">Select Critical Activity:</label>
+                                        <select name="CriticalActivityType" id="CriticalActivityType" class="w-full text-sm mt-1 border-red-300"></select>
+                                    </div>
+                                </div>
+
+                                <div class="md:col-span-4 mt-2">
+                                     <label class="flex items-center gap-2 p-3 bg-blue-50 rounded border border-blue-200 cursor-pointer hover:bg-blue-100">
+                                         <input type="checkbox" name="TBT_Permit" value="Y" id="chk-tbt-permit" class="w-5 h-5 accent-blue-600"> 
+                                         <span class="font-bold text-blue-800 text-sm">Tool Box Talk Conducted & Recorded?</span>
+                                     </label>
+                                </div>
                             </div>
                         </div>
  
@@ -356,7 +339,6 @@
                             <div id="other-hazard-div" class="hidden mb-2">
                                 <input id="H_Others_Detail" name="H_Others_Detail" placeholder="Specify other hazards..." class="w-full">
                             </div>
-                             
                             <div id="ppe-section-wrapper" class="hidden">
                                 <h4 class="font-bold text-gray-500 text-xs uppercase mb-2">PPE Required (Reviewer/Approver)</h4>
                                 <div id="ppe-grid" class="grid grid-cols-2 md:grid-cols-4 gap-2 mb-2"></div>
@@ -366,7 +348,6 @@
  
                         <div id="fs-reviewer-section" class="glass hidden border-l-4 border-yellow-500">
                             <h3 class="font-bold text-yellow-700 border-b pb-2 mb-4">4. Reviewer</h3>
-                             
                             <div id="rev-renewal-decision" class="mb-4 hidden p-4 bg-yellow-50 border border-yellow-200 rounded">
                                 <h4 class="font-bold text-sm text-yellow-900 mb-2">1st Renewal: Accept and forward?</h4>
                                 <div class="flex gap-6">
@@ -378,7 +359,6 @@
                                    </label>
                                 </div>
                              </div>
- 
                             <div class="mb-4 hidden" id="iocl-reviewer-wrapper">
                                 <label class="font-bold text-sm text-gray-700">Authorized IOCL Supervisors</label>
                                 <div id="iocl-sup-container-rev" class="space-y-2 mt-2"></div>
@@ -389,19 +369,13 @@
  
                         <div id="fs-approver-section" class="glass hidden border-l-4 border-green-500">
                             <h3 class="font-bold text-green-700 border-b pb-2 mb-4">5. Approval</h3>
-                             
                              <div id="app-renewal-decision" class="mb-4 hidden p-4 bg-green-50 border border-green-200 rounded">
                                 <h4 class="font-bold text-sm text-green-900 mb-2">Reviewer has accepted the 1st renewal. Please log your decision:</h4>
                                 <div class="flex gap-6">
-                                    <label class="flex items-center gap-2 cursor-pointer font-bold text-gray-700">
-                                            <input type="radio" name="AppRenAction" value="approve" class="w-5 h-5 accent-green-600"> Accept
-                                    </label>
-                                    <label class="flex items-center gap-2 cursor-pointer font-bold text-gray-700">
-                                            <input type="radio" name="AppRenAction" value="reject" class="w-5 h-5 accent-red-600"> Reject
-                                    </label>
+                                    <label class="flex items-center gap-2 cursor-pointer font-bold text-gray-700"><input type="radio" name="AppRenAction" value="approve" class="w-5 h-5 accent-green-600"> Accept</label>
+                                    <label class="flex items-center gap-2 cursor-pointer font-bold text-gray-700"><input type="radio" name="AppRenAction" value="reject" class="w-5 h-5 accent-red-600"> Reject</label>
                                 </div>
                             </div>
- 
                             <div class="mb-4 hidden" id="iocl-approver-wrapper">
                                 <label class="font-bold text-sm text-gray-700">Authorized IOCL Supervisors</label>
                                 <div id="iocl-sup-container-app" class="space-y-2 mt-2"></div>
@@ -422,7 +396,6 @@
  
                         <div id="renewals-section" class="glass hidden border-l-4 border-purple-500 bg-purple-50/20">
                             <h3 class="font-bold text-purple-700 border-b pb-2 mb-4">📅 Renewal History</h3>
-                             
                             <div id="pending-renewal-display" class="hidden bg-yellow-50 p-4 rounded-lg mb-4 border border-yellow-200">
                                 <h4 class="font-bold text-yellow-800 text-sm uppercase">⚠️ Pending Renewal Action</h4>
                                 <div id="odd-hour-approval-controls" class="hidden mt-3 pt-3 border-t border-yellow-300">
@@ -434,24 +407,17 @@
                                     </label>
                                 </div>
                             </div>
- 
                             <div class="overflow-x-auto mb-4 bg-white rounded shadow-sm border">
                                 <table class="mobile-table w-full text-xs text-left data-table" id="table-renewals">
                                     <thead class="bg-purple-100">
                                         <tr>
-                                            <th>Validity</th>
-                                            <th>Gas (HC/Tox/O2)</th>
-                                            <th>Precautions</th> 
-                                            <th>Workers</th> <th>Requester</th>
-                                            <th>Reviewer</th>
-                                            <th>Approver</th>
-                                            <th>Photo</th>
+                                            <th>Validity</th><th>Gas (HC/Tox/O2)</th><th>Precautions</th><th>Workers</th> 
+                                            <th>Requester</th><th>Reviewer</th><th>Approver</th><th>Photo</th>
                                         </tr>
                                     </thead>
                                     <tbody id="renewal-history-body"></tbody>
                                 </table>
                             </div>
- 
                             <div id="form-renewal" class="hidden bg-white p-4 rounded border border-purple-200 shadow-sm">
                                 <h4 class="font-bold text-sm mb-2 text-purple-800">New Renewal Request</h4>
                                 <div class="grid grid-cols-1 md:grid-cols-5 gap-3 mb-2">
@@ -462,6 +428,10 @@
                                     <input id="RenewalOxygen" placeholder="O2 %">
                                 </div>
                                 <input id="RenewalPrec" placeholder="Specific Precautions for this shift" class="mb-2">
+                                <label class="flex items-center gap-2 mb-2 p-2 bg-blue-50 border border-blue-200 rounded cursor-pointer w-full">
+                                    <input type="checkbox" id="TBT_Renewal" value="Y" class="w-5 h-5 accent-blue-600">
+                                    <span class="font-bold text-blue-800 text-xs">Tool Box Talk Conducted for Renewal?</span>
+                                </label>
                                 <div id="odd-hour-agreement" class="hidden mb-2 p-2 bg-indigo-50 border border-indigo-200 rounded">
                                     <label class="flex items-start gap-2 cursor-pointer">
                                             <input type="checkbox" id="OddHourSafetyCheck" class="mt-1 w-5 h-5 accent-indigo-600">
@@ -479,7 +449,6 @@
                                 </div>
                                 <button type="button" onclick="submitRenewal('pending_review')" class="w-full bg-purple-600 text-white py-2 rounded font-bold shadow hover:bg-purple-700">Submit Request</button>
                             </div>
- 
                             <div id="action-renewal" class="hidden p-4 bg-yellow-50 mt-2 rounded border border-yellow-200">
                                 <textarea id="RenewalRemark" placeholder="Remarks (Mandatory for Rejection)" class="w-full mb-2"></textarea>
                                 <div class="grid grid-cols-2 gap-2">
@@ -490,13 +459,18 @@
                         </div>
  
                         <div id="closure-section" class="glass hidden border-l-4 border-gray-600">
-                            <h3 class="font-bold text-gray-700 border-b pb-2 mb-4">Closure</h3>
-                            <label class="flex items-center gap-2 mb-4 font-bold text-red-600 p-3 bg-red-50 rounded border border-red-100 cursor-pointer">
-                                <input type="checkbox" id="Site_Restored_Check" name="Site_Restored_Check" class="w-5 h-5 accent-red-600"> I confirm Site is Restored.
-                            </label>
+                            <h3 class="font-bold text-gray-700 border-b pb-2 mb-4">Closure Checklist</h3>
+                            <div id="closure-checks-container" class="space-y-2 mb-4">
+                                </div>
+                            <div id="closure-deviation-box" class="hidden mb-4 p-3 bg-red-50 border border-red-200 rounded">
+                                <label class="text-xs font-bold text-red-700 block mb-1">Reason for Deviation (Mandatory if checklist incomplete):</label>
+                                <textarea id="Closure_Deviation_Reason" class="w-full border-red-300 focus:ring-red-500" placeholder="Explain why conditions are not met..."></textarea>
+                            </div>
+                            
                             <div id="div-closure-req" class="hidden space-y-2">
                                 <label class="text-xs font-bold text-gray-500">Requester Remarks</label>
                                 <textarea id="Closure_Requestor_Remarks" placeholder="Remarks" class="w-full"></textarea>
+                                <input type="checkbox" id="Site_Restored_Check" class="hidden"> 
                                 <span id="ts-clos-req" class="text-xs text-gray-400 block text-right font-mono"></span>
                             </div>
                             <div id="div-closure-rev" class="hidden mt-4 space-y-2 border-t pt-4">
@@ -513,6 +487,9 @@
  
                         <div class="glass" id="section-e">
                             <h3 class="font-bold text-gray-600 border-b pb-2 mb-4">E. References</h3>
+                            
+                            <div id="jsa-audit-line" class="text-sm font-mono text-blue-700 mb-4 bg-blue-50 p-2 rounded hidden border border-blue-200"></div>
+
                             <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
                                 <input name="SopNo" id="SopNo" placeholder="SOP/SWP/SMP No">
 
@@ -542,6 +519,7 @@
                                         <input type="hidden" name="JsaNo" id="JsaNo"> 
                                     </div>
                                 </div>
+
                                 <input name="IoclEquip" id="IoclEquip" placeholder="IOCL Equip">
                                 <input name="ContEquip" id="ContEquip" placeholder="Contractor Equip">
                                 <input name="WorkOrder" id="WorkOrder" placeholder="Work Order No">
@@ -664,21 +642,39 @@
     </div>
  
     <script nonce="NONCE_PLACEHOLDER">
-        /* 1. CONSTANTS */
         const API = "/api";
-        let authToken = null, currentUser = null;
+        let currentUser = null, authToken = null;
         let mapInstance = null, chartS = null, chartT = null;
         let currentPermitId = null, currentPermitWorkers = [], permitRequirePhoto = false, currentPermitIOCLData = [];
- 
+        let currentJsaData = null;
+
         const CL_DATA = {
-            A: ["1. Equipment / Work Area inspected.", "2. Surrounding area checked.", "3. Manholes covered.", "4. Hazards considered.", "5. Equipment blinded.", "6. Drained.", "7. Steamed.", "8. Flushed.", "9. Fire Access.", "10. Iron Sulfide.", "11. Electrical Isolation.", "12. Gas Test: HC / Toxic / O2", "13. Firefighting.", "14. Cordoned.", "15. CCTV.", "16. Ventilation."],
+            A: ["1. Equipment / Work Area inspected.", "2. Surrounding area checked.", "3. Manholes covered.", "4. Hazards considered.", "5. Equipment blinded.", "6. Drained.", "7. Steamed.", "8. Flushed.", "9. Fire Access.", "10. Iron Sulfide.", "11. Electrical Isolation.", "12. Gas Test: HC / Toxic / O2 checked.", "13. Firefighting.", "14. Cordoned.", "15. CCTV.", "16. Ventilation."],
             B: ["1. Exit.", "2. Standby.", "3. Gas trap.", "4. Spark shield.", "5. Grounding.", "6. Standby (Confined).", "7. Communication.", "8. Rescue.", "9. Cooling.", "10. Inert Gas.", "11. ELCB.", "12. Cylinders.", "13. Spark arrestor.", "14. Welding loc.", "15. Height."],
             C: ["1. PESO spark elimination."],
             D: ["1. Shoring.", "2. Soil distance.", "3. Access.", "4. Vehicle ban."]
         };
         const HAZARDS = ["Lack of Oxygen", "H2S", "Toxic Gases", "Combustible gases", "Pyrophoric Iron", "Corrosive Chemicals", "cave in formation", "Others"];
         const PPE = ["Helmet", "Safety Shoes", "Hand gloves", "Boiler suit", "Face Shield", "Apron", "Goggles", "Dust Respirator", "Fresh Air Mask", "Lifeline", "Safety Harness", "Airline", "Earmuff", "IFR"];
- 
+        
+        const CRITICAL_ACTIVITIES = [
+            "1. Any kind of excavation in ROW/ CROW of depth more than 300 mm",
+            "2. Any kind of excavation in RoW at any depth having any foreign crossings",
+            "3. Integrity Test of Mainline Valves",
+            "4. Repair/ Rectification work on pipeline (coating, welding, etc)",
+            "5. All job carried out in trench having depth more than 1.5 M",
+            "6. Pipeline Rerouting, Lowering, Hot tapping, etc.",
+            "7. Washout rectification work.",
+            "8. HDPE duct/ OFC repair, laying, splicing, etc.",
+            "9. TLP/RFID installation/relocation.",
+            "10. Magnetic marker installation for ILI",
+            "11. Flaring /venting/ Draining operation in Mainline",
+            "12. Additional pipeline or OFC laying work",
+            "13. Crossing works by external agency",
+            "14. Any HOT work on operating /charged line",
+            "15. Any other job identified as critical by site"
+        ];
+
         /* 2. UTILS */
         async function apiCall(ep, meth="GET", body=null) {
             document.getElementById('loader').style.display = 'flex';
@@ -704,7 +700,6 @@
                 input.addEventListener('change', function() {
                     const file = this.files[0];
                     if(file) {
-                        // Allow Images AND PDFs
                         const validTypes = ['image/jpeg', 'image/png', 'image/jpg', 'application/pdf'];
                         if (!validTypes.includes(file.type)) {
                             alert("Invalid format. Only JPG, PNG, or PDF allowed.");
@@ -718,33 +713,26 @@
         /* 3. INIT & LOGIN */
         async function initLogin() {
             try {
+                // Populate Critical Dropdown
+                const cSelect = document.getElementById('CriticalActivityType');
+                CRITICAL_ACTIVITIES.forEach(a => { const o = document.createElement('option'); o.text = a; o.value = a; cSelect.add(o); });
+
                 const regions = await apiCall('/get-hierarchy', 'POST', {});
                 const rSel = document.getElementById('login-region');
-                 
-                if (Array.isArray(regions)) {
-                    rSel.innerHTML = `<option value="">Select Region</option>` + regions.map(r => `<option>${r}</option>`).join('');
-                } else {
-                    rSel.innerHTML = `<option value="">Error Loading Regions</option>`;
-                }
- 
+                if (Array.isArray(regions)) rSel.innerHTML = `<option value="">Select Region</option>` + regions.map(r => `<option>${r}</option>`).join('');
+                
                 rSel.addEventListener('change', async (e) => {
                     const uSel = document.getElementById('login-unit'); uSel.disabled=true; uSel.innerHTML='<option>Loading...</option>';
                     const units = await apiCall('/get-hierarchy', 'POST', {region: e.target.value});
-                    if(Array.isArray(units)) {
-                        uSel.innerHTML = `<option value="">Select Unit</option>` + units.map(u=>`<option>${u}</option>`).join('');
-                        uSel.disabled = false;
-                    }
+                    if(Array.isArray(units)) { uSel.innerHTML = `<option value="">Select Unit</option>` + units.map(u=>`<option>${u}</option>`).join(''); uSel.disabled = false; }
                 });
- 
+
                 document.getElementById('login-unit').addEventListener('change', async (e) => {
                     const lSel = document.getElementById('login-loc'); lSel.disabled=true; lSel.innerHTML='<option>Loading...</option>';
                     const locs = await apiCall('/get-hierarchy', 'POST', {region: document.getElementById('login-region').value, unit: e.target.value});
-                    if(Array.isArray(locs)) {
-                        lSel.innerHTML = `<option value="">Select Location</option>` + locs.map(l=>`<option>${l}</option>`).join('');
-                        lSel.disabled = false;
-                    }
+                    if(Array.isArray(locs)) { lSel.innerHTML = `<option value="">Select Location</option>` + locs.map(l=>`<option>${l}</option>`).join(''); lSel.disabled = false; }
                 });
- 
+
                 const loadUsers = async () => {
                     const reg = document.getElementById('login-region').value;
                     const unit = document.getElementById('login-unit').value;
@@ -753,10 +741,7 @@
                     if(reg && unit && loc && role) {
                         const uSel = document.getElementById('login-user'); uSel.innerHTML='<option>Loading...</option>';
                         const users = await apiCall('/get-users-by-loc', 'POST', {region:reg, unit:unit, location:loc, role:role});
-                        if(Array.isArray(users)) {
-                            uSel.innerHTML = users.map(u=>`<option value="${u.Email}">${u.Name}</option>`).join('');
-                            uSel.disabled = false;
-                        }
+                        if(Array.isArray(users)) { uSel.innerHTML = users.map(u=>`<option value="${u.Email}">${u.Name}</option>`).join(''); uSel.disabled = false; }
                     }
                 }
                 document.getElementById('login-loc').addEventListener('change', loadUsers);
@@ -765,11 +750,12 @@
                 document.getElementById('chk-init-renewal').addEventListener('change', (e) => {
                     document.getElementById('div-init-renewal').classList.toggle('hidden', !e.target.checked);
                 });
-                 
+                
                 const rFrom = document.getElementById('RenewalValidFrom');
                 const rTo = document.getElementById('RenewalValidTo');
                 if(rFrom) rFrom.addEventListener('change', checkRenewalTime);
                 if(rTo) rTo.addEventListener('change', checkRenewalTime);
+
             } catch(e) { console.error(e); }
         }
  
@@ -788,7 +774,6 @@
             document.getElementById('view-pwd-change').classList.remove('hidden');
             document.getElementById('view-pwd-change').dataset.email = currentUser.Email;
         }
- 
         document.getElementById('btn-force-pwd').addEventListener('click', async () => {
             const p1 = document.getElementById('new-pwd-1').value;
             const p2 = document.getElementById('new-pwd-2').value;
@@ -813,7 +798,6 @@
             renderChecklists(); renderHazards(); switchView('dashboard');
         }
  
-        /* 4. NAVIGATION & MAP */
         function switchView(viewName) {
             document.querySelectorAll('.content-area > div').forEach(d => d.classList.add('hidden'));
             document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
@@ -836,17 +820,15 @@
             if(viewName === 'jsa-form') { /* Handled by openNewJsaForm */ }
         }
  
+        // ... (Keep existing Map, Dashboard logic) ...
         async function initMap() {
             try {
                 const mapData = await apiCall('/map-data', 'POST', {});
                 const mapEl = document.getElementById('map');
                 if (!mapEl || !window.google) return;
- 
                 let validPoints = mapData.filter(p => p.lat && p.lng && isFinite(parseFloat(p.lat)) && isFinite(parseFloat(p.lng)));
                 const center = validPoints.length > 0 ? { lat: parseFloat(validPoints[0].lat), lng: parseFloat(validPoints[0].lng) } : { lat: 20.5937, lng: 78.9629 };
-                 
                 mapInstance = new google.maps.Map(mapEl, { zoom: 5, center: center });
- 
                 validPoints.forEach(p => {
                     const marker = new google.maps.Marker({ position: { lat: parseFloat(p.lat), lng: parseFloat(p.lng) }, map: mapInstance, title: p.PermitID });
                     const infoWindow = new google.maps.InfoWindow({ content: `<div class="p-2"><h3 class="font-bold text-orange-600">${p.PermitID}</h3><p class="text-xs"><b>Status:</b> ${p.Status}</p><button onclick="openPermit('${p.PermitID}')" class="text-blue-600 text-xs font-bold underline mt-1">View Details</button></div>` });
@@ -854,8 +836,7 @@
                 });
             } catch(e) { console.error("Map Error", e); }
         }
- 
-        /* 5. DASHBOARD & STATS */
+
         async function loadDashboard() {
             const res = await apiCall('/dashboard', 'POST', {role: currentUser.Role, email: currentUser.Email});
             if(!Array.isArray(res)) return; 
@@ -869,364 +850,316 @@
                 if (currentUser.Role === 'Approver') return s === 'Pending Approval' || s === 'Renewal Pending Approval' || s === 'Closure Pending Approval';
                 return (s.includes('Pending') || s === 'Submitted') && p.RequesterEmail === currentUser.Email;
             });
- 
             const active = res.filter(p => p.Status === 'Active' || (p.Status.includes('Renewal') && !p.Status.includes('Pending')));
             const closed = res.filter(p => p.Status === 'Closed' || p.Status === 'Rejected');
  
             const renderTable = (title, items, color) => {
-                let rowsHtml = '';
-                if (items.length === 0) {
-                    rowsHtml = `<tr><td colspan="6" class="p-4 text-center text-gray-400 italic bg-gray-50">No permits found in this category.</td></tr>`;
-                } else {
-                    rowsHtml = items.map(p => {
-                        let action = (p.Status === 'Closed' || p.Status === 'Active' || p.Status.includes('Renewal')) ? `<button class="btn-pdf" onclick="event.stopPropagation(); downloadSecurePDF('${p.PermitID}')">📥 PDF</button>` : '';
-                        return `<tr onclick="openPermit('${p.PermitID}')" class="hover:bg-gray-50 transition cursor-pointer">
-                            <td class="p-3 font-bold text-blue-600">${p.PermitID}</td>
-                            <td>${p.WorkType || '-'}</td>
-                            <td>${p.LocationUnit || '-'}</td>
-                            <td><span class="px-2 py-0.5 rounded border bg-gray-50 text-[10px] uppercase font-bold text-gray-600">${p.Status}</span></td>
-                            <td class="font-mono text-xs">${p.ValidFrom ? p.ValidFrom.split('T')[0] : '-'}</td>
-                            <td>${action}</td>
-                        </tr>`;
-                    }).join('');
-                }
+                let rowsHtml = items.length === 0 ? `<tr><td colspan="6" class="p-4 text-center text-gray-400 italic bg-gray-50">No permits found.</td></tr>` : items.map(p => {
+                    let action = (p.Status === 'Closed' || p.Status === 'Active' || p.Status.includes('Renewal')) ? `<button class="btn-pdf" onclick="event.stopPropagation(); downloadSecurePDF('${p.PermitID}')">📥 PDF</button>` : '';
+                    return `<tr onclick="openPermit('${p.PermitID}')" class="hover:bg-gray-50 transition cursor-pointer">
+                        <td class="p-3 font-bold text-blue-600">${p.PermitID}</td>
+                        <td>${p.WorkType || '-'}</td>
+                        <td>${p.LocationUnit || '-'}</td>
+                        <td><span class="px-2 py-0.5 rounded border bg-gray-50 text-[10px] uppercase font-bold text-gray-600">${p.Status}</span></td>
+                        <td class="font-mono text-xs">${p.ValidFrom ? p.ValidFrom.split('T')[0] : '-'}</td>
+                        <td>${action}</td>
+                    </tr>`;
+                }).join('');
  
                 return `<div class="glass border-l-4 border-${color}-500 mb-6">
                     <div class="flex justify-between items-center border-b pb-2 mb-3">
                         <h3 class="font-bold text-${color}-700 uppercase text-sm">${title}</h3>
                         <span class="bg-${color}-100 text-${color}-800 text-xs font-bold px-3 py-1 rounded-full">${items.length}</span>
                     </div>
-                    <div class="overflow-x-auto">
-                        <table class="w-full text-left text-xs data-table">
-                            <thead>
-                                <tr class="bg-gray-50 border-b border-gray-200 text-gray-500 uppercase">
-                                    <th class="p-3">ID</th><th>Type</th><th>Location</th><th>Status</th><th>Date</th><th>Action</th>
-                                </tr>
-                            </thead>
-                            <tbody class="divide-y divide-gray-100">${rowsHtml}</tbody>
-                        </table>
-                    </div>
+                    <div class="overflow-x-auto"><table class="w-full text-left text-xs data-table"><thead><tr class="bg-gray-50 border-b border-gray-200 text-gray-500 uppercase"><th class="p-3">ID</th><th>Type</th><th>Location</th><th>Status</th><th>Date</th><th>Action</th></tr></thead><tbody class="divide-y divide-gray-100">${rowsHtml}</tbody></table></div>
                 </div>`;
             };
- 
             container.innerHTML += renderTable('Action Required', pending, 'orange');
             container.innerHTML += renderTable('Active Permits', active, 'green');
             container.innerHTML += renderTable('Closed / Archive', closed, 'gray');
             loadStats(res);
         }
 
+        /* 6. CORE PERMIT LOGIC (FULL UPDATE) */
+        async function openPermit(id) {
+            try {
+                // 1. Fetch Data
+                const p = await apiCall('/permit-data', 'POST', { permitId: id });
+                console.log("Opening Permit:", id);
 
-/* 6. CORE PERMIT LOGIC (FIXED ARRAY PARSING) */
-async function openPermit(id) {
-    try {
-        // 1. Fetch Data
-        const p = await apiCall('/permit-data', 'POST', { permitId: id });
-        
-        console.log("Opening Permit:", id);
-
-        if (!p || p.Status === 'Closed' || !p.WorkType) {
-            alert("📂 Permit Archived. Downloading PDF...");
-            return downloadSecurePDF(id);
-        }
-
-        currentPermitId = id;
-
-        // --- FIX 1: SAFE ARRAY PARSING (Prevents the Crash) ---
-        let rawIOCL = p.IOCLSupervisors;
-        if (typeof rawIOCL === 'string') {
-            try { rawIOCL = JSON.parse(rawIOCL); } catch(e) { rawIOCL = []; }
-        }
-        currentPermitIOCLData = Array.isArray(rawIOCL) ? rawIOCL : [];
-        // -------------------------------------------------------
-
-        permitRequirePhoto = (p.RequireRenewalPhotos === 'Y');
-
-        // 2. Setup View
-        document.getElementById('view-dashboard').classList.add('hidden');
-        document.getElementById('view-form').classList.remove('hidden');
-        document.getElementById('permit-title').innerText = `Permit: ${id}`;
-        document.getElementById('permit-header-display').innerText = `Status: ${p.Status}`;
-
-        // 3. Reset All Sections to Hidden
-        const sectionsToReset = [
-            'fs-reviewer-section', 'fs-approver-section', 
-            'rev-renewal-decision', 'app-renewal-decision', 'action-renewal', 
-            'pending-renewal-display', 'odd-hour-approval-controls', 
-            'renewals-section', 'closure-section', 'div-closure-rev', 'div-closure-app'
-        ];
-        sectionsToReset.forEach(sid => {
-            const el = document.getElementById(sid);
-            if(el) el.classList.add('hidden');
-        });
-
-        // 4. Clear Action Bar
-        const actionsDiv = document.getElementById("actions-bar");
-        actionsDiv.innerHTML = "";
-
-        // 5. Populate Basic Fields & Disable Logic
-        // Trim allows for sloppy database values like "Pending Review "
-        const statusClean = p.Status ? p.Status.trim() : '';
-        const isMainPending = (statusClean === 'Pending Review' || statusClean === 'Pending Approval');
-        const isAuthority = (currentUser.Role === 'Reviewer' || currentUser.Role === 'Approver');
-
-        document.querySelectorAll('#pf input, #pf textarea, #pf select').forEach(el => {
-            let shouldDisable = true;
-            // Allow Authority to edit Hazards/PPE during pending stages
-            if (isAuthority && isMainPending && (el.name && (el.name.startsWith('H_') || el.name.startsWith('P_')) || el.id === 'H_Others_Detail')) {
-                shouldDisable = false;
-            }
-            // Allow Specific Remarks editing
-            if (isMainPending && currentUser.Role === 'Reviewer' && (el.id === 'Reviewer_Remarks' || el.id === 'AdditionalPrecautions' || el.name === 'RevRenAction')) shouldDisable = false;
-            if ((isMainPending || statusClean === 'Active') && currentUser.Role === 'Approver' && (el.id === 'Approver_Remarks' || el.name === 'AppRenAction')) shouldDisable = false;
-            if (currentUser.Role === 'Approver' && el.id === 'RequireRenewalPhotos') shouldDisable = (statusClean === 'Active');
-
-            // Set Values
-            if (el.type === 'checkbox') el.checked = (p[el.name] === 'Y');
-            else if (el.type === 'radio') el.checked = false; 
-            else if (el.type !== 'file') el.value = p[el.name] || '';
-            
-            el.disabled = shouldDisable;
-        });
-
-        // PPE Section Visibility
-        if (currentUser.Role === 'Requester') document.getElementById('ppe-section-wrapper').classList.add('hidden');
-        else document.getElementById('ppe-section-wrapper').classList.remove('hidden');
-
-        // 6. JSA Logic
-        const existDisplay = document.getElementById('jsa-existing-file-display');
-        const jsaFileInp = document.getElementById('JsaFile');
-        const jsaLinkSel = document.getElementById('JsaLinkedId');
-        const jsaRadios = document.querySelectorAll('input[name="jsa_mode"]');
-
-        // Reset JSA UI
-        existDisplay.classList.add('hidden');
-        jsaFileInp.value = '';
-        
-        // Helper to clear JSA
-        window.clearJsaSelection = function() {
-            if(!confirm("Remove current JSA? You will need to select or upload a new one.")) return;
-            p.JsaLinkedId = null; p.JsaFileUrl = null;
-            jsaLinkSel.value = ""; jsaFileInp.value = "";
-            existDisplay.classList.add('hidden');
-            document.querySelector('input[name="jsa_mode"][value="upload"]').checked = true;
-            toggleJsaMode('upload');
-            // Hide view buttons
-            if(document.getElementById('btn-view-linked-jsa')) document.getElementById('btn-view-linked-jsa').classList.add('hidden');
-        };
-
-        // Load Existing JSA Data
-        if(p.JsaLinkedId) {
-            document.querySelector('input[name="jsa_mode"][value="link"]').checked = true;
-            toggleJsaMode('link');
-            jsaLinkSel.innerHTML = `<option value="${p.JsaLinkedId}" selected>${p.JsaLinkedId}</option>`;
-            
-            let viewBtn = document.getElementById('btn-view-linked-jsa');
-            if(!viewBtn) {
-                viewBtn = document.createElement('button'); viewBtn.id = 'btn-view-linked-jsa'; viewBtn.type = 'button';
-                viewBtn.className = "ml-2 text-blue-600 font-bold underline text-xs"; viewBtn.innerText = "View Details";
-                jsaLinkSel.parentNode.appendChild(viewBtn);
-            }
-            viewBtn.onclick = (e) => { e.preventDefault(); openNewJsaForm(null, p.JsaLinkedId); };
-            viewBtn.classList.remove('hidden');
-
-        } else if (p.JsaFileUrl) {
-            document.querySelector('input[name="jsa_mode"][value="upload"]').checked = true;
-            toggleJsaMode('upload');
-            const link = document.getElementById('jsa-file-link');
-            link.href = '#'; 
-            link.onclick = (e) => { e.preventDefault(); viewSecureFile(p.JsaFileUrl); };
-            existDisplay.classList.remove('hidden');
-            if(document.getElementById('btn-view-linked-jsa')) document.getElementById('btn-view-linked-jsa').classList.add('hidden');
-        }
-
-        // JSA Edit Permissions
-        let canEditJsa = false;
-        if (currentUser.Role === 'Requester' && (statusClean === 'Draft' || statusClean.includes('Rejected') || statusClean === 'Pending Review')) canEditJsa = true;
-        if (currentUser.Role === 'Reviewer' && statusClean === 'Pending Review') canEditJsa = true;
-        if (currentUser.Role === 'Approver' && statusClean === 'Pending Approval') canEditJsa = true;
-
-        if (canEditJsa) {
-            jsaFileInp.disabled = false;
-            jsaLinkSel.disabled = false;
-            jsaRadios.forEach(r => r.disabled = false);
-            document.getElementById('btn-del-jsa').classList.remove('hidden');
-            document.getElementById('btn-del-jsa').onclick = window.clearJsaSelection;
-
-            if(p.JsaLinkedId) {
-                let removeLinkBtn = document.getElementById('btn-del-link-jsa');
-                if(!removeLinkBtn) {
-                    removeLinkBtn = document.createElement('button'); removeLinkBtn.id = 'btn-del-link-jsa'; removeLinkBtn.type = 'button';
-                    removeLinkBtn.className = "ml-2 text-red-500 font-bold text-xs"; removeLinkBtn.innerText = "[Change]";
-                    removeLinkBtn.onclick = window.clearJsaSelection;
-                    jsaLinkSel.parentNode.appendChild(removeLinkBtn);
+                if (!p || p.Status === 'Closed' || !p.WorkType) {
+                    alert("📂 Permit Archived. Downloading PDF...");
+                    return downloadSecurePDF(id);
                 }
-                removeLinkBtn.classList.remove('hidden');
-            }
-            loadApprovedJsas(); 
-        } else {
-            jsaFileInp.disabled = true; jsaLinkSel.disabled = true; jsaRadios.forEach(r => r.disabled = true);
-            document.getElementById('btn-del-jsa').classList.add('hidden');
-            if(document.getElementById('btn-del-link-jsa')) document.getElementById('btn-del-link-jsa').classList.add('hidden');
-        }
 
-        // 7. Render Sub-Tables
-        let wData = p.SelectedWorkers;
-        if (typeof wData === 'string') { try { wData = JSON.parse(wData); } catch (e) { wData = []; } }
-        currentPermitWorkers = Array.isArray(wData) ? wData : [];
-        const wTbody = document.getElementById('worker-display-body');
-        document.getElementById('worker-display-table').classList.toggle('hidden', currentPermitWorkers.length === 0);
-        if (wTbody) wTbody.innerHTML = currentPermitWorkers.map(w => `<tr><td class="p-2 font-bold">${escapeHtml(w.Name)}</td><td class="p-2">${escapeHtml(w.IDType)}: ${escapeHtml(w.ID)}</td><td class="p-2 font-mono">${escapeHtml(w.Contact)}</td></tr>`).join('');
-        
-        // NOW IT IS SAFE TO CALL THIS
-        renderIOCLTable(p.Status);
+                currentPermitId = id;
 
-        // 8. Renewal & Closure Section Visibility
-        const rens = JSON.parse(p.RenewalsJSON || "[]");
-        const lastRen = rens.length > 0 ? rens[rens.length - 1] : null;
-        const isFirstRenRequest = (rens.length === 1 && p.InitRen === 'Y');
+                // FIX: SAFE ARRAY PARSING
+                let rawIOCL = p.IOCLSupervisors;
+                if (typeof rawIOCL === 'string') { try { rawIOCL = JSON.parse(rawIOCL); } catch(e) { rawIOCL = []; } }
+                currentPermitIOCLData = Array.isArray(rawIOCL) ? rawIOCL : [];
+                permitRequirePhoto = (p.RequireRenewalPhotos === 'Y');
 
-        if (rens.length > 0 || (currentUser.Role === 'Requester' && statusClean === 'Active')) {
-            document.getElementById('renewals-section').classList.remove('hidden');
-            document.getElementById('renewal-history-body').innerHTML = rens.map(r => `
-                <tr class="border-b text-[10px]">
-                    <td class="p-2">${r.valid_from}<br>to ${r.valid_to}</td>
-                    <td class="p-2">${r.hc}/${r.toxic}/${r.oxygen}</td>
-                    <td class="p-2 italic">${r.precautions || '-'}</td>
-                    <td class="p-2">${escapeHtml((r.workers || []).join(', '))}</td>
-                    <td class="p-2"><b>${r.req_name}</b><br>${r.req_at||''}</td>
-                    <td class="p-2"><b>${r.rev_name||'-'}</b><br>${r.rev_at||''}</td>
-                    <td class="p-2"><b>${r.app_name||'-'}</b><br>${r.app_at||''}</td>
-                    <td class="p-2">${r.photoUrl ? `<button type="button" class="text-blue-600 underline" onclick="viewSecureFile('${r.photoUrl.replace(/\\/g, '/')}')">View</button>` : 'NO'}</td>
-                </tr>`).join('');
-                
-            const showRenForm = (currentUser.Role === 'Requester' && statusClean === 'Active' && (!lastRen || !lastRen.status.includes('pending')));
-            document.getElementById('form-renewal').classList.toggle('hidden', !showRenForm);
-            if(showRenForm) {
-                document.querySelectorAll('#form-renewal input').forEach(inp => inp.disabled = false);
-                document.getElementById('renewal-worker-select').innerHTML = currentPermitWorkers.map(w => `<label class="flex items-center gap-1 text-xs bg-white p-1 rounded border"><input type="checkbox" value="${escapeHtml(w.Name)}" checked class="ren-worker-cb"> ${escapeHtml(w.Name)}</label>`).join('');
-                document.getElementById('renewal-photo-wrapper').classList.toggle('hidden', !permitRequirePhoto);
-            }
-        }
-        
-        handleClosureUI(p, actionsDiv);
+                // 2. Setup View
+                document.getElementById('view-dashboard').classList.add('hidden');
+                document.getElementById('view-form').classList.remove('hidden');
+                document.getElementById('permit-title').innerText = `Permit: ${id}`;
+                document.getElementById('permit-header-display').innerText = `Status: ${p.Status}`;
 
-        // ============================================================
-        // 9. ACTION BUTTONS LOGIC
-        // ============================================================
+                // 3. Reset Sections
+                ['fs-reviewer-section', 'fs-approver-section', 'rev-renewal-decision', 'app-renewal-decision', 'action-renewal', 'pending-renewal-display', 'odd-hour-approval-controls', 'renewals-section', 'closure-section', 'div-closure-rev', 'div-closure-app'].forEach(sid => { document.getElementById(sid).classList.add('hidden'); });
 
-        // A. Reviewer Main Permit Action
-        if (statusClean === 'Pending Review' && currentUser.Role === 'Reviewer') {
-            document.getElementById('fs-reviewer-section').classList.remove('hidden');
-            
-            const b1 = document.createElement("button"); b1.type = "button"; 
-            b1.className = "bg-red-600 text-white px-4 py-2 rounded font-bold mr-2 shadow hover:bg-red-700"; 
-            b1.innerText = "Reject Permit"; 
-            b1.onclick = () => upd('reject');
+                // 4. Clear Action Bar
+                const actionsDiv = document.getElementById("actions-bar"); actionsDiv.innerHTML = "";
 
-            const b2 = document.createElement("button"); b2.type = "button"; 
-            b2.className = "bg-green-600 text-white px-4 py-2 rounded font-bold shadow hover:bg-green-700"; 
-            b2.innerText = "Review & Forward"; 
-            b2.onclick = () => upd('review');
+                // 5. Populate Basic Fields
+                const statusClean = p.Status ? p.Status.trim() : '';
+                const isMainPending = (statusClean === 'Pending Review' || statusClean === 'Pending Approval');
+                const isAuthority = (currentUser.Role === 'Reviewer' || currentUser.Role === 'Approver');
 
-            actionsDiv.append(b1, b2);
-        }
+                document.querySelectorAll('#pf input, #pf textarea, #pf select').forEach(el => {
+                    let shouldDisable = true;
+                    if (isAuthority && isMainPending && (el.name && (el.name.startsWith('H_') || el.name.startsWith('P_')) || el.id === 'H_Others_Detail')) shouldDisable = false;
+                    // J: Critical Field editable by authority
+                    if (isAuthority && isMainPending && (el.name === 'IsCritical' || el.name === 'CriticalActivityType')) shouldDisable = false;
+                    
+                    if (isMainPending && currentUser.Role === 'Reviewer' && (el.id === 'Reviewer_Remarks' || el.id === 'AdditionalPrecautions' || el.name === 'RevRenAction')) shouldDisable = false;
+                    if ((isMainPending || statusClean === 'Active') && currentUser.Role === 'Approver' && (el.id === 'Approver_Remarks' || el.name === 'AppRenAction')) shouldDisable = false;
+                    if (currentUser.Role === 'Approver' && el.id === 'RequireRenewalPhotos') shouldDisable = (statusClean === 'Active');
 
-        // B. Approver Main Permit Action
-        // Added MasterAdmin just in case
-        if (statusClean === 'Pending Approval' && (currentUser.Role === 'Approver' || currentUser.Role === 'MasterAdmin')) {
-            document.getElementById('fs-approver-section').classList.remove('hidden');
-            document.getElementById('app-renewal-decision').classList.add('hidden'); 
-
-            const b1 = document.createElement("button"); b1.type = "button"; 
-            b1.className = "bg-red-600 text-white px-4 py-2 rounded font-bold mr-2 shadow hover:bg-red-700"; 
-            b1.innerText = "Reject Permit"; 
-            b1.onclick = () => upd('reject');
-
-            const b2 = document.createElement("button"); b2.type = "button"; 
-            b2.className = "bg-green-600 text-white px-4 py-2 rounded font-bold shadow hover:bg-green-700"; 
-            b2.innerText = "Final Approve"; 
-            b2.onclick = () => upd('approve');
-
-            actionsDiv.append(b1, b2);
-        }
-
-        // C. Renewal Actions
-        if (!isFirstRenRequest && lastRen && lastRen.status.includes('pending')) {
-            if (currentUser.Role !== 'Requester') document.getElementById('pending-renewal-display').classList.remove('hidden');
-
-            const isRevTurn = (currentUser.Role === 'Reviewer' && statusClean.includes('Renewal Pending Review'));
-            const isAppTurn = (currentUser.Role === 'Approver' && statusClean.includes('Renewal Pending Approval'));
-
-            if (isRevTurn || isAppTurn) {
-                if(isRevTurn) document.getElementById('fs-reviewer-section').classList.remove('hidden');
-                if(isAppTurn) document.getElementById('fs-approver-section').classList.remove('hidden');
-                
-                document.getElementById('action-renewal').classList.remove('hidden');
-                document.getElementById('RenewalRemark').disabled = false;
-                const btnApprove = document.getElementById('btn-approve-renewal');
-                const btnReject = document.getElementById('btn-reject-renewal');
-                btnApprove.onclick = () => submitRenewal('approve');
-                btnReject.onclick = () => submitRenewal('reject');
-
-                // Odd Hour Logic
-                if (lastRen && lastRen.oddHourReq === 'Y') {
-                    document.getElementById('odd-hour-approval-controls').classList.remove('hidden');
-                    const badgeContainer = document.getElementById('rev-agreed-badge-container');
-                    const existingBadge = document.getElementById('rev-agreed-badge');
-                    if (existingBadge) existingBadge.remove();
-
-                    if (isAppTurn && lastRen.rev_odd_hour_accepted === 'Y') {
-                        const badge = document.createElement('span'); badge.id = 'rev-agreed-badge';
-                        badge.className = "bg-green-100 text-green-800 text-xs px-2 py-1 rounded font-bold ml-2 border border-green-200";
-                        badge.innerHTML = "✔ Reviewer Agreed";
-                        badgeContainer.appendChild(badge);
+                    if (el.type === 'checkbox') el.checked = (p[el.name] === 'Y');
+                    else if (el.type === 'radio') {
+                         if(el.name === 'IsCritical') el.checked = (p.IsCritical === el.value);
+                         else el.checked = false;
                     }
-                    const chk = document.getElementById('odd-hour-allow-check');
-                    chk.checked = false; chk.disabled = false; 
-                    btnApprove.disabled = true; btnApprove.classList.add('opacity-50', 'cursor-not-allowed');
+                    else if (el.type !== 'file') el.value = p[el.name] || '';
+                    el.disabled = shouldDisable;
+                });
 
-                    window.toggleRenewalApproveBtn = () => { 
-                        btnApprove.disabled = !chk.checked;
-                        if(!chk.checked) btnApprove.classList.add('opacity-50', 'cursor-not-allowed');
-                        else btnApprove.classList.remove('opacity-50', 'cursor-not-allowed');
-                    };
-                } else {
-                    document.getElementById('odd-hour-approval-controls').classList.add('hidden');
-                    btnApprove.disabled = false; btnApprove.classList.remove('opacity-50', 'cursor-not-allowed');
+                // J: Critical Logic
+                toggleCritical(p.IsCritical === 'Y');
+
+                // PPE Section Visibility
+                if (currentUser.Role === 'Requester') document.getElementById('ppe-section-wrapper').classList.add('hidden');
+                else document.getElementById('ppe-section-wrapper').classList.remove('hidden');
+
+                // 6. JSA Logic
+                const existDisplay = document.getElementById('jsa-existing-file-display');
+                const jsaFileInp = document.getElementById('JsaFile');
+                const jsaLinkSel = document.getElementById('JsaLinkedId');
+                const jsaRadios = document.querySelectorAll('input[name="jsa_mode"]');
+
+                // Reset UI
+                existDisplay.classList.add('hidden'); jsaFileInp.value = '';
+                
+                // Helper to clear JSA
+                window.clearJsaSelection = function() {
+                    if(!confirm("Remove current JSA? You will need to select or upload a new one.")) return;
+                    p.JsaLinkedId = null; p.JsaFileUrl = null;
+                    jsaLinkSel.value = ""; jsaFileInp.value = "";
+                    existDisplay.classList.add('hidden');
+                    document.querySelector('input[name="jsa_mode"][value="upload"]').checked = true;
+                    toggleJsaMode('upload');
+                    if(document.getElementById('btn-view-linked-jsa')) document.getElementById('btn-view-linked-jsa').classList.add('hidden');
+                };
+
+                // Load Data
+                const auditLine = document.getElementById('jsa-audit-line');
+                auditLine.classList.add('hidden');
+                
+                if(p.JsaLinkedId) {
+                    document.querySelector('input[name="jsa_mode"][value="link"]').checked = true; toggleJsaMode('link');
+                    jsaLinkSel.innerHTML = `<option value="${p.JsaLinkedId}" selected>${p.JsaLinkedId}</option>`;
+                    let viewBtn = document.getElementById('btn-view-linked-jsa');
+                    if(!viewBtn) {
+                        viewBtn = document.createElement('button'); viewBtn.id = 'btn-view-linked-jsa'; viewBtn.type = 'button';
+                        viewBtn.className = "ml-2 text-blue-600 font-bold underline text-xs"; viewBtn.innerText = "View Details";
+                        jsaLinkSel.parentNode.appendChild(viewBtn);
+                    }
+                    viewBtn.onclick = (e) => { e.preventDefault(); openNewJsaForm(null, p.JsaLinkedId); };
+                    viewBtn.classList.remove('hidden');
+                    // H: Audit Line
+                    auditLine.innerText = `JSA Done: ${p.JsaLinkedId}`; auditLine.classList.remove('hidden');
+
+                } else if (p.JsaFileUrl) {
+                    document.querySelector('input[name="jsa_mode"][value="upload"]').checked = true; toggleJsaMode('upload');
+                    const link = document.getElementById('jsa-file-link'); link.href = '#'; 
+                    link.onclick = (e) => { e.preventDefault(); viewSecureFile(p.JsaFileUrl); };
+                    existDisplay.classList.remove('hidden');
+                    if(document.getElementById('btn-view-linked-jsa')) document.getElementById('btn-view-linked-jsa').classList.add('hidden');
+                    // H: Audit Line
+                    auditLine.innerText = `JSA Done: Uploaded PDF`; auditLine.classList.remove('hidden');
                 }
+
+                // Edit Permissions
+                let canEditJsa = false;
+                if (currentUser.Role === 'Requester' && (statusClean === 'Draft' || statusClean.includes('Rejected'))) canEditJsa = true;
+                if (currentUser.Role === 'Reviewer' && statusClean === 'Pending Review') canEditJsa = true;
+                if (currentUser.Role === 'Approver' && statusClean === 'Pending Approval') canEditJsa = true;
+
+                if (canEditJsa) {
+                    jsaFileInp.disabled = false; jsaLinkSel.disabled = false; jsaRadios.forEach(r => r.disabled = false);
+                    document.getElementById('btn-del-jsa').classList.remove('hidden');
+                    document.getElementById('btn-del-jsa').onclick = window.clearJsaSelection;
+                    if(p.JsaLinkedId) {
+                        let removeLinkBtn = document.getElementById('btn-del-link-jsa');
+                        if(!removeLinkBtn) {
+                            removeLinkBtn = document.createElement('button'); removeLinkBtn.id = 'btn-del-link-jsa'; removeLinkBtn.type = 'button';
+                            removeLinkBtn.className = "ml-2 text-red-500 font-bold text-xs"; removeLinkBtn.innerText = "[Change]";
+                            removeLinkBtn.onclick = window.clearJsaSelection;
+                            jsaLinkSel.parentNode.appendChild(removeLinkBtn);
+                        }
+                        removeLinkBtn.classList.remove('hidden');
+                    }
+                    loadApprovedJsas(); 
+                } else {
+                    jsaFileInp.disabled = true; jsaLinkSel.disabled = true; jsaRadios.forEach(r => r.disabled = true);
+                    document.getElementById('btn-del-jsa').classList.add('hidden');
+                    if(document.getElementById('btn-del-link-jsa')) document.getElementById('btn-del-link-jsa').classList.add('hidden');
+                }
+
+                // 7. Render Sub-Tables
+                let wData = p.SelectedWorkers;
+                if (typeof wData === 'string') { try { wData = JSON.parse(wData); } catch (e) { wData = []; } }
+                currentPermitWorkers = Array.isArray(wData) ? wData : [];
+                const wTbody = document.getElementById('worker-display-body');
+                document.getElementById('worker-display-table').classList.toggle('hidden', currentPermitWorkers.length === 0);
+                if (wTbody) wTbody.innerHTML = currentPermitWorkers.map(w => `<tr><td class="p-2 font-bold">${escapeHtml(w.Name)}</td><td class="p-2">${escapeHtml(w.IDType)}: ${escapeHtml(w.ID)}</td><td class="p-2 font-mono">${escapeHtml(w.Contact)}</td></tr>`).join('');
+                
+                renderIOCLTable(p.Status);
+
+                // 8. Renewals
+                const rens = JSON.parse(p.RenewalsJSON || "[]");
+                const lastRen = rens.length > 0 ? rens[rens.length - 1] : null;
+                const isFirstRenRequest = (rens.length === 1 && p.InitRen === 'Y');
+
+                if (rens.length > 0 || (currentUser.Role === 'Requester' && statusClean === 'Active')) {
+                    document.getElementById('renewals-section').classList.remove('hidden');
+                    document.getElementById('renewal-history-body').innerHTML = rens.map(r => `
+                        <tr class="border-b text-[10px]">
+                            <td class="p-2">${r.valid_from}<br>to ${r.valid_to}</td>
+                            <td class="p-2">${r.hc}/${r.toxic}/${r.oxygen}</td>
+                            <td class="p-2 italic">${r.precautions || '-'}</td>
+                            <td class="p-2">${escapeHtml((r.workers || []).join(', '))}</td>
+                            <td class="p-2"><b>${r.req_name}</b><br>${r.req_at||''}</td>
+                            <td class="p-2"><b>${r.rev_name||'-'}</b><br>${r.rev_at||''}</td>
+                            <td class="p-2"><b>${r.app_name||'-'}</b><br>${r.app_at||''}</td>
+                            <td class="p-2">${r.photoUrl ? `<button type="button" class="text-blue-600 underline" onclick="viewSecureFile('${r.photoUrl.replace(/\\/g, '/')}')">View</button>` : 'NO'}</td>
+                        </tr>`).join('');
+                        
+                    const showRenForm = (currentUser.Role === 'Requester' && statusClean === 'Active' && (!lastRen || !lastRen.status.includes('pending')));
+                    document.getElementById('form-renewal').classList.toggle('hidden', !showRenForm);
+                    if(showRenForm) {
+                        document.querySelectorAll('#form-renewal input').forEach(inp => inp.disabled = false);
+                        document.getElementById('renewal-worker-select').innerHTML = currentPermitWorkers.map(w => `<label class="flex items-center gap-1 text-xs bg-white p-1 rounded border"><input type="checkbox" value="${escapeHtml(w.Name)}" checked class="ren-worker-cb"> ${escapeHtml(w.Name)}</label>`).join('');
+                        document.getElementById('renewal-photo-wrapper').classList.toggle('hidden', !permitRequirePhoto);
+                    }
+                }
+                
+                handleClosureUI(p, actionsDiv);
+
+                // 9. Buttons
+                if (statusClean === 'Pending Review' && currentUser.Role === 'Reviewer') {
+                    document.getElementById('fs-reviewer-section').classList.remove('hidden');
+                    const b1 = document.createElement("button"); b1.type="button"; b1.className = "bg-red-600 text-white px-4 py-2 rounded font-bold mr-2"; b1.innerText = "Reject Permit"; b1.onclick = () => upd('reject');
+                    const b2 = document.createElement("button"); b2.type="button"; b2.className = "bg-green-600 text-white px-4 py-2 rounded font-bold"; b2.innerText = "Review & Forward"; b2.onclick = () => upd('review');
+                    actionsDiv.append(b1, b2);
+                }
+
+                if (statusClean === 'Pending Approval' && (currentUser.Role === 'Approver' || currentUser.Role === 'MasterAdmin')) {
+                    document.getElementById('fs-approver-section').classList.remove('hidden');
+                    document.getElementById('app-renewal-decision').classList.add('hidden'); 
+                    const b1 = document.createElement("button"); b1.type="button"; b1.className = "bg-red-600 text-white px-4 py-2 rounded font-bold mr-2"; b1.innerText = "Reject Permit"; b1.onclick = () => upd('reject');
+                    const b2 = document.createElement("button"); b2.type="button"; b2.className = "bg-green-600 text-white px-4 py-2 rounded font-bold"; b2.innerText = "Final Approve"; b2.onclick = () => upd('approve');
+                    actionsDiv.append(b1, b2);
+                }
+
+                if (!isFirstRenRequest && lastRen && lastRen.status.includes('pending')) {
+                    if (currentUser.Role !== 'Requester') document.getElementById('pending-renewal-display').classList.remove('hidden');
+                    const isRevTurn = (currentUser.Role === 'Reviewer' && statusClean.includes('Renewal Pending Review'));
+                    const isAppTurn = (currentUser.Role === 'Approver' && statusClean.includes('Renewal Pending Approval'));
+
+                    if (isRevTurn || isAppTurn) {
+                        if(isRevTurn) document.getElementById('fs-reviewer-section').classList.remove('hidden');
+                        if(isAppTurn) document.getElementById('fs-approver-section').classList.remove('hidden');
+                        document.getElementById('action-renewal').classList.remove('hidden');
+                        document.getElementById('RenewalRemark').disabled = false;
+                        const btnApprove = document.getElementById('btn-approve-renewal');
+                        const btnReject = document.getElementById('btn-reject-renewal');
+                        btnApprove.onclick = () => submitRenewal('approve');
+                        btnReject.onclick = () => submitRenewal('reject');
+
+                        if (lastRen && lastRen.oddHourReq === 'Y') {
+                            document.getElementById('odd-hour-approval-controls').classList.remove('hidden');
+                            // ... (Keep existing odd hour badge logic if desired) ...
+                            const chk = document.getElementById('odd-hour-allow-check');
+                            chk.checked = false; chk.disabled = false; 
+                            btnApprove.disabled = true; btnApprove.classList.add('opacity-50', 'cursor-not-allowed');
+                            window.toggleRenewalApproveBtn = () => { 
+                                btnApprove.disabled = !chk.checked;
+                                if(!chk.checked) btnApprove.classList.add('opacity-50', 'cursor-not-allowed');
+                                else btnApprove.classList.remove('opacity-50', 'cursor-not-allowed');
+                            };
+                        } else {
+                            document.getElementById('odd-hour-approval-controls').classList.add('hidden');
+                            btnApprove.disabled = false; btnApprove.classList.remove('opacity-50', 'cursor-not-allowed');
+                        }
+                    }
+                }
+
+                if (isFirstRenRequest && (statusClean === 'Pending Review' || statusClean === 'Pending Approval')) {
+                    if (currentUser.Role === 'Reviewer' && statusClean === 'Pending Review') document.getElementById('rev-renewal-decision').classList.remove('hidden');
+                    if (currentUser.Role === 'Approver' && statusClean === 'Pending Approval') document.getElementById('app-renewal-decision').classList.remove('hidden');
+                }
+
+                if (statusClean === 'Active' && currentUser.Role === 'Approver') {
+                    document.getElementById('fs-approver-section').classList.remove('hidden');
+                    const b = document.createElement("button"); b.type="button"; b.className = "bg-blue-600 text-white px-4 py-2 rounded font-bold shadow"; b.innerText = "💾 Update Supervisors"; b.onclick = () => upd('update_data');
+                    actionsDiv.appendChild(b);
+                }
+
+            } catch (e) {
+                console.error("Critical Error in openPermit:", e);
+                alert("System Error: Check Console");
             }
         }
 
-        // D. First Renewal with Permit
-        if (isFirstRenRequest && (statusClean === 'Pending Review' || statusClean === 'Pending Approval')) {
-            if (currentUser.Role === 'Reviewer' && statusClean === 'Pending Review') {
-                document.getElementById('rev-renewal-decision').classList.remove('hidden');
-            }
-            if (currentUser.Role === 'Approver' && statusClean === 'Pending Approval') {
-                document.getElementById('app-renewal-decision').classList.remove('hidden');
-            }
+        /* HELPER: Toggle Critical Dropdown */
+        window.toggleCritical = function(isCrit) {
+            document.getElementById('critical-options').classList.toggle('hidden', !isCrit);
         }
 
-        // E. Approver Update (When Active)
-        if (statusClean === 'Active' && currentUser.Role === 'Approver') {
-            document.getElementById('fs-approver-section').classList.remove('hidden');
-            const b = document.createElement("button"); b.type = "button"; 
-            b.className = "bg-blue-600 text-white px-4 py-2 rounded font-bold shadow"; 
-            b.innerText = "💾 Update Supervisors"; 
-            b.onclick = () => upd('update_data');
-            actionsDiv.appendChild(b);
+        /* HELPER: Closure Checklist Logic (I) */
+        function renderClosureSection(data = {}) {
+            const div = document.getElementById('closure-checks-container');
+            const items = [
+                {id: 'Closure_WorkCompleted', label: 'Work Completed'}, {id: 'Closure_SiteRestored', label: 'Site Restoration'},
+                {id: 'Closure_Withdrawal', label: 'Withdrawal of Men/Material'}, {id: 'Closure_Normalization', label: 'Normalization of Isolations'},
+                {id: 'Closure_Housekeeping', label: 'Housekeeping'}
+            ];
+            
+            div.innerHTML = items.map(i => `
+                <label class="flex items-center gap-2 cursor-pointer bg-white p-2 rounded border hover:bg-gray-50">
+                    <input type="checkbox" name="${i.id}" value="Y" class="clos-chk w-4 h-4 accent-green-600" 
+                    ${data[i.id] !== 'N' ? 'checked' : ''} onchange="checkClosureDeviation()"> 
+                    <span class="text-sm font-semibold">${i.label}</span>
+                </label>
+            `).join('');
+            checkClosureDeviation();
         }
 
-    } catch (e) {
-        console.error("Critical Error in openPermit:", e);
-        alert("System Error: Check Console");
-    }
-}
+        window.checkClosureDeviation = function() {
+            const allChecked = Array.from(document.querySelectorAll('.clos-chk')).every(c => c.checked);
+            document.getElementById('closure-deviation-box').classList.toggle('hidden', allChecked);
+        }
+
         function handleClosureUI(p, actionsDiv) {
             const isClosable = (p.Status === 'Active');
             if (currentUser.Role === 'Requester' && isClosable) {
                 document.getElementById('closure-section').classList.remove('hidden');
                 document.getElementById('div-closure-req').classList.remove('hidden');
+                // Render Checkboxes
+                renderClosureSection({});
                 document.getElementById('Closure_Requestor_Remarks').disabled = false;
                 document.getElementById('Site_Restored_Check').disabled = false;
                 const b = document.createElement("button"); b.type = "button"; b.className = "bg-red-600 text-white px-4 py-2 rounded font-bold"; b.innerText = "Submit Closure"; b.onclick = () => upd('initiate_closure');
@@ -1234,67 +1167,51 @@ async function openPermit(id) {
             }
             if (p.Status.includes('Closure')) {
                 document.getElementById('closure-section').classList.remove('hidden');
+                renderClosureSection(p); // Render saved state
+                // Disable checkboxes if not active requestor
+                document.querySelectorAll('.clos-chk').forEach(c => c.disabled = true);
+                document.getElementById('Closure_Deviation_Reason').value = p.Closure_Deviation_Reason || '';
+                document.getElementById('Closure_Deviation_Reason').disabled = true;
+
                 document.getElementById('div-closure-req').classList.remove('hidden');
                 safeSet("Closure_Requestor_Remarks", p.Closure_Requestor_Remarks || "");
                  
                 if (p.Status === 'Closure Pending Review' && currentUser.Role === 'Reviewer') {
-            document.getElementById('div-closure-rev').classList.remove('hidden');
-            document.getElementById('Closure_Reviewer_Remarks').disabled = false;
-             
-            // 1. Create Reject Button (Red)
-            const bReject = document.createElement("button"); 
-            bReject.type = "button"; 
-            bReject.className = "bg-red-600 text-white px-4 py-2 rounded font-bold mr-2"; 
-            bReject.innerText = "Reject Closure"; 
-            bReject.onclick = () => upd('reject_closure'); // Sends 'Active' status back to server
- 
-            // 2. Create Approve Button (Green)
-            const bApprove = document.createElement("button"); 
-            bApprove.type = "button"; 
-            bApprove.className = "bg-green-600 text-white px-4 py-2 rounded font-bold"; 
-            bApprove.innerText = "Verify Closure"; 
-            bApprove.onclick = () => upd('approve_closure');
- 
-            // 3. Add both to the bar
-            actionsDiv.append(bReject, bApprove);
-        }
+                    document.getElementById('div-closure-rev').classList.remove('hidden');
+                    document.getElementById('Closure_Reviewer_Remarks').disabled = false;
+                    const bR = document.createElement("button"); bR.type="button"; bR.className="bg-red-600 text-white px-4 py-2 rounded font-bold mr-2"; bR.innerText="Reject Closure"; bR.onclick=()=>upd('reject_closure');
+                    const bA = document.createElement("button"); bA.type="button"; bA.className="bg-green-600 text-white px-4 py-2 rounded font-bold"; bA.innerText="Verify Closure"; bA.onclick=()=>upd('approve_closure');
+                    actionsDiv.append(bR, bA);
+                }
                 if (p.Status === 'Closure Pending Approval' && currentUser.Role === 'Approver') {
-            document.getElementById('div-closure-rev').classList.remove('hidden');
-            document.getElementById('div-closure-app').classList.remove('hidden');
-            document.getElementById('Closure_Approver_Remarks').disabled = false;
-            safeSet("Closure_Reviewer_Remarks", p.Closure_Reviewer_Remarks || "");
- 
-            // 1. Create Reject Button (Red)
-            const bReject = document.createElement("button"); 
-            bReject.type = "button"; 
-            bReject.className = "bg-red-600 text-white px-4 py-2 rounded font-bold mr-2"; 
-            bReject.innerText = "Reject Closure"; 
-            bReject.onclick = () => upd('reject_closure'); // Sends 'Active' status back to server
- 
-            // 2. Create Final Close Button (Black)
-            const bApprove = document.createElement("button"); 
-            bApprove.type = "button"; 
-            bApprove.className = "bg-black text-white px-4 py-2 rounded font-bold"; 
-            bApprove.innerText = "Final Permit Close"; 
-            bApprove.onclick = () => upd('approve');
- 
-            // 3. Add both to the bar
-               actionsDiv.append(bReject, bApprove);
-              }
+                    document.getElementById('div-closure-rev').classList.remove('hidden');
+                    document.getElementById('div-closure-app').classList.remove('hidden');
+                    document.getElementById('Closure_Approver_Remarks').disabled = false;
+                    safeSet("Closure_Reviewer_Remarks", p.Closure_Reviewer_Remarks || "");
+                    const bR = document.createElement("button"); bR.type="button"; bR.className="bg-red-600 text-white px-4 py-2 rounded font-bold mr-2"; bR.innerText="Reject Closure"; bR.onclick=()=>upd('reject_closure');
+                    const bA = document.createElement("button"); bA.type="button"; bA.className="bg-black text-white px-4 py-2 rounded font-bold"; bA.innerText="Final Permit Close"; bA.onclick=()=>upd('approve');
+                    actionsDiv.append(bR, bA);
+                }
             }
         }
  
+        /* --- UPDATED UPD FUNCTION --- */
         async function upd(act) {
-            if (act === 'initiate_closure' && !document.getElementById("Site_Restored_Check").checked) return alert("Please confirm site restoration.");
+            // Validation I: Closure
+            if (act === 'initiate_closure') {
+                if(!document.getElementById("Site_Restored_Check").checked) return alert("Please confirm site restoration checkbox.");
+                const devReason = document.getElementById('Closure_Deviation_Reason').value;
+                const anyUnchecked = Array.from(document.querySelectorAll('.clos-chk')).some(c => !c.checked);
+                if (anyUnchecked && !devReason) return alert("You must provide a Reason for Deviation since some closure items are unchecked.");
+            }
             
-            // Create FormData instead of JSON to support File Upload
             const fd = new FormData();
             fd.append('PermitID', currentPermitId);
             fd.append('action', act);
             fd.append('role', currentUser.Role);
             fd.append('user', currentUser.Name);
 
-            // Collect Text Fields
+            // Collect Text Fields & Critical
             const comments = (currentUser.Role === 'Reviewer' ? getVal("Reviewer_Remarks") : getVal("Approver_Remarks"));
             fd.append('comment', comments);
             fd.append('AdditionalPrecautions', getVal("AdditionalPrecautions"));
@@ -1304,6 +1221,15 @@ async function openPermit(id) {
             fd.append('Closure_Reviewer_Remarks', getVal("Closure_Reviewer_Remarks"));
             fd.append('Closure_Approver_Remarks', getVal("Closure_Approver_Remarks"));
             fd.append('Site_Restored_Check', document.getElementById("Site_Restored_Check").checked ? 'Y' : 'N');
+            
+            // Critical Work
+            const isCrit = document.querySelector('input[name="IsCritical"]:checked');
+            if(isCrit) fd.append('IsCritical', isCrit.value);
+            fd.append('CriticalActivityType', getVal('CriticalActivityType'));
+
+            // Closure Checkboxes
+            document.querySelectorAll('.clos-chk').forEach(c => fd.append(c.name, c.checked ? 'Y' : 'N'));
+            fd.append('Closure_Deviation_Reason', getVal('Closure_Deviation_Reason'));
 
             // Collect IOCL Data
             let ioclData = [];
@@ -1318,7 +1244,7 @@ async function openPermit(id) {
             const jsaMode = document.querySelector('input[name="jsa_mode"]:checked').value;
             if (jsaMode === 'upload') {
                 const f = document.getElementById('JsaFile').files[0];
-                if(f) fd.append('JsaFile', f); // Only sends if new file selected
+                if(f) fd.append('JsaFile', f); 
             } else {
                 fd.append('JsaLinkedId', document.getElementById('JsaLinkedId').value);
             }
@@ -1344,13 +1270,12 @@ async function openPermit(id) {
                 });
             }
 
-            // Send Request using Fetch (apiCall doesn't support FormData directly nicely)
             document.getElementById('loader').style.display = 'flex';
             try {
                 const res = await fetch(API+'/update-status', {
                     method: 'POST', 
                     body: fd, 
-                    headers: {'Authorization': `Bearer ${authToken}`} // No Content-Type header for FormData
+                    headers: {'Authorization': `Bearer ${authToken}`} 
                 });
                 const json = await res.json();
                 if (json.success) { alert("Success"); switchView('dashboard'); } 
@@ -1371,6 +1296,9 @@ async function openPermit(id) {
                 if(res.success) { alert("Renewal Decision Submitted!"); switchView('dashboard'); } else { alert("Error: " + res.error); }
                 return;
             }
+            // VALIDATION G: TBT
+            if(!document.getElementById('TBT_Renewal').checked) return alert("Tool Box Talk must be conducted for Renewal.");
+
             const fd = new FormData();
             fd.append('PermitID', currentPermitId);
             fd.append('action', 'initiate');
@@ -1380,6 +1308,8 @@ async function openPermit(id) {
             fd.append('toxic', getVal("RenewalToxic"));
             fd.append('oxygen', getVal("RenewalOxygen"));
             fd.append('precautions', getVal("RenewalPrec"));
+            fd.append('TBT_Renewal', 'Y'); // G
+
             const selWorkers = [];
             document.querySelectorAll('.ren-worker-cb:checked').forEach(c => selWorkers.push(c.value));
             fd.append('renewalWorkers', JSON.stringify(selWorkers));
@@ -1393,9 +1323,50 @@ async function openPermit(id) {
  
             const res = await fetch(API+'/renewal', {method:'POST', body:fd, headers: {'Authorization': `Bearer ${authToken}`}});
             const json = await res.json();
-            if(json.success) { alert("Renewal Request Submitted!"); switchView('dashboard'); } else { alert(json.error || "Submission failed"); }
+            if(json.success) { alert("Renewal Request Submitted!"); switchView('dashboard'); } else { alert(json.error || "Submission failed: " + json.error); }
         }
  
+        /* --- UNIVERSAL FILE VIEWER (PDFs & PHOTOS) --- */
+        window.viewSecureFile = async function(fullUrl) {
+            if (!fullUrl) return alert("No file linked");
+            
+            // 1. Extract the specific filename/path that the server needs
+            // The DB stores the full Azure URL, but the Proxy needs just the path inside the container.
+            let blobName = fullUrl;
+            
+            if(fullUrl.includes('/permit-attachments/')) {
+                // Extracts "permit-jsa/filename.pdf" from the full URL
+                blobName = fullUrl.split('/permit-attachments/')[1];
+            } else if (fullUrl.includes('/permit-jsa/')) {
+                blobName = 'permit-jsa/' + fullUrl.split('/permit-jsa/')[1];
+            }
+
+            console.log("Requesting File:", blobName); // Debugging
+
+            document.getElementById('loader').style.display = 'flex';
+
+            try {
+                // 2. Call the new Backend Proxy Route
+                const res = await fetch(`${API}/view-blob?name=${encodeURIComponent(blobName)}`, { 
+                    method: 'GET', 
+                    headers: {'Authorization': `Bearer ${authToken}`} 
+                });
+                
+                if (!res.ok) throw new Error("File retrieval failed (404)");
+                
+                // 3. Create a temporary local URL for the downloaded blob and open it
+                const blob = await res.blob();
+                const localUrl = window.URL.createObjectURL(blob);
+                window.open(localUrl, '_blank');
+            } catch (e) {
+                console.error(e);
+                alert("Error opening file: " + e.message);
+            } finally {
+                document.getElementById('loader').style.display = 'none';
+            }
+        }
+         
+        // ... (Keep existing helpers: checkRenewalTime, getIOCLData, deleteIOCLSup etc) ...
         function checkRenewalTime() {
             const fVal = document.getElementById("RenewalValidFrom").value; const tVal = document.getElementById("RenewalValidTo").value;
             const div = document.getElementById("odd-hour-agreement");
@@ -1456,490 +1427,10 @@ async function openPermit(id) {
             renderIOCLTable(status);
         }
  
-        function renderChecklists() {
-            const container = document.getElementById('checklists-container'); 
-            container.innerHTML = '';
- 
-            Object.keys(CL_DATA).forEach(sec => {
-                let itemsHtml = CL_DATA[sec].map((item, i) => {
-                    // FIX 1: Remarks Name (e.g., A_Q1_Rem)
-                    let extra = `<input class="w-full text-xs border-b mt-1" placeholder="Remarks" name="${sec}_Q${i+1}_Rem">`;
-                     
-                    // Special case for Gas Test (Section A, Item 12)
-                    if(sec==='A' && i===11) {
-                        extra = `<div class="grid grid-cols-3 gap-2 mt-2">
-                            <input name="GP_Q12_HC" id="GP_Q12_HC" placeholder="HC % LEL" onkeyup="syncGasToRenewal()">
-                            <input name="GP_Q12_ToxicGas" id="GP_Q12_ToxicGas" placeholder="Toxic PPM" onkeyup="syncGasToRenewal()">
-                            <input name="GP_Q12_Oxygen" id="GP_Q12_Oxygen" placeholder="O2 %" onkeyup="syncGasToRenewal()">
-                        </div>`;
-                    }
- 
-                    // FIX 2: Radio Names (e.g., A_Q1)
-                    return `<div class="p-3 border rounded-lg bg-gray-50 text-xs hover:shadow-md">
-                        <p class="mb-2 font-semibold text-gray-700 min-h-[30px]">${item}</p>
-                        <div class="flex gap-2 justify-center">
-                            <label class="cursor-pointer flex items-center gap-1">
-                                <input type="radio" name="${sec}_Q${i+1}" value="Y" checked class="accent-green-600"> Y
-                            </label>
-                            <label class="cursor-pointer flex items-center gap-1">
-                                <input type="radio" name="${sec}_Q${i+1}" value="N" class="accent-red-600"> N
-                            </label>
-                            <label class="cursor-pointer flex items-center gap-1">
-                                <input type="radio" name="${sec}_Q${i+1}" value="NA" class="accent-gray-600"> NA
-                            </label>
-                        </div>
-                        ${extra}
-                    </div>`;
-                });
- 
-                // Add the Section Container with "Select All" buttons
-                container.innerHTML += `
-                <div class="glass border-t-4 border-gray-400">
-                    <div class="flex justify-between items-center border-b pb-2 mb-4 bg-gray-50 p-2 rounded">
-                        <h4 class="font-bold text-gray-700">Section ${sec} Checks</h4>
-                        <div class="flex gap-2 text-xs">
-                            <label class="cursor-pointer font-bold"><input type="radio" name="Master_${sec}" value="Y" class="sec-toggle" data-sec="${sec}"> All Yes</label>
-                            <label class="cursor-pointer font-bold"><input type="radio" name="Master_${sec}" value="N" class="sec-toggle" data-sec="${sec}"> All No</label>
-                            <label class="cursor-pointer font-bold"><input type="radio" name="Master_${sec}" value="NA" class="sec-toggle" data-sec="${sec}"> All NA</label>
-                        </div>
-                    </div>
-                    <div class="checklist-grid">${itemsHtml.join('')}</div>
-                </div>`;
-            });
- 
-            // Re-attach "Select All" listeners
-            document.querySelectorAll('.sec-toggle').forEach(el => { 
-                el.addEventListener('change', (e) => { 
-                    // This selector works for both old (_0) and new (_Q1) formats as both start with the section letter
-                    document.querySelectorAll(`input[name^="${e.target.dataset.sec}_"]`).forEach(rb => { 
-                        if(rb.value === e.target.value) rb.checked = true; 
-                    }); 
-                }); 
-            });
-        }
-         
- 
-        function renderHazards() {
-            document.getElementById('hazards-grid').innerHTML = HAZARDS.map(h => `<label class="flex items-center gap-2 p-3 border rounded-lg bg-gray-50 text-xs cursor-pointer hover:bg-orange-100 font-bold"><input type="checkbox" name="H_${h.replace(/ /g,'')}" value="Y" ${h==='Others'?'id="chk-haz-others"':''} class="accent-orange-600 w-4 h-4"> ${h}</label>`).join('');
-            document.getElementById('chk-haz-others')?.addEventListener('change', (e) => document.getElementById('other-hazard-div').classList.toggle('hidden', !e.target.checked));
-            document.getElementById('ppe-grid').innerHTML = PPE.map(p => `<label class="flex items-center gap-2 p-3 border rounded-lg bg-gray-50 text-xs cursor-pointer hover:bg-blue-100 font-bold"><input type="checkbox" name="P_${p.replace(/ /g,'')}" value="Y" class="accent-blue-600 w-4 h-4"> ${p}</label>`).join('');
-            document.getElementById('w-id-type').addEventListener('change', (e) => document.getElementById('w-id-type-other').classList.toggle('hidden', e.target.value !== 'Other'));
-        }
- 
-        window.syncGasToRenewal = function() {
-            if(document.getElementById('chk-init-renewal').checked) {
-                safeSet('InitRenHC', getVal('GP_Q12_HC')); safeSet('InitRenTox', getVal('GP_Q12_ToxicGas')); safeSet('InitRenO2', getVal('GP_Q12_Oxygen'));
-            }
-        }
- 
-        function showNewPermit() {
-            document.getElementById("pf").reset();
-            currentPermitId = null;
-            document.querySelectorAll('#pf input, #pf select, #pf textarea').forEach(e => e.disabled = false);
-            safeSet("RequesterName", currentUser.Name); safeSet("Vendor", currentUser.Name); safeSet("LocationUnit", `${currentUser.Region}/${currentUser.Unit}/${currentUser.Location}`);
-            document.getElementById("Vendor").readOnly = true;
-            document.getElementById("init-renewal-wrapper").classList.remove('hidden');
-            document.getElementById("actions-bar").innerHTML = `<button type="button" onclick="savePermit()" class="w-full bg-blue-600 text-white px-6 py-3 rounded-lg font-bold shadow-lg">Submit Application</button>`;
-            loadWorkers('permit_dropdown');
-        }
- 
-        async function savePermit() {
-            if(!document.getElementById('gsr-check').checked) return alert("Accept GSR.");
-            if(!getVal('WorkType') || !getVal('ValidFrom') || !getVal('ValidTo')) {
-                return alert("Missing Mandatory Fields: Work Type, Valid From, or Valid To.");
-            }
-            const fd = new FormData(document.getElementById("pf"));
-            document.querySelectorAll('input[type="checkbox"]').forEach(c => { if(c.name) fd.set(c.name, c.checked ? "Y" : "N"); });
-            const selectedWorkers = [];
-            document.querySelectorAll('#worker-select-area input:checked').forEach(c => { try { selectedWorkers.push(JSON.parse(c.value)); } catch(e){} });
-            fd.append("SelectedWorkers", JSON.stringify(selectedWorkers));
-            if(currentUser) fd.append("RequesterEmail", currentUser.Email);
-            const hcEl = document.getElementById('GP_Q12_HC'); const toxEl = document.getElementById('GP_Q12_ToxicGas'); const o2El = document.getElementById('GP_Q12_Oxygen');
-            fd.append("GP_Q12_HC", hcEl ? hcEl.value : ""); fd.append("GP_Q12_ToxicGas", toxEl ? toxEl.value : ""); fd.append("GP_Q12_Oxygen", o2El ? o2El.value : "");
-            document.querySelectorAll('input[name$="_Rem"]').forEach(rem => { if(rem.value) fd.append(rem.name, rem.value); });
-            
-            // --- JSA SAVE LOGIC START ---
-            const jsaMode = document.querySelector('input[name="jsa_mode"]:checked').value;
-            if (jsaMode === 'upload') {
-                const jsaFile = document.getElementById('JsaFile').files[0];
-                if(jsaFile) fd.append('JsaFile', jsaFile);
-            } else {
-                fd.append('JsaLinkedId', document.getElementById('JsaLinkedId').value);
-            }
-            // --- JSA SAVE LOGIC END ---
-
-            const res = await fetch(API+'/save-permit', {method:'POST', body:fd, headers: {'Authorization': `Bearer ${authToken}`}});
-            const json = await res.json();
-            if(json.success) { alert("Permit Created: "+json.permitId); switchView('dashboard'); } else alert(json.error);
-        }
-         
-        async function loadWorkers(context) {
-            const res = await apiCall('/get-workers', 'POST', {role:currentUser.Role, email:currentUser.Email, context:context});
-            if(currentUser.Role === 'Requester') document.getElementById('btn-add-worker-main').classList.remove('hidden');
-            else document.getElementById('btn-add-worker-main').classList.add('hidden');
- 
-            if(context === 'permit_dropdown') {
-                const con = document.getElementById('worker-select-area');
-                con.innerHTML = res.map(w => `<label class="flex items-center gap-3 border p-3 rounded-lg bg-white shadow-sm cursor-pointer hover:bg-blue-50"><input type="checkbox" name="Worker_${w.WorkerID}" value='${JSON.stringify(w)}' class="w-5 h-5 accent-blue-600 rounded"><div><div class="font-bold text-gray-800 text-sm">${escapeHtml(w.Name)}</div><div class="text-xs text-gray-500">${w.IDType}: ${w.ID}</div></div></label>`).join('');
-            } else {
-                const t = document.querySelector('#table-workers tbody'); t.innerHTML = "";
-                res.forEach(w => {
-                    let actions = '';
-                    if(currentUser.Role === 'Requester') actions = `<button class="text-blue-600 font-bold text-xs mr-2" onclick="editWorker('${w.WorkerID}')">Edit</button><button class="text-red-600 font-bold text-xs" onclick="workerAction('${w.WorkerID}', 'delete')">Delete</button>`;
-                    else if(w.Status.includes('Pending')) actions = `<button class="text-green-600 font-bold text-xs mr-2" onclick="workerAction('${w.WorkerID}', 'approve')">Approve</button><button class="text-red-600 font-bold text-xs" onclick="workerAction('${w.WorkerID}', 'reject')">Reject</button>`;
-                    let approvedInfo = w.ApprovedBy ? `${w.ApprovedBy}<br><span class="text-[9px]">${w.ApprovedAt}</span>` : '-';
-                    t.innerHTML += `<tr class="hover:bg-gray-50 border-b border-gray-100"><td class="p-3 font-bold">${escapeHtml(w.Name)}</td><td class="p-3 text-xs">${escapeHtml(w.Age)} / ${escapeHtml(w.Gender)}</td><td class="p-3 text-xs font-mono">${escapeHtml(w.Contact)}</td><td class="p-3 font-mono text-xs">${escapeHtml(w.IDType)}: ${escapeHtml(w.ID)}</td><td class="p-3 text-xs text-gray-500">${approvedInfo}</td><td class="p-3">${actions}</td></tr>`;
-                });
-            }
-        }
-         
-        function editWorker(wid) { alert("Edit functionality ready. Pre-fill modal for " + wid); openWorkerModal(); }
-        async function workerAction(id, act) { await apiCall('/save-worker', 'POST', {WorkerID:id, Action:act, Role:currentUser.Role, ApproverName: currentUser.Name}); loadWorkers('mgmt'); }
-        function openWorkerModal() { document.getElementById('worker-form-real').reset(); window.currentWorkerAction = 'create'; document.getElementById('modal-worker').classList.remove('hidden'); }
-         
-        document.getElementById('worker-form-real').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const idTypeFinal = document.getElementById("w-id-type").value === "Other" ? document.getElementById("w-id-type-other").value : document.getElementById("w-id-type").value;
-            const body = { Action: window.currentWorkerAction, Role: currentUser.Role, RequestorEmail: currentUser.Email, RequestorName: currentUser.Name, WorkerID: document.getElementById('w-id').value, Details: { Name: document.getElementById("w-name").value, Age: document.getElementById("w-age").value, Father: document.getElementById("w-father").value, Address: document.getElementById("w-address").value, Contact: document.getElementById("w-contact").value, ID: document.getElementById("w-idcard").value, Gender: document.getElementById("w-gender").value, IDType: idTypeFinal } };
-            const res = await apiCall('/save-worker', 'POST', body);
-            if(res.success) { alert("Worker Saved"); document.getElementById('modal-worker').classList.add('hidden'); loadWorkers('mgmt'); } else alert(res.error);
-        });
- 
-        async function loadStats(data) {
-            if(document.getElementById('view-stats').classList.contains('hidden')) return;
-            if (!data) {
-                 try {
-                     const fetchedData = await apiCall('/dashboard', 'POST', {role: currentUser.Role, email: currentUser.Email});
-                     if(!fetchedData) return;
-                     data = fetchedData;
-                 } catch(e) { console.error("Stats fetch failed", e); return; }
-            }
-             
-            const counts = {}; const types = {};
-            data.forEach(d => {
-                counts[d.Status] = (counts[d.Status]||0)+1;
-                types[d.WorkType] = (types[d.WorkType]||0)+1;
-            });
- 
-            if(chartS) { chartS.destroy(); chartS = null; }
-            if(chartT) { chartT.destroy(); chartT = null; }
- 
-            const ctxS = document.getElementById('chartStatus');
-            const ctxT = document.getElementById('chartType');
- 
-            if(ctxS && Object.keys(counts).length > 0) {
-                chartS = new Chart(ctxS.getContext('2d'), {
-                    type: 'doughnut',
-                    data: {
-                        labels: Object.keys(counts),
-                        datasets: [{ data: Object.values(counts), backgroundColor: ['#f87171', '#4ade80', '#94a3b8', '#fbbf24', '#60a5fa'] }]
-                    },
-                    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right' } } }
-                });
-            }
- 
-            if(ctxT && Object.keys(types).length > 0) {
-                chartT = new Chart(ctxT.getContext('2d'), {
-                    type: 'bar',
-                    data: {
-                        labels: Object.keys(types),
-                        datasets: [{ label: 'Work Types', data: Object.values(types), backgroundColor: '#60a5fa' }]
-                    },
-                    options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true } } }
-                });
-            }
-        }
-         
-        function logout() { location.reload(); }
-         
-        async function loadMappedApprovers() {
-             const reviewers = await apiCall('/get-users-by-loc', 'POST', { region: currentUser.Region, unit: currentUser.Unit, location: currentUser.Location, role: 'Reviewer' });
-             const approvers = await apiCall('/get-users-by-loc', 'POST', { region: currentUser.Region, unit: currentUser.Unit, location: currentUser.Location, role: 'Approver' });
-             document.getElementById("ReviewerEmail").innerHTML = reviewers.map(u => `<option value="${u.Email}">${u.Name}</option>`).join('');
-             document.getElementById("ApproverEmail").innerHTML = approvers.map(u => `<option value="${u.Email}">${u.Name}</option>`).join('');
-        }
- 
-        async function downloadSecurePDF(id) { try { document.getElementById('loader').style.display = 'flex'; const res = await fetch(`${API}/download-pdf/${id}`, { headers: {'Authorization': `Bearer ${authToken}`} }); if(!res.ok) throw new Error("Err"); const blob = await res.blob(); const a = document.createElement('a'); a.href = window.URL.createObjectURL(blob); a.download = `${id}.pdf`; document.body.appendChild(a); a.click(); document.body.removeChild(a); } catch(e) { alert("Download Failed"); } finally { document.getElementById('loader').style.display = 'none'; } }
-        async function downloadSecureExcel() { try { document.getElementById('loader').style.display = 'flex'; const res = await fetch(`${API}/download-excel`, { headers: {'Authorization': `Bearer ${authToken}`} }); if(!res.ok) throw new Error("Err"); const blob = await res.blob(); const a = document.createElement('a'); a.href = window.URL.createObjectURL(blob); a.download = "Permits.xlsx"; document.body.appendChild(a); a.click(); document.body.removeChild(a); } catch(e) { alert("Failed"); } finally { document.getElementById('loader').style.display = 'none'; } }
-         
-         
-/* --- UNIVERSAL FILE VIEWER (PDFs & PHOTOS) --- */
-        window.viewSecureFile = async function(fullUrl) {
-            if (!fullUrl) return alert("No file linked");
-            
-            // 1. Extract the specific filename/path that the server needs
-            // The DB stores the full Azure URL, but the Proxy needs just the path inside the container.
-            let blobName = fullUrl;
-            
-            if(fullUrl.includes('/permit-attachments/')) {
-                // Extracts "permit-jsa/filename.pdf" from the full URL
-                blobName = fullUrl.split('/permit-attachments/')[1];
-            }
-
-            console.log("Requesting File:", blobName); // Debugging
-
-            document.getElementById('loader').style.display = 'flex';
-
-            try {
-                // 2. Call the new Backend Proxy Route
-                const res = await fetch(`${API}/view-blob?name=${encodeURIComponent(blobName)}`, { 
-                    method: 'GET', 
-                    headers: {'Authorization': `Bearer ${authToken}`} 
-                });
-                
-                if (!res.ok) throw new Error("File retrieval failed (404)");
-                
-                // 3. Create a temporary local URL for the downloaded blob and open it
-                const blob = await res.blob();
-                const localUrl = window.URL.createObjectURL(blob);
-                window.open(localUrl, '_blank');
-            } catch (e) {
-                console.error(e);
-                alert("Error opening file: " + e.message);
-            } finally {
-                document.getElementById('loader').style.display = 'none';
-            }
-        }
-         
         document.getElementById('btn-add-rev-sup').onclick = () => addIOCLRow('iocl-sup-container-rev');
         document.getElementById('btn-add-app-sup').onclick = () => addIOCLRow('iocl-sup-container-app');
-         
-        async function loadManageUsers() {
-            const t = document.querySelector('#table-manage-users tbody'); t.innerHTML = '<tr><td colspan="5" class="p-4 text-center">Loading...</td></tr>';
-            const roles = ['Requester', 'Reviewer', 'Approver']; let allUsers = [];
-            for(let r of roles) { const u = await apiCall('/get-users-by-loc', 'POST', { region: currentUser.Region, unit: currentUser.Unit, location: currentUser.Location, role: r }); if(Array.isArray(u)) allUsers = [...allUsers, ...u]; }
-            t.innerHTML = '';
-            if(allUsers.length === 0) t.innerHTML = `<tr><td colspan="5" class="text-center p-4">No users found.</td></tr>`;
-            else allUsers.forEach(u => { const delBtn = u.Email !== currentUser.Email ? `<button class="text-red-600 font-bold text-xs" onclick="deleteUser('${u.Email}')">Delete</button>` : '-'; t.innerHTML += `<tr class="hover:bg-gray-50 border-b"><td class="p-3 font-bold">${u.Name}</td><td class="p-3 text-xs">${u.Email}</td><td class="p-3 text-xs uppercase">${u.Role}</td><td class="p-3 text-xs">${currentUser.Location}</td><td class="p-3">${delBtn}</td></tr>`; });
-        }
-        async function deleteUser(email) { if(!confirm("Delete user?")) return; const res = await apiCall('/delete-user', 'POST', {email: email}); if(res.success) { alert("Deleted"); loadManageUsers(); } else alert(res.error); }
-        async function uploadBulkUsers() { const file = document.getElementById('bulk-excel').files[0]; if(!file) return alert("Select file"); const fd = new FormData(); fd.append('excelFile', file); document.getElementById('loader').style.display = 'flex'; const res = await fetch(API+'/admin/bulk-upload', { method: 'POST', headers: {'Authorization': `Bearer ${authToken}`}, body: fd }); const json = await res.json(); document.getElementById('loader').style.display = 'none'; alert(json.success ? "Success" : json.error); }
-        async function resetUserPassword() { const email = document.getElementById('reset-email').value; const pass = document.getElementById('reset-temp-pass').value; const res = await apiCall('/admin/reset-password', 'POST', {targetEmail: email, newTempPass: pass}); alert(res.success ? "Reset Done" : res.error); }
-        document.getElementById('adduser-form').addEventListener('submit', async (e) => { e.preventDefault(); const body = { name: document.getElementById("new-user-name").value, email: document.getElementById("new-user-email").value, role: document.getElementById("new-user-role").value, password: document.getElementById("new-user-pass").value, region: document.getElementById("new-user-region").value, unit: document.getElementById("new-user-unit").value, location: document.getElementById("new-user-location").value }; const res = await apiCall('/add-user', 'POST', body); if(res.success) { alert("User Created"); document.getElementById('view-add-user').classList.add('hidden'); document.getElementById('adduser-form').reset(); loadManageUsers(); } else alert(res.error); });
- 
-        function getGeo() { if(!navigator.geolocation) return alert("Geo not supported"); navigator.geolocation.getCurrentPosition(p => { document.getElementById('ExactLocation').value = `${p.coords.latitude.toFixed(6)}, ${p.coords.longitude.toFixed(6)}`; document.getElementById('Latitude').value = p.coords.latitude; document.getElementById('Longitude').value = p.coords.longitude; }); }
-        document.getElementById('btn-get-geo').onclick = getGeo;
-
-        /* --- JSA MODULE --- */
-        let currentJsaData = null;
-
-        function toggleJsaMode(mode) {
-            document.getElementById('jsa-mode-upload').classList.toggle('hidden', mode !== 'upload');
-            document.getElementById('jsa-mode-link').classList.toggle('hidden', mode !== 'link');
-            if(mode === 'link') loadApprovedJsas();
-        }
-
-        async function loadApprovedJsas() {
-            const res = await apiCall('/jsa/list-approved', 'POST', { region: currentUser.Region, unit: currentUser.Unit });
-            const sel = document.getElementById('JsaLinkedId');
-            sel.innerHTML = '<option value="">Select Approved JSA...</option>' + 
-                res.map(j => `<option value="${j.RefNumber}">${j.RefNumber} - ${j.JobTitle}</option>`).join('');
-            
-            // Auto-fill hidden input on change
-            sel.onchange = (e) => document.getElementById('JsaNo').value = e.target.value;
-        }
-
-        function removeAttachedJsa() {
-            document.getElementById('JsaFile').value = ''; 
-            document.getElementById('jsa-existing-file-display').classList.add('hidden');
-            // Note: If editing an existing permit, this needs backend logic to flag deletion
-            if(currentPermitId) alert("Please save permit to confirm removal.");
-        }
-
-        /* JSA CRUD Logic */
-        function addJsaPersonRow(data = {}) {
-            const tbody = document.querySelector('#table-jsa-team tbody');
-            const tr = document.createElement('tr');
-            tr.innerHTML = `
-                <td><input class="w-full border-none bg-transparent" placeholder="Name" value="${data.name||''}"></td>
-                <td><input class="w-full border-none bg-transparent" placeholder="Designation" value="${data.desig||''}"></td>
-                <td><input class="w-full border-none bg-transparent" placeholder="Department" value="${data.dept||''}"></td>
-                <td><button type="button" class="text-red-500 font-bold" onclick="this.closest('tr').remove()">x</button></td>
-            `;
-            tbody.appendChild(tr);
-        }
-
-        function addJsaRiskRow(data = {}) {
-            const tbody = document.querySelector('#table-jsa-risk tbody');
-            const idx = tbody.children.length + 1;
-            const tr = document.createElement('tr');
-            tr.innerHTML = `
-                <td class="p-2 text-center text-gray-500">${idx}</td>
-                <td><textarea class="w-full text-xs p-1 h-16" placeholder="Activity Step">${data.activity||''}</textarea></td>
-                <td><textarea class="w-full text-xs p-1 h-16" placeholder="Potential Hazards">${data.hazard||''}</textarea></td>
-                <td><textarea class="w-full text-xs p-1 h-16" placeholder="Controls / Actions">${data.control||''}</textarea></td>
-                <td><button type="button" class="text-red-500 font-bold" onclick="this.closest('tr').remove()">x</button></td>
-            `;
-            tbody.appendChild(tr);
-        }
-
-        async function openNewJsaForm(jsaId = null, refNumber = null) {
-            switchView('jsa-form');
-            document.getElementById('jsa-form').reset();
-            document.querySelector('#table-jsa-team tbody').innerHTML = '';
-            document.querySelector('#table-jsa-risk tbody').innerHTML = '';
-            
-            // UI Tweaks for "Back" navigation
-            const backBtn = document.querySelector('#view-jsa-form button');
-            if(refNumber) {
-                // If viewing from Permit, back button goes to Permit Form
-                backBtn.innerText = "← Back to Permit";
-                backBtn.onclick = () => { document.getElementById('view-jsa-form').classList.add('hidden'); document.getElementById('view-form').classList.remove('hidden'); };
-            } else {
-                // Standard behavior
-                backBtn.innerText = "← Back to List";
-                backBtn.onclick = () => switchView('jsa');
-            }
-
-            await loadMappedApprovers(); 
-            document.getElementById('jsa-reviewer').innerHTML = document.getElementById('ReviewerEmail').innerHTML;
-            document.getElementById('jsa-approver').innerHTML = document.getElementById('ApproverEmail').innerHTML;
-
-            safeSet('jsa-region', currentUser.Region);
-            safeSet('jsa-unit', currentUser.Unit);
-            safeSet('jsa-loc', currentUser.Location);
-
-            if(jsaId || refNumber) {
-                // Edit/View Mode: Fetch by ID OR Ref
-                const payload = jsaId ? { id: jsaId } : { ref: refNumber };
-                const j = await apiCall('/jsa/get', 'POST', payload);
-                
-                if(!j) { alert("JSA Details not found."); return switchView('jsa'); }
-
-                currentJsaData = j;
-                safeSet('JSAID', j.JSAID);
-                safeSet('jsa-job-title', j.JobTitle);
-                safeSet('jsa-executed-by', j.ExecutedBy);
-                safeSet('jsa-reviewer', j.ReviewerEmail);
-                safeSet('jsa-approver', j.ApproverEmail);
-                
-                const data = JSON.parse(j.DataJSON || '{}');
-                (data.team || []).forEach(p => addJsaPersonRow(p));
-                (data.steps || []).forEach(s => addJsaRiskRow(s));
-                safeSet('jsa-additional-prec', data.additionalPrecautions);
-
-                // Permissions Logic
-                const isRev = currentUser.Role === 'Reviewer' && j.Status === 'Pending Review';
-                const isApp = currentUser.Role === 'Approver' && j.Status === 'Pending Approval';
-                
-                if (isRev || isApp) {
-                    document.getElementById('jsa-workflow-actions').classList.remove('hidden');
-                    document.getElementById('jsa-submit-bar').classList.add('hidden');
-                    document.getElementById('btn-jsa-approve').onclick = () => processJsaAction(j.JSAID, 'approve');
-                    document.getElementById('btn-jsa-reject').onclick = () => processJsaAction(j.JSAID, 'reject');
-                } else {
-                    // View Only (Approved or viewing linked from permit)
-                    document.getElementById('jsa-workflow-actions').classList.add('hidden');
-                    document.getElementById('jsa-submit-bar').classList.add('hidden');
-                    document.querySelectorAll('#jsa-form input, #jsa-form textarea, #jsa-form select').forEach(e => e.disabled = true);
-                    // Hide delete buttons in table rows
-                    document.querySelectorAll('#jsa-form button.text-red-500').forEach(b => b.classList.add('hidden'));
-                }
-            } else {
-                // Create Mode
-                addJsaPersonRow({name: currentUser.Name, dept: 'Operations'}); 
-                addJsaRiskRow();
-                document.getElementById('jsa-workflow-actions').classList.add('hidden');
-                document.getElementById('jsa-submit-bar').classList.remove('hidden');
-            }
-        }
-
-        async function loadJsaDashboard() {
-            const res = await apiCall('/jsa/list-my', 'POST', { email: currentUser.Email, role: currentUser.Role });
-            const tbody = document.getElementById('tbody-jsa');
-            tbody.innerHTML = res.map(j => {
-                const downloadBtn = j.Status === 'Approved' ? `<button onclick="downloadJsaPdf('${j.JSAID}')" class="text-blue-600 underline text-xs font-bold mr-2">PDF</button>` : '';
-                return `<tr class="hover:bg-gray-50 border-b">
-                    <td class="p-3 font-bold text-blue-600 cursor-pointer" onclick="openNewJsaForm('${j.JSAID}')">${j.RefNumber || 'DRAFT'}</td>
-                    <td class="p-3">${j.JobTitle}</td>
-                    <td class="p-3">${j.Location}</td>
-                    <td class="p-3"><span class="px-2 py-1 rounded text-xs font-bold bg-gray-200">${j.Status}</span></td>
-                    <td class="p-3 text-xs">${j.RequesterName}</td>
-                    <td class="p-3">${downloadBtn}</td>
-                </tr>`;
-            }).join('');
-        }
-
-        async function downloadJsaPdf(id) {
-            // Similar to Permit PDF download logic
-             try { 
-                document.getElementById('loader').style.display = 'flex'; 
-                const res = await fetch(`${API}/jsa/download/${id}`, { headers: {'Authorization': `Bearer ${authToken}`} }); 
-                if(!res.ok) throw new Error("Err"); 
-                const blob = await res.blob(); 
-                const a = document.createElement('a'); a.href = window.URL.createObjectURL(blob); a.download = `JSA_${id}.pdf`; 
-                document.body.appendChild(a); a.click(); document.body.removeChild(a); 
-            } catch(e) { alert("Download Failed"); } finally { document.getElementById('loader').style.display = 'none'; } 
-        }
-
-        /* Event Listeners & Submit */
-        document.getElementById('jsa-form').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const fd = new FormData(e.target);
-            
-            // Scrape dynamic tables
-            const team = [];
-            document.querySelectorAll('#table-jsa-team tbody tr').forEach(tr => {
-                const ins = tr.querySelectorAll('input');
-                if(ins[0].value) team.push({ name: ins[0].value, desig: ins[1].value, dept: ins[2].value });
-            });
-            
-            const steps = [];
-            document.querySelectorAll('#table-jsa-risk tbody tr').forEach(tr => {
-                const txts = tr.querySelectorAll('textarea');
-                if(txts[0].value) steps.push({ activity: txts[0].value, hazard: txts[1].value, control: txts[2].value });
-            });
-
-            const body = {
-                JSAID: fd.get('JSAID'),
-                JobTitle: fd.get('JobTitle'),
-                ExecutedBy: fd.get('ExecutedBy'),
-                ReviewerEmail: fd.get('ReviewerEmail'),
-                ApproverEmail: fd.get('ApproverEmail'),
-                Region: currentUser.Region, Unit: currentUser.Unit, Location: currentUser.Location,
-                RequesterEmail: currentUser.Email, RequesterName: currentUser.Name,
-                // Include new field in DataJSON
-                DataJSON: JSON.stringify({ 
-                    team, 
-                    steps, 
-                    additionalPrecautions: document.getElementById('jsa-additional-prec').value // <--- NEW FIELD
-                })
-            };
-
-            const res = await apiCall('/jsa/save', 'POST', body);
-            if(res.success) { alert("JSA Saved"); switchView('jsa'); } else alert(res.error);
-        });
-
-        async function processJsaAction(id, action) {
-            const rem = document.getElementById('jsa-remarks').value;
-            if(action === 'reject' && !rem) return alert("Remarks mandatory for rejection");
-            
-            // Get updated table data in case Reviewer/Approver edited it
-            const team = [];
-            document.querySelectorAll('#table-jsa-team tbody tr').forEach(tr => { const ins = tr.querySelectorAll('input'); if(ins[0].value) team.push({ name: ins[0].value, desig: ins[1].value, dept: ins[2].value }); });
-            const steps = [];
-            document.querySelectorAll('#table-jsa-risk tbody tr').forEach(tr => { const txts = tr.querySelectorAll('textarea'); if(txts[0].value) steps.push({ activity: txts[0].value, hazard: txts[1].value, control: txts[2].value }); });
-
-            const res = await apiCall('/jsa/action', 'POST', { 
-                id, action, remarks: rem, role: currentUser.Role, user: currentUser.Name,
-                updatedData: JSON.stringify({ 
-                    team, 
-                    steps,
-                    additionalPrecautions: document.getElementById('jsa-additional-prec').value 
-                })
-            });
-            
-            if(res.success) { alert("Action Completed"); switchView('jsa'); } else alert(res.error);
-        }
  
         initLogin();
     </script>
 </body>
 </html>
-
-
-
-
-
-
-
