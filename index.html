@@ -669,14 +669,21 @@
         function setText(id, val) { const el = document.getElementById(id); if(el) el.innerText = val; }
         function getNow() { return new Date().toLocaleString("en-GB").replace(',',''); }
  
-        function attachFileValidators() {
-            document.querySelectorAll('input[type="file"]').forEach(input => {
-                input.addEventListener('change', function() {
-                    const file = this.files[0];
-                    if(file && !file.type.startsWith('image/')) { alert("Only JPG/PNG images allowed."); this.value = ''; }
-                });
-            });
-        }
+       function attachFileValidators() {
+    document.querySelectorAll('input[type="file"]').forEach(input => {
+        input.addEventListener('change', function() {
+            const file = this.files[0];
+            if (file) {
+                // Allow Images AND PDFs
+                const validTypes = ['image/jpeg', 'image/png', 'image/jpg', 'application/pdf'];
+                if (!validTypes.includes(file.type)) {
+                    alert("Invalid format. Only JPG, PNG, or PDF allowed.");
+                    this.value = '';
+                }
+            }
+        });
+    });
+}
  
         /* 3. INIT & LOGIN */
         async function initLogin() {
@@ -934,53 +941,106 @@
             if (wTbody) wTbody.innerHTML = currentPermitWorkers.map(w => `<tr><td class="p-2 font-bold">${escapeHtml(w.Name)}</td><td class="p-2">${escapeHtml(w.IDType)}: ${escapeHtml(w.ID)}</td><td class="p-2 font-mono">${escapeHtml(w.Contact)}</td></tr>`).join('');
             // ... inside openPermit(id) ...
             
-    // --- JSA DISPLAY & PERMISSION LOGIC ---
+// --- JSA DISPLAY & PERMISSION LOGIC ---
     const jsaUploadDiv = document.getElementById('jsa-mode-upload');
-            const jsaLinkDiv = document.getElementById('jsa-mode-link');
-            const existDisplay = document.getElementById('jsa-existing-file-display');
-            const jsaFileInp = document.getElementById('JsaFile');
-            const jsaLinkSel = document.getElementById('JsaLinkedId');
-            const jsaRadios = document.querySelectorAll('input[name="jsa_mode"]');
+    const jsaLinkDiv = document.getElementById('jsa-mode-link');
+    const existDisplay = document.getElementById('jsa-existing-file-display');
+    const jsaFileInp = document.getElementById('JsaFile');
+    const jsaLinkSel = document.getElementById('JsaLinkedId');
+    const jsaRadios = document.querySelectorAll('input[name="jsa_mode"]');
 
-            // 1. Reset
-            existDisplay.classList.add('hidden');
-            jsaFileInp.value = '';
+    // 1. Reset UI
+    existDisplay.classList.add('hidden');
+    jsaFileInp.value = '';
+    
+    // Helper to clear JSA for changing/deleting
+    window.clearJsaSelection = function() {
+        if(!confirm("Remove current JSA? You will need to select or upload a new one.")) return;
+        // Reset DB values visually (will be saved on Update)
+        p.JsaLinkedId = null; 
+        p.JsaFileUrl = null;
+        
+        // Reset UI
+        jsaLinkSel.value = "";
+        jsaFileInp.value = "";
+        existDisplay.classList.add('hidden');
+        document.querySelector('input[name="jsa_mode"][value="upload"]').checked = true;
+        toggleJsaMode('upload');
+    };
 
-            // 2. Set Values from DB
-            if(p.JsaLinkedId) {
-                document.querySelector('input[name="jsa_mode"][value="link"]').checked = true;
-                toggleJsaMode('link');
-                jsaLinkSel.innerHTML = `<option value="${p.JsaLinkedId}" selected>${p.JsaLinkedId}</option>`;
-            } else if (p.JsaFileUrl) {
-                document.querySelector('input[name="jsa_mode"][value="upload"]').checked = true;
-                toggleJsaMode('upload');
-                const link = document.getElementById('jsa-file-link');
-                link.href = '#'; 
-                // Use viewSecurePhoto to handle blob token auth
-                link.onclick = (e) => { e.preventDefault(); viewSecurePhoto(p.JsaFileUrl); };
-                existDisplay.classList.remove('hidden');
-            }
+    // 2. Load Data
+    if(p.JsaLinkedId) {
+        document.querySelector('input[name="jsa_mode"][value="link"]').checked = true;
+        toggleJsaMode('link');
+        // Add a "View" button for the linked ID
+        jsaLinkSel.innerHTML = `<option value="${p.JsaLinkedId}" selected>${p.JsaLinkedId}</option>`;
+        
+        // Create a view button if not exists
+        let viewBtn = document.getElementById('btn-view-linked-jsa');
+        if(!viewBtn) {
+            viewBtn = document.createElement('button');
+            viewBtn.id = 'btn-view-linked-jsa';
+            viewBtn.className = "ml-2 text-blue-600 font-bold underline text-xs";
+            viewBtn.innerText = "View JSA PDF";
+            jsaLinkSel.parentNode.appendChild(viewBtn);
+        }
+        viewBtn.onclick = (e) => { e.preventDefault(); downloadJsaPdf(p.JsaLinkedId.split('-').pop()); }; // Extract numeric ID
+        viewBtn.classList.remove('hidden');
 
-            // 3. Permission Logic (Allow Editing for Rev/App in Pending stages)
-            let canEditJsa = false;
-            if (currentUser.Role === 'Reviewer' && p.Status === 'Pending Review') canEditJsa = true;
-            if (currentUser.Role === 'Approver' && p.Status === 'Pending Approval') canEditJsa = true;
-            if (currentUser.Role === 'Requester' && (p.Status === 'Draft' || p.Status.includes('Rejected'))) canEditJsa = true;
+    } else if (p.JsaFileUrl) {
+        document.querySelector('input[name="jsa_mode"][value="upload"]').checked = true;
+        toggleJsaMode('upload');
+        const link = document.getElementById('jsa-file-link');
+        link.href = '#'; 
+        // Update to use the new viewSecureFile function
+        link.onclick = (e) => { e.preventDefault(); viewSecureFile(p.JsaFileUrl); };
+        existDisplay.classList.remove('hidden');
+        // Hide the linked view button if we are in upload mode
+        if(document.getElementById('btn-view-linked-jsa')) document.getElementById('btn-view-linked-jsa').classList.add('hidden');
+    }
 
-            if (canEditJsa) {
-                jsaFileInp.disabled = false;
-                jsaLinkSel.disabled = false;
-                jsaRadios.forEach(r => r.disabled = false);
-                document.getElementById('btn-del-jsa').classList.remove('hidden');
-                
-                loadApprovedJsas(); 
-            } else {
-                // Read Only Mode
-                jsaFileInp.disabled = true;
-                jsaLinkSel.disabled = true;
-                jsaRadios.forEach(r => r.disabled = true);
-                document.getElementById('btn-del-jsa').classList.add('hidden');
-            } 
+    // 3. Permissions (Editing / Deleting)
+    let canEditJsa = false;
+    // Allow Requestor to edit if Draft/Rejected
+    if (currentUser.Role === 'Requester' && (p.Status === 'Draft' || p.Status.includes('Rejected') || p.Status === 'Pending Review')) canEditJsa = true; 
+    // Allow Reviewer to edit in Pending Review
+    if (currentUser.Role === 'Reviewer' && p.Status === 'Pending Review') canEditJsa = true;
+    // Allow Approver to edit in Pending Approval
+    if (currentUser.Role === 'Approver' && p.Status === 'Pending Approval') canEditJsa = true;
+
+    if (canEditJsa) {
+        jsaFileInp.disabled = false;
+        jsaLinkSel.disabled = false;
+        jsaRadios.forEach(r => r.disabled = false);
+        
+        // Show Remove Button for Uploaded File
+        document.getElementById('btn-del-jsa').classList.remove('hidden');
+        document.getElementById('btn-del-jsa').onclick = window.clearJsaSelection;
+
+        // Add a Remove Button for Linked JSA if it exists
+        if(p.JsaLinkedId) {
+             let removeLinkBtn = document.getElementById('btn-del-link-jsa');
+             if(!removeLinkBtn) {
+                 removeLinkBtn = document.createElement('button');
+                 removeLinkBtn.id = 'btn-del-link-jsa';
+                 removeLinkBtn.className = "ml-2 text-red-500 font-bold text-xs";
+                 removeLinkBtn.innerText = "[Change]";
+                 removeLinkBtn.onclick = window.clearJsaSelection;
+                 jsaLinkSel.parentNode.appendChild(removeLinkBtn);
+             }
+             removeLinkBtn.classList.remove('hidden');
+        }
+        
+        loadApprovedJsas(); // Pre-load dropdown if they want to switch
+    } else {
+        // Read Only Mode
+        jsaFileInp.disabled = true;
+        jsaLinkSel.disabled = true;
+        jsaRadios.forEach(r => r.disabled = true);
+        document.getElementById('btn-del-jsa').classList.add('hidden');
+        if(document.getElementById('btn-del-link-jsa')) document.getElementById('btn-del-link-jsa').classList.add('hidden');
+    }
+    // ------------------------------------
 
             renderIOCLTable(p.Status);
  
@@ -1573,23 +1633,36 @@ async function upd(act) {
         async function downloadSecureExcel() { try { document.getElementById('loader').style.display = 'flex'; const res = await fetch(`${API}/download-excel`, { headers: {'Authorization': `Bearer ${authToken}`} }); if(!res.ok) throw new Error("Err"); const blob = await res.blob(); const a = document.createElement('a'); a.href = window.URL.createObjectURL(blob); a.download = "Permits.xlsx"; document.body.appendChild(a); a.click(); document.body.removeChild(a); } catch(e) { alert("Failed"); } finally { document.getElementById('loader').style.display = 'none'; } }
          
          
-        window.viewSecurePhoto = async function(url) {
-            if (!url) return alert("No photo");
-            const rawFilename = url.replace(/^.*[\\\/]/, '');
-            const filename = encodeURIComponent(rawFilename);
- 
-            document.getElementById('loader').style.display = 'flex';
-            try {
-                const res = await fetch(`${API}/view-photo/${filename}`, { method: 'GET', headers: {'Authorization': `Bearer ${authToken}`} });
-                if (!res.ok) throw new Error("Err");
-                const blob = await res.blob();
-                window.open(window.URL.createObjectURL(blob), '_blank');
-            } catch (e) {
-                alert("Load Failed: " + e.message);
-            } finally {
-                document.getElementById('loader').style.display = 'none';
-            }
-        }
+     window.viewSecureFile = async function(fullUrl) {
+    if (!fullUrl) return alert("No file linked");
+    
+    // Extract the blob name relative to the container. 
+    // Example URL: https://account.blob.core.../permit-attachments/permit-jsa/file.pdf
+    // We need: "permit-jsa/file.pdf"
+    let blobName = fullUrl;
+    if(fullUrl.includes('permit-attachments/')) {
+        blobName = fullUrl.split('permit-attachments/')[1];
+    }
+
+    document.getElementById('loader').style.display = 'flex';
+    try {
+        // Use the new query param route
+        const res = await fetch(`${API}/view-blob?name=${encodeURIComponent(blobName)}`, { 
+            method: 'GET', 
+            headers: {'Authorization': `Bearer ${authToken}`} 
+        });
+        
+        if (!res.ok) throw new Error("File not found on server");
+        
+        const blob = await res.blob();
+        const url = window.URL.createObjectURL(blob);
+        window.open(url, '_blank');
+    } catch (e) {
+        alert("Load Failed: " + e.message);
+    } finally {
+        document.getElementById('loader').style.display = 'none';
+    }
+}
          
         document.getElementById('btn-add-rev-sup').onclick = () => addIOCLRow('iocl-sup-container-rev');
         document.getElementById('btn-add-app-sup').onclick = () => addIOCLRow('iocl-sup-container-app');
@@ -1809,5 +1882,6 @@ async function upd(act) {
     </script>
 </body>
 </html>
+
 
 
