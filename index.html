@@ -10,7 +10,6 @@
     <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyADwuqMDCwNSaZKBnWURDCYdqlMxfiWBnU" async></script>
  
     <style nonce="NONCE_PLACEHOLDER">
-        /* --- GLOBAL & LAYOUT STYLES --- */
         body { background-color: #f3f4f6; font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; overflow: hidden; margin: 0; padding: 0; }
         .hidden { display: none !important; }
         .glass { background: white; padding: 1.5rem; border-radius: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); margin-bottom: 1.5rem; border: 1px solid #e5e7eb; }
@@ -511,7 +510,6 @@
                                         <input type="hidden" name="JsaNo" id="JsaNo"> 
                                     </div>
                                 </div>
-
                                 <input name="IoclEquip" id="IoclEquip" placeholder="IOCL Equip">
                                 <input name="ContEquip" id="ContEquip" placeholder="Contractor Equip">
                                 <input name="WorkOrder" id="WorkOrder" placeholder="Work Order No">
@@ -669,21 +667,21 @@
         function setText(id, val) { const el = document.getElementById(id); if(el) el.innerText = val; }
         function getNow() { return new Date().toLocaleString("en-GB").replace(',',''); }
  
-       function attachFileValidators() {
-    document.querySelectorAll('input[type="file"]').forEach(input => {
-        input.addEventListener('change', function() {
-            const file = this.files[0];
-            if (file) {
-                // Allow Images AND PDFs
-                const validTypes = ['image/jpeg', 'image/png', 'image/jpg', 'application/pdf'];
-                if (!validTypes.includes(file.type)) {
-                    alert("Invalid format. Only JPG, PNG, or PDF allowed.");
-                    this.value = '';
-                }
-            }
-        });
-    });
-}
+        function attachFileValidators() {
+            document.querySelectorAll('input[type="file"]').forEach(input => {
+                input.addEventListener('change', function() {
+                    const file = this.files[0];
+                    if(file) {
+                        // Allow Images AND PDFs
+                        const validTypes = ['image/jpeg', 'image/png', 'image/jpg', 'application/pdf'];
+                        if (!validTypes.includes(file.type)) {
+                            alert("Invalid format. Only JPG, PNG, or PDF allowed.");
+                            this.value = '';
+                        }
+                    }
+                });
+            });
+        }
  
         /* 3. INIT & LOGIN */
         async function initLogin() {
@@ -885,131 +883,7 @@
             loadStats(res);
         }
  
-        /* 6. CORE PERMIT LOGIC */
-        async function openPermit(id) {
-            const p = await apiCall('/permit-data', 'POST', { permitId: id });
- 
-            if (!p || p.Status === 'Closed' || !p.WorkType) {
-                alert("📂 Permit Archived. Downloading PDF...");
-                return downloadSecurePDF(id);
-            }
- 
-            currentPermitId = id;
-            currentPermitIOCLData = p.IOCLSupervisors || [];
-            permitRequirePhoto = (p.RequireRenewalPhotos === 'Y');
- 
-            document.getElementById('view-dashboard').classList.add('hidden');
-            document.getElementById('view-form').classList.remove('hidden');
-            document.getElementById('permit-title').innerText = `Permit: ${id}`;
-            document.getElementById('permit-header-display').innerText = `Status: ${p.Status}`;
- 
-            ['fs-reviewer-section', 'fs-approver-section', 'rev-renewal-decision', 'app-renewal-decision', 'action-renewal', 'pending-renewal-display', 'odd-hour-approval-controls', 'renewals-section', 'closure-section', 'div-closure-rev', 'div-closure-app'].forEach(id => {
-                const el = document.getElementById(id);
-                if(el) el.classList.add('hidden');
-            });
- 
-            const actionsDiv = document.getElementById("actions-bar");
-            actionsDiv.innerHTML = "";
- 
-            const isMainPending = (p.Status.includes('Pending Review') || p.Status.includes('Pending Approval'));
-            const isAuthority = (currentUser.Role === 'Reviewer' || currentUser.Role === 'Approver');
- 
-            document.querySelectorAll('#pf input, #pf textarea, #pf select').forEach(el => {
-                let shouldDisable = true;
-                if (isAuthority && isMainPending && (el.name && (el.name.startsWith('H_') || el.name.startsWith('P_')) || el.id === 'H_Others_Detail')) {
-                    shouldDisable = false;
-                }
-                if (isMainPending && currentUser.Role === 'Reviewer' && (el.id === 'Reviewer_Remarks' || el.id === 'AdditionalPrecautions' || el.name === 'RevRenAction')) shouldDisable = false;
-                if ((isMainPending || p.Status === 'Active') && currentUser.Role === 'Approver' && (el.id === 'Approver_Remarks' || el.name === 'AppRenAction')) shouldDisable = false;
-                if (currentUser.Role === 'Approver' && el.id === 'RequireRenewalPhotos') {
-                    shouldDisable = (p.Status === 'Active');
-                }
-                if (el.type === 'checkbox') el.checked = (p[el.name] === 'Y');
-                else if (el.type === 'radio') el.checked = false;
-                else if (el.type !== 'file') el.value = p[el.name] || '';
-                el.disabled = shouldDisable;
-            });
- 
-            if (currentUser.Role === 'Requester') document.getElementById('ppe-section-wrapper').classList.add('hidden');
-            else document.getElementById('ppe-section-wrapper').classList.remove('hidden');
- 
-            let wData = p.SelectedWorkers;
-            if (typeof wData === 'string') { try { wData = JSON.parse(wData); } catch (e) { wData = []; } }
-            currentPermitWorkers = Array.isArray(wData) ? wData : [];
-            const wTbody = document.getElementById('worker-display-body');
-            document.getElementById('worker-display-table').classList.toggle('hidden', currentPermitWorkers.length === 0);
-            if (wTbody) wTbody.innerHTML = currentPermitWorkers.map(w => `<tr><td class="p-2 font-bold">${escapeHtml(w.Name)}</td><td class="p-2">${escapeHtml(w.IDType)}: ${escapeHtml(w.ID)}</td><td class="p-2 font-mono">${escapeHtml(w.Contact)}</td></tr>`).join('');
-            // ... inside openPermit(id) ...
-            
-// --- JSA DISPLAY & PERMISSION LOGIC ---
-    const jsaUploadDiv = document.getElementById('jsa-mode-upload');
-    const jsaLinkDiv = document.getElementById('jsa-mode-link');
-    const existDisplay = document.getElementById('jsa-existing-file-display');
-    const jsaFileInp = document.getElementById('JsaFile');
-    const jsaLinkSel = document.getElementById('JsaLinkedId');
-    const jsaRadios = document.querySelectorAll('input[name="jsa_mode"]');
-
-    // 1. Reset UI
-    existDisplay.classList.add('hidden');
-    jsaFileInp.value = '';
-    
-    // Helper to clear JSA for changing/deleting
-    window.clearJsaSelection = function() {
-        if(!confirm("Remove current JSA? You will need to select or upload a new one.")) return;
-        // Reset DB values visually (will be saved on Update)
-        p.JsaLinkedId = null; 
-        p.JsaFileUrl = null;
-        
-        // Reset UI
-        jsaLinkSel.value = "";
-        jsaFileInp.value = "";
-        existDisplay.classList.add('hidden');
-        document.querySelector('input[name="jsa_mode"][value="upload"]').checked = true;
-        toggleJsaMode('upload');
-    };
-
-    // 2. Load Data
-            // Add a Remove Button and View Button for Linked JSA if it exists
-        if(p.JsaLinkedId) {
-             let removeLinkBtn = document.getElementById('btn-del-link-jsa');
-             if(!removeLinkBtn) {
-                 removeLinkBtn = document.createElement('button');
-                 removeLinkBtn.id = 'btn-del-link-jsa';
-                 removeLinkBtn.type = 'button'; // <--- CRITICAL FIX FOR LOGOUT ISSUE
-                 removeLinkBtn.className = "ml-2 text-red-500 font-bold text-xs";
-                 removeLinkBtn.innerText = "[Change]";
-                 removeLinkBtn.onclick = window.clearJsaSelection;
-                 jsaLinkSel.parentNode.appendChild(removeLinkBtn);
-             }
-             removeLinkBtn.classList.remove('hidden');
-
-             // View Button Logic (Fixes Problem B)
-             let viewBtn = document.getElementById('btn-view-linked-jsa');
-             if(!viewBtn) {
-                viewBtn = document.createElement('button');
-                viewBtn.id = 'btn-view-linked-jsa';
-                viewBtn.type = 'button'; // <--- CRITICAL FIX FOR LOGOUT ISSUE
-                viewBtn.className = "ml-2 text-blue-600 font-bold underline text-xs";
-                viewBtn.innerText = "View Details";
-                jsaLinkSel.parentNode.appendChild(viewBtn);
-             }
-             // Call openNewJsaForm with refNumber to open frontend view
-             viewBtn.onclick = (e) => { 
-                 e.preventDefault(); 
-                 openNewJsaForm(null, p.JsaLinkedId); 
-             };
-             viewBtn.classList.remove('hidden');
-        }
- else if (p.JsaFileUrl) {
-        document.querySelector('input[name="jsa_mode"][value="upload"]').checked = true;
-        toggleJsaMode('upload');
-        const link = document.getElementById('jsa-file-link');
-        link.href = '#'; 
-        // Update to use the new viewSecureFile function
-        link.onclick = (e) => { e.preventDefault(); viewSecureFile(p.JsaFileUrl); };
-        existDisplay.classList.remove('hidden');
-
-/* 6. CORE PERMIT LOGIC (FIXED BUTTONS & OVERRIDE) */
+        /* 6. CORE PERMIT LOGIC (FIXED BUTTONS & OVERRIDE) */
 async function openPermit(id) {
     // 1. Fetch Data
     const p = await apiCall('/permit-data', 'POST', { permitId: id });
@@ -1300,107 +1174,6 @@ async function openPermit(id) {
     }
 }
  
-            // --- RENEWAL LOGIC ---
-            if (!isFirstRenRequest && lastRen && lastRen.status.includes('pending')) {
-                if (currentUser.Role !== 'Requester') document.getElementById('pending-renewal-display').classList.remove('hidden');
-                 
-                const isRevTurn = (currentUser.Role === 'Reviewer' && p.Status.includes('Renewal Pending Review'));
-                const isAppTurn = (currentUser.Role === 'Approver' && p.Status.includes('Renewal Pending Approval'));
- 
-                // --- MERGED LOGIC FOR RENEWAL APPROVAL ---
-                if (isRevTurn || isAppTurn) {
-                    document.getElementById('action-renewal').classList.remove('hidden');
-                    document.getElementById('RenewalRemark').disabled = false;
- 
-                    const btnApprove = document.getElementById('btn-approve-renewal');
-                    const btnReject = document.getElementById('btn-reject-renewal');
- 
-                    btnApprove.onclick = () => submitRenewal('approve');
-                    btnReject.onclick = () => submitRenewal('reject');
- 
-                    // Odd Hour Logic
-                    if (lastRen && lastRen.oddHourReq === 'Y') {
-                        document.getElementById('odd-hour-approval-controls').classList.remove('hidden');
-                        const badgeContainer = document.getElementById('rev-agreed-badge-container');
-                        const existingBadge = document.getElementById('rev-agreed-badge');
-                        if (existingBadge) existingBadge.remove();
- 
-                        if (isAppTurn && lastRen.rev_odd_hour_accepted === 'Y') {
-                             const badge = document.createElement('span');
-                             badge.id = 'rev-agreed-badge';
-                             badge.className = "bg-green-100 text-green-800 text-xs px-2 py-1 rounded font-bold ml-2 border border-green-200";
-                             badge.innerHTML = "✔ Reviewer Agreed";
-                             badgeContainer.appendChild(badge);
-                        }
- 
-                        const chk = document.getElementById('odd-hour-allow-check');
-                        chk.checked = false; // Reset to unchecked
-                        chk.disabled = false; // Enable checkbox interaction
- 
-                        // Initially disable and grey out the button
-                        btnApprove.disabled = true;
-                        btnApprove.classList.add('opacity-50', 'cursor-not-allowed');
- 
-                        window.toggleRenewalApproveBtn = () => { 
-                            const isChecked = chk.checked;
-                            btnApprove.disabled = !isChecked;
-                            if(!isChecked) btnApprove.classList.add('opacity-50', 'cursor-not-allowed');
-                            else btnApprove.classList.remove('opacity-50', 'cursor-not-allowed');
-                        };
-                    } else {
-                        // Normal renewal (no odd hours)
-                        document.getElementById('odd-hour-approval-controls').classList.add('hidden');
-                        btnApprove.disabled = false;
-                        btnApprove.classList.remove('opacity-50', 'cursor-not-allowed');
-                    }
-                }
-            }
- 
-            if (rens.length > 0 || (currentUser.Role === 'Requester' && p.Status === 'Active')) {
-                document.getElementById('renewals-section').classList.remove('hidden');
-                 
-                document.getElementById('renewal-history-body').innerHTML = rens.map(r => {
-                    const revRemarkHtml = r.rev_rem ? `<div class="mt-1 p-1 bg-yellow-50 border border-yellow-100 rounded text-[9px] text-gray-600 italic">"${escapeHtml(r.rev_rem)}"</div>` : '';
-                    const appRemarkHtml = r.app_rem ? `<div class="mt-1 p-1 bg-green-50 border border-green-100 rounded text-[9px] text-gray-600 italic">"${escapeHtml(r.app_rem)}"</div>` : '';
-                    return `
-                    <tr class="border-b text-[10px]">
-                        <td class="p-2">${r.valid_from}<br>to ${r.valid_to}</td>
-                        <td class="p-2">${r.hc}/${r.toxic}/${r.oxygen}</td>
-                        <td class="p-2 text-gray-600 italic">${r.precautions || '-'}</td>
-                        <td class="p-2 font-bold text-gray-700">${escapeHtml((r.workers || []).join(', '))}</td>
-                        <td class="p-2">
-                            <div class="font-bold">${r.req_name}</div>
-                            <div class="text-[9px] text-gray-500">${r.req_at || ''}</div>
-                        </td>
-                        <td class="p-2">
-                            <div class="font-bold">${r.rev_name || '-'}</div>
-                            <div class="text-[9px] text-gray-500">${r.rev_at || ''}</div>
-                            ${revRemarkHtml}
-                        </td>
-                        <td class="p-2">
-                            <div class="font-bold">${r.app_name || '-'}</div>
-                            <div class="text-[9px] text-gray-500">${r.app_at || ''}</div>
-                            ${appRemarkHtml}
-                        </td>
-                        <td class="p-2">
-                            ${r.photoUrl ? `<button type="button" class="text-blue-600 underline font-bold" onclick="viewSecurePhoto('${r.photoUrl.replace(/\\/g, '/')}')">View Photo</button>` : 'NO'}
-                        </td>
-                    </tr>`;
-                }).join('');
- 
-                const showRenForm = (currentUser.Role === 'Requester' && p.Status === 'Active' && (!lastRen || !lastRen.status.includes('pending')));
-                document.getElementById('form-renewal').classList.toggle('hidden', !showRenForm);
-                if(showRenForm) {
-                    document.querySelectorAll('#form-renewal input').forEach(inp => inp.disabled = false);
-                    document.getElementById('renewal-worker-select').innerHTML = currentPermitWorkers.map(w => `<label class="flex items-center gap-1 text-xs bg-white p-1 rounded border"><input type="checkbox" value="${escapeHtml(w.Name)}" checked class="ren-worker-cb"> ${escapeHtml(w.Name)}</label>`).join('');
-                    document.getElementById('renewal-photo-wrapper').classList.toggle('hidden', !permitRequirePhoto);
-                }
-            }
- 
-            handleClosureUI(p, actionsDiv);
-            attachFileValidators();
-        }
- 
         function handleClosureUI(p, actionsDiv) {
             const isClosable = (p.Status === 'Active');
             if (currentUser.Role === 'Requester' && isClosable) {
@@ -1463,7 +1236,7 @@ async function openPermit(id) {
             }
         }
  
-async function upd(act) {
+        async function upd(act) {
             if (act === 'initiate_closure' && !document.getElementById("Site_Restored_Check").checked) return alert("Please confirm site restoration.");
             
             // Create FormData instead of JSON to support File Upload
@@ -1494,20 +1267,14 @@ async function upd(act) {
             fd.append('IOCLSupervisors', JSON.stringify(ioclData));
 
             // Handle JSA File Changes
-            // Handle JSA File Changes (Reviewer/Approver Override)
             const jsaMode = document.querySelector('input[name="jsa_mode"]:checked').value;
             if (jsaMode === 'upload') {
                 const f = document.getElementById('JsaFile').files[0];
-                if(f) {
-                    fd.append('JsaFile', f); // Appending file will trigger upload on server
-                    // Backend will treat this as the NEW authoritative file
-                }
+                if(f) fd.append('JsaFile', f); // Only sends if new file selected
             } else {
-                const linkedId = document.getElementById('JsaLinkedId').value;
-                if(linkedId) {
-                    fd.append('JsaLinkedId', linkedId); // Backend will update the Link ID
-                }
+                fd.append('JsaLinkedId', document.getElementById('JsaLinkedId').value);
             }
+
             // Handle Radios/CheckBoxes
             if (act === 'review' || act === 'approve') {
                 const revDec = document.querySelector('input[name="RevRenAction"]:checked');
@@ -1543,6 +1310,7 @@ async function upd(act) {
             } catch(e) { console.error(e); alert("Network Error"); }
             finally { document.getElementById('loader').style.display = 'none'; }
         }
+ 
         async function submitRenewal(act) {
             if(act === 'approve' || act === 'reject') {
                 const remark = document.getElementById('RenewalRemark').value;
@@ -1847,36 +1615,23 @@ async function upd(act) {
         async function downloadSecureExcel() { try { document.getElementById('loader').style.display = 'flex'; const res = await fetch(`${API}/download-excel`, { headers: {'Authorization': `Bearer ${authToken}`} }); if(!res.ok) throw new Error("Err"); const blob = await res.blob(); const a = document.createElement('a'); a.href = window.URL.createObjectURL(blob); a.download = "Permits.xlsx"; document.body.appendChild(a); a.click(); document.body.removeChild(a); } catch(e) { alert("Failed"); } finally { document.getElementById('loader').style.display = 'none'; } }
          
          
-     window.viewSecureFile = async function(fullUrl) {
-    if (!fullUrl) return alert("No file linked");
-    
-    // Extract the blob name relative to the container. 
-    // Example URL: https://account.blob.core.../permit-attachments/permit-jsa/file.pdf
-    // We need: "permit-jsa/file.pdf"
-    let blobName = fullUrl;
-    if(fullUrl.includes('permit-attachments/')) {
-        blobName = fullUrl.split('permit-attachments/')[1];
-    }
-
-    document.getElementById('loader').style.display = 'flex';
-    try {
-        // Use the new query param route
-        const res = await fetch(`${API}/view-blob?name=${encodeURIComponent(blobName)}`, { 
-            method: 'GET', 
-            headers: {'Authorization': `Bearer ${authToken}`} 
-        });
-        
-        if (!res.ok) throw new Error("File not found on server");
-        
-        const blob = await res.blob();
-        const url = window.URL.createObjectURL(blob);
-        window.open(url, '_blank');
-    } catch (e) {
-        alert("Load Failed: " + e.message);
-    } finally {
-        document.getElementById('loader').style.display = 'none';
-    }
-}
+        window.viewSecurePhoto = async function(url) {
+            if (!url) return alert("No photo");
+            const rawFilename = url.replace(/^.*[\\\/]/, '');
+            const filename = encodeURIComponent(rawFilename);
+ 
+            document.getElementById('loader').style.display = 'flex';
+            try {
+                const res = await fetch(`${API}/view-photo/${filename}`, { method: 'GET', headers: {'Authorization': `Bearer ${authToken}`} });
+                if (!res.ok) throw new Error("Err");
+                const blob = await res.blob();
+                window.open(window.URL.createObjectURL(blob), '_blank');
+            } catch (e) {
+                alert("Load Failed: " + e.message);
+            } finally {
+                document.getElementById('loader').style.display = 'none';
+            }
+        }
          
         document.getElementById('btn-add-rev-sup').onclick = () => addIOCLRow('iocl-sup-container-rev');
         document.getElementById('btn-add-app-sup').onclick = () => addIOCLRow('iocl-sup-container-app');
@@ -1950,77 +1705,76 @@ async function upd(act) {
             tbody.appendChild(tr);
         }
 
-/* Updated to support RefNumber lookup */
-async function openNewJsaForm(jsaId = null, refNumber = null) {
-    switchView('jsa-form');
-    document.getElementById('jsa-form').reset();
-    document.querySelector('#table-jsa-team tbody').innerHTML = '';
-    document.querySelector('#table-jsa-risk tbody').innerHTML = '';
-    
-    // UI Tweaks for "Back" navigation
-    const backBtn = document.querySelector('#view-jsa-form button');
-    if(refNumber) {
-        // If viewing from Permit, back button goes to Permit Form
-        backBtn.innerText = "← Back to Permit";
-        backBtn.onclick = () => { document.getElementById('view-jsa-form').classList.add('hidden'); document.getElementById('view-form').classList.remove('hidden'); };
-    } else {
-        // Standard behavior
-        backBtn.innerText = "← Back to List";
-        backBtn.onclick = () => switchView('jsa');
-    }
+        async function openNewJsaForm(jsaId = null, refNumber = null) {
+            switchView('jsa-form');
+            document.getElementById('jsa-form').reset();
+            document.querySelector('#table-jsa-team tbody').innerHTML = '';
+            document.querySelector('#table-jsa-risk tbody').innerHTML = '';
+            
+            // UI Tweaks for "Back" navigation
+            const backBtn = document.querySelector('#view-jsa-form button');
+            if(refNumber) {
+                // If viewing from Permit, back button goes to Permit Form
+                backBtn.innerText = "← Back to Permit";
+                backBtn.onclick = () => { document.getElementById('view-jsa-form').classList.add('hidden'); document.getElementById('view-form').classList.remove('hidden'); };
+            } else {
+                // Standard behavior
+                backBtn.innerText = "← Back to List";
+                backBtn.onclick = () => switchView('jsa');
+            }
 
-    await loadMappedApprovers(); 
-    document.getElementById('jsa-reviewer').innerHTML = document.getElementById('ReviewerEmail').innerHTML;
-    document.getElementById('jsa-approver').innerHTML = document.getElementById('ApproverEmail').innerHTML;
+            await loadMappedApprovers(); 
+            document.getElementById('jsa-reviewer').innerHTML = document.getElementById('ReviewerEmail').innerHTML;
+            document.getElementById('jsa-approver').innerHTML = document.getElementById('ApproverEmail').innerHTML;
 
-    safeSet('jsa-region', currentUser.Region);
-    safeSet('jsa-unit', currentUser.Unit);
-    safeSet('jsa-loc', currentUser.Location);
+            safeSet('jsa-region', currentUser.Region);
+            safeSet('jsa-unit', currentUser.Unit);
+            safeSet('jsa-loc', currentUser.Location);
 
-    if(jsaId || refNumber) {
-        // Edit/View Mode: Fetch by ID OR Ref
-        const payload = jsaId ? { id: jsaId } : { ref: refNumber };
-        const j = await apiCall('/jsa/get', 'POST', payload);
-        
-        if(!j) { alert("JSA Details not found."); return switchView('jsa'); }
+            if(jsaId || refNumber) {
+                // Edit/View Mode: Fetch by ID OR Ref
+                const payload = jsaId ? { id: jsaId } : { ref: refNumber };
+                const j = await apiCall('/jsa/get', 'POST', payload);
+                
+                if(!j) { alert("JSA Details not found."); return switchView('jsa'); }
 
-        currentJsaData = j;
-        safeSet('JSAID', j.JSAID);
-        safeSet('jsa-job-title', j.JobTitle);
-        safeSet('jsa-executed-by', j.ExecutedBy);
-        safeSet('jsa-reviewer', j.ReviewerEmail);
-        safeSet('jsa-approver', j.ApproverEmail);
-        
-        const data = JSON.parse(j.DataJSON || '{}');
-        (data.team || []).forEach(p => addJsaPersonRow(p));
-        (data.steps || []).forEach(s => addJsaRiskRow(s));
-        safeSet('jsa-additional-prec', data.additionalPrecautions);
+                currentJsaData = j;
+                safeSet('JSAID', j.JSAID);
+                safeSet('jsa-job-title', j.JobTitle);
+                safeSet('jsa-executed-by', j.ExecutedBy);
+                safeSet('jsa-reviewer', j.ReviewerEmail);
+                safeSet('jsa-approver', j.ApproverEmail);
+                
+                const data = JSON.parse(j.DataJSON || '{}');
+                (data.team || []).forEach(p => addJsaPersonRow(p));
+                (data.steps || []).forEach(s => addJsaRiskRow(s));
+                safeSet('jsa-additional-prec', data.additionalPrecautions);
 
-        // Permissions Logic
-        const isRev = currentUser.Role === 'Reviewer' && j.Status === 'Pending Review';
-        const isApp = currentUser.Role === 'Approver' && j.Status === 'Pending Approval';
-        
-        if (isRev || isApp) {
-            document.getElementById('jsa-workflow-actions').classList.remove('hidden');
-            document.getElementById('jsa-submit-bar').classList.add('hidden');
-            document.getElementById('btn-jsa-approve').onclick = () => processJsaAction(j.JSAID, 'approve');
-            document.getElementById('btn-jsa-reject').onclick = () => processJsaAction(j.JSAID, 'reject');
-        } else {
-            // View Only (Approved or viewing linked from permit)
-            document.getElementById('jsa-workflow-actions').classList.add('hidden');
-            document.getElementById('jsa-submit-bar').classList.add('hidden');
-            document.querySelectorAll('#jsa-form input, #jsa-form textarea, #jsa-form select').forEach(e => e.disabled = true);
-            // Hide delete buttons in table rows
-            document.querySelectorAll('#jsa-form button.text-red-500').forEach(b => b.classList.add('hidden'));
+                // Permissions Logic
+                const isRev = currentUser.Role === 'Reviewer' && j.Status === 'Pending Review';
+                const isApp = currentUser.Role === 'Approver' && j.Status === 'Pending Approval';
+                
+                if (isRev || isApp) {
+                    document.getElementById('jsa-workflow-actions').classList.remove('hidden');
+                    document.getElementById('jsa-submit-bar').classList.add('hidden');
+                    document.getElementById('btn-jsa-approve').onclick = () => processJsaAction(j.JSAID, 'approve');
+                    document.getElementById('btn-jsa-reject').onclick = () => processJsaAction(j.JSAID, 'reject');
+                } else {
+                    // View Only (Approved or viewing linked from permit)
+                    document.getElementById('jsa-workflow-actions').classList.add('hidden');
+                    document.getElementById('jsa-submit-bar').classList.add('hidden');
+                    document.querySelectorAll('#jsa-form input, #jsa-form textarea, #jsa-form select').forEach(e => e.disabled = true);
+                    // Hide delete buttons in table rows
+                    document.querySelectorAll('#jsa-form button.text-red-500').forEach(b => b.classList.add('hidden'));
+                }
+            } else {
+                // Create Mode
+                addJsaPersonRow({name: currentUser.Name, dept: 'Operations'}); 
+                addJsaRiskRow();
+                document.getElementById('jsa-workflow-actions').classList.add('hidden');
+                document.getElementById('jsa-submit-bar').classList.remove('hidden');
+            }
         }
-    } else {
-        // Create Mode
-        addJsaPersonRow({name: currentUser.Name, dept: 'Operations'}); 
-        addJsaRiskRow();
-        document.getElementById('jsa-workflow-actions').classList.add('hidden');
-        document.getElementById('jsa-submit-bar').classList.remove('hidden');
-    }
-}
 
         async function loadJsaDashboard() {
             const res = await apiCall('/jsa/list-my', 'POST', { email: currentUser.Email, role: currentUser.Role });
@@ -2114,11 +1868,3 @@ async function openNewJsaForm(jsaId = null, refNumber = null) {
     </script>
 </body>
 </html>
-
-
-
-
-
-
-
-
