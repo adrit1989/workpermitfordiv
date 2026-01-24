@@ -1426,6 +1426,65 @@
             currentPermitIOCLData[index].deleted_at = getNow();
             renderIOCLTable(status);
         }
+        function renderChecklists() {
+            const container = document.getElementById('checklists-container'); 
+            container.innerHTML = '';
+
+            Object.keys(CL_DATA).forEach(sec => {
+                let itemsHtml = CL_DATA[sec].map((item, i) => {
+                    // Unique name for text input remarks
+                    let extra = `<input class="w-full text-xs border-b mt-1" placeholder="Remarks" name="${sec}_Q${i+1}_Rem">`;
+                    
+                    // Special case for Gas Test (Section A, Item 12) to match PDF requirements
+                    if(sec==='A' && i===11) {
+                        extra = `<div class="grid grid-cols-3 gap-2 mt-2">
+                            <input name="GP_Q12_HC" id="GP_Q12_HC" placeholder="HC % LEL" onkeyup="syncGasToRenewal()">
+                            <input name="GP_Q12_ToxicGas" id="GP_Q12_ToxicGas" placeholder="Toxic PPM" onkeyup="syncGasToRenewal()">
+                            <input name="GP_Q12_Oxygen" id="GP_Q12_Oxygen" placeholder="O2 %" onkeyup="syncGasToRenewal()">
+                        </div>`;
+                    }
+
+                    return `<div class="p-3 border rounded-lg bg-gray-50 text-xs hover:shadow-md">
+                        <p class="mb-2 font-semibold text-gray-700 min-h-[30px]">${item}</p>
+                        <div class="flex gap-2 justify-center">
+                            <label class="cursor-pointer flex items-center gap-1">
+                                <input type="radio" name="${sec}_Q${i+1}" value="Y" checked class="accent-green-600"> Y
+                            </label>
+                            <label class="cursor-pointer flex items-center gap-1">
+                                <input type="radio" name="${sec}_Q${i+1}" value="N" class="accent-red-600"> N
+                            </label>
+                            <label class="cursor-pointer flex items-center gap-1">
+                                <input type="radio" name="${sec}_Q${i+1}" value="NA" class="accent-gray-600"> NA
+                            </label>
+                        </div>
+                        ${extra}
+                    </div>`;
+                });
+
+                // Add the Section Container with "Select All" buttons
+                container.innerHTML += `
+                <div class="glass border-t-4 border-gray-400">
+                    <div class="flex justify-between items-center border-b pb-2 mb-4 bg-gray-50 p-2 rounded">
+                        <h4 class="font-bold text-gray-700">Section ${sec} Checks</h4>
+                        <div class="flex gap-2 text-xs">
+                            <label class="cursor-pointer font-bold"><input type="radio" name="Master_${sec}" value="Y" class="sec-toggle" data-sec="${sec}"> All Yes</label>
+                            <label class="cursor-pointer font-bold"><input type="radio" name="Master_${sec}" value="N" class="sec-toggle" data-sec="${sec}"> All No</label>
+                            <label class="cursor-pointer font-bold"><input type="radio" name="Master_${sec}" value="NA" class="sec-toggle" data-sec="${sec}"> All NA</label>
+                        </div>
+                    </div>
+                    <div class="checklist-grid">${itemsHtml.join('')}</div>
+                </div>`;
+            });
+
+            // Re-attach "Select All" listeners
+            document.querySelectorAll('.sec-toggle').forEach(el => { 
+                el.addEventListener('change', (e) => { 
+                    document.querySelectorAll(`input[name^="${e.target.dataset.sec}_"]`).forEach(rb => { 
+                        if(rb.value === e.target.value) rb.checked = true; 
+                    }); 
+                }); 
+            });
+        }
  
         document.getElementById('btn-add-rev-sup').onclick = () => addIOCLRow('iocl-sup-container-rev');
         document.getElementById('btn-add-app-sup').onclick = () => addIOCLRow('iocl-sup-container-app');
@@ -1434,4 +1493,5 @@
     </script>
 </body>
 </html>
+
 
