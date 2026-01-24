@@ -1631,7 +1631,39 @@
             const res = await apiCall('/jsa/action', 'POST', { id, action, remarks: rem, role: currentUser.Role, user: currentUser.Name, updatedData: JSON.stringify({ team, steps, additionalPrecautions: document.getElementById('jsa-additional-prec').value }) });
             if(res.success) { alert("Action Completed"); switchView('jsa'); } else alert(res.error);
         }
+        // --- PASTE THIS FUNCTION ---
+        async function downloadSecurePDF(id) {
+            try {
+                document.getElementById('loader').style.display = 'flex';
+                
+                // Fetch the PDF with the Auth Token header
+                const res = await fetch(`${API}/download-pdf/${id}`, { 
+                    method: 'GET',
+                    headers: {'Authorization': `Bearer ${authToken}`} 
+                });
 
+                if(!res.ok) throw new Error("Server returned " + res.status);
+
+                // Convert response to a blob and download it
+                const blob = await res.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `Permit-${id}.pdf`;
+                document.body.appendChild(a);
+                a.click();
+                
+                // Cleanup
+                window.URL.revokeObjectURL(url);
+                document.body.removeChild(a);
+
+            } catch(e) {
+                console.error("PDF Download Error:", e);
+                alert("Failed to download PDF. Please try again.");
+            } finally {
+                document.getElementById('loader').style.display = 'none';
+            }
+        }
         // Sync Helper
         window.syncGasToRenewal = function() {
             if(document.getElementById('chk-init-renewal').checked) {
@@ -1646,3 +1678,4 @@
     </script>
 </body>
 </html>
+
