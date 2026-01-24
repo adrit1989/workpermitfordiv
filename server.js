@@ -1088,36 +1088,39 @@ app.post('/api/jsa/get', authenticateAccess, async(req, res) => {
 
 // 4. Save JSA (Create or Edit Draft)
 app.post('/api/jsa/save', authenticateAccess, async(req, res) => {
-    const { JSAID, DataJSON, ...fields } = req.body;
-    const pool = await getConnection();
-    
-    let targetID = JSAID;
-    if (!targetID) {
-        // Create new ID (Simple logic, ideally use Sequence or Identity)
-        const idRes = await pool.request().query("SELECT MAX(JSAID) as maxId FROM JSAs");
-        const nextId = (idRes.recordset[0].maxId || 1000) + 1;
+    try { // <--- ADDED TRY BLOCK
+        const { JSAID, DataJSON, ...fields } = req.body;
+        const pool = await getConnection();
         
-        await pool.request().input('id', nextId).input('reqE', fields.RequesterEmail)
-            .query("INSERT INTO JSAs (JSAID, Status, RequesterEmail, CreatedAt) VALUES (@id, 'Draft', @reqE, GETDATE())");
-        targetID = nextId;
+        let targetID = JSAID;
+        if (!targetID) {
+            const idRes = await pool.request().query("SELECT MAX(JSAID) as maxId FROM JSAs");
+            const nextId = (idRes.recordset[0].maxId || 1000) + 1;
+            
+            await pool.request().input('id', nextId).input('reqE', fields.RequesterEmail)
+                .query("INSERT INTO JSAs (JSAID, Status, RequesterEmail, CreatedAt) VALUES (@id, 'Draft', @reqE, GETDATE())");
+            targetID = nextId;
+        }
+
+        const status = 'Pending Review'; 
+        
+        await pool.request()
+            .input('id', targetID)
+            .input('jt', fields.JobTitle).input('ex', fields.ExecutedBy)
+            .input('re', fields.ReviewerEmail).input('ae', fields.ApproverEmail)
+            .input('reqE', fields.RequesterEmail).input('reqN', fields.RequesterName)
+            .input('reg', fields.Region).input('u', fields.Unit).input('l', fields.Location)
+            .input('d', DataJSON).input('s', status)
+            .query(`UPDATE JSAs SET JobTitle=@jt, ExecutedBy=@ex, ReviewerEmail=@re, ApproverEmail=@ae, 
+                    RequesterEmail=@reqE, RequesterName=@reqN, Region=@reg, Unit=@u, Location=@l, 
+                    DataJSON=@d, Status=@s WHERE JSAID=@id`);
+                    
+        res.json({ success: true });
+    } catch (e) {
+        console.error("JSA Save Error:", e); // <--- LOGS ERROR TO CONSOLE
+        res.status(500).json({ error: "Database Error: " + e.message }); // <--- SENDS ERROR TO FRONTEND INSTEAD OF CRASHING
     }
-
-    const status = 'Pending Review'; 
-    
-    await pool.request()
-        .input('id', targetID)
-        .input('jt', fields.JobTitle).input('ex', fields.ExecutedBy)
-        .input('re', fields.ReviewerEmail).input('ae', fields.ApproverEmail)
-        .input('reqE', fields.RequesterEmail).input('reqN', fields.RequesterName)
-        .input('reg', fields.Region).input('u', fields.Unit).input('l', fields.Location)
-        .input('d', DataJSON).input('s', status)
-        .query(`UPDATE JSAs SET JobTitle=@jt, ExecutedBy=@ex, ReviewerEmail=@re, ApproverEmail=@ae, 
-                RequesterEmail=@reqE, RequesterName=@reqN, Region=@reg, Unit=@u, Location=@l, 
-                DataJSON=@d, Status=@s WHERE JSAID=@id`);
-                
-    res.json({ success: true });
 });
-
 // 5. Action (Review/Approve/Reject)
 app.post('/api/jsa/action', authenticateAccess, async(req, res) => {
     const { id, action, remarks, updatedData } = req.body;
