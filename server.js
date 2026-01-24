@@ -1096,10 +1096,23 @@ app.post('/api/jsa/list-approved', authenticateAccess, async(req, res) => {
     res.json(r.recordset);
 });
 
-// 3. Get Single JSA Data
+// 3. Get Single JSA Data (Updated to support RefNumber lookup)
 app.post('/api/jsa/get', authenticateAccess, async(req, res) => {
     const pool = await getConnection();
-    const r = await pool.request().input('id', req.body.id).query("SELECT * FROM JSAs WHERE JSAID=@id");
+    const reqSql = pool.request();
+    let query = "SELECT * FROM JSAs WHERE ";
+    
+    if (req.body.id) {
+        query += "JSAID=@id";
+        reqSql.input('id', req.body.id);
+    } else if (req.body.ref) {
+        query += "RefNumber=@ref";
+        reqSql.input('ref', req.body.ref);
+    } else {
+        return res.status(400).json({error: "No ID or Ref provided"});
+    }
+    
+    const r = await reqSql.query(query);
     res.json(r.recordset[0]);
 });
 
