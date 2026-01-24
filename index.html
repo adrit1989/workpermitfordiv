@@ -467,7 +467,7 @@
                                 <textarea id="Closure_Deviation_Reason" class="w-full border-red-300 focus:ring-red-500" placeholder="Explain why conditions are not met..."></textarea>
                             </div>
                             
-                            <div id="div-closure-req" class="hidden space-y-2">
+               <div id="div-closure-req" class="hidden space-y-2">
     <label class="text-xs font-bold text-gray-500">Requester Remarks</label>
     <textarea id="Closure_Requestor_Remarks" placeholder="Remarks" class="w-full"></textarea>
     
@@ -952,8 +952,9 @@
             document.getElementById('critical-options').classList.toggle('hidden', !isCrit);
         }
 
-        async function openPermit(id) {
+   async function openPermit(id) {
             try {
+                // 1. Fetch Data
                 const p = await apiCall('/permit-data', 'POST', { permitId: id });
                 console.log("Opening Permit:", id);
 
@@ -963,45 +964,78 @@
                 }
 
                 currentPermitId = id;
+
+                // Parse IOCL Supervisors safely
                 let rawIOCL = p.IOCLSupervisors;
                 if (typeof rawIOCL === 'string') { try { rawIOCL = JSON.parse(rawIOCL); } catch(e) { rawIOCL = []; } }
                 currentPermitIOCLData = Array.isArray(rawIOCL) ? rawIOCL : [];
                 permitRequirePhoto = (p.RequireRenewalPhotos === 'Y');
 
+                // 2. Setup View
                 document.getElementById('view-dashboard').classList.add('hidden');
                 document.getElementById('view-form').classList.remove('hidden');
                 document.getElementById('permit-title').innerText = `Permit: ${id}`;
                 document.getElementById('permit-header-display').innerText = `Status: ${p.Status}`;
 
+                // 3. Reset Sections
                 ['fs-reviewer-section', 'fs-approver-section', 'rev-renewal-decision', 'app-renewal-decision', 'action-renewal', 'pending-renewal-display', 'odd-hour-approval-controls', 'renewals-section', 'closure-section', 'div-closure-rev', 'div-closure-app'].forEach(sid => { document.getElementById(sid).classList.add('hidden'); });
+                
                 const actionsDiv = document.getElementById("actions-bar"); actionsDiv.innerHTML = "";
 
+                // 4. Determine State and Permissions
                 const statusClean = p.Status ? p.Status.trim() : '';
                 const isMainPending = (statusClean === 'Pending Review' || statusClean === 'Pending Approval');
                 const isAuthority = (currentUser.Role === 'Reviewer' || currentUser.Role === 'Approver');
 
+                // 5. Populate Fields & Handle Read-Only Logic
                 document.querySelectorAll('#pf input, #pf textarea, #pf select').forEach(el => {
                     let shouldDisable = true;
+
+                    // --- Permission Logic ---
+                    // Allow Authority to edit Hazards/PPE/Critical during approval
                     if (isAuthority && isMainPending && (el.name && (el.name.startsWith('H_') || el.name.startsWith('P_')) || el.id === 'H_Others_Detail')) shouldDisable = false;
                     if (isAuthority && isMainPending && (el.name === 'IsCritical' || el.name === 'CriticalActivityType')) shouldDisable = false;
-                    if (currentUser.Role === 'Requester' && statusClean === 'Active' && el.id === 'Closure_Deviation_Reason') shouldDisable = false;
+                    
+                    // Allow Authority to edit their specific remarks
                     if (isMainPending && currentUser.Role === 'Reviewer' && (el.id === 'Reviewer_Remarks' || el.id === 'AdditionalPrecautions' || el.name === 'RevRenAction')) shouldDisable = false;
                     if ((isMainPending || statusClean === 'Active') && currentUser.Role === 'Approver' && (el.id === 'Approver_Remarks' || el.name === 'AppRenAction')) shouldDisable = false;
+                    
+                    // Allow Approver to toggle Photo Requirement
                     if (currentUser.Role === 'Approver' && el.id === 'RequireRenewalPhotos') shouldDisable = (statusClean === 'Active');
 
-                    if (el.type === 'checkbox') el.checked = (p[el.name] === 'Y');
-                    else if (el.type === 'radio') {
-                         if(el.name === 'IsCritical') el.checked = (p.IsCritical === el.value);
-                         else el.checked = false;
+                    // Allow Requester to edit Deviation Reason during Closure
+                    if (currentUser.Role === 'Requester' && statusClean === 'Active' && el.id === 'Closure_Deviation_Reason') shouldDisable = false;
+
+                    // --- Data Population Logic (The Fix) ---
+                    if (el.type === 'checkbox') {
+                        el.checked = (p[el.name] === 'Y');
                     }
-                    else if (el.type !== 'file') el.value = p[el.name] || '';
+                    else if (el.type === 'radio') {
+                         // FIX: Check if the saved value matches this radio button's value
+                         // This ensures A_Q1, B_Q2, etc. get populated correctly
+                         if (p[el.name]) {
+                             el.checked = (p[el.name] === el.value);
+                         } else {
+                             // Default fallback for critical if missing
+                             if(el.name === 'IsCritical' && el.value === 'N') el.checked = true; 
+                             else el.checked = false;
+                         }
+                    }
+                    else if (el.type !== 'file') {
+                        el.value = p[el.name] || '';
+                    }
+
+                    // Apply Read-Only state
                     el.disabled = shouldDisable;
                 });
 
+                // 6. UI Logic Triggers
                 toggleCritical(p.IsCritical === 'Y');
+
                 if (currentUser.Role === 'Requester') document.getElementById('ppe-section-wrapper').classList.add('hidden');
                 else document.getElementById('ppe-section-wrapper').classList.remove('hidden');
 
+                // 7. JSA Display Logic
                 const existDisplay = document.getElementById('jsa-existing-file-display');
                 const jsaFileInp = document.getElementById('JsaFile');
                 const jsaLinkSel = document.getElementById('JsaLinkedId');
@@ -1042,6 +1076,7 @@
                     auditLine.innerText = `JSA Done: Uploaded PDF`; auditLine.classList.remove('hidden');
                 }
 
+                // JSA Edit Permissions
                 let canEditJsa = false;
                 if (currentUser.Role === 'Requester' && (statusClean === 'Draft' || statusClean.includes('Rejected'))) canEditJsa = true;
                 if (currentUser.Role === 'Reviewer' && statusClean === 'Pending Review') canEditJsa = true;
@@ -1070,6 +1105,7 @@
                     if(document.getElementById('btn-del-link-jsa')) document.getElementById('btn-del-link-jsa').classList.add('hidden');
                 }
 
+                // 8. Load Sub-Tables (Workers, Supervisors, Renewals, Closure)
                 let wData = p.SelectedWorkers;
                 if (typeof wData === 'string') { try { wData = JSON.parse(wData); } catch (e) { wData = []; } }
                 currentPermitWorkers = Array.isArray(wData) ? wData : [];
@@ -1108,6 +1144,7 @@
                 
                 handleClosureUI(p, actionsDiv);
 
+                // 9. Show Action Buttons based on Role & Status
                 if (statusClean === 'Pending Review' && currentUser.Role === 'Reviewer') {
                     document.getElementById('fs-reviewer-section').classList.remove('hidden');
                     const b1 = document.createElement("button"); b1.type="button"; b1.className = "bg-red-600 text-white px-4 py-2 rounded font-bold mr-2"; b1.innerText = "Reject Permit"; b1.onclick = () => upd('reject');
@@ -1704,6 +1741,7 @@ function handleClosureUI(p, actionsDiv) {
     </script>
 </body>
 </html>
+
 
 
 
