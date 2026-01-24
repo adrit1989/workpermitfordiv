@@ -882,123 +882,6 @@
             container.innerHTML += renderTable('Closed / Archive', closed, 'gray');
             loadStats(res);
         }
- 
-        /* 6. CORE PERMIT LOGIC (FIXED BUTTONS & OVERRIDE) */
-async function openPermit(id) {
-    // 1. Fetch Data
-    const p = await apiCall('/permit-data', 'POST', { permitId: id });
-
-    // Debugging: Check console (F12) to see what is happening
-    console.log("Opening Permit:", id);
-    console.log("Current User Role:", currentUser.Role);
-    console.log("Permit Status:", p.Status);
-
-    if (!p || p.Status === 'Closed' || !p.WorkType) {
-        alert("📂 Permit Archived. Downloading PDF...");
-        return downloadSecurePDF(id);
-    }
-
-    currentPermitId = id;
-    currentPermitIOCLData = p.IOCLSupervisors || [];
-    permitRequirePhoto = (p.RequireRenewalPhotos === 'Y');
-
-    // 2. Setup View
-    document.getElementById('view-dashboard').classList.add('hidden');
-    document.getElementById('view-form').classList.remove('hidden');
-    document.getElementById('permit-title').innerText = `Permit: ${id}`;
-    document.getElementById('permit-header-display').innerText = `Status: ${p.Status}`;
-
-    // 3. Reset All Sections to Hidden
-    const sectionsToReset = [
-        'fs-reviewer-section', 'fs-approver-section', 
-        'rev-renewal-decision', 'app-renewal-decision', 'action-renewal', 
-        'pending-renewal-display', 'odd-hour-approval-controls', 
-        'renewals-section', 'closure-section', 'div-closure-rev', 'div-closure-app'
-    ];
-    sectionsToReset.forEach(sid => {
-        const el = document.getElementById(sid);
-        if(el) el.classList.add('hidden');
-    });
-
-    // 4. Clear Action Bar
-    const actionsDiv = document.getElementById("actions-bar");
-    actionsDiv.innerHTML = "";
-
-    // 5. Populate Basic Fields & Disable Logic
-    const isMainPending = (p.Status.includes('Pending Review') || p.Status.includes('Pending Approval'));
-    const isAuthority = (currentUser.Role === 'Reviewer' || currentUser.Role === 'Approver');
-
-    document.querySelectorAll('#pf input, #pf textarea, #pf select').forEach(el => {
-        let shouldDisable = true;
-        // Allow Authority to edit Hazards/PPE during pending stages
-        if (isAuthority && isMainPending && (el.name && (el.name.startsWith('H_') || el.name.startsWith('P_')) || el.id === 'H_Others_Detail')) {
-            shouldDisable = false;
-        }
-        // Allow Specific Remarks editing
-        if (isMainPending && currentUser.Role === 'Reviewer' && (el.id === 'Reviewer_Remarks' || el.id === 'AdditionalPrecautions' || el.name === 'RevRenAction')) shouldDisable = false;
-        if ((isMainPending || p.Status === 'Active') && currentUser.Role === 'Approver' && (el.id === 'Approver_Remarks' || el.name === 'AppRenAction')) shouldDisable = false;
-        if (currentUser.Role === 'Approver' && el.id === 'RequireRenewalPhotos') shouldDisable = (p.Status === 'Active');
-
-        // Set Values
-        if (el.type === 'checkbox') el.checked = (p[el.name] === 'Y');
-        else if (el.type === 'radio') el.checked = false; // Reset radios, set later if needed
-        else if (el.type !== 'file') el.value = p[el.name] || '';
-        
-        el.disabled = shouldDisable;
-    });
-
-    // PPE Section Visibility
-    if (currentUser.Role === 'Requester') document.getElementById('ppe-section-wrapper').classList.add('hidden');
-    else document.getElementById('ppe-section-wrapper').classList.remove('hidden');
-
-    // 6. JSA Logic (Override & Display)
-    const existDisplay = document.getElementById('jsa-existing-file-display');
-    const jsaFileInp = document.getElementById('JsaFile');
-    const jsaLinkSel = document.getElementById('JsaLinkedId');
-    const jsaRadios = document.querySelectorAll('input[name="jsa_mode"]');
-
-    // Reset JSA UI
-    existDisplay.classList.add('hidden');
-    jsaFileInp.value = '';
-    
-    // Helper to clear JSA
-    window.clearJsaSelection = function() {
-        if(!confirm("Remove current JSA? You will need to select or upload a new one.")) return;
-        p.JsaLinkedId = null; p.JsaFileUrl = null;
-        jsaLinkSel.value = ""; jsaFileInp.value = "";
-        existDisplay.classList.add('hidden');
-        document.querySelector('input[name="jsa_mode"][value="upload"]').checked = true;
-        toggleJsaMode('upload');
-    };
-
-    // Load Existing JSA Data
-    if(p.JsaLinkedId) {
-        document.querySelector('input[name="jsa_mode"][value="link"]').checked = true;
-        toggleJsaMode('link');
-        jsaLinkSel.innerHTML = `<option value="${p.JsaLinkedId}" selected>${p.JsaLinkedId}</option>`;
-        
-        let viewBtn = document.getElementById('btn-view-linked-jsa');
-        if(!viewBtn) {
-            viewBtn = document.createElement('button'); viewBtn.id = 'btn-view-linked-jsa'; viewBtn.type = 'button';
-            viewBtn.className = "ml-2 text-blue-600 font-bold underline text-xs"; viewBtn.innerText = "View Details";
-            jsaLinkSel.parentNode.appendChild(viewBtn);
-        }
-        viewBtn.onclick = (e) => { e.preventDefault(); openNewJsaForm(null, p.JsaLinkedId); };
-        viewBtn.classList.remove('hidden');
-
-    } else if (p.JsaFileUrl) {
-        document.querySelector('input[name="jsa_mode"][value="upload"]').checked = true;
-        toggleJsaMode('upload');
-        const link = document.getElementById('jsa-file-link');
-        link.href = '#'; 
-        link.onclick = (e) => { e.preventDefault(); viewSecureFile(p.JsaFileUrl); };
-        existDisplay.classList.remove('hidden');
-        if(document.getElementById('btn-view-linked-jsa')) document.getElementById('btn-view-linked-jsa').classList.add('hidden');
-    }
-
-    // JSA Edit Permissions
-    let canEditJsa = false;
-    if (currentUser.Role === 'Requester' && (p.Status === 'Draft' || p.Status.includes('Rejected') || p.Status === 'Pending Review')) canEditJsa = true;
 
 
 /* 6. CORE PERMIT LOGIC (FIXED) */
@@ -1984,6 +1867,7 @@ async function openPermit(id) {
     </script>
 </body>
 </html>
+
 
 
 
