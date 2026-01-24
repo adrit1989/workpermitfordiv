@@ -1250,6 +1250,26 @@ app.get('/', (req, res) => {
         res.send(finalHtml);
     });
 });
+/* --- FILE VIEWING ROUTE --- */
+app.get('/api/view-blob', authenticateAccess, async (req, res) => {
+    try {
+        const blobName = req.query.name;
+        if (!blobName || !containerClient) return res.status(404).send("File not found");
 
+        const blockBlobClient = containerClient.getBlockBlobClient(blobName);
+        const exists = await blockBlobClient.exists();
+        if (!exists) return res.status(404).send("Blob missing");
+
+        // Get properties to set correct Content-Type (e.g., application/pdf)
+        const props = await blockBlobClient.getProperties();
+        res.setHeader('Content-Type', props.contentType);
+        
+        const downloadResponse = await blockBlobClient.download(0);
+        downloadResponse.readableStreamBody.pipe(res);
+    } catch (e) {
+        console.error("View Blob Error:", e);
+        res.status(500).send("Error loading file");
+    }
+});
 const PORT = process.env.PORT || 8080;
 app.listen(PORT, () => console.log("Server Started on Port " + PORT));
