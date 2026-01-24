@@ -257,7 +257,7 @@ app.post('/api/admin/reset-password', authenticateAccess, async (req, res) => {
 });
 
 /* =====================================================
-   CRASH-PROOF PDF GENERATOR (UPDATED)
+   MERGED PDF GENERATOR (Crash Proof B + Features A)
 ===================================================== */
 async function drawPermitPDF(doc, p, d, renewalsList) {
     const workType = (d.WorkType || "PERMIT").toUpperCase();
@@ -336,6 +336,15 @@ async function drawPermitPDF(doc, p, d, renewalsList) {
 
     drawHeaderOnAll();
 
+    // --- FEATURE FROM A: CRITICAL WORK BANNER ---
+    if (d.IsCritical === 'Y') {
+       doc.rect(30, doc.y, 535, 25).fillColor('#fee2e2').fill().stroke();
+       doc.fillColor('red').font('Helvetica-Bold').text(`CRITICAL WORK: ${d.CriticalActivityType || 'Specified Activity'}`, 35, doc.y + 8);
+       doc.y += 30;
+       doc.fillColor('black').font('Helvetica');
+    }
+    // --------------------------------------------
+
     // SAFETY BANNER
     const bannerPath = path.join(__dirname, 'public', 'safety_banner.png');
     if (fs.existsSync(bannerPath)) {
@@ -375,7 +384,10 @@ async function drawPermitPDF(doc, p, d, renewalsList) {
     doc.y += 12;
     doc.text(`(v) Site Contact: ${safeText(d.RequesterName)} / ${safeText(d.EmergencyContact)}`, 35, doc.y);
     doc.y += 12;
-    doc.text(`(vi) Security Guard: ${safeText(d.SecurityGuard)}`, 35, doc.y);
+    // --- RESTORED TBT VISIBILITY FROM A ---
+    let tbtText = d.TBT_Permit === 'Y' ? 'YES' : 'NO';
+    doc.text(`(vi) TBT Conducted: ${tbtText} | Security: ${safeText(d.SecurityGuard)}`, 35, doc.y);
+    // --------------------------------------
     doc.y += 12;
     doc.text(`(vii) JSA Ref: ${safeText(d.JsaNo)} | WO: ${safeText(d.WorkOrder)}`, 35, doc.y);
     doc.y += 12;
@@ -480,7 +492,6 @@ async function drawPermitPDF(doc, p, d, renewalsList) {
         rows.forEach(row => {
             x = 30;
             let h = 25; 
-            // Dynamic height adjustment for audit column if text is long
             if (row[3] && row[3].length > 40) h = 45; 
             if (y + h > 750) { doc.addPage(); drawHeaderOnAll(); y = 135; }
             
@@ -499,7 +510,7 @@ async function drawPermitPDF(doc, p, d, renewalsList) {
         else if(typeof d.IOCLSupervisors === 'string') try { ioclSups = JSON.parse(d.IOCLSupervisors); } catch(e){}
     }
 
-    // [MODIFICATION A] Enhanced Audit Trail
+    // Enhanced Audit Trail (From Code B)
     let ioclRows = ioclSups.map(s => {
         let audit = `Added: ${s.added_by || 'Admin'} (${s.added_at || '-'})`;
         if (s.is_deleted) audit += `\nDel: ${s.deleted_by || 'Admin'} (${s.deleted_at || '-'})`;
@@ -564,13 +575,11 @@ async function drawPermitPDF(doc, p, d, renewalsList) {
     doc.y = wy + 20;
 
     // 10. SIGNATURES / APPROVALS
-    // [MODIFICATION C] Renamed Title & Added Explicit Fields
     if (doc.y > 650) { doc.addPage(); drawHeaderOnAll(); }
     doc.font('Helvetica-Bold').fontSize(10).text("PERMIT APPROVAL", 30, doc.y);
     doc.y += 15;
     const sY = doc.y;
 
-    // Format helpers
     const reqText = `REQ: ${safeText(d.RequesterName)}\nDate: ${safeText(d.CreatedDate)}`;
     const revText = `REV: ${safeText(d.Reviewer_Sig)}\nRem: ${safeText(d.Reviewer_Remarks)}`;
     const appText = `APP: ${safeText(d.Approver_Sig)}\nRem: ${safeText(d.Approver_Remarks)}`;
@@ -585,8 +594,14 @@ async function drawPermitPDF(doc, p, d, renewalsList) {
     doc.font('Helvetica-Bold').text("CLEARANCE RENEWAL", 30, doc.y);
     doc.y += 15;
     let ry = doc.y;
-    // [MODIFICATION D] Updated Headers
-    const rCols = [ {t:"From", w:50}, {t:"To", w:50}, {t:"Gas", w:80}, {t:"Workers", w:80}, {t:"Photo", w:60}, {t:"Req", w:70}, {t:"Rev", w:70}, {t:"App", w:75} ];
+    
+    // --- MERGED TABLE HEADERS (TBT restored from A + Stacked features from B) ---
+    // From(50), To(50), Gas(70), TBT(30), Workers(75), Photo(50), Req(70), Rev(70), App(70) = 535
+    const rCols = [ 
+        {t:"From", w:50}, {t:"To", w:50}, {t:"Gas", w:70}, {t:"TBT", w:30}, 
+        {t:"Workers", w:75}, {t:"Photo", w:50}, 
+        {t:"Req", w:70}, {t:"Rev", w:70}, {t:"App", w:70} 
+    ];
     let rx = 30;
     rCols.forEach(h => { doc.rect(rx, ry, h.w, 20).stroke().text(h.t, rx+2, ry+6); rx += h.w; });
     ry += 20;
@@ -596,7 +611,7 @@ async function drawPermitPDF(doc, p, d, renewalsList) {
 
     for (const r of finalRenewals) {
         if (ry > 700) { doc.addPage(); drawHeaderOnAll(); ry = 135; }
-        const rH = 65; // Increased height for stacked data
+        const rH = 65; 
         
         let rawFrom = r.valid_from || r.ValidFrom;
         let rawTo = r.valid_till || r.valid_to || r.ValidTo;
@@ -609,13 +624,17 @@ async function drawPermitPDF(doc, p, d, renewalsList) {
         doc.rect(30, ry, 50, rH).stroke().text(startT, 32, ry+5, {width:48});
         doc.rect(80, ry, 50, rH).stroke().text(endT, 82, ry+5, {width:48});
         doc.fillColor('black');
-        doc.rect(130, ry, 80, rH).stroke().text(`HC:${safeText(r.hc)}/Tox:${safeText(r.toxic)}/O2:${safeText(r.oxygen)}\n${safeText(r.precautions)}`, 132, ry+5, {width:78});
+        doc.rect(130, ry, 70, rH).stroke().text(`HC:${safeText(r.hc)}\nTox:${safeText(r.toxic)}\nO2:${safeText(r.oxygen)}\n${safeText(r.precautions)}`, 132, ry+5, {width:68});
         
+        // TBT Column (Restored)
+        let tbtYN = r.tbt_done === 'Y' ? 'YES' : 'NO';
+        doc.rect(200, ry, 30, rH).stroke().text(tbtYN, 202, ry+5);
+
         let wNames = 'All';
         if(r.worker_list && Array.isArray(r.worker_list)) wNames = r.worker_list.join(', ');
-        doc.rect(210, ry, 80, rH).stroke().text(wNames, 212, ry+5, {width:78}); // Wrapped text
+        doc.rect(230, ry, 75, rH).stroke().text(wNames, 232, ry+5, {width:73}); 
 
-        doc.rect(290, ry, 60, rH).stroke();
+        doc.rect(305, ry, 50, rH).stroke();
         if (r.photoUrl && containerClient) {
             try {
                 const blobName = r.photoUrl.split('/').pop();
@@ -626,25 +645,21 @@ async function drawPermitPDF(doc, p, d, renewalsList) {
                 const chunks = [];
                 for await (const chunk of response.readableStreamBody) { chunks.push(chunk); }
                 const imgBuff = Buffer.concat(chunks);
-                doc.image(imgBuff, 292, ry+2, {fit: [56, 56], align:'center', valign:'center'});
-            } catch (e) { doc.text("Img Err", 290, ry+25, {width: 60, align:'center'}); }
+                doc.image(imgBuff, 307, ry+2, {fit: [46, 56], align:'center', valign:'center'});
+            } catch (e) { doc.text("Img Err", 305, ry+25, {width: 50, align:'center'}); }
         } else { 
-            // [MODIFICATION D] Fixed Photo Text Alignment
-            doc.text("No Photo", 290, ry+25, {width: 60, align:'center'}); 
+            doc.text("No Photo", 305, ry+25, {width: 50, align:'center'}); 
         }
 
-        // [MODIFICATION D] Stacked Name / Date / Rem
-        // Req Column
+        // Stacked Names/Dates (From B)
         const reqStack = `${safeText(r.req_name)}\n${safeText(r.req_at)}\n${safeText(r.req_rem || '')}`;
-        doc.rect(350, ry, 70, rH).stroke().text(reqStack, 352, ry+5, {width:68});
+        doc.rect(355, ry, 70, rH).stroke().text(reqStack, 357, ry+5, {width:68});
 
-        // Rev Column
         const revStack = `${safeText(r.rev_name)}\n${safeText(r.rev_at || '')}\n${safeText(r.rev_rem || '')}`;
-        doc.rect(420, ry, 70, rH).stroke().text(revStack, 422, ry+5, {width:68});
+        doc.rect(425, ry, 70, rH).stroke().text(revStack, 427, ry+5, {width:68});
 
-        // App Column
         const appStack = `${safeText(r.app_name)}\n${safeText(r.app_at || '')}\n${safeText(r.app_rem || '')}`;
-        doc.rect(490, ry, 75, rH).stroke().text(appStack, 492, ry+5, {width:73});
+        doc.rect(495, ry, 70, rH).stroke().text(appStack, 497, ry+5, {width:68});
 
         ry += rH;
     }
@@ -851,11 +866,22 @@ app.post('/api/dashboard', authenticateAccess, async (req, res) => {
     }));
 });
 
-// SAVE PERMIT
+// SAVE PERMIT (Merged Validation from A)
 app.post('/api/save-permit', authenticateAccess, upload.any(), async(req, res) => {
     const pool = await getConnection();
     const fd = req.body;
     if(!fd.WorkType || !fd.ValidFrom) return res.status(400).json({error: "Missing Data"});
+
+    // --- RESTORED VALIDATION FROM A ---
+    const vFrom = new Date(fd.ValidFrom); 
+    const vTo = new Date(fd.ValidTo);
+    if (vTo <= vFrom) return res.status(400).json({error: "End Time must be after Start Time"});
+    const diffTime = Math.abs(vTo - vFrom);
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    if(diffDays > 7) return res.status(400).json({error: "Permit Validity cannot exceed 7 days"});
+    if(fd.TBT_Permit !== 'Y') return res.status(400).json({error: "Tool Box Talk must be confirmed"});
+    // -----------------------------------
+
     let pid = fd.PermitID;
     if (!pid || pid === 'undefined' || pid === '' || pid === 'null') {
         const idRes = await pool.request().query("SELECT MAX(CAST(SUBSTRING(PermitID, 4, 10) AS INT)) as MaxVal FROM Permits WHERE PermitID LIKE 'WP-%'");
@@ -863,7 +889,8 @@ app.post('/api/save-permit', authenticateAccess, upload.any(), async(req, res) =
         if (idRes.recordset[0].MaxVal) nextNum = idRes.recordset[0].MaxVal + 1;
         pid = `WP-${nextNum}`;
     }
-    /* --- NEW JSA LOGIC START --- */
+    
+    /* NEW JSA LOGIC */
     let jsaUrl = null;
     if (req.files) {
         const jsaFile = req.files.find(f => f.fieldname === 'JsaFile');
@@ -872,10 +899,10 @@ app.post('/api/save-permit', authenticateAccess, upload.any(), async(req, res) =
         }
     }
     const jsaLinkedId = fd.JsaLinkedId || null;
-    /* --- NEW JSA LOGIC END --- */
+    
     let rens = [];
     if(fd.InitRen === 'Y') {
-        rens.push({ status: 'pending_review', valid_from: fd.InitRenFrom, valid_to: fd.InitRenTo, hc: fd.InitRenHC, toxic: fd.InitRenTox, oxygen: fd.InitRenO2, req_name: req.user.name, req_at: getNowIST() });
+        rens.push({ status: 'pending_review', valid_from: fd.InitRenFrom, valid_to: fd.InitRenTo, hc: fd.InitRenHC, toxic: fd.InitRenTox, oxygen: fd.InitRenO2, req_name: req.user.name, req_at: getNowIST(), tbt_done: 'Y' });
     }
     const q = pool.request().input('p', pid).input('s', 'Pending Review').input('w', fd.WorkType)
         .input('re', req.user.email).input('rv', fd.ReviewerEmail).input('ap', fd.ApproverEmail)
@@ -889,7 +916,7 @@ app.post('/api/save-permit', authenticateAccess, upload.any(), async(req, res) =
         MERGE Permits AS target USING (SELECT @p as PermitID) AS source ON (target.PermitID = source.PermitID) 
         WHEN MATCHED THEN 
             UPDATE SET FullDataJSON=@j, Status=@s, RenewalsJSON=@ren,
-            JsaFileUrl = COALESCE(@jsaUrl, JsaFileUrl), -- Update only if new file
+            JsaFileUrl = COALESCE(@jsaUrl, JsaFileUrl), 
             JsaLinkedId = @jsaId
         WHEN NOT MATCHED THEN 
             INSERT (PermitID, Status, WorkType, RequesterEmail, ReviewerEmail, ApproverEmail, ValidFrom, ValidTo, FullDataJSON, RenewalsJSON, JsaFileUrl, JsaLinkedId) 
@@ -898,6 +925,7 @@ app.post('/api/save-permit', authenticateAccess, upload.any(), async(req, res) =
 
     res.json({success: true, permitId: pid});
 });
+
 // UPDATE STATUS (With Override Logic)
 app.post('/api/update-status', authenticateAccess, upload.any(), async(req, res) => {
     const { PermitID, action, ...extras } = req.body;
@@ -915,23 +943,18 @@ app.post('/api/update-status', authenticateAccess, upload.any(), async(req, res)
 
     // --- HANDLE JSA FILE UPDATE (OVERRIDE LOGIC) ---
     let newJsaUrl = null;
-    let sqlSetJsa = ""; // Dynamic SQL part to handle overrides
+    let sqlSetJsa = ""; 
 
-    // 1. Check for New File Upload (Overrides Link and Old File)
     if (req.files) {
         const jsaFile = req.files.find(f => f.fieldname === 'JsaFile');
         if(jsaFile) {
             newJsaUrl = await uploadToAzure(jsaFile.buffer, `permit-jsa/${PermitID}-${Date.now()}.pdf`, 'application/pdf');
-            // If we have a new URL, we must NULL out the Linked ID so the system knows to use the file
             sqlSetJsa += ", JsaFileUrl=@jsaUrl, JsaLinkedId=NULL"; 
         }
     }
 
-    // 2. Check for New Linked ID (Overrides File)
-    // We only update this if NO file was uploaded in this request
     const newJsaId = req.body.JsaLinkedId || null;
     if (newJsaId && !newJsaUrl) {
-         // If linking an existing JSA, we NULL out the File URL
          sqlSetJsa += ", JsaLinkedId=@jsaId, JsaFileUrl=NULL";
     }
     // -----------------------------
@@ -979,28 +1002,56 @@ app.post('/api/update-status', authenticateAccess, upload.any(), async(req, res)
         .input('jsaUrl', newJsaUrl)
         .input('jsaId', newJsaId);
 
-    // Apply the sqlSetJsa override logic here
     await q.query(`UPDATE Permits SET Status=@s, FullDataJSON=@j, RenewalsJSON=@r ${sqlSetJsa} WHERE PermitID=@p`);
     
     res.json({success: true});
 });
 
-// RENEWAL
+// RENEWAL (Merged Validation from A)
 app.post('/api/renewal', authenticateAccess, upload.single('RenewalImage'), async(req,res) => {
     const { PermitID, action, comment } = req.body; 
     const userRole = req.user.role; 
     const pool = await getConnection();
-    const cur = await pool.request().input('p', PermitID).query("SELECT RenewalsJSON, ValidTo, Status FROM Permits WHERE PermitID=@p");
+    const cur = await pool.request().input('p', PermitID).query("SELECT RenewalsJSON, ValidTo, Status, ValidFrom FROM Permits WHERE PermitID=@p");
     if (!cur.recordset.length) return res.status(404).json({error: "Permit not found"});
-    let rens = JSON.parse(cur.recordset[0].RenewalsJSON || "[]");
-    let newStatus = cur.recordset[0].Status;
+    const p = cur.recordset[0];
+    let rens = JSON.parse(p.RenewalsJSON || "[]");
+    let newStatus = p.Status;
     
     if(action === 'initiate') {
+        const rStart = new Date(req.body.RenewalValidFrom);
+        const rEnd = new Date(req.body.RenewalValidTo);
+        const pStart = new Date(p.ValidFrom);
+        const pEnd = new Date(p.ValidTo);
+
+        // --- RESTORED VALIDATION FROM A ---
+        if(req.body.TBT_Renewal !== 'Y') return res.status(400).json({error: "Tool Box Talk mandatory"}); 
+        if(rEnd <= rStart) return res.status(400).json({error: "End time must be after Start time"}); 
+        if((rEnd - rStart) > (8 * 3600 * 1000)) return res.status(400).json({error: "Renewal cannot exceed 8 hours"}); 
+        if(rStart < pStart || rEnd > pEnd) return res.status(400).json({error: "Renewal must be within Permit Validity"}); 
+
+        // Chronological & Overlap check (E, F)
+        if(rens.length > 0) {
+            const lastActive = rens[rens.length-1]; 
+            if(lastActive && lastActive.status !== 'rejected') {
+                const lastEnd = new Date(lastActive.valid_to);
+                if(rStart < lastEnd) return res.status(400).json({error: "New renewal cannot overlap with previous"});
+            }
+        }
+        // -----------------------------------
+
         let url = null;
         if(req.file) url = await uploadToAzure(req.file.buffer, `${PermitID}-REN-${Date.now()}.jpg`);
         let workerList = [];
         try { workerList = JSON.parse(req.body.renewalWorkers || "[]"); } catch(e){}
-        rens.push({ status: 'pending_review', valid_from: req.body.RenewalValidFrom, valid_to: req.body.RenewalValidTo, hc: req.body.hc, toxic: req.body.toxic, oxygen: req.body.oxygen, precautions: req.body.precautions, workers: workerList, req_name: req.user.name, req_at: getNowIST(), photoUrl: url, oddHourReq: req.body.oddHourReq || 'N' });
+        
+        rens.push({ 
+            status: 'pending_review', valid_from: req.body.RenewalValidFrom, valid_to: req.body.RenewalValidTo, 
+            hc: req.body.hc, toxic: req.body.toxic, oxygen: req.body.oxygen, precautions: req.body.precautions, 
+            workers: workerList, req_name: req.user.name, req_at: getNowIST(), photoUrl: url, 
+            oddHourReq: req.body.oddHourReq || 'N',
+            tbt_done: 'Y' // Record TBT
+        });
         newStatus = 'Renewal Pending Review';
     } else {
         if(rens.length === 0) return res.status(400).json({error: "No renewals found"});
@@ -1080,13 +1131,12 @@ app.post('/api/permit-data', authenticateAccess, async(req, res) => {
         Status: p.Status, 
         RenewalsJSON: p.RenewalsJSON, 
         IOCLSupervisors: JSON.parse(p.FullDataJSON).IOCLSupervisors || [],
-        // CRITICAL FIX: Send these columns to frontend so the link appears
         JsaFileUrl: p.JsaFileUrl, 
         JsaLinkedId: p.JsaLinkedId 
     });
 });
 /* =====================================================
-   JSA PORTAL ROUTES
+   JSA PORTAL ROUTES (Crash Proofed from B)
 ===================================================== */
 
 // 1. List JSAs for Dashboard
@@ -1095,11 +1145,10 @@ app.post('/api/jsa/list-my', authenticateAccess, async(req, res) => {
     const pool = await getConnection();
     let q = "SELECT JSAID, RefNumber, JobTitle, Location, Status, RequesterName FROM JSAs ";
     
-    // Filter logic
     if (role === 'Requester') q += "WHERE RequesterEmail = @e";
     else if (role === 'Reviewer') q += "WHERE ReviewerEmail = @e OR Status = 'Pending Review' OR Status = 'Approved'";
     else if (role === 'Approver') q += "WHERE ApproverEmail = @e OR Status = 'Pending Approval' OR Status = 'Approved'";
-    else if (role !== 'MasterAdmin') q += "WHERE 1=0"; // Safety fallback
+    else if (role !== 'MasterAdmin') q += "WHERE 1=0"; 
     
     const r = await pool.request().input('e', email).query(q + " ORDER BY JSAID DESC");
     res.json(r.recordset);
@@ -1134,15 +1183,14 @@ app.post('/api/jsa/get', authenticateAccess, async(req, res) => {
     res.json(r.recordset[0]);
 });
 
-// 4. Save JSA (Create or Edit Draft)
+// 4. Save JSA (Create or Edit Draft) - CRASH PROOFED
 app.post('/api/jsa/save', authenticateAccess, async(req, res) => {
-    try { // <--- ADDED TRY BLOCK
+    try { 
         const { JSAID, DataJSON, ...fields } = req.body;
         const pool = await getConnection();
         
         let targetID = JSAID;
         if (!targetID) {
-            // Let the Database generate the ID and return it using OUTPUT INSERTED.JSAID
             const r = await pool.request().input('reqE', fields.RequesterEmail)
                 .query("INSERT INTO JSAs (Status, RequesterEmail, CreatedAt) OUTPUT INSERTED.JSAID VALUES ('Draft', @reqE, GETDATE())");
             
@@ -1164,8 +1212,8 @@ app.post('/api/jsa/save', authenticateAccess, async(req, res) => {
                     
         res.json({ success: true });
     } catch (e) {
-        console.error("JSA Save Error:", e); // <--- LOGS ERROR TO CONSOLE
-        res.status(500).json({ error: "Database Error: " + e.message }); // <--- SENDS ERROR TO FRONTEND INSTEAD OF CRASHING
+        console.error("JSA Save Error:", e);
+        res.status(500).json({ error: "Database Error: " + e.message }); 
     }
 });
 // 5. Action (Review/Approve/Reject)
@@ -1209,12 +1257,7 @@ app.get('/api/jsa/download/:id', authenticateAccess, async(req, res) => {
     const pool = await getConnection();
     const r = await pool.request().input('id', req.params.id).query("SELECT FinalPdfUrl FROM JSAs WHERE JSAID=@id");
     if(r.recordset[0] && r.recordset[0].FinalPdfUrl) {
-         // Assuming you have a function to fetch from Azure, or just redirect
-         // Ideally use the same logic as download-pdf permit to stream securely
-         const blobName = r.recordset[0].FinalPdfUrl.split('/').pop();
-         // ... (Insert Blob Download Stream Logic Here) ...
-         // For now, if public access allowed: res.redirect(r.recordset[0].FinalPdfUrl);
-         res.json({url: r.recordset[0].FinalPdfUrl}); // Simplified
+         res.json({url: r.recordset[0].FinalPdfUrl}); 
     } else {
         res.status(404).send("PDF not found");
     }
@@ -1291,7 +1334,6 @@ app.get('/api/view-blob', authenticateAccess, async (req, res) => {
         const exists = await blockBlobClient.exists();
         if (!exists) return res.status(404).send("Blob missing");
 
-        // Get properties to set correct Content-Type (e.g., application/pdf)
         const props = await blockBlobClient.getProperties();
         res.setHeader('Content-Type', props.contentType);
         
