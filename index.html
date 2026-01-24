@@ -979,7 +979,7 @@
                     let shouldDisable = true;
                     if (isAuthority && isMainPending && (el.name && (el.name.startsWith('H_') || el.name.startsWith('P_')) || el.id === 'H_Others_Detail')) shouldDisable = false;
                     if (isAuthority && isMainPending && (el.name === 'IsCritical' || el.name === 'CriticalActivityType')) shouldDisable = false;
-                    
+                    if (currentUser.Role === 'Requester' && statusClean === 'Active' && el.id === 'Closure_Deviation_Reason') shouldDisable = false;
                     if (isMainPending && currentUser.Role === 'Reviewer' && (el.id === 'Reviewer_Remarks' || el.id === 'AdditionalPrecautions' || el.name === 'RevRenAction')) shouldDisable = false;
                     if ((isMainPending || statusClean === 'Active') && currentUser.Role === 'Approver' && (el.id === 'Approver_Remarks' || el.name === 'AppRenAction')) shouldDisable = false;
                     if (currentUser.Role === 'Approver' && el.id === 'RequireRenewalPhotos') shouldDisable = (statusClean === 'Active');
@@ -1191,44 +1191,66 @@
         }
 
         function handleClosureUI(p, actionsDiv) {
-            const isClosable = (p.Status === 'Active');
-            if (currentUser.Role === 'Requester' && isClosable) {
-                document.getElementById('closure-section').classList.remove('hidden');
-                document.getElementById('div-closure-req').classList.remove('hidden');
-                renderClosureSection({});
-                document.getElementById('Closure_Requestor_Remarks').disabled = false;
-                document.getElementById('Site_Restored_Check').disabled = false;
-                const b = document.createElement("button"); b.type = "button"; b.className = "bg-red-600 text-white px-4 py-2 rounded font-bold"; b.innerText = "Submit Closure"; b.onclick = () => upd('initiate_closure');
-                actionsDiv.appendChild(b);
-            }
-            if (p.Status.includes('Closure')) {
-                document.getElementById('closure-section').classList.remove('hidden');
-                renderClosureSection(p); 
-                document.querySelectorAll('.clos-chk').forEach(c => c.disabled = true);
-                document.getElementById('Closure_Deviation_Reason').value = p.Closure_Deviation_Reason || '';
-                document.getElementById('Closure_Deviation_Reason').disabled = true;
+    const isClosable = (p.Status === 'Active');
+    const siteRestoredCheck = document.getElementById('Site_Restored_Check');
 
-                document.getElementById('div-closure-req').classList.remove('hidden');
-                safeSet("Closure_Requestor_Remarks", p.Closure_Requestor_Remarks || "");
-                
-                if (p.Status === 'Closure Pending Review' && currentUser.Role === 'Reviewer') {
-                    document.getElementById('div-closure-rev').classList.remove('hidden');
-                    document.getElementById('Closure_Reviewer_Remarks').disabled = false;
-                    const bR = document.createElement("button"); bR.type="button"; bR.className="bg-red-600 text-white px-4 py-2 rounded font-bold mr-2"; bR.innerText="Reject Closure"; bR.onclick=()=>upd('reject_closure');
-                    const bA = document.createElement("button"); bA.type="button"; bA.className="bg-green-600 text-white px-4 py-2 rounded font-bold"; bA.innerText="Verify Closure"; bA.onclick=()=>upd('approve_closure');
-                    actionsDiv.append(bR, bA);
-                }
-                if (p.Status === 'Closure Pending Approval' && currentUser.Role === 'Approver') {
-                    document.getElementById('div-closure-rev').classList.remove('hidden');
-                    document.getElementById('div-closure-app').classList.remove('hidden');
-                    document.getElementById('Closure_Approver_Remarks').disabled = false;
-                    safeSet("Closure_Reviewer_Remarks", p.Closure_Reviewer_Remarks || "");
-                    const bR = document.createElement("button"); bR.type="button"; bR.className="bg-red-600 text-white px-4 py-2 rounded font-bold mr-2"; bR.innerText="Reject Closure"; bR.onclick=()=>upd('reject_closure');
-                    const bA = document.createElement("button"); bA.type="button"; bA.className="bg-black text-white px-4 py-2 rounded font-bold"; bA.innerText="Final Permit Close"; bA.onclick=()=>upd('approve');
-                    actionsDiv.append(bR, bA);
-                }
-            }
+    // 1. Requester Mode (Active)
+    if (currentUser.Role === 'Requester' && isClosable) {
+        document.getElementById('closure-section').classList.remove('hidden');
+        document.getElementById('div-closure-req').classList.remove('hidden');
+        
+        renderClosureSection({}); // Render empty checklist
+        
+        // Unhide & Enable Site Restoration Checkbox
+        siteRestoredCheck.classList.remove('hidden');
+        siteRestoredCheck.disabled = false;
+        siteRestoredCheck.checked = false;
+
+        document.getElementById('Closure_Requestor_Remarks').disabled = false;
+        
+        const b = document.createElement("button"); b.type = "button"; 
+        b.className = "bg-red-600 text-white px-4 py-2 rounded font-bold"; 
+        b.innerText = "Submit Closure"; 
+        b.onclick = () => upd('initiate_closure');
+        actionsDiv.appendChild(b);
+    }
+
+    // 2. View/Approval Mode (Closure Pending or Closed)
+    if (p.Status.includes('Closure')) {
+        document.getElementById('closure-section').classList.remove('hidden');
+        renderClosureSection(p); // Render saved checklist
+        
+        // Lock Checklist & Deviation
+        document.querySelectorAll('.clos-chk').forEach(c => c.disabled = true);
+        document.getElementById('Closure_Deviation_Reason').value = p.Closure_Deviation_Reason || '';
+        document.getElementById('Closure_Deviation_Reason').disabled = true;
+
+        document.getElementById('div-closure-req').classList.remove('hidden');
+        safeSet("Closure_Requestor_Remarks", p.Closure_Requestor_Remarks || "");
+        
+        // Show Site Restoration State (Read-Only)
+        siteRestoredCheck.classList.remove('hidden');
+        siteRestoredCheck.checked = (p.Site_Restored_Check === 'Y');
+        siteRestoredCheck.disabled = true;
+
+        if (p.Status === 'Closure Pending Review' && currentUser.Role === 'Reviewer') {
+            document.getElementById('div-closure-rev').classList.remove('hidden');
+            document.getElementById('Closure_Reviewer_Remarks').disabled = false;
+            const bR = document.createElement("button"); bR.type="button"; bR.className="bg-red-600 text-white px-4 py-2 rounded font-bold mr-2"; bR.innerText="Reject Closure"; bR.onclick=()=>upd('reject_closure');
+            const bA = document.createElement("button"); bA.type="button"; bA.className="bg-green-600 text-white px-4 py-2 rounded font-bold"; bA.innerText="Verify Closure"; bA.onclick=()=>upd('approve_closure');
+            actionsDiv.append(bR, bA);
         }
+        if (p.Status === 'Closure Pending Approval' && currentUser.Role === 'Approver') {
+            document.getElementById('div-closure-rev').classList.remove('hidden');
+            document.getElementById('div-closure-app').classList.remove('hidden');
+            document.getElementById('Closure_Approver_Remarks').disabled = false;
+            safeSet("Closure_Reviewer_Remarks", p.Closure_Reviewer_Remarks || "");
+            const bR = document.createElement("button"); bR.type="button"; bR.className="bg-red-600 text-white px-4 py-2 rounded font-bold mr-2"; bR.innerText="Reject Closure"; bR.onclick=()=>upd('reject_closure');
+            const bA = document.createElement("button"); bA.type="button"; bA.className="bg-black text-white px-4 py-2 rounded font-bold"; bA.innerText="Final Permit Close"; bA.onclick=()=>upd('approve');
+            actionsDiv.append(bR, bA);
+        }
+    }
+}
 
         async function upd(act) {
             if (act === 'initiate_closure') {
@@ -1678,4 +1700,5 @@
     </script>
 </body>
 </html>
+
 
