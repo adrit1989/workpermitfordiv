@@ -999,90 +999,6 @@ async function openPermit(id) {
     // JSA Edit Permissions
     let canEditJsa = false;
     if (currentUser.Role === 'Requester' && (p.Status === 'Draft' || p.Status.includes('Rejected') || p.Status === 'Pending Review')) canEditJsa = true;
-    if (currentUser.Role === 'Reviewer' && p.Status === 'Pending Review') canEditJsa = true;
-    if (currentUser.Role === 'Approver' && p.Status === 'Pending Approval') canEditJsa = true;
-
-    if (canEditJsa) {
-        jsaFileInp.disabled = false;
-        jsaLinkSel.disabled = false;
-        jsaRadios.forEach(r => r.disabled = false);
-        document.getElementById('btn-del-jsa').classList.remove('hidden');
-        document.getElementById('btn-del-jsa').onclick = window.clearJsaSelection;
-
-        if(p.JsaLinkedId) {
-             let removeLinkBtn = document.getElementById('btn-del-link-jsa');
-             if(!removeLinkBtn) {
-                 removeLinkBtn = document.createElement('button'); removeLinkBtn.id = 'btn-del-link-jsa'; removeLinkBtn.type = 'button';
-                 removeLinkBtn.className = "ml-2 text-red-500 font-bold text-xs"; removeLinkBtn.innerText = "[Change]";
-                 removeLinkBtn.onclick = window.clearJsaSelection;
-                 jsaLinkSel.parentNode.appendChild(removeLinkBtn);
-             }
-             removeLinkBtn.classList.remove('hidden');
-        }
-        loadApprovedJsas(); 
-    } else {
-        jsaFileInp.disabled = true; jsaLinkSel.disabled = true; jsaRadios.forEach(r => r.disabled = true);
-        document.getElementById('btn-del-jsa').classList.add('hidden');
-        if(document.getElementById('btn-del-link-jsa')) document.getElementById('btn-del-link-jsa').classList.add('hidden');
-    }
-
-    // 7. Render Sub-Tables
-    let wData = p.SelectedWorkers;
-    if (typeof wData === 'string') { try { wData = JSON.parse(wData); } catch (e) { wData = []; } }
-    currentPermitWorkers = Array.isArray(wData) ? wData : [];
-    const wTbody = document.getElementById('worker-display-body');
-    document.getElementById('worker-display-table').classList.toggle('hidden', currentPermitWorkers.length === 0);
-    if (wTbody) wTbody.innerHTML = currentPermitWorkers.map(w => `<tr><td class="p-2 font-bold">${escapeHtml(w.Name)}</td><td class="p-2">${escapeHtml(w.IDType)}: ${escapeHtml(w.ID)}</td><td class="p-2 font-mono">${escapeHtml(w.Contact)}</td></tr>`).join('');
-    
-    renderIOCLTable(p.Status);
-
-    // 8. Renewal & Closure Section Visibility
-    const rens = JSON.parse(p.RenewalsJSON || "[]");
-    const lastRen = rens.length > 0 ? rens[rens.length - 1] : null;
-    const isFirstRenRequest = (rens.length === 1 && p.InitRen === 'Y');
-
-    if (rens.length > 0 || (currentUser.Role === 'Requester' && p.Status === 'Active')) {
-        document.getElementById('renewals-section').classList.remove('hidden');
-        // ... (Renewal Table Rendering - keep existing code here if needed, or it stays hidden if empty) ...
-        document.getElementById('renewal-history-body').innerHTML = rens.map(r => `
-            <tr class="border-b text-[10px]">
-                <td class="p-2">${r.valid_from}<br>to ${r.valid_to}</td>
-                <td class="p-2">${r.hc}/${r.toxic}/${r.oxygen}</td>
-                <td class="p-2 italic">${r.precautions || '-'}</td>
-                <td class="p-2">${escapeHtml((r.workers || []).join(', '))}</td>
-                <td class="p-2"><b>${r.req_name}</b><br>${r.req_at||''}</td>
-                <td class="p-2"><b>${r.rev_name||'-'}</b><br>${r.rev_at||''}</td>
-                <td class="p-2"><b>${r.app_name||'-'}</b><br>${r.app_at||''}</td>
-                <td class="p-2">${r.photoUrl ? `<button type="button" class="text-blue-600 underline" onclick="viewSecurePhoto('${r.photoUrl.replace(/\\/g, '/')}')">View</button>` : 'NO'}</td>
-            </tr>`).join('');
-            
-        const showRenForm = (currentUser.Role === 'Requester' && p.Status === 'Active' && (!lastRen || !lastRen.status.includes('pending')));
-        document.getElementById('form-renewal').classList.toggle('hidden', !showRenForm);
-        if(showRenForm) {
-             document.querySelectorAll('#form-renewal input').forEach(inp => inp.disabled = false);
-             document.getElementById('renewal-worker-select').innerHTML = currentPermitWorkers.map(w => `<label class="flex items-center gap-1 text-xs bg-white p-1 rounded border"><input type="checkbox" value="${escapeHtml(w.Name)}" checked class="ren-worker-cb"> ${escapeHtml(w.Name)}</label>`).join('');
-             document.getElementById('renewal-photo-wrapper').classList.toggle('hidden', !permitRequirePhoto);
-        }
-    }
-    
-    handleClosureUI(p, actionsDiv);
-
-    // ============================================================
-    // 9. ACTION BUTTONS LOGIC (CONSOLIDATED HERE)
-    // ============================================================
-
-    // A. Reviewer Main Permit Action
-    if (p.Status === 'Pending Review' && currentUser.Role === 'Reviewer') {
-        document.getElementById('fs-reviewer-section').classList.remove('hidden');
-        
-        const b1 = document.createElement("button"); b1.type = "button"; 
-        b1.className = "bg-red-600 text-white px-4 py-2 rounded font-bold mr-2 shadow hover:bg-red-700"; 
-        b1.innerText = "Reject Permit"; 
-        b1.onclick = () => upd('reject');
-
-        const b2 = document.createElement("button"); b2.type = "button"; 
-        b2.className = "bg-green-600 text-white px-4 py-2 rounded font-bold shadow hover:bg-green-700"; 
-        b2.innerText = "Review & Forward"; 
 
 
 /* 6. CORE PERMIT LOGIC (FIXED) */
@@ -2068,5 +1984,6 @@ async function openPermit(id) {
     </script>
 </body>
 </html>
+
 
 
