@@ -678,6 +678,35 @@ async function drawPermitPDF(doc, p, d, renewalsList) {
         doc.rect(30, cY, 535, 25).fillColor(boxColor).fill().stroke();
         doc.fillColor('black').text(`Site Restored? [ ${checkMark} ]`, 35, cY + 8);
         doc.y += 35;
+        // --- ADD THIS BLOCK FOR CLOSURE SUMMARY IN PDF ---
+        
+        // 1. Define the checklist items
+        const cChecks = [
+            { k: 'Closure_WorkCompleted', l: 'Work Completed' },
+            { k: 'Closure_SiteRestored', l: 'Site Restoration' },
+            { k: 'Closure_Withdrawal', l: 'Withdrawal of Men/Material' },
+            { k: 'Closure_Normalization', l: 'Normalization of Isolations' },
+            { k: 'Closure_Housekeeping', l: 'Housekeeping' }
+        ];
+
+        // 2. Filter Complied vs Not Complied
+        const complied = cChecks.filter(c => d[c.k] === 'Y').map(c => c.l);
+        const notComplied = cChecks.filter(c => d[c.k] !== 'Y').map(c => c.l);
+
+        // 3. Build the Sentence
+        let sumText = `Closure Summary: ${safeText(d.RequesterName)} confirmed that: `;
+        if (complied.length > 0) sumText += `${complied.join(', ')} have been complied. `;
+        if (notComplied.length > 0) {
+            sumText += `For ${notComplied.join(', ')}, the reason provided is: "${safeText(d.Closure_Deviation_Reason) || 'No Reason'}".`;
+        }
+
+        // 4. Print to PDF (Italic, slightly gray to look like a comment)
+        doc.font('Helvetica-Oblique').fontSize(8).fillColor('#333333');
+        doc.text(sumText, 35, doc.y, { width: 525, align: 'justify' });
+        doc.y += 15; // Add space before signature boxes
+        doc.font('Helvetica').fillColor('black'); // Reset font
+
+        // --- END ADDITION ---
 
         const closureY = doc.y;
         if (closureY > 700) { doc.addPage(); drawHeaderOnAll(); }
