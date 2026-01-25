@@ -295,12 +295,17 @@
                                     </div>
                                 </div>
 
-                                <div class="md:col-span-4 mt-2">
-                                     <label class="flex items-center gap-2 p-3 bg-blue-50 rounded border border-blue-200 cursor-pointer hover:bg-blue-100">
-                                         <input type="checkbox" name="TBT_Permit" value="Y" id="chk-tbt-permit" class="w-5 h-5 accent-blue-600"> 
-                                         <span class="font-bold text-blue-800 text-sm">Tool Box Talk Conducted & Recorded?</span>
-                                     </label>
-                                </div>
+                              <div class="md:col-span-4 mt-2 flex items-center justify-between p-3 bg-blue-50 rounded border border-blue-200">
+     <label class="flex items-center gap-2 cursor-pointer">
+         <input type="checkbox" name="TBT_Permit" value="Y" id="chk-tbt-permit" class="w-5 h-5 accent-blue-600"> 
+         <span class="font-bold text-blue-800 text-sm">Tool Box Talk Conducted & Recorded?</span>
+     </label>
+     
+     <div id="tbt-link-area" class="hidden flex items-center gap-2">
+         <span class="text-xs font-bold bg-white border px-2 py-1 rounded text-gray-600">TBT No: <span id="disp-tbt-no" class="text-blue-700"></span></span>
+         <button type="button" id="btn-view-tbt" class="bg-blue-600 text-white text-xs px-2 py-1 rounded shadow hover:bg-blue-700">📄 View Record</button>
+     </div>
+</div>
                             </div>
                         </div>
  
@@ -375,36 +380,48 @@
                             <textarea name="Reviewer_Remarks" id="Reviewer_Remarks" placeholder="Reviewer Remarks" class="w-full"></textarea>
                         </div>
  
-                        <div id="fs-approver-section" class="glass hidden border-l-4 border-green-500">
-                            <h3 class="font-bold text-green-700 border-b pb-2 mb-4">5. Approval</h3>
-                             <div id="app-renewal-decision" class="mb-4 hidden p-4 bg-green-50 border border-green-200 rounded">
-                                <h4 class="font-bold text-sm text-green-900 mb-2">Reviewer has accepted the 1st renewal. Please log your decision:</h4>
-                                <div class="flex gap-6">
-                                    <label class="flex items-center gap-2 cursor-pointer font-bold text-gray-700"><input type="radio" name="AppRenAction" value="approve" class="w-5 h-5 accent-green-600"> Accept</label>
-                                    <label class="flex items-center gap-2 cursor-pointer font-bold text-gray-700"><input type="radio" name="AppRenAction" value="reject" class="w-5 h-5 accent-red-600"> Reject</label>
-                                </div>
-                            </div>
-                            <div class="mb-4 hidden" id="iocl-approver-wrapper">
-                                <label class="font-bold text-sm text-gray-700">Authorized IOCL Supervisors</label>
-                                <div id="iocl-sup-container-app" class="space-y-2 mt-2"></div>
-                                <button type="button" id="btn-add-app-sup" class="mt-2 text-xs bg-gray-200 px-2 py-1 rounded font-bold">+ Add Supervisor</button>
-                            </div>
-                            <div id="fs-approver-section" class="glass hidden border-l-4 border-green-500">
+<div id="fs-approver-section" class="glass hidden border-l-4 border-green-500">
     <h3 class="font-bold text-green-700 border-b pb-2 mb-4">5. Approval</h3>
+    
+    <div id="app-renewal-decision" class="mb-4 hidden p-4 bg-green-50 border border-green-200 rounded">
+        <h4 class="font-bold text-sm text-green-900 mb-2">Reviewer has accepted the 1st renewal. Please log your decision:</h4>
+        <div class="flex gap-6">
+            <label class="flex items-center gap-2 cursor-pointer font-bold text-gray-700"><input type="radio" name="AppRenAction" value="approve" class="w-5 h-5 accent-green-600"> Accept</label>
+            <label class="flex items-center gap-2 cursor-pointer font-bold text-gray-700"><input type="radio" name="AppRenAction" value="reject" class="w-5 h-5 accent-red-600"> Reject</label>
+        </div>
+    </div>
+
+    <div class="mb-4 hidden" id="iocl-approver-wrapper">
+        <label class="font-bold text-sm text-gray-700">Authorized IOCL Supervisors</label>
+        <div id="iocl-sup-container-app" class="space-y-2 mt-2"></div>
+        <button type="button" id="btn-add-app-sup" class="mt-2 text-xs bg-gray-200 px-2 py-1 rounded font-bold">+ Add Supervisor</button>
+    </div>
+
     <label class="flex items-center gap-2 mt-2 mb-2 p-2 bg-blue-50 border border-blue-200 rounded cursor-pointer">
         <input type="checkbox" id="App_Ren_TBT" class="w-4 h-4 accent-blue-600">
         <span class="text-xs font-bold text-blue-800">Approver: Confirm TBT Conducted</span>
     </label>
-    <textarea name="Approver_Remarks" id="Approver_Remarks" placeholder="Approver Remarks" class="w-full mb-2"></textarea>
-    
+
+    <div class="mt-2 mb-2 p-2 bg-indigo-50 border border-indigo-200 rounded">
+        <label class="block text-xs font-bold text-indigo-800 mb-1">Optional: Upload TBT Record</label>
+        <div class="flex gap-2">
+            <input type="text" id="TBT_Ref_No" placeholder="TBT No..." class="text-xs flex-1 border p-1 rounded">
+            <input type="file" id="TBT_PDF_File" accept="application/pdf" class="text-xs flex-1 border p-1 rounded bg-white">
+        </div>
     </div>
-                            <textarea name="Approver_Remarks" id="Approver_Remarks" placeholder="Approver Remarks" class="w-full mb-2"></textarea>
-                            <label class="flex items-center gap-2 mb-2 p-2 bg-green-50 border border-green-200 rounded cursor-pointer">
-                                <input type="checkbox" name="RequireRenewalPhotos" id="RequireRenewalPhotos" value="Y" class="w-5 h-5 accent-green-600">
-                                <span class="text-sm font-bold text-green-800">Require Photo Evidence for ALL Renewals?</span>
-                            </label>
-                            <div id="pdf-color-select" class="mt-2 hidden"><label>PDF Background:</label><select id="PdfBgColor"><option>White</option><option>Red</option><option>Green</option><option>Yellow</option><option>Auto</option></select></div>
-                        </div>
+
+    <textarea name="Approver_Remarks" id="Approver_Remarks" placeholder="Approver Remarks" class="w-full mb-2 p-2 border rounded"></textarea>
+
+    <label class="flex items-center gap-2 mb-2 p-2 bg-green-50 border border-green-200 rounded cursor-pointer">
+        <input type="checkbox" name="RequireRenewalPhotos" id="RequireRenewalPhotos" value="Y" class="w-5 h-5 accent-green-600">
+        <span class="text-sm font-bold text-green-800">Require Photo Evidence for ALL Renewals?</span>
+    </label>
+    
+    <div id="pdf-color-select" class="mt-2 hidden">
+        <label>PDF Background:</label>
+        <select id="PdfBgColor"><option>White</option><option>Red</option><option>Green</option><option>Yellow</option><option>Auto</option></select>
+    </div>
+</div>
  
                         <div id="iocl-sup-display-section" class="glass hidden">
                             <h3 class="font-bold border-b pb-2 mb-2">Authorized Supervisors (IOCL)</h3>
@@ -1042,6 +1059,27 @@
                     // Apply Read-Only state
                     el.disabled = shouldDisable;
                 });
+                
+    const tbtArea = document.getElementById('tbt-link-area');
+    if (p.TBT_File_Url) {
+        tbtArea.classList.remove('hidden');
+        document.getElementById('disp-tbt-no').innerText = p.TBT_Ref_No || 'N/A';
+        document.getElementById('btn-view-tbt').onclick = (e) => { e.preventDefault(); viewSecureFile(p.TBT_File_Url); };
+    } else {
+        tbtArea.classList.add('hidden');
+    }
+
+    // Handle Approver Inputs
+    if (currentUser.Role === 'Approver' && statusClean === 'Pending Approval') {
+        document.getElementById('TBT_Ref_No').value = p.TBT_Ref_No || '';
+        document.getElementById('TBT_Ref_No').disabled = false;
+        document.getElementById('TBT_PDF_File').disabled = false;
+    } else {
+        // Read-only for others
+        document.getElementById('TBT_Ref_No').value = p.TBT_Ref_No || '';
+        document.getElementById('TBT_Ref_No').disabled = true;
+        document.getElementById('TBT_PDF_File').disabled = true;
+    }
 
                 // 6. UI Logic Triggers
                 toggleCritical(p.IsCritical === 'Y');
@@ -1352,6 +1390,12 @@ function handleClosureUI(p, actionsDiv) {
 
             document.querySelectorAll('.clos-chk').forEach(c => fd.append(c.name, c.checked ? 'Y' : 'N'));
             fd.append('Closure_Deviation_Reason', getVal('Closure_Deviation_Reason'));
+            // Inside upd(act) function...
+    if (currentUser.Role === 'Approver') {
+         fd.append('TBT_Ref_No', document.getElementById('TBT_Ref_No').value);
+         const tbtFile = document.getElementById('TBT_PDF_File').files[0];
+         if(tbtFile) fd.append('TBT_PDF_File', tbtFile);
+    }
 
             let ioclData = [];
             if (currentUser.Role === 'Reviewer') ioclData = getIOCLData('iocl-sup-container-rev');
@@ -1846,11 +1890,3 @@ function handleClosureUI(p, actionsDiv) {
     </script>
 </body>
 </html>
-
-
-
-
-
-
-
-
