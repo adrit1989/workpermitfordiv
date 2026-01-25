@@ -384,10 +384,12 @@ async function drawPermitPDF(doc, p, d, renewalsList) {
     doc.y += 12;
     doc.text(`(v) Site Contact: ${safeText(d.RequesterName)} / ${safeText(d.EmergencyContact)}`, 35, doc.y);
     doc.y += 12;
-    // --- RESTORED TBT VISIBILITY FROM A ---
-    let tbtText = d.TBT_Permit === 'Y' ? 'YES' : 'NO';
-    doc.text(`(vi) TBT Conducted: ${tbtText} | Security: ${safeText(d.SecurityGuard)}`, 35, doc.y);
-    // --------------------------------------
+   if (d.TBT_Ref_No) {
+        doc.text(`(vi) TBT Done and recorded via TBT No: ${d.TBT_Ref_No}`, 35, doc.y);
+    } else {
+        let tbtText = d.TBT_Permit === 'Y' ? 'YES' : 'NO';
+        doc.text(`(vi) TBT Conducted: ${tbtText} | Security: ${safeText(d.SecurityGuard)}`, 35, doc.y);
+    }
     doc.y += 12;
     doc.text(`(vii) JSA Ref: ${safeText(d.JsaNo)} | WO: ${safeText(d.WorkOrder)}`, 35, doc.y);
     doc.y += 12;
@@ -963,8 +965,17 @@ app.post('/api/update-status', authenticateAccess, upload.any(), async(req, res)
     if (newJsaId && !newJsaUrl) {
          sqlSetJsa += ", JsaLinkedId=@jsaId, JsaFileUrl=NULL";
     }
-    // -----------------------------
+    // ... existing file checks ...
 
+    // Handle TBT Upload
+    if (req.files) {
+        const tbt = req.files.find(f => f.fieldname === 'TBT_PDF_File');
+        if (tbt) {
+            const url = await uploadToAzure(tbt.buffer, `tbt/${PermitID}_${Date.now()}.pdf`, 'application/pdf');
+            d.TBT_File_Url = url;
+        }
+    }
+    if(req.body.TBT_Ref_No) d.TBT_Ref_No = req.body.TBT_Ref_No;
     if (action === 'reject') st = 'Rejected';
     else if (action === 'review') { st = 'Pending Approval'; d.Reviewer_Sig = `${usr} on ${now}`; }
     else if (action === 'approve' && st.includes('Closure')) { st = 'Closed'; d.Closure_Approver_Date = now; d.Closure_Issuer_Sig = `${usr} on ${now}`; }
