@@ -1399,6 +1399,40 @@ function handleClosureUI(p, actionsDiv) {
                     const bR = document.createElement("button"); bR.type="button"; bR.className="bg-red-600 text-white px-4 py-2 rounded font-bold mr-2"; bR.innerText="Reject Closure"; bR.onclick=()=>upd('reject_closure');
                     const bA = document.createElement("button"); bA.type="button"; bA.className="bg-black text-white px-4 py-2 rounded font-bold"; bA.innerText="Final Permit Close"; bA.onclick=()=>upd('approve');
                     actionsDiv.append(bR, bA);
+                    // --- FIX A: Add Dynamic Closure Summary ---
+const reqName = safeText(p.RequesterName || 'Requester');
+const checks = [
+    {id: 'Closure_WorkCompleted', label: 'Work Completed'}, {id: 'Closure_SiteRestored', label: 'Site Restoration'},
+    {id: 'Closure_Withdrawal', label: 'Withdrawal of Men/Material'}, {id: 'Closure_Normalization', label: 'Normalization of Isolations'},
+    {id: 'Closure_Housekeeping', label: 'Housekeeping'}
+];
+
+// Determine which were checked
+const doneList = checks.filter(c => p[c.id] === 'Y').map(c => c.label);
+const notDoneList = checks.filter(c => p[c.id] !== 'Y').map(c => c.label);
+
+let summary = `<div class="mt-4 p-3 bg-gray-50 border border-gray-200 rounded text-xs text-gray-700 italic">
+    <strong>Closure Summary:</strong> ${reqName} confirmed that: `;
+
+if(doneList.length > 0) summary += `<b>${doneList.join(', ')}</b> have been complied. `;
+if(notDoneList.length > 0) {
+    summary += `For <b>${notDoneList.join(', ')}</b>, the reason provided is: "<b>${p.Closure_Deviation_Reason || 'No Reason Given'}</b>". `;
+}
+
+if(p.Status === 'Closed') {
+    summary += `<br><span class="text-green-700 font-bold">Reviewer and Approver have agreed and closed the permit.</span>`;
+}
+
+summary += `</div>`;
+
+// Append this summary to the closure section if not already there
+if(!document.getElementById('closure-summary-box')) {
+    const summaryDiv = document.createElement('div');
+    summaryDiv.id = 'closure-summary-box';
+    summaryDiv.innerHTML = summary;
+    document.getElementById('closure-section').appendChild(summaryDiv);
+}
+
                 }
             }
         }
@@ -1948,5 +1982,6 @@ async function submitRenewal(act) {
     </script>
 </body>
 </html>
+
 
 
