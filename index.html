@@ -1448,34 +1448,47 @@ function handleClosureUI(p, actionsDiv) {
             finally { document.getElementById('loader').style.display = 'none'; }
         }
 
-        async function submitRenewal(act) {
+async function submitRenewal(act) {
+            // 1. APPROVE / REJECT LOGIC (Reviewer & Approver)
             if(act === 'approve' || act === 'reject') {
                 const remark = document.getElementById('RenewalRemark').value;
                 if (act === 'reject' && !remark) return alert("Please provide remarks for rejection.");
+                
+                // Capture TBT Checkbox values
                 let tbtVal = 'N';
-        if(currentUser.Role === 'Reviewer') tbtVal = document.getElementById('Rev_Ren_TBT').checked ? 'Y' : 'N';
-        if(currentUser.Role === 'Approver') tbtVal = document.getElementById('App_Ren_TBT').checked ? 'Y' : 'N';
-        // -----------
+                if(currentUser.Role === 'Reviewer') {
+                    const el = document.getElementById('Rev_Ren_TBT');
+                    tbtVal = (el && el.checked) ? 'Y' : 'N';
+                }
+                if(currentUser.Role === 'Approver') {
+                    const el = document.getElementById('App_Ren_TBT');
+                    tbtVal = (el && el.checked) ? 'Y' : 'N';
+                }
 
-        let actionType = act;
-        if (currentUser.Role === 'Reviewer' && act === 'approve') actionType = 'forward_to_approver'; 
-        
-        const res = await apiCall('/renewal', 'POST', {
-            PermitID: currentPermitId, 
-            action: actionType, 
-            comment: remark, 
-            rejectionReason: remark, 
-            role: currentUser.Role,
-            tbt_check: tbtVal // Send to backend
-        });
+                // Determine Action Type
                 let actionType = act;
-                if (currentUser.Role === 'Reviewer' && act === 'approve') actionType = 'forward_to_approver'; 
+                if (currentUser.Role === 'Reviewer' && act === 'approve') actionType = 'forward_to_approver';
+                
+                // Send API Request
                 const res = await apiCall('/renewal', 'POST', {
-                    PermitID: currentPermitId, action: actionType, comment: remark, rejectionReason: remark, role: currentUser.Role
+                    PermitID: currentPermitId, 
+                    action: actionType, 
+                    comment: remark, 
+                    rejectionReason: remark, 
+                    role: currentUser.Role,
+                    tbt_check: tbtVal 
                 });
-                if(res.success) { alert("Renewal Decision Submitted!"); switchView('dashboard'); } else { alert("Error: " + res.error); }
+                
+                if(res.success) { 
+                    alert("Renewal Decision Submitted!"); 
+                    switchView('dashboard'); 
+                } else { 
+                    alert("Error: " + res.error); 
+                }
                 return;
             }
+
+            // 2. INITIATE RENEWAL LOGIC (Requester)
             if(!document.getElementById('TBT_Renewal').checked) return alert("Tool Box Talk must be conducted for Renewal.");
 
             const fd = new FormData();
@@ -1492,10 +1505,12 @@ function handleClosureUI(p, actionsDiv) {
             const selWorkers = [];
             document.querySelectorAll('.ren-worker-cb:checked').forEach(c => selWorkers.push(c.value));
             fd.append('renewalWorkers', JSON.stringify(selWorkers));
+            
             if(!document.getElementById("odd-hour-agreement").classList.contains("hidden")) {
                 if(!document.getElementById("OddHourSafetyCheck").checked) return alert("Accept Odd Hour safety terms.");
                 fd.append('oddHourReq', 'Y');
             }
+            
             const fileInput = document.getElementById("ren-cam-sub");
             if(!document.getElementById('renewal-photo-wrapper').classList.contains('hidden') && fileInput.files.length === 0) return alert("⛔ Site photo is mandatory.");
             if(fileInput.files.length > 0) fd.append('RenewalImage', fileInput.files[0]);
@@ -1890,3 +1905,4 @@ function handleClosureUI(p, actionsDiv) {
     </script>
 </body>
 </html>
+
