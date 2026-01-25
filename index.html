@@ -21,7 +21,7 @@
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
         #main-wrapper { display: flex; height: 100vh; width: 100vw; }
         .sidebar-left { width: 260px; background: #1e293b; color: white; display: flex; flex-direction: column; flex-shrink: 0; transition: 0.3s; box-shadow: 2px 0 10px rgba(0,0,0,0.1); z-index: 40; }
-        .sidebar-right { width: 320px; background: white; border-left: 1px solid #e5e7eb; overflow-y: auto; flex-shrink: 0; padding: 1.5rem; display: flex; flex-direction: column; gap: 20px; z-index: 30; }
+        .sidebar-right { display: none !important; }
         .content-area { flex-grow: 1; overflow-y: auto; padding: 2rem; background: #f8fafc; position: relative; scroll-behavior: smooth; }
         .checklist-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; }
         @media(max-width: 1280px) { .checklist-grid { grid-template-columns: repeat(2, 1fr); } }
@@ -597,15 +597,6 @@
                 </div>
             </div>
  
-            <div class="sidebar-right">
-                <div id="validity-box" class="hidden mb-6 p-4 bg-green-50 border border-green-200 rounded-lg shadow-sm text-center">
-                    <div class="text-xs font-bold text-green-800 uppercase mb-1">Permit Validity</div>
-                    <div id="val-time-from" class="text-sm font-mono text-gray-700 font-bold"></div>
-                    <div class="text-center text-gray-400 text-xs my-1">⬇</div>
-                    <div id="val-time-to" class="text-sm font-mono text-gray-700 font-bold"></div>
-                    <div id="val-status" class="mt-2 inline-block px-3 py-1 rounded-full bg-green-200 text-green-800 text-xs font-bold">ACTIVE</div>
-                </div>
-            </div>
         </div>
     </div>
  
@@ -1121,15 +1112,31 @@
 
                 if (rens.length > 0 || (currentUser.Role === 'Requester' && statusClean === 'Active')) {
                     document.getElementById('renewals-section').classList.remove('hidden');
+                   // --- FIX B: Add Remarks to History Table ---
                     document.getElementById('renewal-history-body').innerHTML = rens.map(r => `
                         <tr class="border-b text-[10px]">
                             <td class="p-2">${r.valid_from}<br>to ${r.valid_to}</td>
                             <td class="p-2">${r.hc}/${r.toxic}/${r.oxygen}</td>
                             <td class="p-2 italic">${r.precautions || '-'}</td>
                             <td class="p-2">${escapeHtml((r.workers || []).join(', '))}</td>
-                            <td class="p-2"><b>${r.req_name}</b><br>${r.req_at||''}</td>
-                            <td class="p-2"><b>${r.rev_name||'-'}</b><br>${r.rev_at||''}</td>
-                            <td class="p-2"><b>${r.app_name||'-'}</b><br>${r.app_at||''}</td>
+                            
+                            <td class="p-2">
+                                <b>${r.req_name}</b><br>
+                                <span class="text-gray-500">${r.req_at||''}</span>
+                            </td>
+                            
+                            <td class="p-2">
+                                <b>${r.rev_name||'-'}</b><br>
+                                <span class="text-gray-500">${r.rev_at||''}</span>
+                                ${r.rev_rem ? `<br><span class="text-blue-600 italic">"${r.rev_rem}"</span>` : ''}
+                            </td>
+                            
+                            <td class="p-2">
+                                <b>${r.app_name||'-'}</b><br>
+                                <span class="text-gray-500">${r.app_at||''}</span>
+                                ${r.app_rem ? `<br><span class="text-blue-600 italic">"${r.app_rem}"</span>` : ''}
+                            </td>
+                            
                             <td class="p-2">${r.photoUrl ? `<button type="button" class="text-blue-600 underline" onclick="viewSecureFile('${r.photoUrl.replace(/\\/g, '/')}')">View</button>` : 'NO'}</td>
                         </tr>`).join('');
                         
@@ -1526,10 +1533,11 @@ function handleClosureUI(p, actionsDiv) {
             if(res.success) { alert("Worker Saved"); document.getElementById('modal-worker').classList.add('hidden'); loadWorkers('mgmt'); } else alert(res.error);
         });
 
-       // --- FIX D: Prevent Duplicate Remarks ---
+      // --- FIX A: Prevent Duplicate Remarks ---
         function renderChecklists() {
             const container = document.getElementById('checklists-container'); 
-            container.innerHTML = ''; // IMPORTANT: Clear container first to prevent duplicates
+            if (!container) return; // Safety check
+            container.innerHTML = ''; // 1. CLEAR CONTAINER FIRST
 
             Object.keys(CL_DATA).forEach(sec => {
                 let itemsHtml = CL_DATA[sec].map((item, i) => {
@@ -1576,6 +1584,7 @@ function handleClosureUI(p, actionsDiv) {
                 </div>`;
             });
 
+            // Re-attach "Select All" listeners
             document.querySelectorAll('.sec-toggle').forEach(el => { 
                 el.addEventListener('change', (e) => { 
                     document.querySelectorAll(`input[name^="${e.target.dataset.sec}_"]`).forEach(rb => { 
@@ -1799,6 +1808,7 @@ function handleClosureUI(p, actionsDiv) {
     </script>
 </body>
 </html>
+
 
 
 
