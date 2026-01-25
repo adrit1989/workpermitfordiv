@@ -1095,6 +1095,7 @@ app.post('/api/renewal', authenticateAccess, upload.single('RenewalImage'), asyn
                 last.rev_rem = comment || ''; 
                 if(last.oddHourReq === 'Y') last.rev_odd_hour_accepted = 'Y'; 
                 newStatus = 'Renewal Pending Approval'; 
+              last.rev_tbt = req.body.tbt_check || 'N';
             } 
             else if (userRole === 'Approver') { 
                 last.status = 'approved'; 
@@ -1102,9 +1103,7 @@ app.post('/api/renewal', authenticateAccess, upload.single('RenewalImage'), asyn
                 last.app_at = getNowIST(); 
                 last.app_rem = comment || ''; 
                 newStatus = 'Active'; 
-                // Note: We generally do NOT extend the main permit ValidTo automatically based on renewal, 
-                // as Rule B states renewal must be WITHIN main permit. 
-                // However, some workflows update main permit status to reflect current active work.
+                last.app_tbt = req.body.tbt_check || 'N';
             }
         }
     }
