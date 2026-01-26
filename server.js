@@ -577,18 +577,34 @@ async function drawPermitPDF(doc, p, d, renewalsList) {
     doc.y = wy + 20;
 
     // 10. SIGNATURES / APPROVALS
+
     if (doc.y > 650) { doc.addPage(); drawHeaderOnAll(); }
     doc.font('Helvetica-Bold').fontSize(10).text("PERMIT APPROVAL", 30, doc.y);
     doc.y += 15;
     const sY = doc.y;
 
-    const reqText = `REQ: ${safeText(d.RequesterName)}\nDate: ${safeText(d.CreatedDate)}`;
-    const revText = `REV: ${safeText(d.Reviewer_Sig)}\nRem: ${safeText(d.Reviewer_Remarks)}`;
-    const appText = `APP: ${safeText(d.Approver_Sig)}\nRem: ${safeText(d.Approver_Remarks)}`;
+    // Helper to separate Name and Timestamp from "Name on Date" string
+    const parseSig = (sig) => {
+        if (!sig || sig === '-' || typeof sig !== 'string') return { name: '-', date: '-' };
+        const parts = sig.split(' on ');
+        return { name: parts[0] || '-', date: parts[1] || '-' };
+    };
 
-    doc.rect(30, sY, 178, 45).stroke().text(reqText, 35, sY+5);
-    doc.rect(208, sY, 178, 45).stroke().text(revText, 213, sY+5);
-    doc.rect(386, sY, 179, 45).stroke().text(appText, 391, sY+5);
+    // Parse Data
+    const reqData = { name: safeText(d.RequesterName), date: safeText(d.CreatedDate) };
+    const revData = parseSig(d.Reviewer_Sig);
+    const appData = parseSig(d.Approver_Sig);
+
+    // Format Text
+    const reqText = `REQ: ${reqData.name}\nDate: ${reqData.date}`;
+    const revText = `REV: ${revData.name}\nDate: ${revData.date}\nRem: ${safeText(d.Reviewer_Remarks)}`;
+    const appText = `APP: ${appData.name}\nDate: ${appData.date}\nRem: ${safeText(d.Approver_Remarks)}`;
+
+    // Draw Boxes
+    doc.fontSize(8).font('Helvetica');
+    doc.rect(30, sY, 178, 45).stroke().text(reqText, 35, sY+5, { width: 168 });
+    doc.rect(208, sY, 178, 45).stroke().text(revText, 213, sY+5, { width: 168 });
+    doc.rect(386, sY, 179, 45).stroke().text(appText, 391, sY+5, { width: 169 });
     doc.y += 60;
 
     // 11. RENEWALS
@@ -904,7 +920,9 @@ app.post('/api/save-permit', authenticateAccess, upload.any(), async(req, res) =
     const fd = req.body;
     
     if(!fd.WorkType || !fd.ValidFrom || !fd.ValidTo) return res.status(400).json({error: "Missing Data"});
-
+    if (!fd.CreatedDate) {
+        fd.CreatedDate = getNowIST();
+    }
     // --- SAFETY VALIDATION START ---
     const vFrom = new Date(fd.ValidFrom); 
     const vTo = new Date(fd.ValidTo);
