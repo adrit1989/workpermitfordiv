@@ -1168,6 +1168,7 @@ app.get('/api/download-excel', authenticateAccess, async (req, res) => {
 });
 
 // DOWNLOAD PDF
+// DOWNLOAD PDF (Supports ?format=mainline)
 app.get('/api/download-pdf/:id', authenticateAccess, async(req, res) => {
     try {
         const pool = await getConnection();
@@ -1175,7 +1176,11 @@ app.get('/api/download-pdf/:id', authenticateAccess, async(req, res) => {
         if(!r.recordset.length) return res.status(404).send("Not Found");
         const p = r.recordset[0];
         
-        if ((p.Status==='Closed' || p.Status.includes('Closure')) && p.FinalPdfUrl && containerClient) {
+        // 1. Check Format Requested
+        const format = req.query.format; 
+
+        // 2. Archival Logic (Skip if Mainline format is requested, forcing dynamic gen)
+        if (format !== 'mainline' && (p.Status==='Closed' || p.Status.includes('Closure')) && p.FinalPdfUrl && containerClient) {
             try {
                 const blobName = `closed-permits/${p.PermitID}_FINAL.pdf`;
                 const blockBlob = containerClient.getBlockBlobClient(blobName);
@@ -1188,16 +1193,29 @@ app.get('/api/download-pdf/:id', authenticateAccess, async(req, res) => {
             } catch (err) { console.log("Archival fetch error, generating dynamic fallback."); }
         }
 
-        const doc = new PDFDocument({ margin: 30, size: 'A4' });
+        // 3. Generate PDF Dynamically
+        const doc = new PDFDocument({ margin: 30, size: 'A4', bufferPages: true });
         res.setHeader('Content-Type', 'application/pdf');
-        res.setHeader('Content-Disposition', `attachment; filename=${p.PermitID}.pdf`);
+        
+        // Adjust filename based on format
+        const filename = format === 'mainline' ? `${p.PermitID}_Mainline.pdf` : `${p.PermitID}.pdf`;
+        res.setHeader('Content-Disposition', `attachment; filename=${filename}`);
+        
         doc.pipe(res);
         
         // SAFE PARSING
         const d = p.FullDataJSON ? JSON.parse(p.FullDataJSON) : {};
         const rens = p.RenewalsJSON ? JSON.parse(p.RenewalsJSON) : [];
         
-        await drawPermitPDF(doc, p, d, rens);
+        [cite_start]// 4. Switch Logic [cite: 4, 5, 8]
+        if (format === 'mainline') {
+             // Using the new Mainline format structure
+            await drawMainlinePermitPDF(doc, p, d, rens);
+        } else {
+            // Default to Old Format
+            await drawPermitPDF(doc, p, d, rens);
+        }
+        
         doc.end();
     } catch(err) {
         console.error("PDF Gen Error:", err);
@@ -1221,6 +1239,208 @@ app.post('/api/permit-data', authenticateAccess, async(req, res) => {
         JsaLinkedId: p.JsaLinkedId 
     });
 });
+
+/* =====================================================
+   HELPER: Format Comma Separated Strings to Numbered Lists
+===================================================== */
+function formatToList(str) {
+    if (!str) return 'N/A';
+    return str.split(',')
+        .map((item, index) => `${index + 1}. ${item.trim()}`)
+        .join('\n');
+}
+
+/* =====================================================
+   NEW FORMAT: MAINLINE PERMIT PDF GENERATOR
+   (Triggered via ?format=mainline)
+===================================================== */
+async function drawMainlinePermitPDF(doc, p, d, renewalsList) {
+    const safeText = (t) => (t === null || t === undefined) ? '-' : String(t);
+
+    [cite_start]// --- PAGE 1: HEADER & DATA [cite: 1, 2, 3] ---
+    const startX = 30;
+    let currentY = 30;
+
+    // Logos
+    const logoPath = path.join(__dirname, 'public', 'logo.png');
+    if (fs.existsSync(logoPath)) {
+        try { doc.image(logoPath, startX, currentY, { fit: [50, 50] }); } catch (e) {}
+    }
+    
+    // Titles
+    doc.font('Helvetica-Bold').fontSize(12).text('Indian Oil', 0, currentY, { align: 'center' });
+    doc.text('ERPL', { align: 'center' });
+    doc.fontSize(10).text('PIPELINES DIVISION', { align: 'center' });
+    currentY += 45;
+    
+    doc.fontSize(11).text('GUIDELINES ON WORK PERMIT SYSTEM (WPS) FOR', { align: 'center' });
+    doc.text('MAINLINE WORK of PIPELINES DIVISION', { align: 'center' });
+    currentY += 30;
+
+    [cite_start]// --- MAIN DATA TABLES [cite: 4] ---
+    doc.lineWidth(0.5);
+    const col1 = 30;  // Label Col 1
+    const col2 = 180; // Data Col 1
+    const col3 = 350; // Label Col 2
+    const col4 = 450; // Data Col 2
+    const rightEdge = 565;
+    const rowH = 25;  // Base row height
+    
+    doc.font('Helvetica').fontSize(9);
+
+    // Row 1: Permit No | Type
+    doc.rect(col1, currentY, col2 - col1, rowH).stroke().text('Permit No:', col1 + 5, currentY + 8);
+    doc.rect(col2, currentY, col3 - col2, rowH).stroke().text(p.PermitID, col2 + 5, currentY + 8);
+    doc.rect(col3, currentY, col4 - col3, rowH).stroke().text('Type of Permit:', col3 + 5, currentY + 8);
+    doc.rect(col4, currentY, rightEdge - col4, rowH).stroke().text(safeText(d.WorkType), col4 + 5, currentY + 8);
+    currentY += rowH;
+
+    // Row 2: Work Order | Contractor Name (Requestor)
+    doc.rect(col1, currentY, col2 - col1, rowH).stroke().text('Work Order No:', col1 + 5, currentY + 8);
+    doc.rect(col2, currentY, col3 - col2, rowH).stroke().text(safeText(d.WorkOrder), col2 + 5, currentY + 8);
+    doc.rect(col3, currentY, col4 - col3, rowH).stroke().text('Contractor Names:', col3 + 5, currentY + 8);
+    doc.rect(col4, currentY, rightEdge - col4, rowH).stroke().text(safeText(d.RequesterName), col4 + 5, currentY + 8);
+    currentY += rowH;
+
+    // Row 3: Prior Consent (Yes/No & By Whom)
+    const consentTaken = d.Approver_Sig ? "Yes" : "No";
+    const consentBy = d.Approver_Sig ? d.Approver_Sig : "Pending Approval";
+
+    doc.rect(col1, currentY, col2 - col1, rowH * 2).stroke().text('Prior Information/consent taken for work (Yes/No):', col1 + 5, currentY + 8, {width: 140});
+    doc.rect(col2, currentY, col3 - col2, rowH * 2).stroke().text(consentTaken, col2 + 5, currentY + 20);
+    doc.rect(col3, currentY, col4 - col3, rowH * 2).stroke().text('Prior Information/consent given by:', col3 + 5, currentY + 8, {width: 90});
+    doc.rect(col4, currentY, rightEdge - col4, rowH * 2).stroke().text(consentBy, col4 + 5, currentY + 8, {width: 110});
+    currentY += (rowH * 2);
+
+    // Row 4: SOP No
+    doc.rect(col1, currentY, col2 - col1, rowH).stroke().text('Approved SOP/SWP/SMP no:', col1 + 5, currentY + 8);
+    doc.rect(col2, currentY, rightEdge - col2, rowH).stroke().text(safeText(d.SopNo), col2 + 5, currentY + 8);
+    currentY += rowH;
+
+    // Row 5: JSA No
+    doc.rect(col1, currentY, col2 - col1, rowH).stroke().text('Approved site specific JSA no:', col1 + 5, currentY + 8);
+    doc.rect(col2, currentY, rightEdge - col2, rowH).stroke().text(safeText(d.JsaNo), col2 + 5, currentY + 8);
+    currentY += rowH;
+
+    // Row 6: IOCL Equipment (Numbered List)
+    const ioclEquipList = formatToList(d.IoclEquip);
+    const ioclH = Math.max(rowH, ioclEquipList.split('\n').length * 12 + 10);
+
+    doc.rect(col1, currentY, col2 - col1, ioclH).stroke().text('IOCL Equipment / Machinery deployed at Site:', col1 + 5, currentY + 8, {width: 140});
+    doc.rect(col2, currentY, rightEdge - col2, ioclH).stroke().text(ioclEquipList, col2 + 5, currentY + 8);
+    currentY += ioclH;
+
+    // Row 7: Contractor Equipment (Numbered List)
+    const contEquipList = formatToList(d.ContEquip);
+    const contH = Math.max(rowH, contEquipList.split('\n').length * 12 + 10);
+
+    doc.rect(col1, currentY, col2 - col1, contH).stroke().text('Contractor Equipment / Machinery deployed at Site:', col1 + 5, currentY + 8, {width: 140});
+    doc.rect(col2, currentY, rightEdge - col2, contH).stroke().text(contEquipList, col2 + 5, currentY + 8);
+    currentY += contH;
+
+    // --- SUPERVISOR TABLES ---
+    
+    // IOCL Supervisors
+    currentY += 10;
+    if(currentY > 650) { doc.addPage(); currentY = 30; }
+    doc.font('Helvetica-Bold').text('Authorized work supervisor from IOCL side:', col1, currentY);
+    currentY += 15;
+
+    // Headers
+    doc.rect(col1, currentY, 40, 20).stroke().text('Sr No', col1 + 5, currentY + 5);
+    doc.rect(col1 + 40, currentY, 250, 20).stroke().text('Name', col1 + 45, currentY + 5);
+    doc.rect(col1 + 290, currentY, 245, 20).stroke().text('Contact No', col1 + 295, currentY + 5);
+    currentY += 20;
+
+    let ioclSups = [];
+    if(d.IOCLSupervisors) {
+        if(Array.isArray(d.IOCLSupervisors)) ioclSups = d.IOCLSupervisors;
+        else if(typeof d.IOCLSupervisors === 'string') try { ioclSups = JSON.parse(d.IOCLSupervisors); } catch(e){}
+    }
+    
+    doc.font('Helvetica');
+    if(ioclSups.length === 0) {
+        doc.rect(col1, currentY, 535, 20).stroke().text('No IOCL Supervisors assigned', col1 + 5, currentY + 5);
+        currentY += 20;
+    } else {
+        ioclSups.forEach((sup, idx) => {
+             if (sup.is_deleted) return;
+             doc.rect(col1, currentY, 40, 20).stroke().text((idx + 1).toString(), col1 + 5, currentY + 5);
+             doc.rect(col1 + 40, currentY, 250, 20).stroke().text(safeText(sup.name), col1 + 45, currentY + 5);
+             doc.rect(col1 + 290, currentY, 245, 20).stroke().text(safeText(sup.contact), col1 + 295, currentY + 5);
+             currentY += 20;
+        });
+    }
+
+    // Contractor Supervisors
+    currentY += 10;
+    doc.font('Helvetica-Bold').text('Authorized work supervisor from Contractor side:', col1, currentY);
+    currentY += 15;
+    
+    doc.rect(col1, currentY, 40, 20).stroke().text('Sr No', col1 + 5, currentY + 5);
+    doc.rect(col1 + 40, currentY, 250, 20).stroke().text('Name', col1 + 45, currentY + 5);
+    doc.rect(col1 + 290, currentY, 245, 20).stroke().text('Contact No', col1 + 295, currentY + 5);
+    currentY += 20;
+
+    doc.font('Helvetica');
+    doc.rect(col1, currentY, 40, 20).stroke().text('1', col1 + 5, currentY + 5);
+    doc.rect(col1 + 40, currentY, 250, 20).stroke().text(safeText(d.RequesterName), col1 + 45, currentY + 5);
+    doc.rect(col1 + 290, currentY, 245, 20).stroke().text(safeText(d.EmergencyContact), col1 + 295, currentY + 5);
+    currentY += 20;
+
+    [cite_start]// --- PAGE 2: ATTACHMENT B (WORKERS) [cite: 5, 7, 8] ---
+    if (currentY > 600) { doc.addPage(); currentY = 30; } else { currentY += 30; }
+
+    doc.font('Helvetica-Bold').fontSize(11).text('ATTACHMENT TO MAINLINE WORK PERMIT', col1, currentY, {underline: true});
+    currentY += 20;
+    doc.fontSize(10).text('B) Detail of associated workers', col1, currentY);
+    currentY += 20;
+
+    // Worker Headers
+    doc.fontSize(9);
+    const wx1 = 30; const wx2 = 70; const wx3 = 220; const wx4 = 280; const wx5 = 320; const wx6 = 565;
+
+    doc.rect(wx1, currentY, wx2-wx1, 25).stroke().text('Sr No', wx1+2, currentY+8);
+    doc.rect(wx2, currentY, wx3-wx2, 25).stroke().text('Worker Name', wx2+2, currentY+8);
+    doc.rect(wx3, currentY, wx4-wx3, 25).stroke().text('Gender', wx3+2, currentY+8);
+    doc.rect(wx4, currentY, wx5-wx4, 25).stroke().text('Age', wx4+2, currentY+8);
+    doc.rect(wx5, currentY, wx6-wx5, 25).stroke().text('Name of Contractor', wx5+2, currentY+8);
+    currentY += 25;
+
+    // Worker Data
+    let workers = [];
+    if(d.SelectedWorkers) {
+        if(Array.isArray(d.SelectedWorkers)) workers = d.SelectedWorkers;
+        else if(typeof d.SelectedWorkers === 'string') try { workers = JSON.parse(d.SelectedWorkers); } catch(e){}
+    }
+
+    doc.font('Helvetica');
+    const contractorName = safeText(d.Vendor) || safeText(d.RequesterName);
+
+    workers.forEach((w, index) => {
+        if (currentY > 750) { doc.addPage(); currentY = 30; }
+        doc.rect(wx1, currentY, wx2-wx1, 20).stroke().text((index + 1).toString(), wx1+2, currentY+5);
+        doc.rect(wx2, currentY, wx3-wx2, 20).stroke().text(safeText(w.Name), wx2+2, currentY+5);
+        doc.rect(wx3, currentY, wx4-wx3, 20).stroke().text(safeText(w.Gender), wx3+2, currentY+5);
+        doc.rect(wx4, currentY, wx5-wx4, 20).stroke().text(safeText(w.Age), wx4+2, currentY+5);
+        doc.rect(wx5, currentY, wx6-wx5, 20).stroke().text(contractorName, wx5+2, currentY+5);
+        currentY += 20;
+    });
+    
+    [cite_start]// --- FOOTER [cite: 9, 10, 11] ---
+    const bottomY = doc.page.height - 50;
+    doc.font('Helvetica').fontSize(8);
+    doc.text('Annexure III', 30, bottomY);
+    doc.text('DOCUMENT NUMBER PL/HO/HSE/18/2025-26/01, Rev 0', 30, bottomY + 10);
+    doc.text('Effective from: 01.07.2025', 30, bottomY + 20);
+    
+    // Page Numbers
+    let pages = doc.bufferedPageRange();
+    for (let i = 0; i < pages.count; i++) {
+        doc.switchToPage(i);
+        doc.text(`Page ${i + 1} of ${pages.count}`, 500, doc.page.height - 30);
+    }
+}
 /* =====================================================
    JSA PORTAL ROUTES (Crash Proofed from B)
 ===================================================== */
