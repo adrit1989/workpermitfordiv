@@ -1981,6 +1981,35 @@ async function downloadJsaPdf(id) {
         alert("Failed to retrieve JSA PDF.");
     }
 }
+// Function to handle Excel Export
+async function downloadSecureExcel() {
+    try {
+        document.getElementById('loader').style.display = 'flex';
+        
+        const res = await fetch(`${API}/download-excel`, { 
+            method: 'GET', 
+            headers: {'Authorization': `Bearer ${authToken}`} 
+        });
+
+        if (!res.ok) throw new Error("Export failed");
+
+        const blob = await res.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `Permits_Export_${getNow().replace(/[\/, :]/g, '-')}.xlsx`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+
+    } catch (e) {
+        console.error("Excel Export Error:", e);
+        alert("Failed to export Excel data.");
+    } finally {
+        document.getElementById('loader').style.display = 'none';
+    }
+}
 // 2. Updated download function to accept 'format' parameter
 async function downloadSecurePDF(id, format = 'default') {
     try {
@@ -2046,6 +2075,7 @@ async function downloadSecurePDF(id, format = 'default') {
     </script>
 </body>
 </html>
+
 
 
 
