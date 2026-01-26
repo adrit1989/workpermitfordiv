@@ -898,7 +898,7 @@
 
             const renderTable = (title, items, color) => {
                 let rowsHtml = items.length === 0 ? `<tr><td colspan="6" class="p-4 text-center text-gray-400 italic bg-gray-50">No permits found.</td></tr>` : items.map(p => {
-                    let action = (p.Status === 'Closed' || p.Status === 'Active' || p.Status.includes('Renewal')) ? `<button class="btn-pdf" onclick="event.stopPropagation(); downloadSecurePDF('${p.PermitID}')">📥 PDF</button>` : '';
+                    let action = (p.Status === 'Closed' || p.Status === 'Active' || p.Status.includes('Renewal')) ? `<button class="btn-pdf" onclick="event.stopPropagation(); downloadPDFWithChoice('${p.PermitID}')">📥 PDF</button>` : '';
                     return `<tr onclick="openPermit('${p.PermitID}')" class="hover:bg-gray-50 transition cursor-pointer">
                         <td class="p-3 font-bold text-blue-600">${p.PermitID}</td>
                         <td>${p.WorkType || '-'}</td>
@@ -1883,45 +1883,95 @@ async function submitRenewal(act) {
             const res = await apiCall('/jsa/action', 'POST', { id, action, remarks: rem, role: currentUser.Role, user: currentUser.Name, updatedData: JSON.stringify({ team, steps, additionalPrecautions: document.getElementById('jsa-additional-prec').value }) });
             if(res.success) { alert("Action Completed"); switchView('jsa'); } else alert(res.error);
         }
-        // --- PASTE THIS FUNCTION ---
-        async function downloadSecurePDF(id) {
-            try {
-                document.getElementById('loader').style.display = 'flex';
-                
-                // Fetch the PDF with the Auth Token header
-                const res = await fetch(`${API}/download-pdf/${id}`, { 
-                    method: 'GET',
-                    headers: {'Authorization': `Bearer ${authToken}`} 
-                });
+       /* =====================================================
+   NEW: PDF SELECTION LOGIC
+===================================================== */
 
-                if(!res.ok) throw new Error("Server returned " + res.status);
+// 1. Function to show the selection modal
+function downloadPDFWithChoice(id) {
+    // Check if a modal already exists to prevent duplicates
+    if (document.getElementById('pdf-modal')) return;
 
-                // Convert response to a blob and download it
-                const blob = await res.blob();
-                const url = window.URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = `Permit-${id}.pdf`;
-                document.body.appendChild(a);
-                a.click();
-                
-                // Cleanup
-                window.URL.revokeObjectURL(url);
-                document.body.removeChild(a);
+    const modal = document.createElement('div');
+    modal.id = 'pdf-modal';
+    modal.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:10000;display:flex;justify-content:center;align-items:center;backdrop-filter:blur(2px);";
+    
+    modal.innerHTML = `
+        <div class="bg-white p-6 rounded-xl shadow-2xl text-center max-w-sm w-full border-t-4 border-blue-600 animate-scale-up">
+            <h3 class="font-bold text-xl mb-2 text-gray-800">📄 Download Permit PDF</h3>
+            <p class="text-sm text-gray-500 mb-6">Please select the preferred document format:</p>
+            
+            <div class="space-y-3">
+                <button id="btn-fmt-main" class="w-full bg-blue-600 text-white px-4 py-3 rounded-lg font-bold shadow hover:bg-blue-700 transition flex items-center justify-center gap-2">
+                    <span>🏢</span> Mainline Format (New)
+                </button>
+                <button id="btn-fmt-std" class="w-full bg-gray-100 text-gray-700 px-4 py-3 rounded-lg font-bold hover:bg-gray-200 border border-gray-300 transition flex items-center justify-center gap-2">
+                    <span>📑</span> Standard Format (Old)
+                </button>
+            </div>
+            
+            <button id="btn-fmt-cancel" class="mt-6 text-xs text-red-500 font-bold hover:underline">Cancel</button>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
 
-            } catch(e) {
-                console.error("PDF Download Error:", e);
-                alert("Failed to download PDF. Please try again.");
-            } finally {
-                document.getElementById('loader').style.display = 'none';
-            }
-        }
-        // Sync Helper
-        window.syncGasToRenewal = function() {
-            if(document.getElementById('chk-init-renewal').checked) {
-                safeSet('InitRenHC', getVal('GP_Q12_HC')); safeSet('InitRenTox', getVal('GP_Q12_ToxicGas')); safeSet('InitRenO2', getVal('GP_Q12_Oxygen'));
-            }
-        };
+    // Event Listeners
+    document.getElementById('btn-fmt-main').onclick = () => {
+        downloadSecurePDF(id, 'mainline');
+        closePdfModal();
+    };
+    document.getElementById('btn-fmt-std').onclick = () => {
+        downloadSecurePDF(id, 'default');
+        closePdfModal();
+    };
+    document.getElementById('btn-fmt-cancel').onclick = closePdfModal;
+    
+    // Close on background click
+    modal.onclick = (e) => { if(e.target === modal) closePdfModal(); };
+}
+
+function closePdfModal() {
+    const m = document.getElementById('pdf-modal');
+    if(m) document.body.removeChild(m);
+}
+
+// 2. Updated download function to accept 'format' parameter
+async function downloadSecurePDF(id, format = 'default') {
+    try {
+        document.getElementById('loader').style.display = 'flex';
+        
+        // Pass the format parameter to the API
+        const res = await fetch(`${API}/download-pdf/${id}?format=${format}`, { 
+            method: 'GET',
+            headers: {'Authorization': `Bearer ${authToken}`} 
+        });
+
+        if(!res.ok) throw new Error("Server returned " + res.status);
+
+        const blob = await res.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        
+        // Naming convention
+        const suffix = format === 'mainline' ? '_Mainline' : '';
+        a.download = `Permit-${id}${suffix}.pdf`;
+        
+        document.body.appendChild(a);
+        a.click();
+        
+        // Cleanup
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+
+    } catch(e) {
+        console.error("PDF Download Error:", e);
+        alert("Failed to download PDF. Please try again.");
+    } finally {
+        document.getElementById('loader').style.display = 'none';
+    }
+}
 
         document.getElementById('btn-add-rev-sup').onclick = () => addIOCLRow('iocl-sup-container-rev');
         document.getElementById('btn-add-app-sup').onclick = () => addIOCLRow('iocl-sup-container-app');
@@ -1951,6 +2001,7 @@ async function submitRenewal(act) {
     </script>
 </body>
 </html>
+
 
 
 
