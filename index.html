@@ -372,11 +372,6 @@
         <button type="button" id="btn-add-rev-sup" class="mt-2 text-xs bg-gray-200 px-2 py-1 rounded font-bold">+ Add Supervisor</button>
     </div>
 
-    <label class="flex items-center gap-2 mt-2 mb-2 p-2 bg-blue-50 border border-blue-200 rounded cursor-pointer">
-        <input type="checkbox" id="Rev_Ren_TBT" class="w-4 h-4 accent-blue-600">
-        <span class="text-xs font-bold text-blue-800">Reviewer: Confirm TBT Conducted</span>
-    </label>
-
     <textarea name="Reviewer_Remarks" id="Reviewer_Remarks" placeholder="Reviewer Remarks" class="w-full"></textarea>
 </div>
 
@@ -396,11 +391,6 @@
         <div id="iocl-sup-container-app" class="space-y-2 mt-2"></div>
         <button type="button" id="btn-add-app-sup" class="mt-2 text-xs bg-gray-200 px-2 py-1 rounded font-bold">+ Add Supervisor</button>
     </div>
-
-    <label class="flex items-center gap-2 mt-2 mb-2 p-2 bg-blue-50 border border-blue-200 rounded cursor-pointer">
-        <input type="checkbox" id="App_Ren_TBT" class="w-4 h-4 accent-blue-600">
-        <span class="text-xs font-bold text-blue-800">Approver: Confirm TBT Conducted</span>
-    </label>
 
     <div class="mt-2 mb-2 p-2 bg-indigo-50 border border-indigo-200 rounded">
         <label class="block text-xs font-bold text-indigo-800 mb-1">Optional: Upload TBT Record</label>
@@ -489,13 +479,24 @@
                                 </div>
                                 <button type="button" onclick="submitRenewal('pending_review')" class="w-full bg-purple-600 text-white py-2 rounded font-bold shadow hover:bg-purple-700">Submit Request</button>
                             </div>
-                            <div id="action-renewal" class="hidden p-4 bg-yellow-50 mt-2 rounded border border-yellow-200">
-                                <textarea id="RenewalRemark" placeholder="Remarks (Mandatory for Rejection)" class="w-full mb-2"></textarea>
-                                <div class="grid grid-cols-2 gap-2">
-                                    <button type="button" id="btn-approve-renewal" class="bg-green-600 text-white py-2 rounded font-bold shadow disabled:opacity-50 disabled:cursor-not-allowed">Submit Renewal Decision</button>
-                                    <button type="button" id="btn-reject-renewal" class="bg-red-600 text-white py-2 rounded font-bold shadow">Reject Renewal</button>
-                                </div>
-                            </div>
+<div id="action-renewal" class="hidden p-4 bg-yellow-50 mt-2 rounded border border-yellow-200">
+    <div id="ren-tbt-container" class="mb-2">
+        <label id="lbl-rev-ren-tbt" class="hidden flex items-center gap-2 p-2 bg-white border border-blue-200 rounded cursor-pointer mb-2">
+            <input type="checkbox" id="Rev_Ren_TBT" class="w-4 h-4 accent-blue-600"> 
+            <span class="text-xs font-bold text-blue-800">Reviewer: Confirm TBT Conducted for Renewal</span>
+        </label>
+        
+        <label id="lbl-app-ren-tbt" class="hidden flex items-center gap-2 p-2 bg-white border border-blue-200 rounded cursor-pointer mb-2">
+            <input type="checkbox" id="App_Ren_TBT" class="w-4 h-4 accent-blue-600"> 
+            <span class="text-xs font-bold text-blue-800">Approver: Confirm TBT Conducted for Renewal</span>
+        </label>
+    </div>
+    <textarea id="RenewalRemark" placeholder="Remarks (Mandatory for Rejection)" class="w-full mb-2"></textarea>
+    <div class="grid grid-cols-2 gap-2">
+        <button type="button" id="btn-approve-renewal" class="bg-green-600 text-white py-2 rounded font-bold shadow disabled:opacity-50 disabled:cursor-not-allowed">Submit Renewal Decision</button>
+        <button type="button" id="btn-reject-renewal" class="bg-red-600 text-white py-2 rounded font-bold shadow">Reject Renewal</button>
+    </div>
+</div>
                         </div>
  
                         <div id="closure-section" class="glass hidden border-l-4 border-gray-600">
@@ -1232,10 +1233,15 @@ document.getElementById('renewal-history-body').innerHTML = rens.map(r => {
                     const isRevTurn = (currentUser.Role === 'Reviewer' && statusClean.includes('Renewal Pending Review'));
                     const isAppTurn = (currentUser.Role === 'Approver' && statusClean.includes('Renewal Pending Approval'));
 
-                    if (isRevTurn || isAppTurn) {
+if (isRevTurn || isAppTurn) {
+                        // Unhide main sections for context
                         if(isRevTurn) document.getElementById('fs-reviewer-section').classList.remove('hidden');
                         if(isAppTurn) document.getElementById('fs-approver-section').classList.remove('hidden');
                         document.getElementById('action-renewal').classList.remove('hidden');
+                        document.getElementById('lbl-rev-ren-tbt').classList.add('hidden'); // Reset Reviewer Lbl
+                        document.getElementById('lbl-app-ren-tbt').classList.add('hidden'); // Reset Approver Lbl
+                        if(isRevTurn) document.getElementById('lbl-rev-ren-tbt').classList.remove('hidden');
+                        if(isAppTurn) document.getElementById('lbl-app-ren-tbt').classList.remove('hidden');
                         document.getElementById('RenewalRemark').disabled = false;
                         const btnApprove = document.getElementById('btn-approve-renewal');
                         const btnReject = document.getElementById('btn-reject-renewal');
@@ -1939,6 +1945,7 @@ async function submitRenewal(act) {
     </script>
 </body>
 </html>
+
 
 
 
