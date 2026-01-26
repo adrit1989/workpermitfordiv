@@ -1822,7 +1822,7 @@ async function generateJsaPdfBuffer(jsa, refNo, approverName, approvedDate) {
             y += rowH;
         });
 
-        // --- 6. ADDITIONAL PRECAUTIONS ---
+       // --- 6. ADDITIONAL PRECAUTIONS ---
         y += 15;
         if (y > 700) { doc.addPage(); y = 30; }
 
@@ -1830,8 +1830,39 @@ async function generateJsaPdfBuffer(jsa, refNo, approverName, approvedDate) {
         y += 15;
         doc.font('Helvetica').fontSize(9);
         
-        const precs = data.additionalPrecautions || 'None';
-        doc.text(precs, startX, y, { width: width });
+        // Default List
+        const defaultPrecs = [
+            "Only qualified and experienced welder shall be engaged.",
+            "Ensure availability of all tools, tackles, PPEs and preparedness at site as per JSA.",
+            "Ensure availability of DCP & CO2 cylinders at site.",
+            "Ensuring LEL level is within the acceptable limits by checking at regular intervals.",
+            "Proper Hot / Cold work permit to be taken for each work.",
+            "Walkie talkie to be used for communication during execution of job.",
+            "Safety officer and site supervisor deployed by contractor shall be present at site.",
+            "IOCL approved procedures to be followed to carry out all activities.",
+            "Barricading to be done near pig launching barrel."
+        ];
+
+        let allPrecs = [...defaultPrecs];
+        
+        // Append user-entered precautions if present
+        const userPrec = data.additionalPrecautions;
+        if (userPrec && userPrec.trim() !== '' && userPrec !== 'None') {
+            allPrecs.push(userPrec);
+        }
+
+        // Render List
+        allPrecs.forEach((item, index) => {
+            // Check for page break before printing each line
+            const textHeight = doc.heightOfString(`${index + 1}. ${item}`, { width: width });
+            if (y + textHeight > 750) { 
+                doc.addPage(); 
+                y = 30; 
+            }
+            
+            doc.text(`${index + 1}. ${item}`, startX, y, { width: width });
+            y += textHeight + 5; // Add dynamic spacing based on text height
+        });
 
         doc.end();
     });
