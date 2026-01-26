@@ -1272,8 +1272,37 @@ if (isRevTurn || isAppTurn) {
                 }
 
                 if (isFirstRenRequest && (statusClean === 'Pending Review' || statusClean === 'Pending Approval')) {
-                    if (currentUser.Role === 'Reviewer' && statusClean === 'Pending Review') document.getElementById('rev-renewal-decision').classList.remove('hidden');
-                    if (currentUser.Role === 'Approver' && statusClean === 'Pending Approval') document.getElementById('app-renewal-decision').classList.remove('hidden');
+                    // Reviewer Logic: Always show decision box if it's their turn
+                    if (currentUser.Role === 'Reviewer' && statusClean === 'Pending Review') {
+                        document.getElementById('rev-renewal-decision').classList.remove('hidden');
+                    }
+                    
+                    // Approver Logic: Only show the "Renewal Decision" box if the renewal IS NOT already rejected
+                    if (currentUser.Role === 'Approver' && statusClean === 'Pending Approval') {
+                        // Check if the last renewal (the 1st one) is already rejected
+                        const isRenewalRejected = (lastRen && lastRen.status === 'rejected');
+                        
+                        if (!isRenewalRejected) {
+                            document.getElementById('app-renewal-decision').classList.remove('hidden');
+                        } else {
+                            // 1. Unhide the container so we can show a message
+                            const decisionBox = document.getElementById('app-renewal-decision');
+                            decisionBox.classList.remove('hidden');
+                            
+                            // 2. Replace the Radio Buttons with a Red Warning Message
+                            decisionBox.innerHTML = `
+                                <div class="bg-red-50 border-l-4 border-red-500 p-3 rounded">
+                                    <div class="flex items-center gap-2">
+                                        <span class="text-lg">🚫</span>
+                                        <div>
+                                            <p class="font-bold text-xs text-red-800 uppercase">Renewal Already Rejected</p>
+                                            <p class="text-xs text-red-600">The Reviewer has rejected the 1st renewal request. You are processing the Main Permit only.</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            `;
+                        }
+                    }
                 }
 
                 if (statusClean === 'Active' && currentUser.Role === 'Approver') {
@@ -2001,6 +2030,7 @@ async function downloadSecurePDF(id, format = 'default') {
     </script>
 </body>
 </html>
+
 
 
 
