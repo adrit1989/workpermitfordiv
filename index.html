@@ -1964,7 +1964,23 @@ function closePdfModal() {
     const m = document.getElementById('pdf-modal');
     if(m) document.body.removeChild(m);
 }
-
+// Function to handle JSA PDF downloads
+async function downloadJsaPdf(id) {
+    try {
+        // Call the API to get the PDF URL
+        const res = await apiCall(`/jsa/download/${id}`);
+        
+        if(res && res.url) {
+            // Use existing file viewer logic
+            viewSecureFile(res.url);
+        } else {
+            alert("PDF not found. It might not be approved yet.");
+        }
+    } catch(e) {
+        console.error("JSA PDF Error:", e);
+        alert("Failed to retrieve JSA PDF.");
+    }
+}
 // 2. Updated download function to accept 'format' parameter
 async function downloadSecurePDF(id, format = 'default') {
     try {
@@ -2030,6 +2046,7 @@ async function downloadSecurePDF(id, format = 'default') {
     </script>
 </body>
 </html>
+
 
 
 
