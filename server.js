@@ -981,7 +981,7 @@ app.post('/api/save-permit', authenticateAccess, upload.any(), async(req, res) =
 
     res.json({success: true, permitId: pid});
 });
-// UPDATE STATUS (With Override Logic)
+
 app.post('/api/update-status', authenticateAccess, upload.any(), async(req, res) => {
     const { PermitID, action, ...extras } = req.body;
     const pool = await getConnection();
@@ -996,7 +996,7 @@ app.post('/api/update-status', authenticateAccess, upload.any(), async(req, res)
     const usr = req.user.name;
     Object.assign(d, extras);
 
-    // --- HANDLE JSA FILE UPDATE (OVERRIDE LOGIC) ---
+    // --- HANDLE JSA FILE UPDATE ---
     let newJsaUrl = null;
     let sqlSetJsa = ""; 
 
@@ -1012,31 +1012,69 @@ app.post('/api/update-status', authenticateAccess, upload.any(), async(req, res)
     if (newJsaId && !newJsaUrl) {
          sqlSetJsa += ", JsaLinkedId=@jsaId, JsaFileUrl=NULL";
     }
-    // ... existing file checks ...
 
-    // Handle TBT Upload
-    if (req.files) {
-        const tbt = req.files.find(f => f.fieldname === 'TBT_PDF_File');
-        if (tbt) {
-            const url = await uploadToAzure(tbt.buffer, `tbt/${PermitID}_${Date.now()}.pdf`, 'application/pdf');
-            d.TBT_File_Url = url;
-        }
-    }
-    if(req.body.TBT_Ref_No) d.TBT_Ref_No = req.body.TBT_Ref_No;
-    if (action === 'reject') st = 'Rejected';
-    else if (action === 'review') { st = 'Pending Approval'; d.Reviewer_Sig = `${usr} on ${now}`; }
-    else if (action === 'approve' && st.includes('Closure')) { st = 'Closed'; d.Closure_Approver_Date = now; d.Closure_Issuer_Sig = `${usr} on ${now}`; }
-    else if (action === 'approve') { st = 'Active'; d.Approver_Sig = `${usr} on ${now}`; }
-    else if (action === 'initiate_closure') { st = 'Closure Pending Review'; d.Closure_Requestor_Date = now; d.Closure_Receiver_Sig = `${usr} on ${now}`; }
+    // Handle TBT Upload
+    if (req.files) {
+        const tbt = req.files.find(f => f.fieldname === 'TBT_PDF_File');
+        if (tbt) {
+            const url = await uploadToAzure(tbt.buffer, `tbt/${PermitID}_${Date.now()}.pdf`, 'application/pdf');
+            d.TBT_File_Url = url;
+        }
+    }
+    if(req.body.TBT_Ref_No) d.TBT_Ref_No = req.body.TBT_Ref_No;
+ 
+    if (action === 'reject') {
+        // This handles the main red "Reject Permit" button.
+        // Kills the entire permit immediately.
+        st = 'Rejected';
+    }
+    else if (action === 'review' || action === 'approve_1st_ren') { 
+        // Handles "Review & Forward".
+        // Even if FirstRenewalAction is 'reject', we move the permit to 'Pending Approval'.
+        // The renewal *entry* itself will be marked 'rejected' in the JSON array (logic below),
+        // but the permit will continue to the Approver.
+        st = 'Pending Approval'; 
+        d.Reviewer_Sig = `${usr} on ${now}`; 
+    }
+    else if (action === 'approve' && st.includes('Closure')) { 
+        st = 'Closed'; 
+        d.Closure_Approver_Date = now; 
+        d.Closure_Issuer_Sig = `${usr} on ${now}`; 
+    }
+    else if (action === 'approve') { 
+        st = 'Active'; 
+        d.Approver_Sig = `${usr} on ${now}`; 
+    }
+    else if (action === 'initiate_closure') { 
+        st = 'Closure Pending Review'; 
+        d.Closure_Requestor_Date = now; 
+        d.Closure_Receiver_Sig = `${usr} on ${now}`; 
+    }
     else if (action === 'reject_closure') { st = 'Active'; } 
-    else if (action === 'approve_closure') { st = 'Closure Pending Approval'; d.Closure_Reviewer_Date = now; d.Closure_Reviewer_Sig = `${usr} on ${now}`; }
-
+    else if (action === 'approve_closure') { 
+        st = 'Closure Pending Approval'; 
+        d.Closure_Reviewer_Date = now; 
+        d.Closure_Reviewer_Sig = `${usr} on ${now}`; 
+    }
+    
+    // --- RENEWAL ARRAY LOGIC ---
     if(action === 'approve_1st_ren' || action === 'approve' || action === 'review') {
         if(rens.length > 0 && rens[rens.length-1].status.includes('pending')) {
              let last = rens[rens.length-1];
-             if(req.body.FirstRenewalAction === 'reject') { last.status = 'rejected'; if(st.includes('Renewal')) st = 'Active'; }
-             else if(req.user.role === 'Reviewer') { last.status = 'pending_approval'; last.rev_name = usr; st = 'Pending Approval'; }
-             else if(req.user.role === 'Approver') { last.status = 'approved'; last.app_name = usr; st = 'Active'; }
+             if(req.body.FirstRenewalAction === 'reject') { 
+                 last.status = 'rejected'; 
+                 // If status was already set to Rejected above, this just confirms the renewal array status
+             }
+             else if(req.user.role === 'Reviewer') { 
+                 last.status = 'pending_approval'; 
+                 last.rev_name = usr; 
+                 // st is already set to 'Pending Approval' above
+             }
+             else if(req.user.role === 'Approver') { 
+                 last.status = 'approved'; 
+                 last.app_name = usr; 
+                 // st is already set to 'Active' above
+             }
         }
     }
 
@@ -1049,6 +1087,7 @@ app.post('/api/update-status', authenticateAccess, upload.any(), async(req, res)
                 doc.on('data', chunks.push.bind(chunks));
                 doc.on('end', () => resolve(Buffer.concat(chunks)));
                 doc.on('error', reject);
+                // Note: We use the default format for archival to be safe
                 drawPermitPDF(doc, pdfRecord, d, rens).then(() => doc.end()).catch(reject);
             });
             const blobName = `closed-permits/${PermitID}_FINAL.pdf`;
