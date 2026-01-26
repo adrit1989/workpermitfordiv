@@ -1656,7 +1656,7 @@ app.get('/api/jsa/download/:id', authenticateAccess, async(req, res) => {
 
 async function generateJsaPdfBuffer(jsa, refNo, approverName, approvedDate) {
     return new Promise((resolve, reject) => {
-        const doc = new PDFDocument({ margin: 30, size: 'A4' });
+        const doc = new PDFDocument({ margin: 30, size: 'A4', bufferPages: true });
         const chunks = [];
         doc.on('data', chunks.push.bind(chunks));
         doc.on('end', () => resolve(Buffer.concat(chunks)));
@@ -1665,44 +1665,158 @@ async function generateJsaPdfBuffer(jsa, refNo, approverName, approvedDate) {
         const team = data.team || [];
         const steps = data.steps || [];
 
-        // Header
-        doc.font('Helvetica-Bold').fontSize(14).text('JOB SAFETY ANALYSIS', { align: 'center' });
-        doc.fontSize(10).text('IndianOil Corporation Limited', { align: 'center' });
-        doc.moveDown();
-        
-        // Info Box
-        const startY = doc.y;
-        doc.rect(30, startY, 535, 70).stroke();
-        doc.fontSize(9).text(`Ref: ${refNo}`, 35, startY+10);
-        doc.text(`Date: ${approvedDate}`, 400, startY+10);
-        doc.text(`Job: ${jsa.JobTitle}`, 35, startY+25);
-        doc.text(`Loc: ${jsa.Location}`, 35, startY+40);
-        doc.text(`Executed By: ${jsa.ExecutedBy}`, 35, startY+55);
+        // Layout Constants
+        const startX = 30;
+        const width = 535;
+        let y = 30;
+        const col1 = 30;
+        const col2 = 180;
+        const col3 = 350;
+        const col4 = 450;
 
-        // Team
-        doc.y = startY + 80;
-        doc.font('Helvetica-Bold').text('JSA DONE BY:', 30, doc.y);
-        doc.y += 15;
-        team.forEach(p => doc.font('Helvetica').text(`- ${p.name} (${p.desig}, ${p.dept})`));
+        // --- 1. HEADER ---
+        const logoPath = path.join(__dirname, 'public', 'logo.png');
+        if (fs.existsSync(logoPath)) {
+            try { doc.image(logoPath, 265, y, { fit: [60, 60], align: 'center' }); } catch (e) {}
+        }
+        y += 70;
 
-        // Table
-        doc.moveDown();
-        doc.font('Helvetica-Bold').text('RISK ASSESSMENT:', 30, doc.y);
-        doc.moveDown();
+        doc.font('Helvetica-Bold').fontSize(14).text('INDIAN OIL CORPORATION LIMITED', startX, y, { align: 'center', width: width });
+        y += 20;
+        doc.fontSize(10).text('Pipelines Division', startX, y, { align: 'center', width: width });
+        y += 15;
+        // Region/Unit/Loc
+        const locHeader = `${jsa.Region || 'Region'} / ${jsa.Unit || 'Unit'} / ${jsa.Location || 'Location'}`;
+        doc.text(locHeader, startX, y, { align: 'center', width: width });
+        y += 20;
         
-        // Risk Steps
+        doc.fontSize(16).text('JOB SAFETY ANALYSIS', startX, y, { align: 'center', width: width, underline: true });
+        y += 30;
+
+        // --- 2. INFO BLOCK ---
+        doc.fontSize(10).font('Helvetica-Bold');
+        
+        // Line 1: Ref | Date | Page
+        doc.text(`JSA Ref: ${refNo}`, startX, y);
+        doc.text(`Date: ${approvedDate}`, startX + 250, y);
+        doc.text(`Page: 1 of 1`, startX + 450, y); // Placeholder for paging
+        y += 20;
+
+        // Line 2: Unit | Area | Location
+        doc.text(`Unit: ${jsa.Unit || '-'}`, startX, y);
+        doc.text(`Area: ${jsa.Location || '-'}`, startX + 180, y);
+        doc.text(`Location: ${jsa.Location || '-'}`, startX + 360, y);
+        y += 20;
+
+        // Line 3: Job Title
+        doc.text(`Job Title: ${jsa.JobTitle || '-'}`, startX, y);
+        y += 25;
+
+        // --- 3. TEAM & EXECUTION ---
+        doc.text('JSA Done By:', startX, y);
+        doc.font('Helvetica');
+        const teamStr = team.map(m => m.name).join(', ');
+        doc.text(teamStr || '-', startX + 80, y);
+        y += 20;
+
+        doc.font('Helvetica-Bold').text('Job to be Executed By (Dept/Contractor):', startX, y);
+        doc.font('Helvetica').text(jsa.ExecutedBy || '-', startX + 220, y);
+        y += 30;
+
+        // --- 4. SIGNATURES (Before Table as per snippet) ---
+        const revName = jsa.ReviewedBy || '-';
+        const revDate = jsa.ReviewedAt || '-';
+        
+        // Box for signatures
+        doc.rect(startX, y, width, 50).stroke();
+        
+        doc.font('Helvetica-Bold').fontSize(9);
+        doc.text('JSA Reviewed By:', startX + 10, y + 10);
+        doc.font('Helvetica').text(`${revName}\n${revDate}`, startX + 100, y + 10);
+
+        doc.font('Helvetica-Bold').text('JSA Approved By:', startX + 300, y + 10);
+        doc.font('Helvetica').text(`${approverName}\n${approvedDate}`, startX + 390, y + 10);
+        y += 60;
+
+        // --- 5. MAIN RISK TABLE ---
+        const headers = [
+            { t: "Sl. No.", w: 40 },
+            { t: "Activities", w: 120 },
+            { t: "Hazards", w: 120 },
+            { t: "Recommended Actions / Procedures & Control Measures", w: 255 }
+        ];
+
+        // Header Row
+        let tx = startX;
+        doc.font('Helvetica-Bold').fontSize(9);
+        // Header Background
+        doc.rect(startX, y, width, 30).fillColor('#f3f4f6').fillAndStroke('black', 'black');
+        doc.fillColor('black');
+        
+        headers.forEach(h => {
+            doc.text(h.t, tx + 5, y + 5, { width: h.w - 10, align: 'center' });
+            tx += h.w;
+        });
+        y += 30;
+
+        // Data Rows
+        doc.font('Helvetica').fontSize(9);
         steps.forEach((s, i) => {
-            if(doc.y > 700) doc.addPage();
-            doc.font('Helvetica-Bold').text(`Step ${i+1}: ${s.activity}`);
-            doc.font('Helvetica').fillColor('red').text(`   Hazard: ${s.hazard}`);
-            doc.fillColor('green').text(`   Control: ${s.control}`);
-            doc.fillColor('black').moveDown(0.5);
+            // Calculate max height for the row
+            const h1 = doc.heightOfString(s.activity, { width: 110 });
+            const h2 = doc.heightOfString(s.hazard, { width: 110 });
+            const h3 = doc.heightOfString(s.control, { width: 245 });
+            const rowH = Math.max(h1, h2, h3, 20) + 10;
+            
+            // Page Break Check
+            if (y + rowH > 750) {
+                doc.addPage();
+                y = 30;
+                // Re-draw header on new page (optional but good)
+                tx = startX;
+                doc.font('Helvetica-Bold');
+                doc.rect(startX, y, width, 30).fillColor('#f3f4f6').fillAndStroke('black', 'black');
+                doc.fillColor('black');
+                headers.forEach(h => {
+                    doc.text(h.t, tx + 5, y + 5, { width: h.w - 10, align: 'center' });
+                    tx += h.w;
+                });
+                y += 30;
+                doc.font('Helvetica');
+            }
+
+            tx = startX;
+            
+            // Draw Cell Boxes
+            doc.rect(tx, y, 40, rowH).stroke();
+            doc.text(String(i + 1), tx + 2, y + 5, { width: 36, align: 'center' });
+            tx += 40;
+
+            doc.rect(tx, y, 120, rowH).stroke();
+            doc.text(s.activity || '-', tx + 5, y + 5, { width: 110 });
+            tx += 120;
+
+            doc.rect(tx, y, 120, rowH).stroke();
+            doc.text(s.hazard || '-', tx + 5, y + 5, { width: 110 });
+            tx += 120;
+
+            doc.rect(tx, y, 255, rowH).stroke();
+            doc.text(s.control || '-', tx + 5, y + 5, { width: 245 });
+            
+            y += rowH;
         });
 
-        // Signatures
-        doc.moveDown();
-        doc.font('Helvetica-Bold').text(`Approved By: ${approverName} on ${approvedDate}`);
+        // --- 6. ADDITIONAL PRECAUTIONS ---
+        y += 15;
+        if (y > 700) { doc.addPage(); y = 30; }
+
+        doc.font('Helvetica-Bold').text('Additional Precautions:', startX, y, { underline: true });
+        y += 15;
+        doc.font('Helvetica').fontSize(9);
         
+        const precs = data.additionalPrecautions || 'None';
+        doc.text(precs, startX, y, { width: width });
+
         doc.end();
     });
 }
