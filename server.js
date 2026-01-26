@@ -409,25 +409,40 @@ async function drawPermitPDF(doc, p, d, renewalsList) {
         D: [ "1. Shoring/Sloping.", "2. Soil distance.", "3. Access.", "4. Vehicle ban." ]
     };
 
-    const drawChecklistSection = (title, items, prefix) => {
+   const drawChecklistSection = (title, items, prefix) => {
+        // 1. FILTER: Only keep items where status is NOT 'NA'
+        const activeItems = items.map((text, idx) => {
+             const key = `${prefix}_Q${idx + 1}`;
+             const val = d[key] || 'NA';
+             return { text, key, val, idx };
+        }).filter(item => item.val !== 'NA');
+
+        // 2. SKIP: If section is empty after filtering, do not draw it
+        if(activeItems.length === 0) return;
+
         if (doc.y > 680) { doc.addPage(); drawHeaderOnAll(); }
         doc.font('Helvetica-Bold').fillColor('black').fontSize(9).text(title, 30, doc.y + 10); 
         doc.y += 25;
         let y = doc.y;
+        
+        // Headers
         doc.rect(30, y, 350, 20).stroke().text("Item", 35, y + 6); 
         doc.rect(380, y, 60, 20).stroke().text("Sts", 385, y + 6); 
         doc.rect(440, y, 125, 20).stroke().text("Rem", 445, y + 6); 
         y += 20;
+
         doc.font('Helvetica').fontSize(8);
-        items.forEach((text, idx) => {
-            const key = `${prefix}_Q${idx + 1}`;
-            const statusVal = d[key] || 'NA';
+        
+        // 3. LOOP: Iterate only active items
+        activeItems.forEach(item => {
+            const { text, key, val, idx } = item;
             let rowHeight = 20;
-            if (prefix === 'A' && idx === 11) rowHeight = 55;
+            if (prefix === 'A' && idx === 11) rowHeight = 55; // Gas Test Height
+
             if (y + rowHeight > 760) { doc.addPage(); drawHeaderOnAll(); y = 135; }
 
             doc.rect(30, y, 350, rowHeight).stroke().text(text, 35, y + 6, { width: 340 });
-            doc.rect(380, y, 60, rowHeight).stroke().text(safeText(statusVal), 385, y + 6);
+            doc.rect(380, y, 60, rowHeight).stroke().text(safeText(val), 385, y + 6);
             
             let remarkVal = d[`${key}_Rem`] || '';
             if (prefix === 'A' && idx === 11) {
