@@ -1770,7 +1770,7 @@ async function submitRenewal(act) {
             if(currentUser) fd.append("RequesterEmail", currentUser.Email);
             const hcEl = document.getElementById('GP_Q12_HC'); const toxEl = document.getElementById('GP_Q12_ToxicGas'); const o2El = document.getElementById('GP_Q12_Oxygen');
             fd.append("GP_Q12_HC", hcEl ? hcEl.value : ""); fd.append("GP_Q12_ToxicGas", toxEl ? toxEl.value : ""); fd.append("GP_Q12_Oxygen", o2El ? o2El.value : "");
-            document.querySelectorAll('input[name$="_Rem"]').forEach(rem => { if(rem.value) fd.append(rem.name, rem.value); });
+     
             const jsaMode = document.querySelector('input[name="jsa_mode"]:checked').value;
             if (jsaMode === 'upload') { const jsaFile = document.getElementById('JsaFile').files[0]; if(jsaFile) fd.append('JsaFile', jsaFile); } 
             else { fd.append('JsaLinkedId', document.getElementById('JsaLinkedId').value); }
@@ -2001,6 +2001,7 @@ async function downloadSecurePDF(id, format = 'default') {
     </script>
 </body>
 </html>
+
 
 
 
