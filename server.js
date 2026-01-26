@@ -1740,17 +1740,17 @@ async function generateJsaPdfBuffer(jsa, refNo, approverName, approvedDate) {
 
         // --- 5. MAIN RISK TABLE ---
         const headers = [
-            { t: "Sl. No.", w: 40 },
-            { t: "Activities", w: 120 },
-            { t: "Hazards", w: 120 },
-            { t: "Recommended Actions / Procedures & Control Measures", w: 255 }
-        ];
+    { t: "Sl. No.", w: 40 },
+    { t: "Activities", w: 120 },
+    { t: "Hazards", w: 120 },
+    { t: "Recommended Actions /\nProcedures & Control Measures", w: 255 }
+    ];
 
         // Header Row
         let tx = startX;
         doc.font('Helvetica-Bold').fontSize(9);
         // Header Background
-        doc.rect(startX, y, width, 30).fillColor('#f3f4f6').fillAndStroke('black', 'black');
+        doc.rect(startX, y, width, 30).fillAndStroke('#f3f4f6', 'black');
         doc.fillColor('black');
         
         headers.forEach(h => {
@@ -1775,7 +1775,7 @@ async function generateJsaPdfBuffer(jsa, refNo, approverName, approvedDate) {
                 // Re-draw header on new page (optional but good)
                 tx = startX;
                 doc.font('Helvetica-Bold');
-                doc.rect(startX, y, width, 30).fillColor('#f3f4f6').fillAndStroke('black', 'black');
+                doc.rect(startX, y, width, 30).fillAndStroke('#f3f4f6', 'black');
                 doc.fillColor('black');
                 headers.forEach(h => {
                     doc.text(h.t, tx + 5, y + 5, { width: h.w - 10, align: 'center' });
