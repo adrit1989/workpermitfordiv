@@ -1224,21 +1224,151 @@ app.post('/api/renewal', authenticateAccess, upload.single('RenewalImage'), asyn
     res.json({success: true});
 });
 
-// EXCEL
+// EXCEL EXPORT (Enhanced & Interactive)
 app.get('/api/download-excel', authenticateAccess, async (req, res) => {
   try {
     const pool = await getConnection();
     const result = await pool.request().query("SELECT * FROM Permits ORDER BY Id DESC");
+    
     const workbook = new ExcelJS.Workbook();
-    const sheet = workbook.addWorksheet('Permits');
-    sheet.columns = [ { header:'ID', key:'id' }, { header:'Status', key:'status' }, { header:'Work', key:'wt' }, { header:'Requester', key:'req' }, { header:'Location', key:'loc' }, { header:'From', key:'vf' }, { header:'To', key:'vt' } ];
-    result.recordset.forEach(r=>{ const d = r.FullDataJSON ? JSON.parse(r.FullDataJSON) : {}; sheet.addRow({ id:r.PermitID, status:r.Status, wt:d.WorkType, req:d.RequesterName, loc:d.ExactLocation, vf:formatDate(r.ValidFrom), vt:formatDate(r.ValidTo) }); });
-    res.setHeader('Content-Type','application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition','attachment; filename=Permits.xlsx');
-    await workbook.xlsx.write(res); res.end();
-  } catch (err) { res.status(500).send("Export Error"); }
-});
+    workbook.creator = 'ERPL Permit System';
+    workbook.created = new Date();
+    
+    // ==========================================
+    // SHEET 1: DASHBOARD SUMMARY
+    // ==========================================
+    const summarySheet = workbook.addWorksheet('Dashboard Summary', { views: [{ showGridLines: false }] });
+    
+    // 1. Calculate Statistics
+    const stats = { status: {}, type: {} };
+    result.recordset.forEach(r => {
+        const d = r.FullDataJSON ? JSON.parse(r.FullDataJSON) : {};
+        stats.status[r.Status] = (stats.status[r.Status] || 0) + 1;
+        const wType = d.WorkType || 'Unspecified';
+        stats.type[wType] = (stats.type[wType] || 0) + 1;
+    });
 
+    // 2. Define Styles
+    const titleStyle = { font: { bold: true, size: 14, color: { argb: 'FFEA580C' } } }; // Orange Text
+    const headerStyleOrange = {
+        font: { bold: true, color: { argb: 'FFFFFFFF' }, size: 11 },
+        fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFEA580C' } }, // Orange Bg
+        alignment: { horizontal: 'center', vertical: 'middle' },
+        border: { top: {style:'thin'}, left: {style:'thin'}, bottom: {style:'thin'}, right: {style:'thin'} }
+    };
+    const headerStyleBlue = { ...headerStyleOrange, fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E40AF' } } }; // Blue Bg
+    const cellBorder = { top: {style:'thin'}, left: {style:'thin'}, bottom: {style:'thin'}, right: {style:'thin'} };
+
+    // 3. Draw Status Table (Starts at B2)
+    summarySheet.getCell('B2').value = "PERMIT STATUS SUMMARY";
+    summarySheet.getCell('B2').font = titleStyle;
+    
+    summarySheet.getCell('B4').value = "Status";
+    summarySheet.getCell('C4').value = "Count";
+    summarySheet.getCell('B4').style = headerStyleOrange;
+    summarySheet.getCell('C4').style = headerStyleOrange;
+    
+    let rIdx = 5;
+    Object.keys(stats.status).forEach(k => {
+        summarySheet.getCell(`B${rIdx}`).value = k;
+        summarySheet.getCell(`C${rIdx}`).value = stats.status[k];
+        summarySheet.getCell(`B${rIdx}`).border = cellBorder;
+        summarySheet.getCell(`C${rIdx}`).border = cellBorder;
+        rIdx++;
+    });
+
+    // 4. Draw Work Type Table (Starts at E2)
+    summarySheet.getCell('E2').value = "WORK TYPE DISTRIBUTION";
+    summarySheet.getCell('E2').font = { ...titleStyle, color: { argb: 'FF1E40AF' } }; // Blue Title
+    
+    summarySheet.getCell('E4').value = "Work Type";
+    summarySheet.getCell('F4').value = "Count";
+    summarySheet.getCell('E4').style = headerStyleBlue;
+    summarySheet.getCell('F4').style = headerStyleBlue;
+    
+    rIdx = 5;
+    Object.keys(stats.type).forEach(k => {
+        summarySheet.getCell(`E${rIdx}`).value = k;
+        summarySheet.getCell(`F${rIdx}`).value = stats.type[k];
+        summarySheet.getCell(`E${rIdx}`).border = cellBorder;
+        summarySheet.getCell(`F${rIdx}`).border = cellBorder;
+        rIdx++;
+    });
+    
+    // Adjust Summary Column Widths
+    summarySheet.getColumn('B').width = 30;
+    summarySheet.getColumn('C').width = 15;
+    summarySheet.getColumn('D').width = 5; // Spacer
+    summarySheet.getColumn('E').width = 30;
+    summarySheet.getColumn('F').width = 15;
+
+    // ==========================================
+    // SHEET 2: DETAILED REGISTER
+    // ==========================================
+    const sheet = workbook.addWorksheet('Permit Register', { views: [{ state: 'frozen', xSplit: 1, ySplit: 1 }] });
+    
+    sheet.columns = [ 
+        { header:'Permit ID', key:'id', width: 18 }, 
+        { header:'Current Status', key:'status', width: 22 }, 
+        { header:'Work Type', key:'wt', width: 18 }, 
+        { header:'Description', key:'desc', width: 45 }, 
+        { header:'Requester', key:'req', width: 25 }, 
+        { header:'Location', key:'loc', width: 35 }, 
+        { header:'Valid From', key:'vf', width: 18 }, 
+        { header:'Valid To', key:'vt', width: 18 },
+        { header:'Reviewer', key:'rev', width: 30 },
+        { header:'Approver', key:'app', width: 30 }
+    ];
+    
+    // Apply Header Styling & Auto Filter
+    sheet.getRow(1).height = 25;
+    sheet.getRow(1).eachCell((cell) => {
+        cell.style = headerStyleOrange;
+    });
+    sheet.autoFilter = 'A1:J1'; // Enable AutoFilter for interactivity
+
+    // Add Data rows
+    result.recordset.forEach(r => { 
+        const d = r.FullDataJSON ? JSON.parse(r.FullDataJSON) : {}; 
+        const row = sheet.addRow({ 
+            id: r.PermitID, 
+            status: r.Status, 
+            wt: d.WorkType, 
+            desc: d.Desc || d.WorkTypeOther || '-',
+            req: d.RequesterName, 
+            loc: d.LocationUnit || d.ExactLocation, 
+            vf: formatDate(r.ValidFrom), 
+            vt: formatDate(r.ValidTo),
+            rev: r.ReviewerEmail,
+            app: r.ApproverEmail
+        });
+        
+        // Interactive: Color code status text
+        const statusCell = row.getCell('status');
+        if(r.Status === 'Active' || r.Status === 'Approved') statusCell.font = { color: { argb: 'FF008000' }, bold: true }; // Green
+        else if(r.Status === 'Rejected') statusCell.font = { color: { argb: 'FFFF0000' }, bold: true }; // Red
+        else if(r.Status.includes('Pending')) statusCell.font = { color: { argb: 'FFFFA500' }, bold: true }; // Orange
+        else if(r.Status === 'Closed') statusCell.font = { color: { argb: 'FF808080' }, italic: true }; // Gray
+        
+        // Add subtle border to all cells for readability
+        row.eachCell({ includeEmpty: true }, (cell) => {
+            cell.border = { bottom: {style:'dotted', color: {argb:'FFCCCCCC'}} };
+            cell.alignment = { vertical: 'middle', wrapText: true };
+        });
+    });
+
+    // Finalize Response
+    res.setHeader('Content-Type','application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition',`attachment; filename=Permits_Register_${getNowIST().replace(/[\/, :]/g, '-')}.xlsx`);
+    
+    await workbook.xlsx.write(res); 
+    res.end();
+    
+  } catch (err) { 
+      console.error("Excel Export Error:", err);
+      if(!res.headersSent) res.status(500).send("Export Error"); 
+  }
+});
 // DOWNLOAD PDF
 // DOWNLOAD PDF (Supports ?format=mainline)
 app.get('/api/download-pdf/:id', authenticateAccess, async(req, res) => {
