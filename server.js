@@ -1339,14 +1339,28 @@ async function drawMainlinePermitPDF(doc, p, d, renewalsList) {
         try { doc.image(logoPath, startX, currentY, { fit: [50, 50] }); } catch (e) {}
     }
     
-    // Titles (ENGLISH ONLY to prevent font crashes)
+// Titles
     doc.font('Helvetica-Bold').fontSize(12).text('Indian Oil Corporation Limited', 0, currentY, { align: 'center' });
     doc.fontSize(10).text('PIPELINES DIVISION', { align: 'center' });
     currentY += 45;
     
     doc.fontSize(11).text('GUIDELINES ON WORK PERMIT SYSTEM (WPS) FOR', { align: 'center' });
     doc.text('MAINLINE WORK of PIPELINES DIVISION', { align: 'center' });
-    currentY += 30;
+    currentY += 25;
+
+    // --- RESTORED TOP HEADER (Annexure & Sr No) ---
+    // 1. Annexure III (Top Right)
+    doc.font('Helvetica-Bold').fontSize(10);
+    doc.text('Annexure III', 0, currentY, { align: 'right', width: 565 });
+    currentY += 15;
+
+    // 2. Attachment Title (Center)
+    doc.fontSize(11).text('ATTACHMENT TO MAINLINE WORK PERMIT', 0, currentY, { align: 'center', width: 595 }); // Full page width for center
+    currentY += 15;
+
+    // 3. Sr No (Right, below Annexure)
+    doc.fontSize(10).text(`Sr No- ${p.PermitID}`, 0, currentY, { align: 'right', width: 565 });
+    currentY += 25;
 
     // --- MAIN DATA TABLES ---
     doc.lineWidth(0.5);
@@ -1501,7 +1515,7 @@ async function drawMainlinePermitPDF(doc, p, d, renewalsList) {
     // --- FOOTER ---
     const bottomY = doc.page.height - 50;
     doc.font('Helvetica').fontSize(8);
-    doc.text('Annexure III', 30, bottomY);
+    // Removed 'Annexure III' from here as it is now at the top
     doc.text('DOCUMENT NUMBER PL/HO/HSE/18/2025-26/01, Rev 0', 30, bottomY + 10);
     doc.text('Effective from: 01.07.2025', 30, bottomY + 20);
     
