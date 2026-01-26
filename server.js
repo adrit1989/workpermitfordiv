@@ -1207,7 +1207,7 @@ app.get('/api/download-pdf/:id', authenticateAccess, async(req, res) => {
         const d = p.FullDataJSON ? JSON.parse(p.FullDataJSON) : {};
         const rens = p.RenewalsJSON ? JSON.parse(p.RenewalsJSON) : [];
         
-        [cite_start]// 4. Switch Logic [cite: 4, 5, 8]
+        // 4. Switch Logic
         if (format === 'mainline') {
              // Using the new Mainline format structure
             await drawMainlinePermitPDF(doc, p, d, rens);
