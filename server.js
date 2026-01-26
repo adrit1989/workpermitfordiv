@@ -1257,7 +1257,7 @@ function formatToList(str) {
 async function drawMainlinePermitPDF(doc, p, d, renewalsList) {
     const safeText = (t) => (t === null || t === undefined) ? '-' : String(t);
 
-    [cite_start]// --- PAGE 1: HEADER & DATA [cite: 1, 2, 3] ---
+    // --- PAGE 1: HEADER & DATA ---
     const startX = 30;
     let currentY = 30;
 
@@ -1267,9 +1267,8 @@ async function drawMainlinePermitPDF(doc, p, d, renewalsList) {
         try { doc.image(logoPath, startX, currentY, { fit: [50, 50] }); } catch (e) {}
     }
     
-    // Titles
-    doc.font('Helvetica-Bold').fontSize(12).text('Indian Oil', 0, currentY, { align: 'center' });
-    doc.text('ERPL', { align: 'center' });
+    // Titles (ENGLISH ONLY to prevent font crashes)
+    doc.font('Helvetica-Bold').fontSize(12).text('Indian Oil Corporation Limited', 0, currentY, { align: 'center' });
     doc.fontSize(10).text('PIPELINES DIVISION', { align: 'center' });
     currentY += 45;
     
@@ -1277,7 +1276,7 @@ async function drawMainlinePermitPDF(doc, p, d, renewalsList) {
     doc.text('MAINLINE WORK of PIPELINES DIVISION', { align: 'center' });
     currentY += 30;
 
-    [cite_start]// --- MAIN DATA TABLES [cite: 4] ---
+    // --- MAIN DATA TABLES ---
     doc.lineWidth(0.5);
     const col1 = 30;  // Label Col 1
     const col2 = 180; // Data Col 1
@@ -1388,7 +1387,7 @@ async function drawMainlinePermitPDF(doc, p, d, renewalsList) {
     doc.rect(col1 + 290, currentY, 245, 20).stroke().text(safeText(d.EmergencyContact), col1 + 295, currentY + 5);
     currentY += 20;
 
-    [cite_start]// --- PAGE 2: ATTACHMENT B (WORKERS) [cite: 5, 7, 8] ---
+    // --- PAGE 2: ATTACHMENT B (WORKERS) ---
     if (currentY > 600) { doc.addPage(); currentY = 30; } else { currentY += 30; }
 
     doc.font('Helvetica-Bold').fontSize(11).text('ATTACHMENT TO MAINLINE WORK PERMIT', col1, currentY, {underline: true});
@@ -1427,7 +1426,7 @@ async function drawMainlinePermitPDF(doc, p, d, renewalsList) {
         currentY += 20;
     });
     
-    [cite_start]// --- FOOTER [cite: 9, 10, 11] ---
+    // --- FOOTER ---
     const bottomY = doc.page.height - 50;
     doc.font('Helvetica').fontSize(8);
     doc.text('Annexure III', 30, bottomY);
