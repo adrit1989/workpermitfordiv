@@ -1713,31 +1713,47 @@ async function generateJsaPdfBuffer(jsa, refNo, approverName, approvedDate) {
         y += 25;
 
         // --- 3. TEAM & EXECUTION ---
-        doc.text('JSA Done By:', startX, y);
-        doc.font('Helvetica');
-        const teamStr = team.map(m => m.name).join(', ');
-        doc.text(teamStr || '-', startX + 80, y);
+        
+        // Header Row
+        doc.font('Helvetica-Bold').fontSize(10);
+        // Column 1: JSA Done By
+        doc.rect(startX, y, 350, 20).fillAndStroke('#f3f4f6', 'black');
+        doc.fillColor('black').text('JSA Done By (Name, Designation, Department)', startX + 5, y + 6);
+        
+        // Column 2: Signature
+        doc.rect(startX + 350, y, 185, 20).fillAndStroke('#f3f4f6', 'black');
+        doc.fillColor('black').text('Signature', startX + 355, y + 6);
         y += 20;
 
+        // Data Rows
+        doc.font('Helvetica').fontSize(9);
+        
+        if (team.length === 0) {
+            // Draw one empty row if no team members defined
+            doc.rect(startX, y, 350, 25).stroke();
+            doc.rect(startX + 350, y, 185, 25).stroke();
+            y += 25;
+        } else {
+            team.forEach(m => {
+                // Format: Name, Designation, Department
+                const details = `${m.name || '-'}, ${m.desig || '-'}, ${m.dept || '-'}`;
+                
+                // Col 1: Text
+                doc.rect(startX, y, 350, 25).stroke();
+                doc.text(details, startX + 5, y + 8, { width: 340, ellipsis: true });
+
+                // Col 2: Blank for manual signature
+                doc.rect(startX + 350, y, 185, 25).stroke();
+                
+                y += 25;
+            });
+        }
+        y += 10; // Add some spacing after the table
+
+        // Job Execution Line
         doc.font('Helvetica-Bold').text('Job to be Executed By (Dept/Contractor):', startX, y);
         doc.font('Helvetica').text(jsa.ExecutedBy || '-', startX + 220, y);
         y += 30;
-
-        // --- 4. SIGNATURES (Before Table as per snippet) ---
-        const revName = jsa.ReviewedBy || '-';
-        const revDate = jsa.ReviewedAt || '-';
-        
-        // Box for signatures
-        doc.rect(startX, y, width, 50).stroke();
-        
-        doc.font('Helvetica-Bold').fontSize(9);
-        doc.text('JSA Reviewed By:', startX + 10, y + 10);
-        doc.font('Helvetica').text(`${revName}\n${revDate}`, startX + 100, y + 10);
-
-        doc.font('Helvetica-Bold').text('JSA Approved By:', startX + 300, y + 10);
-        doc.font('Helvetica').text(`${approverName}\n${approvedDate}`, startX + 390, y + 10);
-        y += 60;
-
         // --- 5. MAIN RISK TABLE ---
         const headers = [
     { t: "Sl. No.", w: 40 },
