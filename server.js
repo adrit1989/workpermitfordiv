@@ -623,53 +623,63 @@ async function drawPermitPDF(doc, p, d, renewalsList) {
     doc.y += 60;
 
     // 11. RENEWALS
+   // 11. RENEWALS (Updated for Req A & B)
     if (doc.y > 650) { doc.addPage(); drawHeaderOnAll(); }
     doc.font('Helvetica-Bold').text("CLEARANCE RENEWAL", 30, doc.y);
     doc.y += 15;
     let ry = doc.y;
     
-    // --- MERGED TABLE HEADERS (TBT restored from A + Stacked features from B) ---
-    // From(50), To(50), Gas(70), TBT(30), Workers(75), Photo(50), Req(70), Rev(70), App(70) = 535
+    // New Column Structure: Status(60), Time(75), Gas(50), TBT(25), Workers(75), Photo(30), Signatures(220)
     const rCols = [ 
-        {t:"From", w:50}, {t:"To", w:50}, {t:"Gas", w:70}, {t:"TBT", w:30}, 
-        {t:"Workers", w:75}, {t:"Photo", w:50}, 
-        {t:"Req", w:70}, {t:"Rev", w:70}, {t:"App", w:70} 
+        {t:"Status", w:60}, {t:"Validity", w:75}, {t:"Gas", w:50}, {t:"TBT", w:25}, 
+        {t:"Workers", w:75}, {t:"Img", w:30}, 
+        {t:"Req", w:73}, {t:"Rev", w:73}, {t:"App", w:74} 
     ];
     let rx = 30;
     rCols.forEach(h => { doc.rect(rx, ry, h.w, 20).stroke().text(h.t, rx+2, ry+6); rx += h.w; });
     ry += 20;
 
     const finalRenewals = renewalsList || [];
-    doc.font('Helvetica').fontSize(8);
+    doc.font('Helvetica').fontSize(7); // Smaller font to fit data
 
     for (const r of finalRenewals) {
         if (ry > 700) { doc.addPage(); drawHeaderOnAll(); ry = 135; }
-        const rH = 65; 
+        const rH = 75; // Increased height for worker list & status details
         
         let rawFrom = r.valid_from || r.ValidFrom;
         let rawTo = r.valid_till || r.valid_to || r.ValidTo;
+        let timeTxt = `${safeText(rawFrom).replace('T', '\n')}\nTO\n${safeText(rawTo).replace('T', '\n')}`;
         
-        let startT = safeText(rawFrom).replace('T', '\n');
-        let endT = safeText(rawTo).replace('T', '\n'); 
-        
-        if (r.odd_hour_req) { doc.fillColor('purple'); endT += '\n(Night)'; } else doc.fillColor('black');
+        if (r.odd_hour_req) { doc.fillColor('purple'); timeTxt += '\n(Night)'; } else doc.fillColor('black');
 
-        doc.rect(30, ry, 50, rH).stroke().text(startT, 32, ry+5, {width:48});
-        doc.rect(80, ry, 50, rH).stroke().text(endT, 82, ry+5, {width:48});
+        // 1. Status Column (Req A)
+        let statusTxt = "Pending";
+        if(r.status === 'approved') statusTxt = "APPROVED";
+        else if(r.status === 'rejected') statusTxt = `REJECTED\nBy: ${r.rejected_by}\nReason: ${r.rejection_reason}`;
+        
+        doc.rect(30, ry, 60, rH).stroke().text(statusTxt, 32, ry+5, {width:56});
+
+        // 2. Validity
+        doc.rect(90, ry, 75, rH).stroke().text(timeTxt, 92, ry+5, {width:71});
         doc.fillColor('black');
-        doc.rect(130, ry, 70, rH).stroke().text(`HC:${safeText(r.hc)}\nTox:${safeText(r.toxic)}\nO2:${safeText(r.oxygen)}\n${safeText(r.precautions)}`, 132, ry+5, {width:68});
+
+        // 3. Gas & Precautions
+        doc.rect(165, ry, 50, rH).stroke().text(`HC:${safeText(r.hc)}\nTox:${safeText(r.toxic)}\nO2:${safeText(r.oxygen)}\n\n${safeText(r.precautions)}`, 167, ry+5, {width:46});
         
-        // TBT Column (Restored)
+        // 4. TBT
         let tbtYN = r.tbt_done === 'Y' ? 'YES' : 'NO';
-        doc.rect(200, ry, 30, rH).stroke().text(tbtYN, 202, ry+5);
+        doc.rect(215, ry, 25, rH).stroke().text(tbtYN, 217, ry+5);
 
-        let wNames = 'All';
-        if(r.worker_list && Array.isArray(r.worker_list)) wNames = r.worker_list.join(', ');
-        doc.rect(230, ry, 75, rH).stroke().text(wNames, 232, ry+5, {width:73}); 
+        // 5. Workers (Req B)
+        let wNames = '-';
+        if(r.workers && Array.isArray(r.workers)) wNames = r.workers.join(', ');
+        doc.rect(240, ry, 75, rH).stroke().text(wNames, 242, ry+5, {width:71}); 
 
-        doc.rect(305, ry, 50, rH).stroke();
+        // 6. Photo
+        doc.rect(315, ry, 30, rH).stroke();
         if (r.photoUrl && containerClient) {
             try {
+                // (Existing Image Fetch Logic kept same, just adjusted coordinates)
                 const blobName = r.photoUrl.split('/').pop();
                 const blockBlob = containerClient.getBlockBlobClient(blobName);
                 const downloadPromise = blockBlob.download(0);
@@ -678,21 +688,21 @@ async function drawPermitPDF(doc, p, d, renewalsList) {
                 const chunks = [];
                 for await (const chunk of response.readableStreamBody) { chunks.push(chunk); }
                 const imgBuff = Buffer.concat(chunks);
-                doc.image(imgBuff, 307, ry+2, {fit: [46, 56], align:'center', valign:'center'});
-            } catch (e) { doc.text("Img Err", 305, ry+25, {width: 50, align:'center'}); }
+                doc.image(imgBuff, 317, ry+2, {fit: [26, 56], align:'center', valign:'center'});
+            } catch (e) { doc.text("Err", 315, ry+25, {width: 30, align:'center'}); }
         } else { 
-            doc.text("No Photo", 305, ry+25, {width: 50, align:'center'}); 
+            doc.text("-", 315, ry+25, {width: 30, align:'center'}); 
         }
 
-        // Stacked Names/Dates (From B)
+        // 7. Signatures
         const reqStack = `${safeText(r.req_name)}\n${safeText(r.req_at)}\n${safeText(r.req_rem || '')}`;
-        doc.rect(355, ry, 70, rH).stroke().text(reqStack, 357, ry+5, {width:68});
+        doc.rect(345, ry, 73, rH).stroke().text(reqStack, 347, ry+5, {width:69});
 
         const revStack = `${safeText(r.rev_name)}\n${safeText(r.rev_at || '')}\n${safeText(r.rev_rem || '')}`;
-        doc.rect(425, ry, 70, rH).stroke().text(revStack, 427, ry+5, {width:68});
+        doc.rect(418, ry, 73, rH).stroke().text(revStack, 420, ry+5, {width:69});
 
         const appStack = `${safeText(r.app_name)}\n${safeText(r.app_at || '')}\n${safeText(r.app_rem || '')}`;
-        doc.rect(495, ry, 70, rH).stroke().text(appStack, 497, ry+5, {width:68});
+        doc.rect(491, ry, 74, rH).stroke().text(appStack, 493, ry+5, {width:70});
 
         ry += rH;
     }
