@@ -871,7 +871,6 @@ app.post('/api/get-workers', authenticateAccess, async(req, res) => {
 });
 
 // WORKER MANAGEMENT (Create, Edit, Delete, Approve, Reject)
-// WORKER MANAGEMENT (Create, Edit, Delete, Approve, Reject)
 app.post('/api/save-worker', authenticateAccess, async (req, res) => {
     try {
         const pool = await getConnection();
@@ -881,11 +880,13 @@ app.post('/api/save-worker', authenticateAccess, async (req, res) => {
 
         // 1. CREATE NEW WORKER
         if (Action === 'create') {
-            // GENERATE MANUAL ID (Random 9-digit number to fit in standard INT)
-            const newWorkerID = Math.floor(100000000 + Math.random() * 900000000);
+            const newWorkerID = Math.floor(100000000 + Math.random() * 900000000).toString();
+
+            // SAFETY: Ensure RequestorEmail is never NULL (DB Constraint)
+            const safeEmail = req.user.email || "unknown@system.com"; 
 
             await pool.request()
-                .input('wid_new', newWorkerID) // Pass the new ID
+                .input('wid_new', newWorkerID)
                 .input('n', Details.Name)
                 .input('a', Details.Age)
                 .input('f', Details.Father)
@@ -895,18 +896,15 @@ app.post('/api/save-worker', authenticateAccess, async (req, res) => {
                 .input('idt', Details.IDType)
                 .input('g', Details.Gender)
                 .input('req', RequestorName)
-                .input('req_e', req.user.email)
-                // ADDED 'WorkerID' to the Insert Query
-                .query(`INSERT INTO Workers (WorkerID, Name, Age, FatherName, Address, Contact, IDCardNo, IDType, Gender, Status, RequestorName, RequestorEmail, CreatedAt) 
-                        VALUES (@wid_new, @n, @a, @f, @addr, @c, @id, @idt, @g, 'Pending Review', @req, @req_e, GETDATE())`);
+                .input('req_e', safeEmail) // <--- Fixed potential crash
+                .query(`INSERT INTO Workers (WorkerID, Name, Age, FatherName, Address, Contact, IDCardNo, IDType, Gender, Status, RequestorName, RequestorEmail, DataJSON, CreatedAt) 
+                        VALUES (@wid_new, @n, @a, @f, @addr, @c, @id, @idt, @g, 'Pending Review', @req, @req_e, '{}', GETDATE())`);
             
             return res.json({ success: true, message: "Worker created" });
         }
 
         // 2. EDIT WORKER
         else if (Action === 'edit') {
-            console.log("Updating Worker Details:", Details);
-
             const result = await pool.request()
                 .input('wid', WorkerID)
                 .input('n', Details.Name)
@@ -928,7 +926,6 @@ app.post('/api/save-worker', authenticateAccess, async (req, res) => {
                 return res.json({ success: false, error: "Worker ID not found. Edit failed." });
             }
             
-            console.log("✅ Edit Success");
             return res.json({ success: true, message: "Worker updated and sent for review" });
         }
 
@@ -944,8 +941,6 @@ app.post('/api/save-worker', authenticateAccess, async (req, res) => {
         // 4. APPROVE / REJECT
         else if (Action === 'approve' || Action === 'reject') {
             const newStatus = (Action === 'approve') ? 'Approved' : 'Rejected';
-            console.log(`Processing ${newStatus} for Worker ${WorkerID}`);
-
             await pool.request()
                 .input('wid', WorkerID)
                 .input('app', ApproverName || req.user.name)
@@ -964,7 +959,6 @@ app.post('/api/save-worker', authenticateAccess, async (req, res) => {
         res.json({ success: false, error: e.message });
     }
 });
-
 // DASHBOARD
 app.post('/api/dashboard', authenticateAccess, async (req, res) => {
     const { role, email } = req.user;
