@@ -856,18 +856,49 @@ app.post('/api/admin/bulk-upload', authenticateAccess, upload.single('excelFile'
     } catch (e) { res.status(500).json({ error: "Bulk Upload Failed: " + e.message }); }
 });
 
-// GET WORKERS
-app.post('/api/get-workers', authenticateAccess, async(req, res) => {
-    const { role, email } = req.user;
-    const pool = await getConnection();
-    const r = await pool.request().query("SELECT * FROM Workers");
-    let workers = r.recordset.map(w => {
-        let d = {}; 
-        try { d = JSON.parse(w.DataJSON).Current || JSON.parse(w.DataJSON).Pending || {}; } catch(e){}
-        return { ...d, WorkerID: w.WorkerID, Status: w.Status, RequestorEmail: w.RequestorEmail, ApprovedBy: w.ApprovedBy, ApprovedAt: w.ApprovedOn };
-    });
-    if (role === 'Requester') { workers = workers.filter(w => w.RequestorEmail === email); } 
-    res.json(workers);
+// GET WORKERS LIST (Updated to fetch ALL columns)
+app.post('/api/get-workers', authenticateAccess, async (req, res) => {
+    try {
+        const pool = await getConnection();
+        const { role, email, context } = req.body;
+
+        let query = `
+            SELECT 
+                WorkerID, Name, Age, FatherName, Address, Contact, 
+                IDCardNo as ID, IDType, Gender, 
+                Status, RequestorName, ApprovedBy, 
+                FORMAT(ApprovedAt, 'dd-MMM-yyyy HH:mm') as ApprovedAt
+            FROM Workers 
+        `;
+
+        // Filter Logic
+        if (role === 'Requester') {
+            // Requesters see only their own workers
+            query += ` WHERE RequestorEmail = @email`;
+        } 
+        else if (role === 'Reviewer') {
+            // Reviewers see Pending Review OR Approved ones (for reference)
+            // You can adjust this to show ALL if needed
+            query += ` WHERE Status = 'Pending Review' OR Status = 'Approved'`;
+        }
+        else if (role === 'Approver') {
+            // Approvers see Pending Approval OR Approved
+            // Note: If flow skips "Pending Approval" for workers, show 'Pending Review' or 'Approved'
+            query += ` WHERE Status IN ('Pending Review', 'Pending Approval', 'Approved')`;
+        }
+
+        query += ` ORDER BY CreatedAt DESC`;
+
+        const result = await pool.request()
+            .input('email', email)
+            .query(query);
+
+        res.json(result.recordset);
+
+    } catch (e) {
+        console.error("Get Workers Error:", e);
+        res.status(500).json({ error: e.message });
+    }
 });
 
 // WORKER MANAGEMENT (Create, Edit, Delete, Approve, Reject)
