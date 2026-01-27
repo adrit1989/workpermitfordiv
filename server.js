@@ -870,38 +870,85 @@ app.post('/api/get-workers', authenticateAccess, async(req, res) => {
     res.json(workers);
 });
 
-// SAVE WORKER
+// WORKER MANAGEMENT (Create, Edit, Delete, Approve, Reject)
 app.post('/api/save-worker', authenticateAccess, async (req, res) => {
-    const { WorkerID, Action, Details, RequestorEmail } = req.body;
-    const pool = await getConnection();
     try {
-        if(Action === 'create') {
-            if (Details && parseInt(Details.Age) < 18) return res.status(400).json({ error: "Worker must be 18+" });
-            const idRes = await pool.request().query("SELECT TOP 1 WorkerID FROM Workers ORDER BY WorkerID DESC");
-            const nextNum = parseInt(idRes.recordset.length ? idRes.recordset[0].WorkerID.split('-')[1] : 1000) + 1;
-            const wid = `W-${nextNum}`; 
-            const data = { Pending: { ...Details } };
-            await pool.request().input('w', wid).input('s', 'Pending Review').input('r', RequestorEmail)
-                .input('j', JSON.stringify(data)).input('idt', sql.NVarChar, Details.IDType)
-                .query("INSERT INTO Workers (WorkerID, Status, RequestorEmail, DataJSON, IDType) VALUES (@w, @s, @r, @j, @idt)");
-        } else if (Action === 'edit_request') {
-            const cur = await pool.request().input('w', WorkerID).query("SELECT DataJSON FROM Workers WHERE WorkerID=@w");
-            let d = JSON.parse(cur.recordset[0].DataJSON);
-            d.Pending = { ...d.Current, ...Details }; 
-            await pool.request().input('w', WorkerID).input('j', JSON.stringify(d)).input('s', 'Pending Review')
-                .query("UPDATE Workers SET DataJSON=@j, Status=@s WHERE WorkerID=@w");
-        } else if (Action === 'delete') {
-            await pool.request().input('w', WorkerID).query("DELETE FROM Workers WHERE WorkerID=@w");
-        } else if (Action === 'approve') {
-            const cur = await pool.request().input('w', WorkerID).query("SELECT DataJSON FROM Workers WHERE WorkerID=@w");
-            let d = JSON.parse(cur.recordset[0].DataJSON);
-            d.Current = d.Pending; d.Pending = null;
-            await pool.request().input('w', WorkerID).input('j', JSON.stringify(d)).input('s', 'Approved')
-                .input('by', req.user.name).input('at', getNowIST())
-                .query("UPDATE Workers SET DataJSON=@j, Status=@s, ApprovedBy=@by, ApprovedOn=@at WHERE WorkerID=@w");
+        const pool = await getConnection();
+        const { Action, WorkerID, Details, Role, RequestorName, ApproverName } = req.body;
+
+        // 1. CREATE NEW WORKER
+        if (Action === 'create') {
+            await pool.request()
+                .input('n', Details.Name)
+                .input('a', Details.Age)
+                .input('f', Details.Father)
+                .input('addr', Details.Address)
+                .input('c', Details.Contact)
+                .input('id', Details.ID)
+                .input('idt', Details.IDType)
+                .input('g', Details.Gender)
+                .input('req', RequestorName)
+                .input('req_e', req.user.email) // Authenticated User Email
+                .query(`INSERT INTO Workers (Name, Age, FatherName, Address, Contact, IDCardNo, IDType, Gender, Status, RequestorName, RequestorEmail, CreatedAt) 
+                        VALUES (@n, @a, @f, @addr, @c, @id, @idt, @g, 'Pending Review', @req, @req_e, GETDATE())`);
+            
+            return res.json({ success: true, message: "Worker created" });
         }
-        res.json({ success: true });
-    } catch(e) { res.status(500).json({error: e.message}); }
+
+        // 2. EDIT WORKER (The Missing Piece)
+        else if (Action === 'edit') {
+            // Requestor updates data -> Status resets to 'Pending Review' for re-approval
+            await pool.request()
+                .input('wid', WorkerID)
+                .input('n', Details.Name)
+                .input('a', Details.Age)
+                .input('f', Details.Father)
+                .input('addr', Details.Address)
+                .input('c', Details.Contact)
+                .input('id', Details.ID)
+                .input('idt', Details.IDType)
+                .input('g', Details.Gender)
+                .query(`UPDATE Workers 
+                        SET Name=@n, Age=@a, FatherName=@f, Address=@addr, Contact=@c, 
+                            IDCardNo=@id, IDType=@idt, Gender=@g, 
+                            Status='Pending Review', -- Reset Status to force review
+                            ApprovedBy=NULL, ApprovedAt=NULL -- Clear previous approval
+                        WHERE WorkerID=@wid`);
+            
+            return res.json({ success: true, message: "Worker updated and sent for review" });
+        }
+
+        // 3. DELETE WORKER
+        else if (Action === 'delete') {
+            await pool.request()
+                .input('wid', WorkerID)
+                .query(`DELETE FROM Workers WHERE WorkerID=@wid`);
+            // Note: If worker is linked to Permits, SQL might block this. 
+            // Better to use Status='Deleted' if you want soft delete.
+            
+            return res.json({ success: true, message: "Worker deleted" });
+        }
+
+        // 4. APPROVE / REJECT (For Reviewer/Approver)
+        else if (Action === 'approve' || Action === 'reject') {
+            const newStatus = (Action === 'approve') ? 'Approved' : 'Rejected';
+            await pool.request()
+                .input('wid', WorkerID)
+                .input('app', ApproverName || req.user.name)
+                .input('st', newStatus)
+                .query(`UPDATE Workers 
+                        SET Status=@st, ApprovedBy=@app, ApprovedAt=GETDATE() 
+                        WHERE WorkerID=@wid`);
+            
+            return res.json({ success: true, message: `Worker ${newStatus}` });
+        }
+
+        res.json({ success: false, error: "Invalid Action" });
+
+    } catch (e) {
+        console.error("Save Worker Error:", e);
+        res.json({ success: false, error: e.message });
+    }
 });
 
 // DASHBOARD
