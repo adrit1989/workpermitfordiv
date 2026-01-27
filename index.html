@@ -435,11 +435,11 @@
                                 <table class="mobile-table w-full text-xs text-left data-table" id="table-renewals">
                                     <thead class="bg-purple-100">
     <tr>
-        <th>Validity</th>
+        <th>Status</th> <th>Validity</th>
         <th>Gas (HC/Tox/O2)</th>
-        <th>TBT Checks</th> <th>Precautions</th>
-        <th>Workers</th> 
-        <th>Requester</th>
+        <th>TBT Checks</th> 
+        <th>Precautions</th>
+        <th>Workers</th> <th>Requester</th>
         <th>Reviewer</th>
         <th>Approver</th>
         <th>Photo</th>
@@ -1176,13 +1176,34 @@
                     document.getElementById('renewals-section').classList.remove('hidden');
                    // --- FIX B: Add Remarks to History Table ---
                    // Inside openPermit(), replace the renewal table generation map:
+// --- UPDATED: Renewal Table Render (Implements A & B) ---
 document.getElementById('renewal-history-body').innerHTML = rens.map(r => {
     // Helper to visualize checks
     const chk = (role, val) => val === 'Y' 
         ? `<div class="text-[9px] text-green-700 border border-green-200 bg-green-50 px-1 rounded mb-1">✅ ${role}</div>` 
         : `<div class="text-[9px] text-gray-400 border border-gray-100 bg-gray-50 px-1 rounded mb-1">⬜ ${role}</div>`;
 
+    // Logic for Status Column (Requirement A)
+    let statusDisplay = `<span class="bg-yellow-100 text-yellow-800 px-1 rounded">Pending</span>`;
+    if(r.status === 'approved') statusDisplay = `<span class="bg-green-100 text-green-800 px-1 rounded font-bold">Approved</span>`;
+    else if(r.status === 'rejected') {
+        statusDisplay = `<div class="bg-red-50 text-red-700 px-1 rounded border border-red-200">
+            <strong>Rejected</strong><br>
+            By: ${r.rejected_by || 'Auth'}<br>
+            Reason: "${r.rejection_reason || '-'}"
+        </div>`;
+    }
+
+    // Logic for Worker Names (Requirement B)
+    let workerListDisplay = '-';
+    if(r.workers && Array.isArray(r.workers) && r.workers.length > 0) {
+        workerListDisplay = `<div class="max-h-16 overflow-y-auto text-[9px] leading-tight">
+            ${r.workers.map(w => `• ${escapeHtml(w)}`).join('<br>')}
+        </div>`;
+    }
+
     return `<tr class="border-b text-[10px]">
+        <td class="p-2 align-top">${statusDisplay}</td>
         <td class="p-2">${r.valid_from}<br>to ${r.valid_to}</td>
         <td class="p-2">${r.hc}/${r.toxic}/${r.oxygen}</td>
         
@@ -1193,7 +1214,7 @@ document.getElementById('renewal-history-body').innerHTML = rens.map(r => {
         </td>
 
         <td class="p-2 italic">${r.precautions || '-'}</td>
-        <td class="p-2">${escapeHtml((r.workers || []).join(', '))}</td>
+        <td class="p-2">${workerListDisplay}</td>
         <td class="p-2"><b>${r.req_name}</b><br><span class="text-gray-500">${r.req_at||''}</span></td>
         <td class="p-2"><b>${r.rev_name||'-'}</b><br><span class="text-gray-500">${r.rev_at||''}</span>${r.rev_rem ? `<br><span class="text-blue-600 italic">"${r.rev_rem}"</span>` : ''}</td>
         <td class="p-2"><b>${r.app_name||'-'}</b><br><span class="text-gray-500">${r.app_at||''}</span>${r.app_rem ? `<br><span class="text-blue-600 italic">"${r.app_rem}"</span>` : ''}</td>
@@ -2208,6 +2229,7 @@ async function downloadSecurePDF(id, format = 'default') {
     </script>
 </body>
 </html>
+
 
 
 
