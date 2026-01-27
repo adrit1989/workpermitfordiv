@@ -1081,17 +1081,29 @@ if (p.ElectricalAuthNum) {
                 // Inside openPermit, after the form population loop:
 const isElecSet = (p.A_Q11 === 'Y');
 const isoWindow = document.getElementById('elec-isolation-window');
+
 if(isoWindow) {
     isoWindow.classList.toggle('hidden', !isElecSet);
-    // Only show entry fields for Electrical Auth during their phase
+    
     const authFields = document.getElementById('elec-auth-action-fields');
     if(authFields) {
+        // 1. Determine visibility
         authFields.classList.toggle('hidden', currentUser.Role !== 'ElectricalAuth' && !p.ElectricalAuthNum);
-        // Disable fields if already approved
-        if(p.ElectricalAuthNum) {
+        
+        // 2. Handle Editability (The Fix)
+        if (currentUser.Role === 'ElectricalAuth' && !p.ElectricalAuthNum) {
+            // UNLOCK fields for the Electrical Person during the isolation phase
+            document.getElementById('Elec_Isolated_Check').disabled = false;
+            document.getElementById('Elec_LotoTag_Auth').disabled = false;
+            document.getElementById('Elec_Iso_DateTime').disabled = false;
+        } else {
+            // LOCK fields for everyone else or if already approved
             document.getElementById('Elec_Isolated_Check').disabled = true;
             document.getElementById('Elec_LotoTag_Auth').disabled = true;
             document.getElementById('Elec_Iso_DateTime').disabled = true;
+            
+            // Populate value if it exists in the database
+            if(p.Elec_Isolated_Check === 'Y') document.getElementById('Elec_Isolated_Check').checked = true;
         }
     }
 }
@@ -1909,21 +1921,47 @@ async function loadWorkers(context) {
                     else if (sec === 'A' && i === 10) { // Sl No. 11 Electrical Isolation
     extra = `
     <div id="elec-isolation-window" class="hidden mt-3 p-3 bg-yellow-50 border border-yellow-200 rounded space-y-2">
-        <h4 class="font-bold text-yellow-800 text-[10px] uppercase underline">Electrical Isolation Details (LOTO)</h4>
+        <h4 class="font-bold text-yellow-800 text-[10px] uppercase underline mb-2">Electrical Isolation Details (LOTO)</h4>
+        
         <div class="grid grid-cols-1 gap-2">
-            <p class="text-[10px] text-gray-500 font-bold">REQUESTER ENTRIES:</p>
-            <input name="Elec_EquipNo" id="Elec_EquipNo" placeholder="Equipment number" class="text-xs">
-            <input name="Elec_EquipName" id="Elec_EquipName" placeholder="Equipment name" class="text-xs">
-            <input name="Elec_LotoTag_Req" id="Elec_LotoTag_Req" placeholder="Requester LOTO Tag No" class="text-xs">
-            <select name="Elec_AuthEmail" id="Elec_AuthEmail" class="text-xs w-full"></select>
+            <p class="text-[10px] text-gray-500 font-extrabold border-b pb-1">REQUESTER ENTRIES:</p>
             
-            <div id="elec-auth-action-fields" class="hidden border-t pt-2 mt-2 space-y-2">
-                <p class="text-[10px] text-blue-700 font-bold">ELECTRICAL AUTHORISED PERSON ENTRIES:</p>
-                <label class="flex items-center gap-2 text-xs font-bold text-blue-800">
-                    <input type="checkbox" id="Elec_Isolated_Check" name="Elec_Isolated_Check" class="w-4 h-4"> Electrically Isolated
+            <div>
+                <label class="text-[10px] font-bold text-gray-600 block">Equipment Number to be Isolated:</label>
+                <input name="Elec_EquipNo" id="Elec_EquipNo" placeholder="Enter Equipment No" class="text-xs">
+            </div>
+
+            <div>
+                <label class="text-[10px] font-bold text-gray-600 block">Equipment Name/Description:</label>
+                <input name="Elec_EquipName" id="Elec_EquipName" placeholder="Enter Equipment Name" class="text-xs">
+            </div>
+
+            <div>
+                <label class="text-[10px] font-bold text-gray-600 block">Requester LOTO Tag No:</label>
+                <input name="Elec_LotoTag_Req" id="Elec_LotoTag_Req" placeholder="Enter Tag No" class="text-xs">
+            </div>
+
+            <div>
+                <label class="text-[10px] font-bold text-gray-600 block">Electrical Authorised Person:</label>
+                <select name="Elec_AuthEmail" id="Elec_AuthEmail" class="text-xs w-full"></select>
+            </div>
+            
+            <div id="elec-auth-action-fields" class="hidden border-t-2 border-blue-200 pt-2 mt-2 space-y-2 bg-blue-50/50 p-2 rounded">
+                <p class="text-[10px] text-blue-700 font-extrabold uppercase">Electrical Authorised Person Entries:</p>
+                
+                <label class="flex items-center gap-2 text-xs font-bold text-blue-800 cursor-pointer">
+                    <input type="checkbox" id="Elec_Isolated_Check" name="Elec_Isolated_Check" class="w-4 h-4 accent-blue-700"> Electrically Isolated
                 </label>
-                <input name="Elec_LotoTag_Auth" id="Elec_LotoTag_Auth" placeholder="Electrical LOTO No" class="text-xs border-blue-300">
-                <input type="datetime-local" name="Elec_Iso_DateTime" id="Elec_Iso_DateTime" class="text-xs border-blue-300">
+
+                <div>
+                    <label class="text-[10px] font-bold text-blue-700 block">Electrical LOTO No (Official):</label>
+                    <input name="Elec_LotoTag_Auth" id="Elec_LotoTag_Auth" placeholder="Enter Official LOTO No" class="text-xs border-blue-300">
+                </div>
+
+                <div>
+                    <label class="text-[10px] font-bold text-blue-700 block">Date & Time of Isolation:</label>
+                    <input type="datetime-local" name="Elec_Iso_DateTime" id="Elec_Iso_DateTime" class="text-xs border-blue-300">
+                </div>
             </div>
         </div>
     </div>`;
@@ -2373,6 +2411,7 @@ async function downloadSecurePDF(id, format = 'default') {
     </script>
 </body>
 </html>
+
 
 
 
