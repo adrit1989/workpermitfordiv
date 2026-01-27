@@ -1671,9 +1671,13 @@ async function submitRenewal(act) {
         }
 
   // --- FIX B: Robust visibility check for Requester ---
+// --- UPDATED: Load Workers (Stores data for editing) ---
         async function loadWorkers(context) {
             const res = await apiCall('/get-workers', 'POST', {role:currentUser.Role, email:currentUser.Email, context:context});
             
+            // STORE DATA GLOBALLY FOR EDIT FUNCTION
+            window.cachedWorkerList = res || [];
+
             // Explicitly unhide button for Requester
             const addBtn = document.getElementById('btn-add-worker-main');
             if(currentUser.Role === 'Requester') addBtn.classList.remove('hidden');
@@ -1692,6 +1696,39 @@ async function submitRenewal(act) {
                     t.innerHTML += `<tr class="hover:bg-gray-50 border-b border-gray-100"><td class="p-3 font-bold">${escapeHtml(w.Name)}</td><td class="p-3 text-xs">${escapeHtml(w.Age)} / ${escapeHtml(w.Gender)}</td><td class="p-3 text-xs font-mono">${escapeHtml(w.Contact)}</td><td class="p-3 font-mono text-xs">${escapeHtml(w.IDType)}: ${escapeHtml(w.ID)}</td><td class="p-3 text-xs text-gray-500">${approvedInfo}</td><td class="p-3">${actions}</td></tr>`;
                 });
             }
+        }
+        // --- FIX: Edit Worker Function ---
+        function editWorker(id) {
+            // Find worker in the cached list
+            const w = window.cachedWorkerList.find(item => String(item.WorkerID) === String(id));
+            
+            if (!w) return alert("Error: Worker details not found.");
+
+            // Populate Modal Fields
+            document.getElementById('w-id').value = w.WorkerID;
+            document.getElementById('w-name').value = w.Name || '';
+            document.getElementById('w-father').value = w.Father || ''; 
+            document.getElementById('w-address').value = w.Address || '';
+            document.getElementById('w-age').value = w.Age || '';
+            document.getElementById('w-gender').value = w.Gender || 'Male';
+            document.getElementById('w-contact').value = w.Contact || '';
+            document.getElementById('w-idcard').value = w.ID || '';
+            
+            // Handle ID Type (Check if it's a standard one or 'Other')
+            const stdTypes = ['Voter Card', 'PAN Card'];
+            if (stdTypes.includes(w.IDType)) {
+                document.getElementById('w-id-type').value = w.IDType;
+                document.getElementById('w-id-type-other').classList.add('hidden');
+            } else {
+                document.getElementById('w-id-type').value = 'Other';
+                const otherInput = document.getElementById('w-id-type-other');
+                otherInput.classList.remove('hidden');
+                otherInput.value = w.IDType;
+            }
+
+            // Set Action Mode & Show Modal
+            window.currentWorkerAction = 'edit';
+            document.getElementById('modal-worker').classList.remove('hidden');
         }
         
         async function workerAction(id, act) { await apiCall('/save-worker', 'POST', {WorkerID:id, Action:act, Role:currentUser.Role, ApproverName: currentUser.Name}); loadWorkers('mgmt'); }
@@ -2161,6 +2198,7 @@ async function downloadSecurePDF(id, format = 'default') {
     </script>
 </body>
 </html>
+
 
 
 
