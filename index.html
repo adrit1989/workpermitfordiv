@@ -894,6 +894,7 @@
             const pending = res.filter(p => {
                 const s = p.Status;
                 if (currentUser.Role === 'MasterAdmin') return s.includes('Pending') || s === 'Submitted';
+                if (currentUser.Role === 'ElectricalAuth') {return s === 'Pending Electrical Isolation' || s === 'Pending Electrical De-Isolation';}
                 if (currentUser.Role === 'Reviewer') return s === 'Pending Review' || s === 'Renewal Pending Review' || s === 'Closure Pending Review';
                 if (currentUser.Role === 'Approver') return s === 'Pending Approval' || s === 'Renewal Pending Approval' || s === 'Closure Pending Approval';
                 return (s.includes('Pending') || s === 'Submitted') && p.RequesterEmail === currentUser.Email;
@@ -2339,6 +2340,7 @@ async function downloadSecurePDF(id, format = 'default') {
     </script>
 </body>
 </html>
+
 
 
 
