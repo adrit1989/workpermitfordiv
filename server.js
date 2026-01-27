@@ -1123,13 +1123,7 @@ app.post('/api/update-status', authenticateAccess, upload.any(), async(req, res)
     const now = getNowIST(); 
     const usr = req.user.name;
     Object.assign(d, extras);
-    const now = getNowIST(); 
-    const usr = req.user.name;
-    Object.assign(d, extras);
-
-    // --- ADD THE NEW CODE STARTING HERE ---
-    
-    // 1. Electrical Person Approves Isolation
+ 
     if (action === 'elec_approve') {
         const elecAuthNum = `ELEC-${PermitID}-${Date.now().toString().slice(-4)}`;
         st = 'Pending Review'; 
