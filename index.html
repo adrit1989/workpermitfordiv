@@ -668,7 +668,11 @@
             <form id="adduser-form" class="space-y-3">
                 <input id="new-user-name" placeholder="Full Name" required>
                 <input id="new-user-email" placeholder="Email Address" required>
-                <select id="new-user-role"><option>Requester</option><option>Reviewer</option><option>Approver</option></select>
+               <select id="new-user-role">
+    <option>Requester</option>
+    <option>Reviewer</option>
+    <option>Approver</option>
+    <option>ElectricalAuth</option> </select>
                 <input id="new-user-region" placeholder="Region (e.g. ERPL)" required>
                 <input id="new-user-unit" placeholder="Unit (e.g. BKPL)" required>
                 <input id="new-user-location" placeholder="Location (e.g. Barauni)" required>
@@ -1008,6 +1012,18 @@
                 document.getElementById('view-dashboard').classList.add('hidden');
                 document.getElementById('view-form').classList.remove('hidden');
                 document.getElementById('permit-title').innerText = `Permit: ${id}`;
+                // Remove any existing statement box first to avoid duplicates
+const oldBox = document.getElementById('elec-statement-box');
+if (oldBox) oldBox.remove();
+
+// If the permit has an electrical approval number, show the mandatory statement
+if (p.ElectricalAuthNum) {
+    const alertBox = document.createElement('div');
+    alertBox.id = 'elec-statement-box';
+    alertBox.className = "bg-blue-50 border-l-4 border-blue-500 p-3 mb-4 text-xs font-bold text-blue-800";
+    alertBox.innerHTML = `ℹ️ ${p.Elec_Approved_By || 'Electrical Person'} has approved the electrical isolation request no: ${p.ElectricalAuthNum} and submitted for further approval.`;
+    document.getElementById('pf').prepend(alertBox);
+}
                 document.getElementById('permit-header-display').innerText = `Status: ${p.Status}`;
 
                 // 3. Reset Sections
@@ -1241,6 +1257,19 @@ document.getElementById('renewal-history-body').innerHTML = rens.map(r => {
                     const b2 = document.createElement("button"); b2.type="button"; b2.className = "bg-green-600 text-white px-4 py-2 rounded font-bold"; b2.innerText = "Review & Forward"; b2.onclick = () => upd('review');
                     actionsDiv.append(b1, b2);
                 }
+                // Electrical Approval Phase
+if (statusClean === 'Pending Electrical Isolation' && currentUser.Role === 'ElectricalAuth') {
+    const b1 = document.createElement("button"); b1.type="button"; b1.className = "bg-red-600 text-white px-4 py-2 rounded font-bold mr-2"; b1.innerText = "Reject Isolation"; b1.onclick = () => upd('elec_reject');
+    const b2 = document.createElement("button"); b2.type="button"; b2.className = "bg-yellow-600 text-white px-4 py-2 rounded font-bold"; b2.innerText = "Approve Isolation & Forward"; b2.onclick = () => upd('elec_approve');
+    actionsDiv.append(b1, b2);
+}
+
+// Electrical De-Isolation Phase (During Closure)
+if (statusClean === 'Pending Electrical De-Isolation' && currentUser.Role === 'ElectricalAuth') {
+    const b1 = document.createElement("button"); b1.type="button"; b1.className = "bg-red-600 text-white px-4 py-2 rounded font-bold mr-2"; b1.innerText = "Reject De-Isolation"; b1.onclick = () => upd('elec_reject_closure');
+    const b2 = document.createElement("button"); b2.type="button"; b2.className = "bg-green-600 text-white px-4 py-2 rounded font-bold"; b2.innerText = "Confirm De-Isolation & Forward"; b2.onclick = () => upd('elec_closure_approve');
+    actionsDiv.append(b1, b2);
+}
 
                 if (statusClean === 'Pending Approval' && (currentUser.Role === 'Approver' || currentUser.Role === 'MasterAdmin')) {
                     document.getElementById('fs-approver-section').classList.remove('hidden');
@@ -1375,11 +1404,22 @@ function handleClosureUI(p, actionsDiv) {
                 renderClosureSection({}); // Render checklist
                 document.getElementById('Closure_Requestor_Remarks').disabled = false;
                 
-                // FIX A: Unhide and Enable Site Restoration Checkbox
-                siteRestoredLabel.classList.remove('hidden'); 
-                siteRestoredCheck.disabled = false;
-                siteRestoredCheck.checked = false;
+// FIX A: Unhide and Enable Site Restoration Checkbox
+            siteRestoredLabel.classList.remove('hidden'); 
+            siteRestoredCheck.disabled = false;
+            siteRestoredCheck.checked = false;
 
+            // NEW: Clean up and add Energize Checkbox if Electrical Isolation was 'Yes'
+            const oldElec = document.getElementById('lbl-elec-restore');
+            if (oldElec) oldElec.remove(); // Remove existing to prevent duplicates
+
+            if (p.A_Q11 === 'Y') {
+                const energizeLabel = document.createElement('label');
+                energizeLabel.id = "lbl-elec-restore";
+                energizeLabel.className = "flex items-center gap-2 mt-2 font-bold text-orange-700 cursor-pointer p-2 bg-yellow-50 border border-yellow-200 rounded";
+                energizeLabel.innerHTML = `<input type="checkbox" id="Elec_Energize_Check" class="w-5 h-5 accent-orange-600"> I confirm Site is restored & Electrical equipment can be re-energized.`;
+                document.getElementById('div-closure-req').appendChild(energizeLabel);
+            }
                 const b = document.createElement("button"); b.type = "button"; 
                 b.className = "bg-red-600 text-white px-4 py-2 rounded font-bold"; 
                 b.innerText = "Submit Closure"; 
@@ -1460,6 +1500,11 @@ if(!document.getElementById('closure-summary-box')) {
         async function upd(act) {
             if (act === 'initiate_closure') {
                 if(!document.getElementById("Site_Restored_Check").checked) return alert("Please confirm site restoration checkbox.");
+                // ADD THIS CHECK:
+    const elecCheck = document.getElementById("Elec_Energize_Check");
+    if(elecCheck && !elecCheck.checked) {
+        return alert("⛔ Safety Violation: You must confirm that electrical equipment can be re-energized.");
+    }
                 const devReason = document.getElementById('Closure_Deviation_Reason').value;
                 const anyUnchecked = Array.from(document.querySelectorAll('.clos-chk')).some(c => !c.checked);
                 if (anyUnchecked && !devReason) return alert("You must provide a Reason for Deviation since some closure items are unchecked.");
@@ -1470,7 +1515,18 @@ if(!document.getElementById('closure-summary-box')) {
             fd.append('action', act);
             fd.append('role', currentUser.Role);
             fd.append('user', currentUser.Name);
-
+            // --- NEW: Collect Electrical Isolation Details ---
+        if (document.getElementById('elec-isolation-window')) {
+            fd.append('Elec_EquipNo', getVal('Elec_EquipNo'));
+            fd.append('Elec_EquipName', getVal('Elec_EquipName'));
+            fd.append('Elec_LotoTag', getVal('Elec_LotoTag'));
+            fd.append('Elec_AuthEmail', getVal('Elec_AuthEmail'));
+        }
+        
+        // NEW: Confirmation from Requestor for re-energizing
+        if (document.getElementById("Elec_Energize_Check")) {
+            fd.append('Elec_Energize_Check', document.getElementById("Elec_Energize_Check").checked ? 'Y' : 'N');
+        }
             const comments = (currentUser.Role === 'Reviewer' ? getVal("Reviewer_Remarks") : getVal("Approver_Remarks"));
             fd.append('comment', comments);
             fd.append('AdditionalPrecautions', getVal("AdditionalPrecautions"));
@@ -1480,7 +1536,10 @@ if(!document.getElementById('closure-summary-box')) {
             fd.append('Closure_Reviewer_Remarks', getVal("Closure_Reviewer_Remarks"));
             fd.append('Closure_Approver_Remarks', getVal("Closure_Approver_Remarks"));
             fd.append('Site_Restored_Check', document.getElementById("Site_Restored_Check").checked ? 'Y' : 'N');
-            
+            // NEW: Add Electrical Re-energize confirmation to the request
+if (document.getElementById("Elec_Energize_Check")) {
+    fd.append('Elec_Energize_Check', document.getElementById("Elec_Energize_Check").checked ? 'Y' : 'N');
+}
             const isCrit = document.querySelector('input[name="IsCritical"]:checked');
             if(isCrit) fd.append('IsCritical', isCrit.value);
             fd.append('CriticalActivityType', getVal('CriticalActivityType'));
@@ -1820,6 +1879,21 @@ async function loadWorkers(context) {
                             <input name="GP_Q12_Oxygen" id="GP_Q12_Oxygen" placeholder="O2 %" onkeyup="syncGasToRenewal()">
                         </div>`;
                     }
+                    else if (sec === 'A' && i === 10) { // Sl No. 11 Electrical Isolation
+    extra = `
+    <div id="elec-isolation-window" class="hidden mt-3 p-3 bg-yellow-50 border border-yellow-200 rounded space-y-2">
+        <h4 class="font-bold text-yellow-800 text-[10px] uppercase underline">Electrical Isolation Details (LOTO)</h4>
+        <div class="grid grid-cols-1 gap-2">
+            <input name="Elec_EquipNo" id="Elec_EquipNo" placeholder="A. Equipment number to be isolated" class="text-xs">
+            <input name="Elec_EquipName" id="Elec_EquipName" placeholder="B. Equipment to be isolated" class="text-xs">
+            <input name="Elec_LotoTag" id="Elec_LotoTag" placeholder="C. LOTO Tag No" class="text-xs">
+            <div>
+                <label class="text-[10px] font-bold text-gray-500 block mb-1">D. Electrical Authorised Person</label>
+                <select name="Elec_AuthEmail" id="Elec_AuthEmail" class="text-xs w-full"></select>
+            </div>
+        </div>
+    </div>`;
+}
 
                     return `<div class="p-3 border rounded-lg bg-gray-50 text-xs hover:shadow-md">
                         <p class="mb-2 font-semibold text-gray-700 min-h-[30px]">${item}</p>
@@ -1860,6 +1934,25 @@ async function loadWorkers(context) {
                     }); 
                 }); 
             });
+            // --- ADD THE LISTENER HERE ---
+        document.querySelectorAll('input[name="A_Q11"]').forEach(radio => {
+            radio.addEventListener('change', (e) => {
+                const isYes = e.target.value === 'Y';
+                const windowEl = document.getElementById('elec-isolation-window');
+                const renewalCheck = document.getElementById('chk-init-renewal');
+                
+                if (windowEl) windowEl.classList.toggle('hidden', !isYes);
+                
+                if (isYes) {
+                    renewalCheck.checked = false;
+                    renewalCheck.disabled = true;
+                    document.getElementById('div-init-renewal').classList.add('hidden');
+                    loadElectricalUsers(); 
+                } else {
+                    renewalCheck.disabled = false;
+                }
+            });
+        });
         }
         function renderHazards() {
             document.getElementById('hazards-grid').innerHTML = HAZARDS.map(h => `<label class="flex items-center gap-2 p-3 border rounded-lg bg-gray-50 text-xs cursor-pointer hover:bg-orange-100 font-bold"><input type="checkbox" name="H_${h.replace(/ /g,'')}" value="Y" ${h==='Others'?'id="chk-haz-others"':''} class="accent-orange-600 w-4 h-4"> ${h}</label>`).join('');
@@ -1869,6 +1962,22 @@ async function loadWorkers(context) {
             const idTypeEl = document.getElementById('w-id-type');
             if(idTypeEl) idTypeEl.addEventListener('change', (e) => document.getElementById('w-id-type-other').classList.toggle('hidden', e.target.value !== 'Other'));
         }
+        async function loadElectricalUsers() {
+    const users = await apiCall('/get-users-by-loc', 'POST', {
+        region: currentUser.Region, 
+        unit: currentUser.Unit, 
+        location: currentUser.Location, 
+        role: 'ElectricalAuth' 
+    });
+    const sel = document.getElementById('Elec_AuthEmail');
+    if(sel) {
+        if(users && users.length > 0) {
+            sel.innerHTML = users.map(u => `<option value="${u.Email}">${u.Name}</option>`).join('');
+        } else {
+            sel.innerHTML = '<option value="">No Electrical Persons Found</option>';
+        }
+    }
+}
 
         function showNewPermit() {
             document.getElementById("pf").reset();
@@ -2230,6 +2339,7 @@ async function downloadSecurePDF(id, format = 'default') {
     </script>
 </body>
 </html>
+
 
 
 
