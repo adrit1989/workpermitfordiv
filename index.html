@@ -728,6 +728,7 @@
         }
         function logout() {location.reload();        }
         function escapeHtml(text) { if (!text) return text; return String(text).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
+        function safeText(t) {return (t === null || t === undefined) ? '-' : String(t);}
         function getVal(id) { const el = document.getElementById(id); return el ? el.value : ''; }
         function safeSet(id, val) { const el = document.getElementById(id); if(el) el.value = val; }
         function setText(id, val) { const el = document.getElementById(id); if(el) el.innerText = val; }
@@ -2229,6 +2230,7 @@ async function downloadSecurePDF(id, format = 'default') {
     </script>
 </body>
 </html>
+
 
 
 
