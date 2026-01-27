@@ -1704,6 +1704,33 @@ async function submitRenewal(act) {
             const res = await apiCall('/save-worker', 'POST', body);
             if(res.success) { alert("Worker Saved"); document.getElementById('modal-worker').classList.add('hidden'); loadWorkers('mgmt'); } else alert(res.error);
         });
+        // --- FIX: Add User Form Handler (Prevents Refresh) ---
+        document.getElementById('adduser-form').addEventListener('submit', async (e) => {
+            e.preventDefault(); // <--- This stops the page reload
+            
+            const body = {
+                name: document.getElementById('new-user-name').value,
+                email: document.getElementById('new-user-email').value,
+                role: document.getElementById('new-user-role').value,
+                region: document.getElementById('new-user-region').value,
+                unit: document.getElementById('new-user-unit').value,
+                location: document.getElementById('new-user-location').value,
+                password: document.getElementById('new-user-pass').value
+            };
+
+            // Call the API
+            const res = await apiCall('/add-user', 'POST', body);
+            
+            if(res.success) {
+                alert("User Created Successfully");
+                document.getElementById('adduser-form').reset();
+                document.getElementById('view-add-user').classList.add('hidden');
+                // Refresh table if function exists
+                if(typeof loadManageUsers === 'function') loadManageUsers(); 
+            } else {
+                alert(res.error || "Failed to create user");
+            }
+        });
 
       // --- FIX A: Prevent Duplicate Remarks ---
         function renderChecklists() {
@@ -2075,6 +2102,7 @@ async function downloadSecurePDF(id, format = 'default') {
     </script>
 </body>
 </html>
+
 
 
 
