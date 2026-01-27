@@ -590,6 +590,40 @@ async function drawPermitPDF(doc, p, d, renewalsList) {
         wy += 30;
     });
     doc.y = wy + 20;
+    if (d.A_Q11 === 'Y') {
+    if (doc.y > 600) { doc.addPage(); drawHeaderOnAll(); }
+    doc.font('Helvetica-Bold').fontSize(10).fillColor('blue').text("ELECTRICAL ISOLATION DETAILS", 30, doc.y);
+    doc.y += 15;
+    
+    const isoY = doc.y;
+    doc.font('Helvetica-Bold').fontSize(8).fillColor('black');
+    
+    // Table Headers
+    doc.rect(30, isoY, 130, 20).stroke().text("Parameter", 35, isoY + 6);
+    doc.rect(160, isoY, 200, 20).stroke().text("Requester Side", 165, isoY + 6);
+    doc.rect(360, isoY, 205, 20).stroke().text("Electrical Authorized Side", 365, isoY + 6);
+    
+    const row1Y = isoY + 20;
+    doc.font('Helvetica').fontSize(8);
+    // Row 1: Name
+    doc.rect(30, row1Y, 130, 20).stroke().text("Name / Signature", 35, row1Y + 6);
+    doc.rect(160, row1Y, 200, 20).stroke().text(safeText(d.RequesterName), 165, row1Y + 6);
+    doc.rect(360, row1Y, 205, 20).stroke().text(safeText(d.Elec_Approved_By), 365, row1Y + 6);
+    
+    const row2Y = row1Y + 20;
+    // Row 2: LOTO No
+    doc.rect(30, row2Y, 130, 20).stroke().text("LOTO Tag Number", 35, row2Y + 6);
+    doc.rect(160, row2Y, 200, 20).stroke().text(safeText(d.Elec_LotoTag_Req), 165, row2Y + 6);
+    doc.rect(360, row2Y, 205, 20).stroke().text(safeText(d.Elec_LotoTag_Auth), 365, row2Y + 6);
+    
+    const row3Y = row2Y + 20;
+    // Row 3: Timestamp
+    doc.rect(30, row3Y, 130, 20).stroke().text("Date & Time", 35, row3Y + 6);
+    doc.rect(160, row3Y, 200, 20).stroke().text(safeText(d.CreatedDate), 165, row3Y + 6);
+    doc.rect(360, row3Y, 205, 20).stroke().text(formatDate(d.Elec_Iso_DateTime), 365, row3Y + 6);
+    
+    doc.y = row3Y + 30;
+}
 
     // 10. SIGNATURES / APPROVALS
 
@@ -1142,6 +1176,12 @@ app.post('/api/update-status', authenticateAccess, upload.any(), async(req, res)
     else if (action === 'elec_reject') {
         st = 'Rejected';
     }
+      if (action === 'elec_closure_approve') {
+    st = 'Closure Pending Review';
+    d.Elec_DeIsolation_Sig = `${usr} on ${now}`;
+    d.Elec_DeIso_DateTime = now;
+    d.Elec_DeIso_Status = "Verified & Re-energized";
+}
     else if (action === 'initiate_closure') {
         if (d.A_Q11 === 'Y') {
             if (extras.Elec_Energize_Check !== 'Y') {
