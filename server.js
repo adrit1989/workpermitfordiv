@@ -1090,7 +1090,10 @@ app.post('/api/save-permit', authenticateAccess, upload.any(), async(req, res) =
         rens.push({ status: 'pending_review', valid_from: fd.InitRenFrom, valid_to: fd.InitRenTo, hc: fd.InitRenHC, toxic: fd.InitRenTox, oxygen: fd.InitRenO2, req_name: req.user.name, req_at: getNowIST(), tbt_done: 'Y' });
     }
 
-    const q = pool.request().input('p', pid).input('s', 'initialStatus').input('w', fd.WorkType)
+    const q = pool.request()
+    .input('p', pid)
+    .input('s', initialStatus) // Removed single quotes around initialStatus
+    .input('w', fd.WorkType)
         .input('re', req.user.email).input('rv', fd.ReviewerEmail).input('ap', fd.ApproverEmail)
         .input('vf', new Date(fd.ValidFrom)).input('vt', new Date(fd.ValidTo))
         .input('j', JSON.stringify(fd)).input('ren', JSON.stringify(rens))
@@ -1899,7 +1902,7 @@ app.post('/api/jsa/action', authenticateAccess, async(req, res) => {
     
     let newStatus = '';
     let extraSql = ''; 
-    const now = getNowIST();
+   
 
     if (action === 'reject') newStatus = 'Rejected';
     else if (action === 'approve' && req.user.role === 'Reviewer') newStatus = 'Pending Approval';
