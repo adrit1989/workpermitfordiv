@@ -871,14 +871,21 @@ app.post('/api/get-workers', authenticateAccess, async(req, res) => {
 });
 
 // WORKER MANAGEMENT (Create, Edit, Delete, Approve, Reject)
+// WORKER MANAGEMENT (Create, Edit, Delete, Approve, Reject)
 app.post('/api/save-worker', authenticateAccess, async (req, res) => {
     try {
         const pool = await getConnection();
         const { Action, WorkerID, Details, Role, RequestorName, ApproverName } = req.body;
 
+        console.log(`👷 Worker Action: ${Action} | ID: ${WorkerID}`);
+
         // 1. CREATE NEW WORKER
         if (Action === 'create') {
+            // GENERATE MANUAL ID (Random 9-digit number to fit in standard INT)
+            const newWorkerID = Math.floor(100000000 + Math.random() * 900000000);
+
             await pool.request()
+                .input('wid_new', newWorkerID) // Pass the new ID
                 .input('n', Details.Name)
                 .input('a', Details.Age)
                 .input('f', Details.Father)
@@ -888,17 +895,19 @@ app.post('/api/save-worker', authenticateAccess, async (req, res) => {
                 .input('idt', Details.IDType)
                 .input('g', Details.Gender)
                 .input('req', RequestorName)
-                .input('req_e', req.user.email) // Authenticated User Email
-                .query(`INSERT INTO Workers (Name, Age, FatherName, Address, Contact, IDCardNo, IDType, Gender, Status, RequestorName, RequestorEmail, CreatedAt) 
-                        VALUES (@n, @a, @f, @addr, @c, @id, @idt, @g, 'Pending Review', @req, @req_e, GETDATE())`);
+                .input('req_e', req.user.email)
+                // ADDED 'WorkerID' to the Insert Query
+                .query(`INSERT INTO Workers (WorkerID, Name, Age, FatherName, Address, Contact, IDCardNo, IDType, Gender, Status, RequestorName, RequestorEmail, CreatedAt) 
+                        VALUES (@wid_new, @n, @a, @f, @addr, @c, @id, @idt, @g, 'Pending Review', @req, @req_e, GETDATE())`);
             
             return res.json({ success: true, message: "Worker created" });
         }
 
-        // 2. EDIT WORKER (The Missing Piece)
+        // 2. EDIT WORKER
         else if (Action === 'edit') {
-            // Requestor updates data -> Status resets to 'Pending Review' for re-approval
-            await pool.request()
+            console.log("Updating Worker Details:", Details);
+
+            const result = await pool.request()
                 .input('wid', WorkerID)
                 .input('n', Details.Name)
                 .input('a', Details.Age)
@@ -911,10 +920,15 @@ app.post('/api/save-worker', authenticateAccess, async (req, res) => {
                 .query(`UPDATE Workers 
                         SET Name=@n, Age=@a, FatherName=@f, Address=@addr, Contact=@c, 
                             IDCardNo=@id, IDType=@idt, Gender=@g, 
-                            Status='Pending Review', -- Reset Status to force review
-                            ApprovedBy=NULL, ApprovedAt=NULL -- Clear previous approval
+                            Status='Pending Review', 
+                            ApprovedBy=NULL, ApprovedAt=NULL 
                         WHERE WorkerID=@wid`);
+
+            if (result.rowsAffected[0] === 0) {
+                return res.json({ success: false, error: "Worker ID not found. Edit failed." });
+            }
             
+            console.log("✅ Edit Success");
             return res.json({ success: true, message: "Worker updated and sent for review" });
         }
 
@@ -923,15 +937,15 @@ app.post('/api/save-worker', authenticateAccess, async (req, res) => {
             await pool.request()
                 .input('wid', WorkerID)
                 .query(`DELETE FROM Workers WHERE WorkerID=@wid`);
-            // Note: If worker is linked to Permits, SQL might block this. 
-            // Better to use Status='Deleted' if you want soft delete.
             
             return res.json({ success: true, message: "Worker deleted" });
         }
 
-        // 4. APPROVE / REJECT (For Reviewer/Approver)
+        // 4. APPROVE / REJECT
         else if (Action === 'approve' || Action === 'reject') {
             const newStatus = (Action === 'approve') ? 'Approved' : 'Rejected';
+            console.log(`Processing ${newStatus} for Worker ${WorkerID}`);
+
             await pool.request()
                 .input('wid', WorkerID)
                 .input('app', ApproverName || req.user.name)
