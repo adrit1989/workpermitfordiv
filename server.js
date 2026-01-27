@@ -856,7 +856,7 @@ app.post('/api/admin/bulk-upload', authenticateAccess, upload.single('excelFile'
     } catch (e) { res.status(500).json({ error: "Bulk Upload Failed: " + e.message }); }
 });
 
-// GET WORKERS LIST (Updated to fetch ALL columns)
+// GET WORKERS LIST (Updated: Converts UTC to IST)
 app.post('/api/get-workers', authenticateAccess, async (req, res) => {
     try {
         const pool = await getConnection();
@@ -867,23 +867,21 @@ app.post('/api/get-workers', authenticateAccess, async (req, res) => {
                 WorkerID, Name, Age, FatherName, Address, Contact, 
                 IDCardNo as ID, IDType, Gender, 
                 Status, RequestorName, ApprovedBy, 
-                FORMAT(ApprovedAt, 'dd-MMM-yyyy HH:mm') as ApprovedAt
+                
+                -- FIX: Add 330 minutes (5.5 Hours) to convert UTC to IST
+                FORMAT(DATEADD(MINUTE, 330, ApprovedAt), 'dd-MMM-yyyy HH:mm') as ApprovedAt
+
             FROM Workers 
         `;
 
         // Filter Logic
         if (role === 'Requester') {
-            // Requesters see only their own workers
             query += ` WHERE RequestorEmail = @email`;
         } 
         else if (role === 'Reviewer') {
-            // Reviewers see Pending Review OR Approved ones (for reference)
-            // You can adjust this to show ALL if needed
             query += ` WHERE Status = 'Pending Review' OR Status = 'Approved'`;
         }
         else if (role === 'Approver') {
-            // Approvers see Pending Approval OR Approved
-            // Note: If flow skips "Pending Approval" for workers, show 'Pending Review' or 'Approved'
             query += ` WHERE Status IN ('Pending Review', 'Pending Approval', 'Approved')`;
         }
 
