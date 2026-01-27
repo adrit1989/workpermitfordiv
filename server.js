@@ -933,6 +933,7 @@ app.post('/api/save-worker', authenticateAccess, async (req, res) => {
         }
 
         // 2. EDIT WORKER
+       // 2. EDIT WORKER (Updated for Requirement D)
         else if (Action === 'edit') {
             const result = await pool.request()
                 .input('wid', WorkerID)
@@ -947,6 +948,8 @@ app.post('/api/save-worker', authenticateAccess, async (req, res) => {
                 .query(`UPDATE Workers 
                         SET Name=@n, Age=@a, FatherName=@f, Address=@addr, Contact=@c, 
                             IDCardNo=@id, IDType=@idt, Gender=@g, 
+                            
+                            -- FORCE RESET TO PENDING REVIEW ON EDIT
                             Status='Pending Review', 
                             ApprovedBy=NULL, ApprovedAt=NULL 
                         WHERE WorkerID=@wid`);
@@ -957,7 +960,6 @@ app.post('/api/save-worker', authenticateAccess, async (req, res) => {
             
             return res.json({ success: true, message: "Worker updated and sent for review" });
         }
-
         // 3. DELETE WORKER
         else if (Action === 'delete') {
             await pool.request()
