@@ -1670,33 +1670,43 @@ async function submitRenewal(act) {
             renderIOCLTable(status);
         }
 
-  // --- FIX B: Robust visibility check for Requester ---
-// --- UPDATED: Load Workers (Stores data for editing) ---
-        async function loadWorkers(context) {
-            const res = await apiCall('/get-workers', 'POST', {role:currentUser.Role, email:currentUser.Email, context:context});
-            
-            // STORE DATA GLOBALLY FOR EDIT FUNCTION
-            window.cachedWorkerList = res || [];
+// --- UPDATED: loadWorkers (Implements C & D) ---
+async function loadWorkers(context) {
+    const res = await apiCall('/get-workers', 'POST', {role:currentUser.Role, email:currentUser.Email, context:context});
+    
+    // STORE DATA GLOBALLY FOR EDIT FUNCTION
+    window.cachedWorkerList = res || [];
 
-            // Explicitly unhide button for Requester
-            const addBtn = document.getElementById('btn-add-worker-main');
-            if(currentUser.Role === 'Requester') addBtn.classList.remove('hidden');
-            else addBtn.classList.add('hidden');
+    // Explicitly unhide button for Requester
+    const addBtn = document.getElementById('btn-add-worker-main');
+    if(currentUser.Role === 'Requester') addBtn.classList.remove('hidden');
+    else addBtn.classList.add('hidden');
 
-            if(context === 'permit_dropdown') {
-                const con = document.getElementById('worker-select-area');
-                con.innerHTML = res.map(w => `<label class="flex items-center gap-3 border p-3 rounded-lg bg-white shadow-sm cursor-pointer hover:bg-blue-50"><input type="checkbox" name="Worker_${w.WorkerID}" value='${JSON.stringify(w)}' class="w-5 h-5 accent-blue-600 rounded"><div><div class="font-bold text-gray-800 text-sm">${escapeHtml(w.Name)}</div><div class="text-xs text-gray-500">${w.IDType}: ${w.ID}</div></div></label>`).join('');
-            } else {
-                const t = document.querySelector('#table-workers tbody'); t.innerHTML = "";
-                res.forEach(w => {
-                    let actions = '';
-                    if(currentUser.Role === 'Requester') actions = `<button class="text-blue-600 font-bold text-xs mr-2" onclick="editWorker('${w.WorkerID}')">Edit</button><button class="text-red-600 font-bold text-xs" onclick="workerAction('${w.WorkerID}', 'delete')">Delete</button>`;
-                    else if(w.Status.includes('Pending')) actions = `<button class="text-green-600 font-bold text-xs mr-2" onclick="workerAction('${w.WorkerID}', 'approve')">Approve</button><button class="text-red-600 font-bold text-xs" onclick="workerAction('${w.WorkerID}', 'reject')">Reject</button>`;
-                    let approvedInfo = w.ApprovedBy ? `${w.ApprovedBy}<br><span class="text-[9px]">${w.ApprovedAt}</span>` : '-';
-                    t.innerHTML += `<tr class="hover:bg-gray-50 border-b border-gray-100"><td class="p-3 font-bold">${escapeHtml(w.Name)}</td><td class="p-3 text-xs">${escapeHtml(w.Age)} / ${escapeHtml(w.Gender)}</td><td class="p-3 text-xs font-mono">${escapeHtml(w.Contact)}</td><td class="p-3 font-mono text-xs">${escapeHtml(w.IDType)}: ${escapeHtml(w.ID)}</td><td class="p-3 text-xs text-gray-500">${approvedInfo}</td><td class="p-3">${actions}</td></tr>`;
-                });
-            }
+    if(context === 'permit_dropdown') {
+        const con = document.getElementById('worker-select-area');
+        // CHANGE: Filter only 'Approved' workers for permit creation
+        const activeWorkers = res.filter(w => w.Status === 'Approved');
+        
+        if(activeWorkers.length === 0) {
+            con.innerHTML = '<div class="text-gray-500 text-xs p-2">No Active/Approved workers found.</div>';
+        } else {
+            con.innerHTML = activeWorkers.map(w => `<label class="flex items-center gap-3 border p-3 rounded-lg bg-white shadow-sm cursor-pointer hover:bg-blue-50"><input type="checkbox" name="Worker_${w.WorkerID}" value='${JSON.stringify(w)}' class="w-5 h-5 accent-blue-600 rounded"><div><div class="font-bold text-gray-800 text-sm">${escapeHtml(w.Name)}</div><div class="text-xs text-gray-500">${w.IDType}: ${w.ID}</div></div></label>`).join('');
         }
+    } else {
+        const t = document.querySelector('#table-workers tbody'); t.innerHTML = "";
+        res.forEach(w => {
+            let actions = '';
+            if(currentUser.Role === 'Requester') actions = `<button class="text-blue-600 font-bold text-xs mr-2" onclick="editWorker('${w.WorkerID}')">Edit</button><button class="text-red-600 font-bold text-xs" onclick="workerAction('${w.WorkerID}', 'delete')">Delete</button>`;
+            else if(w.Status.includes('Pending')) actions = `<button class="text-green-600 font-bold text-xs mr-2" onclick="workerAction('${w.WorkerID}', 'approve')">Approve</button><button class="text-red-600 font-bold text-xs" onclick="workerAction('${w.WorkerID}', 'reject')">Reject</button>`;
+            
+            // Visual feedback for status
+            let statusBadge = w.Status === 'Approved' ? '<span class="text-green-600 font-bold text-[10px]">Active</span>' : '<span class="text-orange-500 font-bold text-[10px]">Pending</span>';
+            
+            let approvedInfo = w.ApprovedBy ? `${w.ApprovedBy}<br><span class="text-[9px]">${w.ApprovedAt}</span>` : '-';
+            t.innerHTML += `<tr class="hover:bg-gray-50 border-b border-gray-100"><td class="p-3 font-bold">${escapeHtml(w.Name)} <br>${statusBadge}</td><td class="p-3 text-xs">${escapeHtml(w.Age)} / ${escapeHtml(w.Gender)}</td><td class="p-3 text-xs font-mono">${escapeHtml(w.Contact)}</td><td class="p-3 font-mono text-xs">${escapeHtml(w.IDType)}: ${escapeHtml(w.ID)}</td><td class="p-3 text-xs text-gray-500">${approvedInfo}</td><td class="p-3">${actions}</td></tr>`;
+        });
+    }
+}
         // --- FIX: Edit Worker Function ---
         function editWorker(id) {
             // Find worker in the cached list
@@ -2198,6 +2208,7 @@ async function downloadSecurePDF(id, format = 'default') {
     </script>
 </body>
 </html>
+
 
 
 
