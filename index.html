@@ -1079,34 +1079,42 @@ if (p.ElectricalAuthNum) {
                     el.disabled = shouldDisable;
                 });
                 // Inside openPermit, after the form population loop:
-const isElecSet = (p.A_Q11 === 'Y');
-const isoWindow = document.getElementById('elec-isolation-window');
+// --- CORRECTED POPULATION LOGIC FOR ELECTRICAL ISOLATION ---
+                const isElecSet = (p.A_Q11 === 'Y');
+                const isoWindow = document.getElementById('elec-isolation-window');
 
-if(isoWindow) {
-    isoWindow.classList.toggle('hidden', !isElecSet);
-    
-    const authFields = document.getElementById('elec-auth-action-fields');
-    if(authFields) {
-        // 1. Determine visibility
-        authFields.classList.toggle('hidden', currentUser.Role !== 'ElectricalAuth' && !p.ElectricalAuthNum);
-        
-        // 2. Handle Editability (The Fix)
-        if (currentUser.Role === 'ElectricalAuth' && !p.ElectricalAuthNum) {
-            // UNLOCK fields for the Electrical Person during the isolation phase
-            document.getElementById('Elec_Isolated_Check').disabled = false;
-            document.getElementById('Elec_LotoTag_Auth').disabled = false;
-            document.getElementById('Elec_Iso_DateTime').disabled = false;
-        } else {
-            // LOCK fields for everyone else or if already approved
-            document.getElementById('Elec_Isolated_Check').disabled = true;
-            document.getElementById('Elec_LotoTag_Auth').disabled = true;
-            document.getElementById('Elec_Iso_DateTime').disabled = true;
-            
-            // Populate value if it exists in the database
-            if(p.Elec_Isolated_Check === 'Y') document.getElementById('Elec_Isolated_Check').checked = true;
-        }
-    }
-}
+                if(isoWindow) {
+                    isoWindow.classList.toggle('hidden', !isElecSet);
+                    
+                    const authFields = document.getElementById('elec-auth-action-fields');
+                    if(authFields) {
+                        // 1. Show the section if data exists or if user is ElectricalAuth
+                        const hasIsoData = p.ElectricalAuthNum || p.Elec_LotoTag_Auth;
+                        authFields.classList.toggle('hidden', currentUser.Role !== 'ElectricalAuth' && !hasIsoData);
+                        
+                        // 2. MANUALLY POPULATE DATA (This ensures Reviewers/Approvers see the values)
+                        if (p.Elec_LotoTag_Auth) document.getElementById('Elec_LotoTag_Auth').value = p.Elec_LotoTag_Auth;
+                        if (p.Elec_Iso_DateTime) document.getElementById('Elec_Iso_DateTime').value = p.Elec_Iso_DateTime;
+                        if (p.Elec_Isolated_Check === 'Y' || p.ElectricalAuthNum) {
+                            document.getElementById('Elec_Isolated_Check').checked = true;
+                        } else {
+                            document.getElementById('Elec_Isolated_Check').checked = false;
+                        }
+
+                        // 3. Handle Editability
+                        if (currentUser.Role === 'ElectricalAuth' && !p.ElectricalAuthNum) {
+                            // UNLOCK for the Electrical Person to fill
+                            document.getElementById('Elec_Isolated_Check').disabled = false;
+                            document.getElementById('Elec_LotoTag_Auth').disabled = false;
+                            document.getElementById('Elec_Iso_DateTime').disabled = false;
+                        } else {
+                            // LOCK for Reviewers, Approvers, and finished requests
+                            document.getElementById('Elec_Isolated_Check').disabled = true;
+                            document.getElementById('Elec_LotoTag_Auth').disabled = true;
+                            document.getElementById('Elec_Iso_DateTime').disabled = true;
+                        }
+                    }
+                }
                 
     const tbtArea = document.getElementById('tbt-link-area');
     if (p.TBT_File_Url) {
@@ -2411,6 +2419,7 @@ async function downloadSecurePDF(id, format = 'default') {
     </script>
 </body>
 </html>
+
 
 
 
