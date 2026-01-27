@@ -1126,7 +1126,12 @@ app.post('/api/update-status', authenticateAccess, upload.any(), async(req, res)
     const now = getNowIST(); 
     const usr = req.user.name;
     Object.assign(d, extras);
- 
+
+    // Initialize variables used later in the query
+    let newJsaUrl = null;
+    let sqlSetJsa = ""; 
+
+    // 1. ELECTRICAL LOGIC
     if (action === 'elec_approve') {
         const elecAuthNum = `ELEC-${PermitID}-${Date.now().toString().slice(-4)}`;
         st = 'Pending Review'; 
@@ -1134,13 +1139,10 @@ app.post('/api/update-status', authenticateAccess, upload.any(), async(req, res)
         d.Elec_Approved_By = usr;
         d.Elec_Approval_Statement = `${usr} has approved the electrical isolation request no ${elecAuthNum} and submitted for further approval.`;
     } 
-    // 2. Electrical Person Rejects Isolation
     else if (action === 'elec_reject') {
         st = 'Rejected';
     }
-    // 3. Requestor Initiates Closure (Logic Divergence)
     else if (action === 'initiate_closure') {
-        // Validation: If LOTO was Yes, check if Requester confirmed re-energize
         if (d.A_Q11 === 'Y') {
             if (extras.Elec_Energize_Check !== 'Y') {
                 return res.status(400).json({ error: "Electrical re-energize confirmation required" });
@@ -1152,60 +1154,41 @@ app.post('/api/update-status', authenticateAccess, upload.any(), async(req, res)
         d.Closure_Requestor_Date = now;
         d.Closure_Receiver_Sig = `${usr} on ${now}`;
     }
-    // 4. Electrical Person Approves De-Isolation (Re-energize)
     else if (action === 'elec_closure_approve') {
         st = 'Closure Pending Review'; 
         d.Elec_DeIsolation_Sig = `${usr} on ${now}`;
     }
-    // 5. Electrical Person Rejects De-Isolation
     else if (action === 'elec_reject_closure') {
         st = 'Active'; 
     }
-    // --- END OF NEW ELECTRICAL CODE ---
-
-    // Now modify the existing general action checks to use "else if" 
-    // so they don't override the logic above
-    else if (action === 'reject') { // Changed "if" to "else if"
+    
+    // 2. GENERAL ACTIONS
+    else if (action === 'reject') {
         st = 'Rejected';
     }
     else if (action === 'review' || action === 'approve_1st_ren') { 
-
-    let newJsaUrl = null;
-    let sqlSetJsa = ""; 
-
-    if (req.files) {
-        const jsaFile = req.files.find(f => f.fieldname === 'JsaFile');
-        if(jsaFile) {
-            newJsaUrl = await uploadToAzure(jsaFile.buffer, `permit-jsa/${PermitID}-${Date.now()}.pdf`, 'application/pdf');
-            sqlSetJsa += ", JsaFileUrl=@jsaUrl, JsaLinkedId=NULL"; 
+        // --- File Handling for Review ---
+        if (req.files) {
+            const jsaFile = req.files.find(f => f.fieldname === 'JsaFile');
+            if(jsaFile) {
+                newJsaUrl = await uploadToAzure(jsaFile.buffer, `permit-jsa/${PermitID}-${Date.now()}.pdf`, 'application/pdf');
+                sqlSetJsa += ", JsaFileUrl=@jsaUrl, JsaLinkedId=NULL"; 
+            }
         }
-    }
-
-    const newJsaId = req.body.JsaLinkedId || null;
-    if (newJsaId && !newJsaUrl) {
-         sqlSetJsa += ", JsaLinkedId=@jsaId, JsaFileUrl=NULL";
-    }
-
-    // Handle TBT Upload
-    if (req.files) {
-        const tbt = req.files.find(f => f.fieldname === 'TBT_PDF_File');
-        if (tbt) {
-            const url = await uploadToAzure(tbt.buffer, `tbt/${PermitID}_${Date.now()}.pdf`, 'application/pdf');
-            d.TBT_File_Url = url;
+        const newJsaId = req.body.JsaLinkedId || null;
+        if (newJsaId && !newJsaUrl) {
+             sqlSetJsa += ", JsaLinkedId=@jsaId, JsaFileUrl=NULL";
         }
-    }
-    if(req.body.TBT_Ref_No) d.TBT_Ref_No = req.body.TBT_Ref_No;
- 
-    if (action === 'reject') {
-        // This handles the main red "Reject Permit" button.
-        // Kills the entire permit immediately.
-        st = 'Rejected';
-    }
-    else if (action === 'review' || action === 'approve_1st_ren') { 
-        // Handles "Review & Forward".
-        // Even if FirstRenewalAction is 'reject', we move the permit to 'Pending Approval'.
-        // The renewal *entry* itself will be marked 'rejected' in the JSON array (logic below),
-        // but the permit will continue to the Approver.
+        if (req.files) {
+            const tbt = req.files.find(f => f.fieldname === 'TBT_PDF_File');
+            if (tbt) {
+                const url = await uploadToAzure(tbt.buffer, `tbt/${PermitID}_${Date.now()}.pdf`, 'application/pdf');
+                d.TBT_File_Url = url;
+            }
+        }
+        if(req.body.TBT_Ref_No) d.TBT_Ref_No = req.body.TBT_Ref_No;
+        // -------------------------------
+
         st = 'Pending Approval'; 
         d.Reviewer_Sig = `${usr} on ${now}`; 
     }
@@ -1217,11 +1200,6 @@ app.post('/api/update-status', authenticateAccess, upload.any(), async(req, res)
     else if (action === 'approve') { 
         st = 'Active'; 
         d.Approver_Sig = `${usr} on ${now}`; 
-    }
-    else if (action === 'initiate_closure') { 
-        st = 'Closure Pending Review'; 
-        d.Closure_Requestor_Date = now; 
-        d.Closure_Receiver_Sig = `${usr} on ${now}`; 
     }
     else if (action === 'reject_closure') { st = 'Active'; } 
     else if (action === 'approve_closure') { 
@@ -1236,17 +1214,14 @@ app.post('/api/update-status', authenticateAccess, upload.any(), async(req, res)
              let last = rens[rens.length-1];
              if(req.body.FirstRenewalAction === 'reject') { 
                  last.status = 'rejected'; 
-                 // If status was already set to Rejected above, this just confirms the renewal array status
              }
              else if(req.user.role === 'Reviewer') { 
                  last.status = 'pending_approval'; 
                  last.rev_name = usr; 
-                 // st is already set to 'Pending Approval' above
              }
              else if(req.user.role === 'Approver') { 
                  last.status = 'approved'; 
                  last.app_name = usr; 
-                 // st is already set to 'Active' above
              }
         }
     }
@@ -1259,8 +1234,6 @@ app.post('/api/update-status', authenticateAccess, upload.any(), async(req, res)
                 const chunks = [];
                 doc.on('data', chunks.push.bind(chunks));
                 doc.on('end', () => resolve(Buffer.concat(chunks)));
-                doc.on('error', reject);
-                // Note: We use the default format for archival to be safe
                 drawPermitPDF(doc, pdfRecord, d, rens).then(() => doc.end()).catch(reject);
             });
             const blobName = `closed-permits/${PermitID}_FINAL.pdf`;
@@ -1276,7 +1249,7 @@ app.post('/api/update-status', authenticateAccess, upload.any(), async(req, res)
         .input('p', PermitID).input('s', st)
         .input('j', JSON.stringify(d)).input('r', JSON.stringify(rens))
         .input('jsaUrl', newJsaUrl)
-        .input('jsaId', newJsaId);
+        .input('jsaId', req.body.JsaLinkedId || null);
 
     await q.query(`UPDATE Permits SET Status=@s, FullDataJSON=@j, RenewalsJSON=@r ${sqlSetJsa} WHERE PermitID=@p`);
     
@@ -1902,7 +1875,7 @@ app.post('/api/jsa/action', authenticateAccess, async(req, res) => {
     
     let newStatus = '';
     let extraSql = ''; 
-   
+    const now = getNowIST();
 
     if (action === 'reject') newStatus = 'Rejected';
     else if (action === 'approve' && req.user.role === 'Reviewer') newStatus = 'Pending Approval';
