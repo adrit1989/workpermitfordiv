@@ -2098,10 +2098,31 @@ async function downloadSecurePDF(id, format = 'default') {
                 { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
             );
         };
+        // --- FIX: Master Admin Reset Password Function ---
+        async function resetUserPassword() {
+            const email = document.getElementById('reset-email').value;
+            const pass = document.getElementById('reset-temp-pass').value;
+            
+            if(!email || !pass) return alert("Please enter both the User Email and the New Temporary Password.");
+            
+            if(!confirm(`Are you sure you want to reset the password for user: ${email}?`)) return;
+
+            const res = await apiCall('/admin/reset-password', 'POST', { targetEmail: email, newTempPass: pass });
+            
+            if(res.success) {
+                alert("✅ Password has been reset successfully.");
+                // Clear the inputs
+                document.getElementById('reset-email').value = '';
+                document.getElementById('reset-temp-pass').value = '';
+            } else {
+                alert("❌ Reset Failed: " + (res.error || "Unknown Error"));
+            }
+        }
         initLogin();
     </script>
 </body>
 </html>
+
 
 
 
