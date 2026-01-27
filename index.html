@@ -2118,10 +2118,50 @@ async function downloadSecurePDF(id, format = 'default') {
                 alert("❌ Reset Failed: " + (res.error || "Unknown Error"));
             }
         }
+      // --- FIX: Bulk User Upload Function ---
+        async function uploadBulkUsers() {
+            const fileInput = document.getElementById('bulk-excel');
+            const file = fileInput.files[0];
+            
+            if(!file) return alert("Please select an Excel file (.xlsx) first.");
+            
+            const fd = new FormData();
+            fd.append('excelFile', file);
+
+            try {
+                document.getElementById('loader').style.display = 'flex';
+                
+                // Call the API
+                const res = await fetch(`${API}/admin/bulk-upload`, { 
+                    method: 'POST', 
+                    body: fd,
+                    headers: {'Authorization': `Bearer ${authToken}`} 
+                });
+
+                const json = await res.json();
+                
+                if (json.success) {
+                    alert(`✅ Success! ${json.count} users created.`);
+                    fileInput.value = ''; // Reset input
+                    // Refresh user table if currently viewing users
+                    if(!document.getElementById('view-users').classList.contains('hidden')) {
+                        loadManageUsers();
+                    }
+                } else {
+                    alert("❌ Upload Failed: " + (json.error || "Unknown error"));
+                }
+            } catch(e) {
+                console.error("Bulk Upload Error:", e);
+                alert("Network Error during upload.");
+            } finally {
+                document.getElementById('loader').style.display = 'none';
+            }
+        }
         initLogin();
     </script>
 </body>
 </html>
+
 
 
 
