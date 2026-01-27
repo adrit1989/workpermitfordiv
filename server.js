@@ -1010,11 +1010,25 @@ app.post('/api/dashboard', authenticateAccess, async (req, res) => {
         try { parsed = JSON.parse(x.FullDataJSON || "{}"); } catch (e) {}
         return { ...parsed, ...x, FinalPdfUrl: x.FinalPdfUrl };
     });
-    const filtered = data.filter(p => {
+   const filtered = data.filter(p => {
+        // 1. Master Admins see everything
         if(role === 'MasterAdmin') return true; 
+        
+        // 2. Requesters see only their own permits
         if(role === 'Requester') return p.RequesterEmail === email;
-        if(role === 'Reviewer') return p.ReviewerEmail === email;
-        if(role === 'Approver') return p.ApproverEmail === email;
+        
+        // 3. NEW: Electrical Authorized Persons logic
+        if(role === 'ElectricalAuth') {
+            // They see permits waiting for isolation OR waiting for de-isolation
+            return p.Status === 'Pending Electrical Isolation' || p.Status === 'Pending Electrical De-Isolation';
+        }
+
+        // 4. Reviewers see permits assigned to them or waiting for review
+        if(role === 'Reviewer') return p.ReviewerEmail === email || p.Status === 'Pending Review' || p.Status === 'Closure Pending Review';
+        
+        // 5. Approvers see permits assigned to them or waiting for approval
+        if(role === 'Approver') return p.ApproverEmail === email || p.Status === 'Pending Approval' || p.Status === 'Closure Pending Approval';
+        
         return true;
     });
     res.json(filtered.sort((a,b) => {
@@ -1056,7 +1070,10 @@ app.post('/api/save-permit', authenticateAccess, upload.any(), async(req, res) =
         if (idRes.recordset[0].MaxVal) nextNum = idRes.recordset[0].MaxVal + 1;
         pid = `WP-${nextNum}`;
     }
-    
+    let initialStatus = 'Pending Review';
+    if (fd.A_Q11 === 'Y') {
+        initialStatus = 'Pending Electrical Isolation';
+    }
     let jsaUrl = null;
     if (req.files) {
         const jsaFile = req.files.find(f => f.fieldname === 'JsaFile');
@@ -1073,7 +1090,7 @@ app.post('/api/save-permit', authenticateAccess, upload.any(), async(req, res) =
         rens.push({ status: 'pending_review', valid_from: fd.InitRenFrom, valid_to: fd.InitRenTo, hc: fd.InitRenHC, toxic: fd.InitRenTox, oxygen: fd.InitRenO2, req_name: req.user.name, req_at: getNowIST(), tbt_done: 'Y' });
     }
 
-    const q = pool.request().input('p', pid).input('s', 'Pending Review').input('w', fd.WorkType)
+    const q = pool.request().input('p', pid).input('s', 'initialStatus').input('w', fd.WorkType)
         .input('re', req.user.email).input('rv', fd.ReviewerEmail).input('ap', fd.ApproverEmail)
         .input('vf', new Date(fd.ValidFrom)).input('vt', new Date(fd.ValidTo))
         .input('j', JSON.stringify(fd)).input('ren', JSON.stringify(rens))
@@ -1106,8 +1123,56 @@ app.post('/api/update-status', authenticateAccess, upload.any(), async(req, res)
     const now = getNowIST(); 
     const usr = req.user.name;
     Object.assign(d, extras);
+    const now = getNowIST(); 
+    const usr = req.user.name;
+    Object.assign(d, extras);
 
-    // --- HANDLE JSA FILE UPDATE ---
+    // --- ADD THE NEW CODE STARTING HERE ---
+    
+    // 1. Electrical Person Approves Isolation
+    if (action === 'elec_approve') {
+        const elecAuthNum = `ELEC-${PermitID}-${Date.now().toString().slice(-4)}`;
+        st = 'Pending Review'; 
+        d.ElectricalAuthNum = elecAuthNum;
+        d.Elec_Approved_By = usr;
+        d.Elec_Approval_Statement = `${usr} has approved the electrical isolation request no ${elecAuthNum} and submitted for further approval.`;
+    } 
+    // 2. Electrical Person Rejects Isolation
+    else if (action === 'elec_reject') {
+        st = 'Rejected';
+    }
+    // 3. Requestor Initiates Closure (Logic Divergence)
+    else if (action === 'initiate_closure') {
+        // Validation: If LOTO was Yes, check if Requester confirmed re-energize
+        if (d.A_Q11 === 'Y') {
+            if (extras.Elec_Energize_Check !== 'Y') {
+                return res.status(400).json({ error: "Electrical re-energize confirmation required" });
+            }
+            st = 'Pending Electrical De-Isolation'; 
+        } else {
+            st = 'Closure Pending Review'; 
+        }
+        d.Closure_Requestor_Date = now;
+        d.Closure_Receiver_Sig = `${usr} on ${now}`;
+    }
+    // 4. Electrical Person Approves De-Isolation (Re-energize)
+    else if (action === 'elec_closure_approve') {
+        st = 'Closure Pending Review'; 
+        d.Elec_DeIsolation_Sig = `${usr} on ${now}`;
+    }
+    // 5. Electrical Person Rejects De-Isolation
+    else if (action === 'elec_reject_closure') {
+        st = 'Active'; 
+    }
+    // --- END OF NEW ELECTRICAL CODE ---
+
+    // Now modify the existing general action checks to use "else if" 
+    // so they don't override the logic above
+    else if (action === 'reject') { // Changed "if" to "else if"
+        st = 'Rejected';
+    }
+    else if (action === 'review' || action === 'approve_1st_ren') { 
+
     let newJsaUrl = null;
     let sqlSetJsa = ""; 
 
