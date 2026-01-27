@@ -1078,6 +1078,23 @@ if (p.ElectricalAuthNum) {
                     // Apply Read-Only state
                     el.disabled = shouldDisable;
                 });
+                // Inside openPermit, after the form population loop:
+const isElecSet = (p.A_Q11 === 'Y');
+const isoWindow = document.getElementById('elec-isolation-window');
+if(isoWindow) {
+    isoWindow.classList.toggle('hidden', !isElecSet);
+    // Only show entry fields for Electrical Auth during their phase
+    const authFields = document.getElementById('elec-auth-action-fields');
+    if(authFields) {
+        authFields.classList.toggle('hidden', currentUser.Role !== 'ElectricalAuth' && !p.ElectricalAuthNum);
+        // Disable fields if already approved
+        if(p.ElectricalAuthNum) {
+            document.getElementById('Elec_Isolated_Check').disabled = true;
+            document.getElementById('Elec_LotoTag_Auth').disabled = true;
+            document.getElementById('Elec_Iso_DateTime').disabled = true;
+        }
+    }
+}
                 
     const tbtArea = document.getElementById('tbt-link-area');
     if (p.TBT_File_Url) {
@@ -1499,6 +1516,15 @@ if(!document.getElementById('closure-summary-box')) {
         }
 
         async function upd(act) {
+            if (act === 'elec_approve') {
+        if(!document.getElementById('Elec_Isolated_Check').checked) return alert("Please check 'Electrically Isolated'");
+        if(!getVal('Elec_LotoTag_Auth')) return alert("Please enter Electrical LOTO No");
+        if(!getVal('Elec_Iso_DateTime')) return alert("Please select Isolation Date & Time");
+    }
+            if (act === 'elec_closure_approve') {
+        // You might want to add a confirm here for extra safety
+        if(!confirm("Are you sure the system is ready to be re-energized?")) return;
+    }
             if (act === 'initiate_closure') {
                 if(!document.getElementById("Site_Restored_Check").checked) return alert("Please confirm site restoration checkbox.");
                 // ADD THIS CHECK:
@@ -1885,12 +1911,19 @@ async function loadWorkers(context) {
     <div id="elec-isolation-window" class="hidden mt-3 p-3 bg-yellow-50 border border-yellow-200 rounded space-y-2">
         <h4 class="font-bold text-yellow-800 text-[10px] uppercase underline">Electrical Isolation Details (LOTO)</h4>
         <div class="grid grid-cols-1 gap-2">
-            <input name="Elec_EquipNo" id="Elec_EquipNo" placeholder="A. Equipment number to be isolated" class="text-xs">
-            <input name="Elec_EquipName" id="Elec_EquipName" placeholder="B. Equipment to be isolated" class="text-xs">
-            <input name="Elec_LotoTag" id="Elec_LotoTag" placeholder="C. LOTO Tag No" class="text-xs">
-            <div>
-                <label class="text-[10px] font-bold text-gray-500 block mb-1">D. Electrical Authorised Person</label>
-                <select name="Elec_AuthEmail" id="Elec_AuthEmail" class="text-xs w-full"></select>
+            <p class="text-[10px] text-gray-500 font-bold">REQUESTER ENTRIES:</p>
+            <input name="Elec_EquipNo" id="Elec_EquipNo" placeholder="Equipment number" class="text-xs">
+            <input name="Elec_EquipName" id="Elec_EquipName" placeholder="Equipment name" class="text-xs">
+            <input name="Elec_LotoTag_Req" id="Elec_LotoTag_Req" placeholder="Requester LOTO Tag No" class="text-xs">
+            <select name="Elec_AuthEmail" id="Elec_AuthEmail" class="text-xs w-full"></select>
+            
+            <div id="elec-auth-action-fields" class="hidden border-t pt-2 mt-2 space-y-2">
+                <p class="text-[10px] text-blue-700 font-bold">ELECTRICAL AUTHORISED PERSON ENTRIES:</p>
+                <label class="flex items-center gap-2 text-xs font-bold text-blue-800">
+                    <input type="checkbox" id="Elec_Isolated_Check" name="Elec_Isolated_Check" class="w-4 h-4"> Electrically Isolated
+                </label>
+                <input name="Elec_LotoTag_Auth" id="Elec_LotoTag_Auth" placeholder="Electrical LOTO No" class="text-xs border-blue-300">
+                <input type="datetime-local" name="Elec_Iso_DateTime" id="Elec_Iso_DateTime" class="text-xs border-blue-300">
             </div>
         </div>
     </div>`;
@@ -2340,6 +2373,7 @@ async function downloadSecurePDF(id, format = 'default') {
     </script>
 </body>
 </html>
+
 
 
 
