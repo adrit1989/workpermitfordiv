@@ -1536,6 +1536,7 @@ if(!document.getElementById('closure-summary-box')) {
         }
 
         async function upd(act) {
+            const fd = new FormData();
             if (act === 'elec_approve') {
         if(!document.getElementById('Elec_Isolated_Check').checked) return alert("Please check 'Electrically Isolated'");
         if(!getVal('Elec_LotoTag_Auth')) return alert("Please enter Electrical LOTO No");
@@ -2421,6 +2422,7 @@ async function downloadSecurePDF(id, format = 'default') {
     </script>
 </body>
 </html>
+
 
 
 
