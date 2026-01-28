@@ -590,7 +590,7 @@ async function drawPermitPDF(doc, p, d, renewalsList) {
         wy += 30;
     });
     doc.y = wy + 20;
-    if (d.A_Q11 === 'Y') {
+    
     // --- FIX: Standard PDF Electrical Audit Trail ---
     if (d.A_Q11 === 'Y') {
         if (doc.y > 550) { doc.addPage(); drawHeaderOnAll(); }
