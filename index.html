@@ -1076,11 +1076,57 @@ if (p.ElectricalAuthNum) {
                     }
 
                     // Apply Read-Only state
-                    el.disabled = shouldDisable;
+el.disabled = shouldDisable;
+
+// Change A & B: Specific logic for Electrical Section Visibility/Editability
+const elecFields = ['Elec_EquipNo', 'Elec_EquipName', 'Elec_LotoTag_Req', 'Elec_AuthEmail', 'Elec_LotoTag_Auth', 'Elec_Iso_DateTime', 'Elec_Isolated_Check', 'Elec_Energized_Final_Check', 'Elec_DeIso_DateTime_Final'];
+
+// Check if current element is an electrical field OR the main toggle A_Q11
+if ((el.id && elecFields.includes(el.id)) || (el.name && elecFields.includes(el.name)) || el.name === 'A_Q11') {
+    let canEditElec = false;
+    
+    // 1. Requester can edit A_Q11 and their request fields only in Draft/Rejected
+    if (currentUser.Role === 'Requester' && (statusClean === 'Draft' || statusClean === '' || statusClean.includes('Rejected'))) {
+        if (el.name === 'A_Q11' || (!el.id.includes('Auth') && !el.id.includes('Iso') && !el.id.includes('Energized'))) {
+            canEditElec = true;
+        }
+    }
+    
+    // 2. Electrical Auth can edit their specific fields during Isolation phase
+    if (currentUser.Role === 'ElectricalAuth' && statusClean === 'Pending Electrical Isolation') {
+        if (el.id.includes('Auth') || el.id.includes('Iso') || el.id === 'Elec_Isolated_Check') {
+            canEditElec = true;
+        }
+    }
+
+    // 3. Electrical Auth can edit De-Isolation fields during Closure phase
+    if (currentUser.Role === 'ElectricalAuth' && statusClean === 'Pending Electrical De-Isolation') {
+        if (el.id.includes('DeIso') || el.id.includes('Energized')) {
+            canEditElec = true;
+        }
+    }
+
+    el.disabled = !canEditElec;
+}
                 });
+                
                 // Inside openPermit, after the form population loop:
 // --- CORRECTED POPULATION LOGIC FOR ELECTRICAL ISOLATION ---
                 const isElecSet = (p.A_Q11 === 'Y');
+                const closureElecDiv = document.getElementById('elec-closure-auth-fields');
+if (closureElecDiv) {
+    const isDeIsoPhase = (statusClean === 'Pending Electrical De-Isolation');
+    closureElecDiv.classList.toggle('hidden', !isDeIsoPhase && !p.Elec_Energized_Final_Check);
+    
+    // Enable only for Electrical Auth during de-isolation
+    const canEditDeIso = (currentUser.Role === 'ElectricalAuth' && isDeIsoPhase);
+    document.getElementById('Elec_Energized_Final_Check').disabled = !canEditDeIso;
+    document.getElementById('Elec_DeIso_DateTime_Final').disabled = !canEditDeIso;
+    
+    // Populate data
+    document.getElementById('Elec_Energized_Final_Check').checked = (p.Elec_Energized_Final_Check === 'Y');
+    document.getElementById('Elec_DeIso_DateTime_Final').value = p.Elec_DeIso_DateTime_Final || '';
+}
                 const isoWindow = document.getElementById('elec-isolation-window');
 
                 if(isoWindow) {
@@ -1547,8 +1593,12 @@ async function upd(act) {
     }
 
     if (act === 'elec_closure_approve') {
-        if (!confirm("Are you sure the system is ready to be re-energized?")) return;
-    }
+    if (!document.getElementById('Elec_Energized_Final_Check').checked) return alert("Please confirm 'Equipment can be safely energised'");
+    if (!getVal('Elec_DeIso_DateTime_Final')) return alert("Please select De-Isolation Date & Time");
+    
+    fd.append('Elec_Energized_Final_Check', 'Y');
+    fd.append('Elec_DeIso_DateTime_Final', getVal('Elec_DeIso_DateTime_Final'));
+}
 
     if (act === 'initiate_closure') {
         if (!document.getElementById("Site_Restored_Check").checked) return alert("Please confirm site restoration checkbox.");
@@ -1993,6 +2043,16 @@ async function loadWorkers(context) {
                 </div>
             </div>
         </div>
+        <div id="elec-closure-auth-fields" class="hidden border-t-2 border-green-200 pt-2 mt-2 bg-green-50/50 p-2 rounded">
+    <label class="flex items-center gap-2 text-xs font-bold text-green-800 cursor-pointer">
+        <input type="checkbox" id="Elec_Energized_Final_Check" name="Elec_Energized_Final_Check" class="w-4 h-4 accent-green-700"> 
+        Equipment can be safely energised and hence energisation done.
+    </label>
+    <div class="mt-2">
+        <label class="text-[10px] font-bold text-green-700 block">De-Isolation (Energisation) Date & Time:</label>
+        <input type="datetime-local" name="Elec_DeIso_DateTime_Final" id="Elec_DeIso_DateTime_Final" class="text-xs border-green-300">
+    </div>
+</div>
     </div>`;
 }
 
@@ -2440,6 +2500,7 @@ async function downloadSecurePDF(id, format = 'default') {
     </script>
 </body>
 </html>
+
 
 
 
