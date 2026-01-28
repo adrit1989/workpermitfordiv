@@ -591,47 +591,40 @@ async function drawPermitPDF(doc, p, d, renewalsList) {
     });
     doc.y = wy + 20;
     if (d.A_Q11 === 'Y') {
-    if (doc.y > 550) { doc.addPage(); drawHeaderOnAll(); }
-    doc.font('Helvetica-Bold').fontSize(10).fillColor('#1e40af').text("ELECTRICAL ISOLATION & ENERGISATION AUDIT TRAIL", 30, doc.y);
-    doc.y += 15;
+        if (doc.y > 550) { doc.addPage(); drawHeaderOnAll(); }
+        doc.font('Helvetica-Bold').fontSize(10).fillColor('#1e40af').text("ELECTRICAL ISOLATION & ENERGISATION AUDIT TRAIL", 30, doc.y);
+        doc.y += 15;
 
-    const tableTop = doc.y;
-    const cWidth = [100, 215, 220]; // Parameter, Requester/System, Electrical Auth
-    doc.font('Helvetica-Bold').fontSize(8).fillColor('black');
+        const tableTop = doc.y;
+        const cWidth = [100, 215, 220]; // Parameter, Requester, Electrical Auth
+        doc.font('Helvetica-Bold').fontSize(8).fillColor('black');
 
-    // Helper to draw a row
-    const drawAuditRow = (label, reqVal, authVal, rowHeight = 25) => {
-        if (doc.y + rowHeight > 750) { doc.addPage(); drawHeaderOnAll(); }
-        const currentY = doc.y;
-        doc.rect(startX, currentY, cWidth[0], rowHeight).stroke().text(label, startX + 5, currentY + 7, {width: cWidth[0]-10});
-        doc.rect(startX + cWidth[0], currentY, cWidth[1], rowHeight).stroke().text(safeText(reqVal), startX + cWidth[0] + 5, currentY + 7, {width: cWidth[1]-10});
-        doc.rect(startX + cWidth[0] + cWidth[1], currentY, cWidth[2], rowHeight).stroke().text(safeText(authVal), startX + cWidth[0] + cWidth[1] + 5, currentY + 7, {width: cWidth[2]-10});
-        doc.y += rowHeight;
-    };
+        const drawAuditRow = (label, reqVal, authVal, rowHeight = 25) => {
+            if (doc.y + rowHeight > 750) { doc.addPage(); drawHeaderOnAll(); }
+            const currentY = doc.y;
+            doc.rect(startX, currentY, cWidth[0], rowHeight).stroke().text(label, startX + 5, currentY + 7, {width: cWidth[0]-10});
+            doc.rect(startX + cWidth[0], currentY, cWidth[1], rowHeight).stroke().text(safeText(reqVal), startX + cWidth[0] + 5, currentY + 7, {width: cWidth[1]-10});
+            doc.rect(startX + cWidth[0] + cWidth[1], currentY, cWidth[2], rowHeight).stroke().text(safeText(authVal), startX + cWidth[0] + cWidth[1] + 5, currentY + 7, {width: cWidth[2]-10});
+            doc.y += rowHeight;
+        };
 
-    // Header Row
-    doc.fillColor('#f3f4f6').rect(startX, tableTop, width, 20).fillAndStroke('black');
-    doc.fillColor('black').text("Phase / Parameter", startX + 5, tableTop + 6);
-    doc.text("Requester Action", startX + cWidth[0] + 5, tableTop + 6);
-    doc.text("Electrical Authorized Action", startX + cWidth[0] + cWidth[1] + 5, tableTop + 6);
-    doc.y = tableTop + 20;
+        doc.fillColor('#f3f4f6').rect(startX, tableTop, width, 20).fillAndStroke('black');
+        doc.fillColor('black').text("Phase / Parameter", startX + 5, tableTop + 6);
+        doc.text("Requester Action", startX + cWidth[0] + 5, tableTop + 6);
+        doc.text("Electrical Authorized Action", startX + cWidth[0] + cWidth[1] + 5, tableTop + 6);
+        doc.y = tableTop + 20;
 
-    doc.font('Helvetica');
-    // 1. Request Phase
-    drawAuditRow("Equipment Details", `No: ${d.Elec_EquipNo}\nName: ${d.Elec_EquipName}`, `Assigned to: ${d.Elec_AuthEmail}`, 35);
-    drawAuditRow("LOTO Tagging", `Tag No: ${d.Elec_LotoTag_Req}`, `Official LOTO: ${d.Elec_LotoTag_Auth}`);
-    
-    // 2. Isolation Phase
-    drawAuditRow("Isolation Status", `Requested: ${d.CreatedDate}`, `ISOLATED: ${d.Elec_Iso_DateTime}\nBy: ${d.Elec_Approved_By}`);
+        doc.font('Helvetica');
+        drawAuditRow("Equipment Details", `No: ${d.Elec_EquipNo}\nName: ${d.Elec_EquipName}`, `Assigned to: ${d.Elec_AuthEmail}`, 35);
+        drawAuditRow("LOTO Tagging", `Tag No: ${d.Elec_LotoTag_Req}`, `Official LOTO: ${d.Elec_LotoTag_Auth}`);
+        drawAuditRow("Isolation Status", `Requested: ${d.CreatedDate}`, `ISOLATED: ${d.Elec_Iso_DateTime}\nBy: ${d.Elec_Approved_By}`);
 
-    // 3. Re-Energisation Phase (Closure)
-    const energizeStatus = d.Elec_Energized_Final_Check === 'Y' ? "ENERGIZED & SAFE" : "Pending";
-    drawAuditRow("De-Isolation Cycle", `Restoration Confirmed: ${d.Closure_Requestor_Date}`, `STATUS: ${energizeStatus}\nDate: ${d.Elec_DeIso_DateTime_Final}\nBy: ${d.Elec_DeIsolation_Sig ? d.Elec_DeIsolation_Sig.split(' on ')[0] : '-'}`);
+        const energizeStatus = d.Elec_Energized_Final_Check === 'Y' ? "ENERGIZED & SAFE" : "Pending";
+        drawAuditRow("De-Isolation Cycle", `Restoration Confirmed: ${d.Closure_Requestor_Date}`, `STATUS: ${energizeStatus}\nDate: ${d.Elec_DeIso_DateTime_Final}\nBy: ${d.Elec_DeIsolation_Sig ? d.Elec_DeIsolation_Sig.split(' on ')[0] : '-'}`);
 
-    doc.y += 20;
-    doc.fillColor('black');
-}
-
+        doc.y += 20;
+        doc.fillColor('black'); // Reset to default
+    }
     // 10. SIGNATURES / APPROVALS
 
     if (doc.y > 650) { doc.addPage(); drawHeaderOnAll(); }
