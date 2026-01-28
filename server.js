@@ -591,38 +591,45 @@ async function drawPermitPDF(doc, p, d, renewalsList) {
     });
     doc.y = wy + 20;
     if (d.A_Q11 === 'Y') {
-    if (doc.y > 600) { doc.addPage(); drawHeaderOnAll(); }
-    doc.font('Helvetica-Bold').fontSize(10).fillColor('blue').text("ELECTRICAL ISOLATION DETAILS", 30, doc.y);
+    if (doc.y > 550) { doc.addPage(); drawHeaderOnAll(); }
+    doc.font('Helvetica-Bold').fontSize(10).fillColor('#1e40af').text("ELECTRICAL ISOLATION & ENERGISATION AUDIT TRAIL", 30, doc.y);
     doc.y += 15;
-    
-    const isoY = doc.y;
+
+    const tableTop = doc.y;
+    const cWidth = [100, 215, 220]; // Parameter, Requester/System, Electrical Auth
     doc.font('Helvetica-Bold').fontSize(8).fillColor('black');
+
+    // Helper to draw a row
+    const drawAuditRow = (label, reqVal, authVal, rowHeight = 25) => {
+        if (doc.y + rowHeight > 750) { doc.addPage(); drawHeaderOnAll(); }
+        const currentY = doc.y;
+        doc.rect(startX, currentY, cWidth[0], rowHeight).stroke().text(label, startX + 5, currentY + 7, {width: cWidth[0]-10});
+        doc.rect(startX + cWidth[0], currentY, cWidth[1], rowHeight).stroke().text(safeText(reqVal), startX + cWidth[0] + 5, currentY + 7, {width: cWidth[1]-10});
+        doc.rect(startX + cWidth[0] + cWidth[1], currentY, cWidth[2], rowHeight).stroke().text(safeText(authVal), startX + cWidth[0] + cWidth[1] + 5, currentY + 7, {width: cWidth[2]-10});
+        doc.y += rowHeight;
+    };
+
+    // Header Row
+    doc.fillColor('#f3f4f6').rect(startX, tableTop, width, 20).fillAndStroke('black');
+    doc.fillColor('black').text("Phase / Parameter", startX + 5, tableTop + 6);
+    doc.text("Requester Action", startX + cWidth[0] + 5, tableTop + 6);
+    doc.text("Electrical Authorized Action", startX + cWidth[0] + cWidth[1] + 5, tableTop + 6);
+    doc.y = tableTop + 20;
+
+    doc.font('Helvetica');
+    // 1. Request Phase
+    drawAuditRow("Equipment Details", `No: ${d.Elec_EquipNo}\nName: ${d.Elec_EquipName}`, `Assigned to: ${d.Elec_AuthEmail}`, 35);
+    drawAuditRow("LOTO Tagging", `Tag No: ${d.Elec_LotoTag_Req}`, `Official LOTO: ${d.Elec_LotoTag_Auth}`);
     
-    // Table Headers
-    doc.rect(30, isoY, 130, 20).stroke().text("Parameter", 35, isoY + 6);
-    doc.rect(160, isoY, 200, 20).stroke().text("Requester Side", 165, isoY + 6);
-    doc.rect(360, isoY, 205, 20).stroke().text("Electrical Authorized Side", 365, isoY + 6);
-    
-    const row1Y = isoY + 20;
-    doc.font('Helvetica').fontSize(8);
-    // Row 1: Name
-    doc.rect(30, row1Y, 130, 20).stroke().text("Name / Signature", 35, row1Y + 6);
-    doc.rect(160, row1Y, 200, 20).stroke().text(safeText(d.RequesterName), 165, row1Y + 6);
-    doc.rect(360, row1Y, 205, 20).stroke().text(safeText(d.Elec_Approved_By), 365, row1Y + 6);
-    
-    const row2Y = row1Y + 20;
-    // Row 2: LOTO No
-    doc.rect(30, row2Y, 130, 20).stroke().text("LOTO Tag Number", 35, row2Y + 6);
-    doc.rect(160, row2Y, 200, 20).stroke().text(safeText(d.Elec_LotoTag_Req), 165, row2Y + 6);
-    doc.rect(360, row2Y, 205, 20).stroke().text(safeText(d.Elec_LotoTag_Auth), 365, row2Y + 6);
-    
-    const row3Y = row2Y + 20;
-    // Row 3: Timestamp
-    doc.rect(30, row3Y, 130, 20).stroke().text("Date & Time", 35, row3Y + 6);
-    doc.rect(160, row3Y, 200, 20).stroke().text(safeText(d.CreatedDate), 165, row3Y + 6);
-    doc.rect(360, row3Y, 205, 20).stroke().text(formatDate(d.Elec_Iso_DateTime), 365, row3Y + 6);
-    
-    doc.y = row3Y + 30;
+    // 2. Isolation Phase
+    drawAuditRow("Isolation Status", `Requested: ${d.CreatedDate}`, `ISOLATED: ${d.Elec_Iso_DateTime}\nBy: ${d.Elec_Approved_By}`);
+
+    // 3. Re-Energisation Phase (Closure)
+    const energizeStatus = d.Elec_Energized_Final_Check === 'Y' ? "ENERGIZED & SAFE" : "Pending";
+    drawAuditRow("De-Isolation Cycle", `Restoration Confirmed: ${d.Closure_Requestor_Date}`, `STATUS: ${energizeStatus}\nDate: ${d.Elec_DeIso_DateTime_Final}\nBy: ${d.Elec_DeIsolation_Sig ? d.Elec_DeIsolation_Sig.split(' on ')[0] : '-'}`);
+
+    doc.y += 20;
+    doc.fillColor('black');
 }
 
     // 10. SIGNATURES / APPROVALS
