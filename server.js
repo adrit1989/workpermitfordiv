@@ -591,39 +591,71 @@ async function drawPermitPDF(doc, p, d, renewalsList) {
     });
     doc.y = wy + 20;
     if (d.A_Q11 === 'Y') {
+    // --- FIX: Standard PDF Electrical Audit Trail ---
+    if (d.A_Q11 === 'Y') {
         if (doc.y > 550) { doc.addPage(); drawHeaderOnAll(); }
+        
+        // 1. Title
         doc.font('Helvetica-Bold').fontSize(10).fillColor('#1e40af').text("ELECTRICAL ISOLATION & ENERGISATION AUDIT TRAIL", 30, doc.y);
         doc.y += 15;
 
+        // 2. Setup Dimensions
+        const width = 535; // Standard width
         const tableTop = doc.y;
-        const cWidth = [100, 215, 220]; // Parameter, Requester, Electrical Auth
+        const cWidth = [100, 215, 220]; // Cols: Label | Req | Auth
         doc.font('Helvetica-Bold').fontSize(8).fillColor('black');
 
+        // 3. Helper Function for Rows (Defined locally to avoid scope issues)
         const drawAuditRow = (label, reqVal, authVal, rowHeight = 25) => {
             if (doc.y + rowHeight > 750) { doc.addPage(); drawHeaderOnAll(); }
             const currentY = doc.y;
-            doc.rect(startX, currentY, cWidth[0], rowHeight).stroke().text(label, startX + 5, currentY + 7, {width: cWidth[0]-10});
-            doc.rect(startX + cWidth[0], currentY, cWidth[1], rowHeight).stroke().text(safeText(reqVal), startX + cWidth[0] + 5, currentY + 7, {width: cWidth[1]-10});
-            doc.rect(startX + cWidth[0] + cWidth[1], currentY, cWidth[2], rowHeight).stroke().text(safeText(authVal), startX + cWidth[0] + cWidth[1] + 5, currentY + 7, {width: cWidth[2]-10});
+            // Draw Borders
+            doc.rect(30, currentY, cWidth[0], rowHeight).stroke();
+            doc.rect(30 + cWidth[0], currentY, cWidth[1], rowHeight).stroke();
+            doc.rect(30 + cWidth[0] + cWidth[1], currentY, cWidth[2], rowHeight).stroke();
+            
+            // Draw Text
+            doc.text(label, 30 + 5, currentY + 7, {width: cWidth[0]-10});
+            doc.text(safeText(reqVal), 30 + cWidth[0] + 5, currentY + 7, {width: cWidth[1]-10});
+            doc.text(safeText(authVal), 30 + cWidth[0] + cWidth[1] + 5, currentY + 7, {width: cWidth[2]-10});
+            
             doc.y += rowHeight;
         };
 
-        doc.fillColor('#f3f4f6').rect(startX, tableTop, width, 20).fillAndStroke('black');
-        doc.fillColor('black').text("Phase / Parameter", startX + 5, tableTop + 6);
-        doc.text("Requester Action", startX + cWidth[0] + 5, tableTop + 6);
-        doc.text("Electrical Authorized Action", startX + cWidth[0] + cWidth[1] + 5, tableTop + 6);
+        // 4. Header Row
+        doc.fillColor('#f3f4f6').rect(30, tableTop, width, 20).fillAndStroke('black');
+        doc.fillColor('black').text("Phase / Parameter", 35, tableTop + 6);
+        doc.text("Requester Action", 30 + cWidth[0] + 5, tableTop + 6);
+        doc.text("Electrical Authorized Action", 30 + cWidth[0] + cWidth[1] + 5, tableTop + 6);
         doc.y = tableTop + 20;
 
+        // 5. Data Rows
         doc.font('Helvetica');
-        drawAuditRow("Equipment Details", `No: ${d.Elec_EquipNo}\nName: ${d.Elec_EquipName}`, `Assigned to: ${d.Elec_AuthEmail}`, 35);
-        drawAuditRow("LOTO Tagging", `Tag No: ${d.Elec_LotoTag_Req}`, `Official LOTO: ${d.Elec_LotoTag_Auth}`);
-        drawAuditRow("Isolation Status", `Requested: ${d.CreatedDate}`, `ISOLATED: ${d.Elec_Iso_DateTime}\nBy: ${d.Elec_Approved_By}`);
+        
+        // Row 1: Equipment & Assignment
+        drawAuditRow("Equipment Details", 
+            `No: ${d.Elec_EquipNo}\nName: ${d.Elec_EquipName}`, 
+            `Assigned to: ${d.Elec_AuthEmail}`, 35);
+            
+        // Row 2: LOTO
+        drawAuditRow("LOTO Tagging", 
+            `Tag No: ${d.Elec_LotoTag_Req}`, 
+            `Official LOTO: ${d.Elec_LotoTag_Auth}`);
+        
+        // Row 3: Isolation
+        drawAuditRow("Isolation Status", 
+            `Requested: ${d.CreatedDate}`, 
+            `ISOLATED: ${formatDate(d.Elec_Iso_DateTime)}\nBy: ${d.Elec_Approved_By}`);
 
+        // Row 4: De-Isolation (Energization)
         const energizeStatus = d.Elec_Energized_Final_Check === 'Y' ? "ENERGIZED & SAFE" : "Pending";
-        drawAuditRow("De-Isolation Cycle", `Restoration Confirmed: ${d.Closure_Requestor_Date}`, `STATUS: ${energizeStatus}\nDate: ${d.Elec_DeIso_DateTime_Final}\nBy: ${d.Elec_DeIsolation_Sig ? d.Elec_DeIsolation_Sig.split(' on ')[0] : '-'}`);
+        drawAuditRow("De-Isolation Cycle", 
+            `Restoration Confirmed: ${d.Closure_Requestor_Date || '-'}`, 
+            `STATUS: ${energizeStatus}\nDate: ${formatDate(d.Elec_DeIso_DateTime_Final)}\nBy: ${d.Elec_DeIsolation_Sig ? d.Elec_DeIsolation_Sig.split(' on ')[0] : '-'}`);
 
+        // 6. Reset
         doc.y += 20;
-        doc.fillColor('black'); // Reset to default
+        doc.fillColor('black'); 
     }
     // 10. SIGNATURES / APPROVALS
 
