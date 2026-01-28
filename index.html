@@ -1552,6 +1552,8 @@ if(!document.getElementById('closure-summary-box')) {
     if(elecCheck && !elecCheck.checked) {
         return alert("⛔ Safety Violation: You must confirm that electrical equipment can be re-energized.");
     }
+                fd.append('Elec_Energize_Check', 'Y'); 
+    }
                 const devReason = document.getElementById('Closure_Deviation_Reason').value;
                 const anyUnchecked = Array.from(document.querySelectorAll('.clos-chk')).some(c => !c.checked);
                 if (anyUnchecked && !devReason) return alert("You must provide a Reason for Deviation since some closure items are unchecked.");
