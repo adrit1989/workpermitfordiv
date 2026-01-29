@@ -995,6 +995,24 @@
                 // 1. Fetch Data
                 const p = await apiCall('/permit-data', 'POST', { permitId: id });
                 console.log("Opening Permit:", id);
+                // --- FIX: Load Electrical Users so the Name appears (not just blank/email) ---
+                if (p.A_Q11 === 'Y') {
+                    // Force load the dropdown options first
+                    await loadElectricalUsers();
+                    
+                    // Fallback: If the assigned person is no longer in the active list (e.g. transferred), 
+                    // add them manually to the dropdown so their name/email still displays.
+                    const elSel = document.getElementById('Elec_AuthEmail');
+                    if (p.Elec_AuthEmail && elSel) {
+                        const exists = Array.from(elSel.options).some(o => o.value === p.Elec_AuthEmail);
+                        if (!exists) {
+                            const opt = document.createElement('option');
+                            opt.value = p.Elec_AuthEmail;
+                            opt.text = p.Elec_AuthEmail; // Fallback to email if name is truly lost
+                            elSel.add(opt);
+                        }
+                    }
+                }
 
                 if (!p || p.Status === 'Closed' || !p.WorkType) {
                     alert("📂 Permit Archived. Downloading PDF...");
@@ -2524,6 +2542,7 @@ async function downloadSecurePDF(id, format = 'default') {
     </script>
 </body>
 </html>
+
 
 
 
