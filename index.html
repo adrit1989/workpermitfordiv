@@ -1056,6 +1056,22 @@ if (p.Elec_Energization_Msg) {
     else form.prepend(msgBox); // Otherwise put at very top
 }
                 document.getElementById('permit-header-display').innerText = `Status: ${p.Status}`;
+                // --- Change: Populate Signature History & TBT Link ---
+                const historyDiv = document.getElementById('signature-history');
+                historyDiv.classList.remove('hidden');
+
+                // 1. Approval Line with TBT Link
+                let appSigHtml = p.Approver_Sig || '<span class="text-gray-400">Pending</span>';
+                // If an Approver uploaded a TBT, show the link here
+                if (p.TBT_File_Url) {
+                    appSigHtml += ` <br><button type="button" class="mt-1 text-[10px] bg-blue-100 text-blue-700 px-2 py-1 rounded font-bold border border-blue-300 hover:bg-blue-200" onclick="viewSecureFile('${p.TBT_File_Url}')">📄 View Approved TBT Record</button>`;
+                }
+                document.getElementById('sig-app').innerHTML = appSigHtml;
+
+                // 2. Renewal & Closure Lines
+                const renCount = JSON.parse(p.RenewalsJSON || "[]").length;
+                document.getElementById('sig-ren').innerHTML = renCount > 0 ? `<span class="text-purple-600 font-bold">${renCount} Renewal(s) - See Table</span>` : '-';
+                document.getElementById('sig-clos').innerHTML = p.Closure_Issuer_Sig || '-';
 
                 // 3. Reset Sections
                 ['fs-reviewer-section', 'fs-approver-section', 'rev-renewal-decision', 'app-renewal-decision', 'action-renewal', 'pending-renewal-display', 'odd-hour-approval-controls', 'renewals-section', 'closure-section', 'div-closure-rev', 'div-closure-app'].forEach(sid => { document.getElementById(sid).classList.add('hidden'); });
@@ -2640,4 +2656,3 @@ async function downloadSecurePDF(id, format = 'default') {
     </script>
 </body>
 </html>
-
