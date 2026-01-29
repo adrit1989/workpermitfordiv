@@ -846,6 +846,11 @@
         }
 
         function switchView(viewName) {
+            const sidebar = document.getElementById('sidebar');
+            // If sidebar is currently open (mobile view), close it so the Menu button reappears
+            if (sidebar.classList.contains('open')) {
+                sidebar.classList.remove('open');
+            }
             document.querySelectorAll('.content-area > div').forEach(d => d.classList.add('hidden'));
             document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
             const viewMap = {'dashboard': 'view-dashboard', 'new-permit': 'view-form', 'workers': 'view-workers', 'users': 'view-users', 'map': 'view-map', 'admin': 'view-admin', 'stats': 'view-stats', 'jsa': 'view-jsa', 'jsa-form': 'view-jsa-form'};
@@ -2656,3 +2661,4 @@ async function downloadSecurePDF(id, format = 'default') {
     </script>
 </body>
 </html>
+
