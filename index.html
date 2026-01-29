@@ -111,9 +111,12 @@
         <div id="main-wrapper">
               
             <div class="sidebar-left" id="sidebar">
-                <div class="p-6 font-bold text-xl text-orange-500 border-b border-gray-700 flex items-center gap-3 bg-gray-900">
-                    <img src="/public/rhino.png" class="h-8 w-8 bg-white rounded-full p-1" alt="Icon"> <span>ERPL Permit</span>
-                </div>
+    <div class="p-6 font-bold text-xl text-orange-500 border-b border-gray-700 flex items-center justify-between bg-gray-900">
+        <div class="flex items-center gap-3">
+            <img src="/public/rhino.png" class="h-8 w-8 bg-white rounded-full p-1" alt="Icon"> <span>ERPL Permit</span>
+        </div>
+        <button class="md:hidden text-gray-400 hover:text-white text-2xl font-bold" onclick="document.getElementById('sidebar').classList.remove('open')">&times;</button>
+    </div>
                 <div id="user-display" class="p-5 text-xs text-gray-300 bg-gray-800 border-b border-gray-700 font-mono leading-relaxed"></div>
                 <nav class="flex-1 overflow-y-auto mt-4 space-y-1 px-3">
                     <div class="nav-item active" onclick="switchView('dashboard')" id="nav-dashboard"><span>📊</span> Dashboard</div>
@@ -2661,4 +2664,5 @@ async function downloadSecurePDF(id, format = 'default') {
     </script>
 </body>
 </html>
+
 
