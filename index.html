@@ -1025,6 +1025,18 @@ if (p.ElectricalAuthNum) {
     alertBox.innerHTML = `ℹ️ ${p.Elec_Approved_By || 'Electrical Person'} has approved the electrical isolation request no: ${p.ElectricalAuthNum} and submitted for further approval.`;
     document.getElementById('pf').prepend(alertBox);
 }
+                // --- OPTIONAL: Display Green Energisation Statement ---
+if (p.Elec_Energization_Msg) {
+    const msgBox = document.createElement('div');
+    msgBox.className = "bg-green-100 border-l-4 border-green-500 p-3 mb-4 text-xs font-bold text-green-800 shadow-sm flex items-center gap-2";
+    msgBox.innerHTML = `<span class="text-lg">⚡</span> <span>${p.Elec_Energization_Msg}</span>`;
+    
+    // Insert it at the top of the form
+    const form = document.getElementById('pf');
+    const blueBox = document.getElementById('elec-statement-box');
+    if (blueBox) blueBox.after(msgBox); // If blue box exists, put green below it
+    else form.prepend(msgBox); // Otherwise put at very top
+}
                 document.getElementById('permit-header-display').innerText = `Status: ${p.Status}`;
 
                 // 3. Reset Sections
@@ -1137,7 +1149,16 @@ if (closureElecDiv) {
                         // 1. Show the section if data exists or if user is ElectricalAuth
                         const hasIsoData = p.ElectricalAuthNum || p.Elec_LotoTag_Auth;
                         authFields.classList.toggle('hidden', currentUser.Role !== 'ElectricalAuth' && !hasIsoData);
-                        
+                        // 2. MANUALLY POPULATE DATA (This ensures Reviewers/Approvers see the values)
+        // FIX: Ensure these specific IDs get values from the JSON 'p' object
+        if (p.Elec_LotoTag_Auth) document.getElementById('Elec_LotoTag_Auth').value = p.Elec_LotoTag_Auth;
+        if (p.Elec_Iso_DateTime) document.getElementById('Elec_Iso_DateTime').value = p.Elec_Iso_DateTime;
+        
+        if (p.Elec_Isolated_Check === 'Y' || p.ElectricalAuthNum) {
+            document.getElementById('Elec_Isolated_Check').checked = true;
+        } else {
+            document.getElementById('Elec_Isolated_Check').checked = false;
+        }
                         // 2. MANUALLY POPULATE DATA (This ensures Reviewers/Approvers see the values)
                         if (p.Elec_LotoTag_Auth) document.getElementById('Elec_LotoTag_Auth').value = p.Elec_LotoTag_Auth;
                         if (p.Elec_Iso_DateTime) document.getElementById('Elec_Iso_DateTime').value = p.Elec_Iso_DateTime;
@@ -1625,6 +1646,9 @@ async function upd(act) {
         fd.append('Elec_EquipName', getVal('Elec_EquipName'));
         fd.append('Elec_LotoTag', getVal('Elec_LotoTag'));
         fd.append('Elec_AuthEmail', getVal('Elec_AuthEmail'));
+        fd.append('Elec_LotoTag_Auth', getVal('Elec_LotoTag_Auth'));
+        fd.append('Elec_Iso_DateTime', getVal('Elec_Iso_DateTime'));
+        fd.append('Elec_Isolated_Check', document.getElementById('Elec_Isolated_Check').checked ? 'Y' : 'N');
     }
 
     if (document.getElementById("Elec_Energize_Check")) {
@@ -2500,6 +2524,7 @@ async function downloadSecurePDF(id, format = 'default') {
     </script>
 </body>
 </html>
+
 
 
 
