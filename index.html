@@ -505,7 +505,7 @@
                                 </div>
                             <div id="closure-deviation-box" class="hidden mb-4 p-3 bg-red-50 border border-red-200 rounded">
                                 <label class="text-xs font-bold text-red-700 block mb-1">Reason for Deviation (Mandatory if checklist incomplete):</label>
-                                <textarea id="Closure_Deviation_Reason" class="w-full border-red-300 focus:ring-red-500" placeholder="Explain why conditions are not met..."></textarea>
+                               <textarea id="Closure_Deviation_Reason" name="Closure_Deviation_Reason" class="w-full border-red-300 focus:ring-red-500" placeholder="Explain why conditions are not met..."></textarea>
                             </div>
                             
                <div id="div-closure-req" class="hidden space-y-2">
@@ -1524,7 +1524,7 @@ function handleClosureUI(p, actionsDiv) {
                 document.getElementById('closure-section').classList.remove('hidden');
                 document.getElementById('div-closure-req').classList.remove('hidden');
                 
-                renderClosureSection({}); // Render checklist
+                renderClosureSection(p); // Render checklist
                 document.getElementById('Closure_Requestor_Remarks').disabled = false;
                 
 // FIX A: Unhide and Enable Site Restoration Checkbox
@@ -2542,6 +2542,7 @@ async function downloadSecurePDF(id, format = 'default') {
     </script>
 </body>
 </html>
+
 
 
 
