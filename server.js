@@ -1272,6 +1272,19 @@ app.post('/api/update-status', authenticateAccess, upload.any(), async(req, res)
     else if (action === 'approve') { 
         st = 'Active'; 
         d.Approver_Sig = `${usr} on ${now}`; 
+
+        // --- FIX: Handle TBT Upload for Approver ---
+        if (req.files) {
+            const tbt = req.files.find(f => f.fieldname === 'TBT_PDF_File');
+            if (tbt) {
+                // Upload to Azure
+                const url = await uploadToAzure(tbt.buffer, `tbt/${PermitID}_${Date.now()}.pdf`, 'application/pdf');
+                d.TBT_File_Url = url; // Save URL to JSON
+            }
+        }
+        // Save the Reference Number
+        if (req.body.TBT_Ref_No) d.TBT_Ref_No = req.body.TBT_Ref_No;
+        // -------------------------------------------
     }
     else if (action === 'reject_closure') { st = 'Active'; } 
     else if (action === 'approve_closure') { 
