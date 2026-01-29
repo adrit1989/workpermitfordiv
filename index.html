@@ -1372,7 +1372,50 @@ document.getElementById('renewal-history-body').innerHTML = rens.map(r => {
                 }
                 
                 handleClosureUI(p, actionsDiv);
+// --- FIX: Ensure Closure Audit History is Visible During Processing ---
+                const st = p.Status;
+                const closureStages = ['Closure Pending Review', 'Closure Pending Approval', 'Closed'];
 
+                // 1. If Closure has started, ALWAYS show Requestor section to everyone
+                if (closureStages.includes(st)) {
+                    document.getElementById('div-closure-req').classList.remove('hidden');
+                    
+                    // Populate Requestor Data
+                    if(p.Closure_Requestor_Remarks) document.getElementById('Closure_Requestor_Remarks').value = p.Closure_Requestor_Remarks;
+                    if(p.Closure_Requestor_Date) document.getElementById('ts-clos-req').innerText = `Submitted by ${p.RequesterName} on ${p.Closure_Requestor_Date}`;
+                    
+                    // Lock it for everyone (Editability is re-enabled for Requester inside handleClosureUI if applicable)
+                    document.getElementById('Closure_Requestor_Remarks').disabled = true;
+                }
+
+                // 2. If Review is done (we are in Approval or Closed), show Reviewer section to everyone
+                if (st === 'Closure Pending Approval' || st === 'Closed') {
+                    document.getElementById('div-closure-rev').classList.remove('hidden');
+                    
+                    // Populate Reviewer Data
+                    if(p.Closure_Reviewer_Remarks) document.getElementById('Closure_Reviewer_Remarks').value = p.Closure_Reviewer_Remarks;
+                    if(p.Closure_Reviewer_Sig) document.getElementById('ts-clos-rev').innerText = `Reviewed by ${p.Closure_Reviewer_Sig}`;
+                    
+                    // Lock it
+                    document.getElementById('Closure_Reviewer_Remarks').disabled = true;
+                }
+
+                // 3. If Closed, show Approver section
+                if (st === 'Closed') {
+                    document.getElementById('div-closure-app').classList.remove('hidden');
+                    
+                    // Populate Approver Data
+                    if(p.Closure_Approver_Remarks) document.getElementById('Closure_Approver_Remarks').value = p.Closure_Approver_Remarks;
+                    if(p.Closure_Issuer_Sig) document.getElementById('ts-clos-app').innerText = `Approved by ${p.Closure_Issuer_Sig}`;
+                    
+                    // Lock it
+                    document.getElementById('Closure_Approver_Remarks').disabled = true;
+                }
+                
+                // Re-enable current user's field if it's their turn (This overrides the "Lock it" above)
+                if (currentUser.Role === 'Requester' && st === 'Active') document.getElementById('Closure_Requestor_Remarks').disabled = false;
+                if (currentUser.Role === 'Reviewer' && st === 'Closure Pending Review') document.getElementById('Closure_Reviewer_Remarks').disabled = false;
+                if (currentUser.Role === 'Approver' && st === 'Closure Pending Approval') document.getElementById('Closure_Approver_Remarks').disabled = false;
                 // 9. Show Action Buttons based on Role & Status
                 if (statusClean === 'Pending Review' && currentUser.Role === 'Reviewer') {
                     document.getElementById('fs-reviewer-section').classList.remove('hidden');
@@ -2542,34 +2585,3 @@ async function downloadSecurePDF(id, format = 'default') {
     </script>
 </body>
 </html>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
