@@ -528,10 +528,15 @@ async function drawPermitPDF(doc, p, d, renewalsList) {
     }
 
     // Enhanced Audit Trail (From Code B)
-    let ioclRows = ioclSups.map(s => {
-        let audit = `Added: ${s.added_by || 'Admin'} (${s.added_at || '-'})`;
-        if (s.is_deleted) audit += `\nDel: ${s.deleted_by || 'Admin'} (${s.deleted_at || '-'})`;
-        return [s.name, s.desig, s.contact, audit];
+   let ioclRows = ioclSups.map(s => {
+        let audit = `Added: ${s.added_by || 'Admin'}\nDate: ${s.added_at || '-'}`;
+        
+        // FIX: Check for 'inactive' status explicitly used in your frontend
+        if (s.status === 'inactive' || s.is_deleted) {
+            audit += `\n\n[DELETED]\nBy: ${s.deleted_by || 'Admin'}\nOn: ${s.deleted_at || '-'}`;
+        }
+        
+        return [safeText(s.name), safeText(s.desig), safeText(s.contact), audit];
     });
     if(ioclRows.length === 0) ioclRows.push(["-", "-", "-", "-"]);
     drawSupTable("IOCL Supervisors", [{t:"Name",w:120}, {t:"Designation",w:120}, {t:"Contact",w:100}, {t:"Audit (Added/Deleted)",w:195}], ioclRows);
@@ -650,9 +655,8 @@ async function drawPermitPDF(doc, p, d, renewalsList) {
         // Row 4: De-Isolation (Energization)
         const energizeStatus = d.Elec_Energized_Final_Check === 'Y' ? "ENERGIZED & SAFE" : "Pending";
         drawAuditRow("De-Isolation Cycle", 
-            `Restoration Confirmed: ${d.Closure_Requestor_Date || '-'}`, 
-            `STATUS: ${energizeStatus}\nDate: ${formatDate(d.Elec_DeIso_DateTime_Final)}\nBy: ${d.Elec_DeIsolation_Sig ? d.Elec_DeIsolation_Sig.split(' on ')[0] : '-'}`);
-
+    `Restoration Confirmed: ${d.Closure_Requestor_Date || '-'}`, 
+    `STATUS: ${energizeStatus}\nLOTO Removed: ${d.Elec_LotoTag_Auth || '-'}\nDate: ${formatDate(d.Elec_DeIso_DateTime_Final)}\nBy: ${d.Elec_DeIsolation_Sig ? d.Elec_DeIsolation_Sig.split(' on ')[0] : '-'}`);
         // 6. Reset
         doc.y += 20;
         doc.fillColor('black'); 
@@ -1208,12 +1212,20 @@ app.post('/api/update-status', authenticateAccess, upload.any(), async(req, res)
     else if (action === 'elec_reject') {
         st = 'Rejected';
     }
-      if (action === 'elec_closure_approve') {
-    st = 'Closure Pending Review';
-    d.Elec_DeIsolation_Sig = `${usr} on ${now}`;
-    d.Elec_DeIso_DateTime = now;
-    d.Elec_DeIso_Status = "Verified & Re-energized";
-}
+if (action === 'elec_closure_approve') {
+         st = 'Closure Pending Review';
+         d.Elec_DeIsolation_Sig = `${usr} on ${now}`;
+         
+         // Capture the data sent from Frontend
+         const deIsoTime = extras.Elec_DeIso_DateTime_Final || now;
+         d.Elec_DeIso_DateTime_Final = deIsoTime; // Ensure this is saved explicitly
+         d.Elec_Energized_Final_Check = 'Y';
+
+         // Generate the Statement for the Green Box
+         const equip = d.Elec_EquipNo || "Equipment";
+         const tag = d.Elec_LotoTag_Auth || "N/A";
+         d.Elec_Energization_Msg = `${usr} (Electrical Auth) has successfully energised the ${equip} (LOTO Tag: ${tag}) at ${deIsoTime}.`;
+    }
     else if (action === 'initiate_closure') {
         if (d.A_Q11 === 'Y') {
             if (extras.Elec_Energize_Check !== 'Y') {
@@ -1789,18 +1801,31 @@ async function drawMainlinePermitPDF(doc, p, d, renewalsList) {
         else if(typeof d.IOCLSupervisors === 'string') try { ioclSups = JSON.parse(d.IOCLSupervisors); } catch(e){}
     }
     
-    doc.font('Helvetica');
+   doc.font('Helvetica');
     if(ioclSups.length === 0) {
         doc.rect(col1, currentY, 535, 20).stroke().text('No IOCL Supervisors assigned', col1 + 5, currentY + 5);
         currentY += 20;
     } else {
         ioclSups.forEach((sup, idx) => {
-             if (sup.is_deleted) return;
+             // START FIX: Visualize Deleted Status
+             const isDel = (sup.status === 'inactive' || sup.is_deleted);
+             let nameTxt = safeText(sup.name);
+             let contactTxt = safeText(sup.contact);
+             
+             if(isDel) {
+                 nameTxt += ` (DEL: ${sup.deleted_by || 'Admin'})`; // Added safe fallback
+                 doc.fillColor('red'); // Draw deleted rows in red
+             } else {
+                 doc.fillColor('black');
+             }
+             // END FIX
+
              doc.rect(col1, currentY, 40, 20).stroke().text((idx + 1).toString(), col1 + 5, currentY + 5);
-             doc.rect(col1 + 40, currentY, 250, 20).stroke().text(safeText(sup.name), col1 + 45, currentY + 5);
-             doc.rect(col1 + 290, currentY, 245, 20).stroke().text(safeText(sup.contact), col1 + 295, currentY + 5);
+             doc.rect(col1 + 40, currentY, 250, 20).stroke().text(nameTxt, col1 + 45, currentY + 5);
+             doc.rect(col1 + 290, currentY, 245, 20).stroke().text(contactTxt, col1 + 295, currentY + 5);
              currentY += 20;
         });
+        doc.fillColor('black'); // Reset color
     }
 
     // Contractor Supervisors
