@@ -37,6 +37,11 @@
         .btn-pdf { background-color: #eff6ff; color: #2563eb; padding: 4px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: bold; border: 1px solid #bfdbfe; transition: 0.2s; }
         .btn-pdf:hover { background-color: #2563eb; color: white; }
         .chart-wrapper {position: relative;height: 300px; width: 100%;}
+        /* Accordion Styles */
+        .accordion-header { cursor: pointer; user-select: none; display: flex; justify-content: space-between; align-items: center; }
+        .accordion-header::after { content: '▼'; font-size: 0.8rem; transition: transform 0.2s; color: #6b7280; }
+        .accordion-collapsed .accordion-header::after { transform: rotate(-90deg); }
+        .accordion-collapsed .accordion-body { display: none !important; }
     </style>
 </head>
 <body>
@@ -266,9 +271,10 @@
                         <input type="hidden" id="PermitID" name="PermitID">
                         <input type="hidden" id="Status" name="Status">
                           
-                        <div class="glass border-t-4 border-orange-500">
-                            <h3 class="font-bold text-orange-600 border-b pb-2 mb-4">1. Basic Details</h3>
-                            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+<div class="glass border-t-4 border-orange-500" id="sec-basic">
+    <h3 class="accordion-header font-bold text-orange-600 border-b pb-2 mb-4" onclick="toggleSection('sec-basic')">1. Basic Details</h3>
+    <div class="accordion-body">
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
                                 <div><label class="text-xs font-bold text-gray-500">Work Type</label><select name="WorkType" id="WorkType"><option>Hot</option><option>Cold</option><option>Confined Space</option><option>Excavation</option></select></div>
                                 <div><label class="text-xs font-bold text-gray-500">Specific Work</label><input name="WorkTypeOther" id="WorkTypeOther"></div>
                                 <div class="md:col-span-2"><label class="text-xs font-bold text-gray-500">Location (GPS)</label><div class="flex gap-2"><input name="ExactLocation" id="ExactLocation" class="flex-1" placeholder="Coords"><button type="button" id="btn-get-geo" class="bg-blue-100 text-blue-700 px-3 rounded font-bold">📍 GPS</button></div><input type="hidden" id="Latitude" name="Latitude"><input type="hidden" id="Longitude" name="Longitude"></div>
@@ -333,17 +339,22 @@
  
                         <div id="checklists-container" class="space-y-4"></div>
  
-                        <div class="glass border-t-4 border-blue-500">
-                            <h3 class="font-bold text-blue-600 border-b pb-2 mb-4">3. Workers</h3>
-                            <div id="worker-select-area" class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-2"></div>
-                            <div id="worker-display-table" class="hidden overflow-x-auto mt-2">
-                                <table class="mobile-table w-full text-xs text-left"><thead class="bg-gray-100"><tr><th>Name</th><th>ID</th><th>Contact</th></tr></thead><tbody id="worker-display-body"></tbody></table>
-                            </div>
-                        </div>
+                    <div class="glass border-t-4 border-blue-500" id="sec-workers">
+    <h3 class="accordion-header font-bold text-blue-600 border-b pb-2 mb-4" onclick="toggleSection('sec-workers')">3. Workers</h3>
+    <div class="accordion-body">
+        <div id="worker-select-area" class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-2"></div>
+        <div id="worker-display-table" class="hidden overflow-x-auto mt-2">
+            <table class="mobile-table w-full text-xs text-left"><thead class="bg-gray-100"><tr><th>Name</th><th>ID</th><th>Contact</th></tr></thead><tbody id="worker-display-body"></tbody></table>
+        </div>
+    </div>
+</div>
  
-                        <div class="glass border-t-4 border-red-500">
-                            <h3 class="font-bold text-red-600 border-b pb-2 mb-4">4. Hazards & PPE</h3>
-                            <div id="hazards-grid" class="grid grid-cols-2 md:grid-cols-4 gap-2 mb-4"></div>
+             <div class="glass border-t-4 border-red-500" id="sec-hazards">
+    <h3 class="accordion-header font-bold text-red-600 border-b pb-2 mb-4" onclick="toggleSection('sec-hazards')">4. Hazards & PPE</h3>
+    <div class="accordion-body">
+        <div id="hazards-grid" class="grid grid-cols-2 md:grid-cols-4 gap-2 mb-4"></div>
+        </div>
+</div>
                             <div id="other-hazard-div" class="hidden mb-2">
                                 <input id="H_Others_Detail" name="H_Others_Detail" placeholder="Specify other hazards..." class="w-full">
                             </div>
@@ -534,10 +545,11 @@
                             </div>
                         </div>
  
-                        <div class="glass" id="section-e">
-                            <h3 class="font-bold text-gray-600 border-b pb-2 mb-4">E. References</h3>
-                            
-                            <div id="jsa-audit-line" class="text-sm font-mono text-blue-700 mb-4 bg-blue-50 p-2 rounded hidden border border-blue-200"></div>
+<div class="glass" id="section-e">
+    <h3 class="accordion-header font-bold text-gray-600 border-b pb-2 mb-4" onclick="toggleSection('section-e')">E. References</h3>
+    <div class="accordion-body">
+        </div>
+</div>
 
                             <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
                                 <input name="SopNo" id="SopNo" placeholder="SOP/SWP/SMP No">
@@ -740,6 +752,10 @@
         function safeSet(id, val) { const el = document.getElementById(id); if(el) el.value = val; }
         function setText(id, val) { const el = document.getElementById(id); if(el) el.innerText = val; }
         function getNow() { return new Date().toLocaleString("en-GB").replace(',',''); }
+        function toggleSection(id) {
+            const el = document.getElementById(id);
+            if(el) el.classList.toggle('accordion-collapsed');
+        }
 
         function attachFileValidators() {
             document.querySelectorAll('input[type="file"]').forEach(input => {
@@ -1567,7 +1583,18 @@ if (isRevTurn || isAppTurn) {
                     const b = document.createElement("button"); b.type="button"; b.className = "bg-blue-600 text-white px-4 py-2 rounded font-bold shadow"; b.innerText = "💾 Update Supervisors"; b.onclick = () => upd('update_data');
                     actionsDiv.appendChild(b);
                 }
+                
+        // --- NEW: Auto-Collapse for Renewal/Closure ---
+                const sectionsToCollapse = ['sec-basic', 'sec-check-A', 'sec-check-B', 'sec-check-C', 'sec-check-D', 'sec-workers', 'sec-hazards', 'section-e'];
+                const shouldCollapse = (statusClean === 'Active' || statusClean.includes('Renewal') || statusClean.includes('Closure'));
 
+                sectionsToCollapse.forEach(sid => {
+                    const el = document.getElementById(sid);
+                    if(el) {
+                        if(shouldCollapse) el.classList.add('accordion-collapsed');
+                        else el.classList.remove('accordion-collapsed');
+                    }
+                });
             } catch (e) {
                 console.error("Critical Error in openPermit:", e);
                 alert("System Error: Check Console");
@@ -2223,17 +2250,19 @@ else if (sec === 'B' && i === 14) {
                     </div>`;
                 });
 
+                // --- ACCORDION WRAPPER ---
+                const sectionId = `sec-check-${sec}`;
                 container.innerHTML += `
-                <div class="glass border-t-4 border-gray-400">
-                    <div class="flex justify-between items-center border-b pb-2 mb-4 bg-gray-50 p-2 rounded">
+                <div class="glass border-t-4 border-gray-400" id="${sectionId}">
+                    <div class="accordion-header flex justify-between items-center border-b pb-2 mb-4 bg-gray-50 p-2 rounded" onclick="toggleSection('${sectionId}')">
                         <h4 class="font-bold text-gray-700">Section ${sec} Checks</h4>
-                        <div class="flex gap-2 text-xs">
+                        <div class="flex gap-2 text-xs" onclick="event.stopPropagation()">
                             <label class="cursor-pointer font-bold"><input type="radio" name="Master_${sec}" value="Y" class="sec-toggle" data-sec="${sec}"> All Yes</label>
                             <label class="cursor-pointer font-bold"><input type="radio" name="Master_${sec}" value="N" class="sec-toggle" data-sec="${sec}"> All No</label>
                             <label class="cursor-pointer font-bold"><input type="radio" name="Master_${sec}" value="NA" class="sec-toggle" data-sec="${sec}"> All NA</label>
                         </div>
                     </div>
-                    <div class="checklist-grid">${itemsHtml.join('')}</div>
+                    <div class="accordion-body checklist-grid">${itemsHtml.join('')}</div>
                 </div>`;
             });
 
@@ -2664,5 +2693,6 @@ async function downloadSecurePDF(id, format = 'default') {
     </script>
 </body>
 </html>
+
 
 
