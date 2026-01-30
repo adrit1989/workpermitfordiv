@@ -37,11 +37,6 @@
         .btn-pdf { background-color: #eff6ff; color: #2563eb; padding: 4px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: bold; border: 1px solid #bfdbfe; transition: 0.2s; }
         .btn-pdf:hover { background-color: #2563eb; color: white; }
         .chart-wrapper {position: relative;height: 300px; width: 100%;}
-        /* Accordion Styles */
-        .accordion-header { cursor: pointer; user-select: none; display: flex; justify-content: space-between; align-items: center; }
-        .accordion-header::after { content: '▼'; font-size: 0.8rem; transition: transform 0.2s; color: #6b7280; }
-        .accordion-collapsed .accordion-header::after { transform: rotate(-90deg); }
-        .accordion-collapsed .accordion-body { display: none !important; }
     </style>
 </head>
 <body>
@@ -271,10 +266,9 @@
                         <input type="hidden" id="PermitID" name="PermitID">
                         <input type="hidden" id="Status" name="Status">
                           
-<div class="glass border-t-4 border-orange-500" id="sec-basic">
-    <h3 class="accordion-header font-bold text-orange-600 border-b pb-2 mb-4" onclick="toggleSection('sec-basic')">1. Basic Details</h3>
-    <div class="accordion-body">
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                        <div class="glass border-t-4 border-orange-500">
+                            <h3 class="font-bold text-orange-600 border-b pb-2 mb-4">1. Basic Details</h3>
+                            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
                                 <div><label class="text-xs font-bold text-gray-500">Work Type</label><select name="WorkType" id="WorkType"><option>Hot</option><option>Cold</option><option>Confined Space</option><option>Excavation</option></select></div>
                                 <div><label class="text-xs font-bold text-gray-500">Specific Work</label><input name="WorkTypeOther" id="WorkTypeOther"></div>
                                 <div class="md:col-span-2"><label class="text-xs font-bold text-gray-500">Location (GPS)</label><div class="flex gap-2"><input name="ExactLocation" id="ExactLocation" class="flex-1" placeholder="Coords"><button type="button" id="btn-get-geo" class="bg-blue-100 text-blue-700 px-3 rounded font-bold">📍 GPS</button></div><input type="hidden" id="Latitude" name="Latitude"><input type="hidden" id="Longitude" name="Longitude"></div>
@@ -339,22 +333,17 @@
  
                         <div id="checklists-container" class="space-y-4"></div>
  
-                    <div class="glass border-t-4 border-blue-500" id="sec-workers">
-    <h3 class="accordion-header font-bold text-blue-600 border-b pb-2 mb-4" onclick="toggleSection('sec-workers')">3. Workers</h3>
-    <div class="accordion-body">
-        <div id="worker-select-area" class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-2"></div>
-        <div id="worker-display-table" class="hidden overflow-x-auto mt-2">
-            <table class="mobile-table w-full text-xs text-left"><thead class="bg-gray-100"><tr><th>Name</th><th>ID</th><th>Contact</th></tr></thead><tbody id="worker-display-body"></tbody></table>
-        </div>
-    </div>
-</div>
+                        <div class="glass border-t-4 border-blue-500">
+                            <h3 class="font-bold text-blue-600 border-b pb-2 mb-4">3. Workers</h3>
+                            <div id="worker-select-area" class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-2"></div>
+                            <div id="worker-display-table" class="hidden overflow-x-auto mt-2">
+                                <table class="mobile-table w-full text-xs text-left"><thead class="bg-gray-100"><tr><th>Name</th><th>ID</th><th>Contact</th></tr></thead><tbody id="worker-display-body"></tbody></table>
+                            </div>
+                        </div>
  
-             <div class="glass border-t-4 border-red-500" id="sec-hazards">
-    <h3 class="accordion-header font-bold text-red-600 border-b pb-2 mb-4" onclick="toggleSection('sec-hazards')">4. Hazards & PPE</h3>
-    <div class="accordion-body">
-        <div id="hazards-grid" class="grid grid-cols-2 md:grid-cols-4 gap-2 mb-4"></div>
-        </div>
-</div>
+                        <div class="glass border-t-4 border-red-500">
+                            <h3 class="font-bold text-red-600 border-b pb-2 mb-4">4. Hazards & PPE</h3>
+                            <div id="hazards-grid" class="grid grid-cols-2 md:grid-cols-4 gap-2 mb-4"></div>
                             <div id="other-hazard-div" class="hidden mb-2">
                                 <input id="H_Others_Detail" name="H_Others_Detail" placeholder="Specify other hazards..." class="w-full">
                             </div>
@@ -545,50 +534,48 @@
                             </div>
                         </div>
  
-<div class="glass" id="section-e">
-    <h3 class="accordion-header font-bold text-gray-600 border-b pb-2 mb-4" onclick="toggleSection('section-e')">E. References</h3>
-    
-    <div class="accordion-body">
+                        <div class="glass" id="section-e">
+                            <h3 class="font-bold text-gray-600 border-b pb-2 mb-4">E. References</h3>
+                            
+                            <div id="jsa-audit-line" class="text-sm font-mono text-blue-700 mb-4 bg-blue-50 p-2 rounded hidden border border-blue-200"></div>
 
-        <div id="jsa-audit-line" class="text-sm font-mono text-blue-700 mb-4 bg-blue-50 p-2 rounded hidden border border-blue-200"></div>
+                            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                                <input name="SopNo" id="SopNo" placeholder="SOP/SWP/SMP No">
 
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <input name="SopNo" id="SopNo" placeholder="SOP/SWP/SMP No">
+                                <div class="md:col-span-2 p-2 border rounded bg-gray-50">
+                                    <label class="text-xs font-bold text-gray-500 block mb-1">Job Safety Analysis (JSA)</label>
+                                    <div class="flex gap-4 mb-2">
+                                        <label class="flex items-center gap-1 text-xs cursor-pointer">
+                                            <input type="radio" name="jsa_mode" value="upload" checked onclick="toggleJsaMode('upload')"> Upload PDF
+                                        </label>
+                                        <label class="flex items-center gap-1 text-xs cursor-pointer">
+                                            <input type="radio" name="jsa_mode" value="link" onclick="toggleJsaMode('link')"> Link Approved JSA
+                                        </label>
+                                    </div>
+                                    
+                                    <div id="jsa-mode-upload">
+                                        <input type="file" id="JsaFile" accept="application/pdf" class="text-xs">
+                                        <div id="jsa-existing-file-display" class="hidden text-xs mt-1 text-blue-600">
+                                            <a href="#" target="_blank" id="jsa-file-link" class="underline font-bold">View Attached JSA</a>
+                                            <button type="button" id="btn-del-jsa" class="ml-2 text-red-500 font-bold" onclick="removeAttachedJsa()">[Remove]</button>
+                                        </div>
+                                    </div>
 
-            <div class="md:col-span-2 p-2 border rounded bg-gray-50">
-                <label class="text-xs font-bold text-gray-500 block mb-1">Job Safety Analysis (JSA)</label>
-                <div class="flex gap-4 mb-2">
-                    <label class="flex items-center gap-1 text-xs cursor-pointer">
-                        <input type="radio" name="jsa_mode" value="upload" checked onclick="toggleJsaMode('upload')"> Upload PDF
-                    </label>
-                    <label class="flex items-center gap-1 text-xs cursor-pointer">
-                        <input type="radio" name="jsa_mode" value="link" onclick="toggleJsaMode('link')"> Link Approved JSA
-                    </label>
-                </div>
-                
-                <div id="jsa-mode-upload">
-                    <input type="file" id="JsaFile" accept="application/pdf" class="text-xs">
-                    <div id="jsa-existing-file-display" class="hidden text-xs mt-1 text-blue-600">
-                        <a href="#" target="_blank" id="jsa-file-link" class="underline font-bold">View Attached JSA</a>
-                        <button type="button" id="btn-del-jsa" class="ml-2 text-red-500 font-bold" onclick="removeAttachedJsa()">[Remove]</button>
-                    </div>
-                </div>
+                                    <div id="jsa-mode-link" class="hidden">
+                                        <select id="JsaLinkedId" class="text-xs w-full bg-white border">
+                                            <option value="">Select Approved JSA...</option>
+                                        </select>
+                                        <input type="hidden" name="JsaNo" id="JsaNo"> 
+                                    </div>
+                                </div>
 
-                <div id="jsa-mode-link" class="hidden">
-                    <select id="JsaLinkedId" class="text-xs w-full bg-white border">
-                        <option value="">Select Approved JSA...</option>
-                    </select>
-                    <input type="hidden" name="JsaNo" id="JsaNo"> 
-                </div>
-            </div>
+                                <input name="IoclEquip" id="IoclEquip" placeholder="IOCL Equip">
+                                <input name="ContEquip" id="ContEquip" placeholder="Contractor Equip">
+                                <input name="WorkOrder" id="WorkOrder" placeholder="Work Order No">
+                                <input name="ToolBoxTalk" id="ToolBoxTalk" placeholder="Tool Box Talk Ref">
+                            </div>
+                        </div>
 
-            <input name="IoclEquip" id="IoclEquip" placeholder="IOCL Equip">
-            <input name="ContEquip" id="ContEquip" placeholder="Contractor Equip">
-            <input name="WorkOrder" id="WorkOrder" placeholder="Work Order No">
-            <input name="ToolBoxTalk" id="ToolBoxTalk" placeholder="Tool Box Talk Ref">
-        </div>
-        
-    </div> </div>
                         <div id="gsr-container" class="glass border-l-4 border-orange-600 bg-orange-50">
                             <label class="flex items-start gap-3 p-2 cursor-pointer">
                                 <input type="checkbox" id="gsr-check" name="GSR_Accepted" class="mt-1 w-6 h-6 text-orange-600 rounded focus:ring-orange-500 shrink-0">
@@ -753,10 +740,6 @@
         function safeSet(id, val) { const el = document.getElementById(id); if(el) el.value = val; }
         function setText(id, val) { const el = document.getElementById(id); if(el) el.innerText = val; }
         function getNow() { return new Date().toLocaleString("en-GB").replace(',',''); }
-        function toggleSection(id) {
-            const el = document.getElementById(id);
-            if(el) el.classList.toggle('accordion-collapsed');
-        }
 
         function attachFileValidators() {
             document.querySelectorAll('input[type="file"]').forEach(input => {
@@ -1584,20 +1567,7 @@ if (isRevTurn || isAppTurn) {
                     const b = document.createElement("button"); b.type="button"; b.className = "bg-blue-600 text-white px-4 py-2 rounded font-bold shadow"; b.innerText = "💾 Update Supervisors"; b.onclick = () => upd('update_data');
                     actionsDiv.appendChild(b);
                 }
-                
-        // --- CRASH PROOF SNIPPET ---
-        const sectionsToCollapse = ['sec-basic', 'sec-check-A', 'sec-check-B', 'sec-check-C', 'sec-check-D', 'sec-workers', 'sec-hazards', 'section-e'];
-        const shouldCollapse = (statusClean === 'Active' || statusClean.includes('Renewal') || statusClean.includes('Closure'));
 
-        sectionsToCollapse.forEach(sid => {
-            const el = document.getElementById(sid);
-            // FIX: Only access classList if the element actually exists
-            if (el) { 
-                if(shouldCollapse) el.classList.add('accordion-collapsed');
-                else el.classList.remove('accordion-collapsed');
-            }
-        });
-        // ---------------------------
             } catch (e) {
                 console.error("Critical Error in openPermit:", e);
                 alert("System Error: Check Console");
@@ -1628,22 +1598,9 @@ if (isRevTurn || isAppTurn) {
         }
 
 function handleClosureUI(p, actionsDiv) {
-    const st = p.Status;
-    const isClosable = (st === 'Active');
-    
-    // --- CRASH PROOF START ---
-    const closureSec = document.getElementById('closure-section');
-    const divReq = document.getElementById('div-closure-req');
-    const divRev = document.getElementById('div-closure-rev');
-    const divApp = document.getElementById('div-closure-app');
-    
-    // Safety Check: Stop if HTML elements are missing to prevent crash
-    if(!closureSec || !divReq) {
-        console.warn("Closure HTML sections missing");
-        return; 
-    }
-    const siteRestoredLabel = document.getElementById('lbl-site-restore');
-    const siteRestoredCheck = document.getElementById('Site_Restored_Check');
+            const isClosable = (p.Status === 'Active');
+            const siteRestoredLabel = document.getElementById('lbl-site-restore');
+            const siteRestoredCheck = document.getElementById('Site_Restored_Check');
 
             // 1. Requester Mode (Active Permit)
             if (currentUser.Role === 'Requester' && isClosable) {
@@ -2266,21 +2223,18 @@ else if (sec === 'B' && i === 14) {
                     </div>`;
                 });
 
-// --- CRASH PROOF SNIPPET ---
-        const sectionId = `sec-check-${sec}`;
-        container.innerHTML += `
-        <div class="glass border-t-4 border-gray-400" id="${sectionId}">
-            <div class="accordion-header flex justify-between items-center border-b pb-2 mb-4 bg-gray-50 p-2 rounded" onclick="toggleSection('${sectionId}')">
-                <h4 class="font-bold text-gray-700">Section ${sec} Checks</h4>
-                <div class="flex gap-2 text-xs" onclick="event.stopPropagation()">
-                    <label class="cursor-pointer font-bold"><input type="radio" name="Master_${sec}" value="Y" class="sec-toggle" data-sec="${sec}"> All Yes</label>
-                    <label class="cursor-pointer font-bold"><input type="radio" name="Master_${sec}" value="N" class="sec-toggle" data-sec="${sec}"> All No</label>
-                    <label class="cursor-pointer font-bold"><input type="radio" name="Master_${sec}" value="NA" class="sec-toggle" data-sec="${sec}"> All NA</label>
-                </div>
-            </div>
-            <div class="accordion-body checklist-grid">${itemsHtml.join('')}</div>
-        </div>`;
-        // ---------------------------
+                container.innerHTML += `
+                <div class="glass border-t-4 border-gray-400">
+                    <div class="flex justify-between items-center border-b pb-2 mb-4 bg-gray-50 p-2 rounded">
+                        <h4 class="font-bold text-gray-700">Section ${sec} Checks</h4>
+                        <div class="flex gap-2 text-xs">
+                            <label class="cursor-pointer font-bold"><input type="radio" name="Master_${sec}" value="Y" class="sec-toggle" data-sec="${sec}"> All Yes</label>
+                            <label class="cursor-pointer font-bold"><input type="radio" name="Master_${sec}" value="N" class="sec-toggle" data-sec="${sec}"> All No</label>
+                            <label class="cursor-pointer font-bold"><input type="radio" name="Master_${sec}" value="NA" class="sec-toggle" data-sec="${sec}"> All NA</label>
+                        </div>
+                    </div>
+                    <div class="checklist-grid">${itemsHtml.join('')}</div>
+                </div>`;
             });
 
             // Re-attach "Select All" listeners
@@ -2710,3 +2664,4 @@ async function downloadSecurePDF(id, format = 'default') {
     </script>
 </body>
 </html>
+
