@@ -817,9 +817,21 @@
             } else alert(res.msg);
         });
 
-        function showChangePassword() {
-            document.getElementById('view-pwd-change').classList.remove('hidden');
-            document.getElementById('view-pwd-change').dataset.email = currentUser.Email;
+function showChangePassword() {
+            console.log("Change Password Button Clicked!"); // Debug Log
+            
+            if (!currentUser) {
+                console.error("User is not logged in!");
+                return alert("Please log in first.");
+            }
+
+            const modal = document.getElementById('view-pwd-change');
+            if (modal) {
+                modal.classList.remove('hidden');
+                modal.dataset.email = currentUser.Email;
+            } else {
+                console.error("Error: Password Modal not found in HTML");
+            }
         }
         document.getElementById('btn-force-pwd').addEventListener('click', async () => {
             const p1 = document.getElementById('new-pwd-1').value;
@@ -2669,6 +2681,7 @@ async function downloadSecurePDF(id, format = 'default') {
     </script>
 </body>
 </html>
+
 
 
 
