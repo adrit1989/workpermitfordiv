@@ -64,7 +64,7 @@ app.use(
             (req, res) => `'nonce-${res.locals.nonce}'`, 
             "https://fonts.googleapis.com"
         ],
-
+        styleSrcAttr: ["'unsafe-inline'"],
         // Images: Self + Data + Blob + Maps + AZURE STORAGE
         imgSrc: [
             "'self'", 
