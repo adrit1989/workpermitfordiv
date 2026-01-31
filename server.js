@@ -55,6 +55,7 @@ app.use(
             "https://cdn.jsdelivr.net",      
             "https://maps.googleapis.com"    
         ],
+        scriptSrcAttr: ["'unsafe-inline'"],
 
         // Styles: Self + Nonce + Google Fonts
         // REMOVED: cdn.tailwindcss.com (Since you are now using local /public/app.css)
