@@ -40,7 +40,56 @@ app.use((req, res, next) => {
   next(); 
 });
 
-app.use(helmet({ contentSecurityPolicy: false })); 
+app.use(
+  helmet({
+    contentSecurityPolicy: {
+      useDefaults: true,
+      directives: {
+        defaultSrc: ["'self'"],
+        
+        // Scripts: Self + Nonce + Chart.js + Google Maps
+        scriptSrc: [
+            "'self'", 
+            (req, res) => `'nonce-${res.locals.nonce}'`, 
+            "https://cdn.jsdelivr.net",      // For Chart.js
+            "https://maps.googleapis.com"    // For Google Maps
+        ],
+
+        // Styles: Self + Nonce + Google Fonts
+        // REMOVED: cdn.tailwindcss.com (Since you are now using local /public/app.css)
+        styleSrc: [
+            "'self'", 
+            (req, res) => `'nonce-${res.locals.nonce}'`, 
+            "https://fonts.googleapis.com"
+        ],
+
+        // Images: Self + Data + Blob + Maps + AZURE STORAGE
+        imgSrc: [
+            "'self'", 
+            "data:", 
+            "blob:", 
+            "https://maps.gstatic.com", 
+            "https://maps.googleapis.com", 
+            "https://*.blob.core.windows.net" // CRITICAL: Allows permit photos
+        ],
+
+        fontSrc: ["'self'", "https://fonts.gstatic.com"],
+
+        // Connections: Self + Maps + Azure
+        connectSrc: [
+            "'self'", 
+            "https://maps.googleapis.com", 
+            "https://cdn.jsdelivr.net",
+            "https://*.blob.core.windows.net"
+        ],
+
+        frameAncestors: ["'none'"]
+      }
+    },
+    // Required to allow cross-origin assets like Google Maps images
+    crossOriginResourcePolicy: { policy: "cross-origin" }
+  })
+);
 
 const allowedOrigins = [
   "https://workpermitdivision-dwcahkbpbnc4fyah.centralindia-01.azurewebsites.net",
