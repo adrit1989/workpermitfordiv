@@ -130,7 +130,7 @@
                     <div class="nav-item hidden" id="nav-admin" onclick="switchView('admin')"><span>🔐</span> Admin Console</div>
                 </nav>
                 <div class="p-4 border-t border-gray-700 bg-gray-900 flex flex-col gap-2">
-                    <div class="nav-item text-blue-400 hover:bg-blue-900/30 rounded justify-center" onclick="showChangePassword()"><span>🔑</span> Change Pwd</div>
+                    <div id="btn-nav-change-pwd" class="nav-item text-blue-400 hover:bg-blue-900/30 rounded justify-center"><span>🔑</span> Change Pwd</div>
                     <div class="nav-item text-red-400 hover:bg-red-900/30 rounded justify-center" onclick="logout()"><span>🚪</span> Sign Out</div>
                 </div>
             </div>
@@ -2661,9 +2661,14 @@ async function downloadSecurePDF(id, format = 'default') {
                 document.getElementById('loader').style.display = 'none';
             }
         }
+    const pwdBtn = document.getElementById('btn-nav-change-pwd');
+        if(pwdBtn) {
+            pwdBtn.addEventListener('click', showChangePassword);
+        }
         initLogin();
     </script>
 </body>
 </html>
+
 
 
