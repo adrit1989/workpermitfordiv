@@ -17,7 +17,7 @@ const bcrypt = require('bcryptjs');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const crypto = require('crypto');
-
+const nodemailer = require('nodemailer');
 // APP SETUP
 const app = express();
 app.set('trust proxy', 1); 
@@ -120,7 +120,34 @@ async function uploadToAzure(buffer, blobName, mimeType = null) {
       return null;
   }
 }
+async function sendEmailNotification(toEmail, subject, text) {
+    if (!toEmail || !process.env.GMAIL_USER || !process.env.GMAIL_PASS) {
+        console.log("Skipping email: Missing credentials or recipient.");
+        return;
+    }
 
+    try {
+        const transporter = nodemailer.createTransport({
+            service: 'gmail',
+            auth: {
+                user: process.env.GMAIL_USER,
+                pass: process.env.GMAIL_PASS
+            }
+        });
+
+        const mailOptions = {
+            from: `"ERPL Permit System" <${process.env.GMAIL_USER}>`,
+            to: toEmail,
+            subject: subject,
+            text: text
+        };
+
+        await transporter.sendMail(mailOptions);
+        console.log(`📧 Email sent to ${toEmail}`);
+    } catch (error) {
+        console.error("Email Error:", error.message);
+    }
+}
 /* =====================================================
    AUTHENTICATION
 ===================================================== */
@@ -1249,6 +1276,9 @@ if (action === 'elec_closure_approve') {
     // 2. GENERAL ACTIONS
     else if (action === 'reject') {
         st = 'Rejected';
+      const subject = `❌ Permit Rejected: ${PermitID}`;
+        const msg = `Dear Requester,\n\nYour permit ${PermitID} has been REJECTED by ${usr}.\n\nReason: ${req.body.comment || 'No remarks provided'}.\n\nPlease login to check details.`;
+        sendEmailNotification(d.RequesterEmail, subject, msg);
     }
     else if (action === 'review' || action === 'approve_1st_ren') { 
         // --- File Handling for Review ---
@@ -1275,11 +1305,19 @@ if (action === 'elec_closure_approve') {
 
         st = 'Pending Approval'; 
         d.Reviewer_Sig = `${usr} on ${now}`; 
+      if (d.ApproverEmail) {
+            const subject = `⚠️ Action Required: Approve Permit ${PermitID}`;
+            const msg = `Dear Approver,\n\nA permit (${PermitID}) has been reviewed by ${usr} and is waiting for your final approval.\n\nWork Type: ${d.WorkType}\nLocation: ${d.LocationUnit}\n\nPlease login to the dashboard to approve/reject.`;
+            sendEmailNotification(d.ApproverEmail, subject, msg);
+        }
     }
     else if (action === 'approve' && st.includes('Closure')) { 
         st = 'Closed'; 
         d.Closure_Approver_Date = now; 
         d.Closure_Issuer_Sig = `${usr} on ${now}`; 
+      if (d.RequesterEmail) {
+            sendEmailNotification(d.RequesterEmail, `✅ Permit Closed: ${PermitID}`, `Your permit ${PermitID} has been successfully closed by ${usr}.`);
+        }
     }
     else if (action === 'approve') { 
         st = 'Active'; 
@@ -1297,6 +1335,11 @@ if (action === 'elec_closure_approve') {
         // Save the Reference Number
         if (req.body.TBT_Ref_No) d.TBT_Ref_No = req.body.TBT_Ref_No;
         // -------------------------------------------
+      if (d.RequesterEmail) {
+            const subject = `✅ Permit Approved & Active: ${PermitID}`;
+            const msg = `Dear Requester,\n\nYour permit ${PermitID} has been APPROVED by ${usr} and is now ACTIVE.\n\nValid From: ${formatDate(p.ValidFrom)}\nValid To: ${formatDate(p.ValidTo)}\n\nPlease ensure safety compliance at site.`;
+            sendEmailNotification(d.RequesterEmail, subject, msg);
+       }
     }
     else if (action === 'reject_closure') { st = 'Active'; } 
     else if (action === 'approve_closure') { 
