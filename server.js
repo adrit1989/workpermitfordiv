@@ -865,7 +865,8 @@ async function drawPermitPDF(doc, p, d, renewalsList) {
     }
     doc.y = ry + 20;
 
-    if (p.Status === 'Closed' || p.Status.includes('Closure') || d.Closure_Issuer_Sig) {
+     // FIX: Allow drawing closure section during Electrical De-Isolation phase
+if (p.Status === 'Closed' || p.Status.includes('Closure') || p.Status === 'Pending Electrical De-Isolation' || d.Closure_Issuer_Sig) {
         if (doc.y > 650) { doc.addPage(); drawHeaderOnAll(); }
         doc.font('Helvetica-Bold').fontSize(10).text("WORK COMPLETION & CLOSURE", 30, doc.y);
         doc.y += 15;
