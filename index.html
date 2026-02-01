@@ -2003,7 +2003,7 @@ async function submitRenewal(act) {
             const isDeleted = x.status === 'inactive';
             const rowClass = isDeleted ? "bg-red-50 text-gray-400 line-through" : "";
             let auditText = `Added by ${x.added_by} on ${x.added_at}`;
-            if(x.deleted_by) auditText += `<br><span class="text-red-600 no-underline">Deleted by ${x.deleted_by}</span>`;
+            if(x.deleted_by) auditText += `<br><span class="text-red-600 no-underline">Deleted by ${x.deleted_by}<br>on ${x.deleted_at || ''}</span>`;
             
             let actionBtn = (status === 'Active' && currentUser.Role === 'Approver' && !isDeleted) 
                 ? `<button type="button" class="text-red-500 ml-2" onclick="deleteIOCLSup(${idx}, '${status}')">🗑️</button>` 
@@ -2701,6 +2701,7 @@ async function downloadSecurePDF(id, format = 'default') {
     </script>
 </body>
 </html>
+
 
 
 
