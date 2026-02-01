@@ -2105,6 +2105,9 @@ function drawElectricalAnnexure(doc, p, d) {
     const width = 515; // Content Width
     let y = topY;
 
+    // helper to measure text height
+    const getH = (txt, w) => doc.heightOfString(txt, { width: w });
+
     // --- PAGE 1: ISOLATION PERMIT (SECTION A) ---
 
     // 1. Header Box
@@ -2114,12 +2117,12 @@ function drawElectricalAnnexure(doc, p, d) {
     doc.text('OISD-STD-105', startX + 5, y + 25);
     doc.text('WORK PERMIT SYSTEM', startX + 5, y + 40);
 
-    // Center Block (Permit Title)
+    // Center Block
     const centerX = startX + 160;
     doc.fontSize(11).text('TYPICAL ELECTRICAL ISOLATION/', centerX, y + 15, {align: 'center', width: 200});
     doc.text('ENERGIZATION PERMIT', centerX, y + 30, {align: 'center', width: 200});
     
-    // Right Block (Permit No & Page)
+    // Right Block
     const rightX = startX + 370;
     doc.fontSize(9).text('Permit no.:', rightX, y + 10);
     doc.font('Helvetica').text(p.PermitID, rightX + 60, y + 10); 
@@ -2139,12 +2142,11 @@ function drawElectricalAnnexure(doc, p, d) {
     doc.fontSize(10).text('ANNEXURE - III', startX + 400, y, {align: 'right', width: 115});
     y += 20;
 
-    // Cross Reference
     doc.font('Helvetica').fontSize(9).text('Cross-Reference of other Permit: __________________________', startX, y);
     y += 20;
 
-    // --- REQUEST FOR ISOLATION ---
-    doc.rect(startX, y, width, 140).stroke(); 
+    // --- REQUEST FOR ISOLATION (Dynamic Height) ---
+    let boxTop = y;
     let internalY = y + 5;
     
     doc.font('Helvetica-Bold').text('Request for Isolation:', startX + 5, internalY);
@@ -2169,17 +2171,29 @@ function drawElectricalAnnexure(doc, p, d) {
     doc.text(`Description of the work to be carried out: ${safeText(d.Desc)}`, startX + 5, internalY);
     internalY += 20;
 
-    doc.text('The above-mentioned equipment/ circuit shall be de-energized and isolated from all live conductors to carry out the maintenance work by section/ for operational requirement.', startX + 5, internalY, {width: 500});
+    const isoReqText = 'The above-mentioned equipment/ circuit shall be de-energized and isolated from all live conductors to carry out the maintenance work by section/ for operational requirement.';
+    const isoReqH = getH(isoReqText, 500);
+    doc.text(isoReqText, startX + 5, internalY, {width: 500});
+    internalY += isoReqH + 10; // Dynamic spacing based on text height
+
+    // Draw Main Request Box based on calculated height
+    doc.rect(startX, boxTop, width, internalY - boxTop).stroke();
+    y = internalY; // Update main Y to bottom of box
     
-    // Signatures for Request
-    y += 140; 
-    doc.rect(startX, y, width, 35).stroke();
+    // Issuer Signature Box
+    doc.rect(startX, y, width, 40).stroke();
     doc.text(`Issuer Name: ${safeText(d.RequesterName)}`, startX + 5, y + 10);
     doc.text('Signature: (Digitally Signed)', startX + 300, y + 10);
+    
+    // [ADDED] Issuer Timestamp
+    if (d.CreatedDate) {
+        doc.fontSize(8).font('Helvetica-Oblique').text(`Timestamp: ${d.CreatedDate}`, startX + 300, y + 25);
+        doc.fontSize(9).font('Helvetica'); // Reset
+    }
     y += 45;
 
-    // --- CERTIFICATE OF ISOLATION ---
-    doc.rect(startX, y, width, 180).stroke(); 
+    // --- CERTIFICATE OF ISOLATION (Dynamic Height) ---
+    boxTop = y;
     internalY = y + 5;
 
     doc.font('Helvetica-Bold').text('Certificate of Isolation:', startX + 5, internalY);
@@ -2192,33 +2206,41 @@ function drawElectricalAnnexure(doc, p, d) {
     doc.text(`Time: ${isoTime}`, startX + 250, internalY);
     internalY += 20;
 
-    doc.text(`Certified that Equipment/ Circuit no. ${safeText(d.Elec_EquipNo)} of plant ${safeText(d.LocationUnit)} has been made dead, is electrically isolated from all live conductors and has been connected to earth and the work mentioned above can now be carried out in accordance with the safety rules and regulations.`, startX + 5, internalY, {width: 500, align: 'justify'});
-    internalY += 45;
+    const para1 = `Certified that Equipment/ Circuit no. ${safeText(d.Elec_EquipNo)} of plant ${safeText(d.LocationUnit)} has been made dead, is electrically isolated from all live conductors and has been connected to earth and the work mentioned above can now be carried out in accordance with the safety rules and regulations.`;
+    const h1 = getH(para1, 500);
+    doc.text(para1, startX + 5, internalY, {width: 500, align: 'justify'});
+    internalY += h1 + 10;
 
-    doc.text('For the purpose of making the equipment dead, the switches/ isolators/links/fuses (tick as applicable), have been opened and the section so isolated has been earthed at each isolation point and danger notice plates fixed thereon.', startX + 5, internalY, {width: 500, align: 'justify'});
-    internalY += 35;
+    const para2 = 'For the purpose of making the equipment dead, the switches/ isolators/links/fuses (tick as applicable), have been opened and the section so isolated has been earthed at each isolation point and danger notice plates fixed thereon.';
+    const h2 = getH(para2, 500);
+    doc.text(para2, startX + 5, internalY, {width: 500, align: 'justify'});
+    internalY += h2 + 10;
 
-    doc.text(`The LOTO tag/ device no. ${safeText(d.Elec_LotoTag_Auth)} is put on the supply panel. Actions in respect of electrical isolation have been recorded in the electrical shift logbook including the instructions for the person who may relieve me.`, startX + 5, internalY, {width: 500, align: 'justify'});
+    const para3 = `The LOTO tag/ device no. ${safeText(d.Elec_LotoTag_Auth)} is put on the supply panel. Actions in respect of electrical isolation have been recorded in the electrical shift logbook including the instructions for the person who may relieve me.`;
+    const h3 = getH(para3, 500);
+    doc.text(para3, startX + 5, internalY, {width: 500, align: 'justify'});
+    internalY += h3 + 10;
 
-    // Signatures for Isolation Certificate
-    y += 180;
+    // Draw Certificate Box
+    doc.rect(startX, boxTop, width, internalY - boxTop).stroke();
+    y = internalY;
+
+    // Auth Person Signature Box
     doc.rect(startX, y, width, 50).stroke();
     doc.text(`Name of Authorized Person: ${safeText(d.Elec_Approved_By)}`, startX + 5, y + 10);
     doc.text(`Designation: Electrical Officer`, startX + 5, y + 30);
     doc.text('Signature: (Digitally Signed)', startX + 300, y + 10);
     
-    // --- ADDED TIMESTAMPS FOR ISOLATION ---
     if (isoDate && isoTime) {
-        doc.fontSize(8).font('Helvetica-Oblique')
-           .text(`Timestamp: ${isoDate} ${isoTime}`, startX + 300, y + 25);
-        doc.fontSize(9).font('Helvetica'); // Reset
+        doc.fontSize(8).font('Helvetica-Oblique').text(`Timestamp: ${isoDate} ${isoTime}`, startX + 300, y + 25);
+        doc.fontSize(9).font('Helvetica');
     }
 
     // --- PAGE 2: ENERGIZATION PERMIT (SECTION B) ---
     doc.addPage();
     y = topY;
 
-    // 1. Header Box 
+    // 1. Header Box
     doc.rect(startX, y, width, 50).stroke();
     doc.font('Helvetica-Bold').fontSize(10).text('Industry Safety Directorate', startX + 5, y + 10);
     doc.text('OISD-STD-105', startX + 5, y + 25);
@@ -2231,8 +2253,8 @@ function drawElectricalAnnexure(doc, p, d) {
     doc.font('Helvetica-Bold').fontSize(11).text('SECTION-B: ENERGIZATION PERMIT', startX, y);
     y += 20;
 
-    // --- REQUEST FOR ENERGIZATION ---
-    doc.rect(startX, y, width, 110).stroke();
+    // --- REQUEST FOR ENERGIZATION (Dynamic Height) ---
+    boxTop = y;
     internalY = y + 5;
 
     doc.text('Request for Energization:', startX + 5, internalY);
@@ -2253,18 +2275,30 @@ function drawElectricalAnnexure(doc, p, d) {
     doc.text(`Name of the equipment/ circuit to be energized: ${safeText(d.Elec_EquipName)}`, startX + 5, internalY);
     internalY += 20;
 
-    doc.text('The above mentioned work on the subject equipment/ circuit has been completed and all the applicable work permits are closed. This equipment/ circuit may be energized.', startX + 5, internalY, {width: 500});
+    const energReqText = 'The above mentioned work on the subject equipment/ circuit has been completed and all the applicable work permits are closed. This equipment/ circuit may be energized.';
+    const energReqH = getH(energReqText, 500);
+    doc.text(energReqText, startX + 5, internalY, {width: 500});
+    internalY += energReqH + 10;
 
-    // Signatures for Energization Request
-    y += 130; 
-    doc.rect(startX, y, width, 35).stroke();
+    // Draw Energization Request Box
+    doc.rect(startX, boxTop, width, internalY - boxTop).stroke();
+    y = internalY;
+
+    // Issuer Signature Box
+    doc.rect(startX, y, width, 40).stroke();
     doc.text(`Issuer Name: ${safeText(d.RequesterName)}`, startX + 5, y + 10);
     doc.text(`Designation: Requester`, startX + 5, y + 25);
     doc.text(`Signature: ${safeText(d.Closure_Receiver_Sig)}`, startX + 300, y + 10);
+    
+    // [ADDED] Issuer Timestamp (Energization)
+    if (d.Closure_Requestor_Date) {
+        doc.fontSize(8).font('Helvetica-Oblique').text(`Timestamp: ${d.Closure_Requestor_Date}`, startX + 300, y + 25);
+        doc.fontSize(9).font('Helvetica');
+    }
     y += 45;
 
-    // --- CERTIFICATE OF ENERGIZATION ---
-    doc.rect(startX, y, width, 150).stroke();
+    // --- CERTIFICATE OF ENERGIZATION (Dynamic Height) ---
+    boxTop = y;
     internalY = y + 5;
 
     doc.font('Helvetica-Bold').text('Certificate of Energization:', startX + 5, internalY);
@@ -2278,8 +2312,10 @@ function drawElectricalAnnexure(doc, p, d) {
     doc.text(`Time: ${deIsoTime}`, startX + 250, internalY);
     internalY += 20;
 
-    doc.text(`Certified that Equipment / circuit no. ${safeText(d.Elec_EquipNo)} of plant ${safeText(d.LocationUnit)} has been electrically energized by closing the switches/ isolators/links/ fuses (tick as applicable), and the equipment put back into service.`, startX + 5, internalY, {width: 500, align: 'justify'});
-    internalY += 40;
+    const certPara1 = `Certified that Equipment / circuit no. ${safeText(d.Elec_EquipNo)} of plant ${safeText(d.LocationUnit)} has been electrically energized by closing the switches/ isolators/links/ fuses (tick as applicable), and the equipment put back into service.`;
+    const ch1 = getH(certPara1, 500);
+    doc.text(certPara1, startX + 5, internalY, {width: 500, align: 'justify'});
+    internalY += ch1 + 10;
 
     doc.text(`The danger LOTO tag/device no. ${safeText(d.Elec_LotoTag_Auth)} is removed from the supply panel.`, startX + 5, internalY);
     internalY += 15;
@@ -2288,21 +2324,22 @@ function drawElectricalAnnexure(doc, p, d) {
     internalY += 15;
 
     doc.text('Necessary entry is also recorded in the electrical shift logbook.', startX + 5, internalY);
+    internalY += 5; // Extra padding
 
-    // Signatures for Energization Certificate
-    y += 150;
+    // Draw Certificate Box
+    doc.rect(startX, boxTop, width, internalY - boxTop).stroke();
+    y = internalY;
+
+    // Auth Person Signature Box
     const deIsoSigName = d.Elec_DeIsolation_Sig ? d.Elec_DeIsolation_Sig.split(' on ')[0] : '';
-
     doc.rect(startX, y, width, 50).stroke();
     doc.text(`Name of Authorized Person: ${deIsoSigName}`, startX + 5, y + 10);
     doc.text(`Designation: Electrical Officer`, startX + 5, y + 30);
     doc.text('Signature: (Digitally Signed)', startX + 300, y + 10);
 
-    // --- ADDED TIMESTAMPS FOR ENERGIZATION ---
     if (deIsoDate && deIsoTime) {
-        doc.fontSize(8).font('Helvetica-Oblique')
-           .text(`Timestamp: ${deIsoDate} ${deIsoTime}`, startX + 300, y + 25);
-        doc.fontSize(9).font('Helvetica'); // Reset
+        doc.fontSize(8).font('Helvetica-Oblique').text(`Timestamp: ${deIsoDate} ${deIsoTime}`, startX + 300, y + 25);
+        doc.fontSize(9).font('Helvetica');
     }
 }
 /* =====================================================
