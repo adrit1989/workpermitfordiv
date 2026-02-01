@@ -1350,20 +1350,14 @@ if (action === 'elec_closure_approve') {
         const msg = `Dear Requester,\n\nYour permit ${PermitID} has been REJECTED by ${usr}.\n\nReason: ${req.body.comment || 'No remarks provided'}.\n\nPlease login to check details.`;
         sendEmailNotification(d.RequesterEmail, subject, msg);
     }
-    else if (action === 'review' || action === 'approve_1st_ren') { 
-        // --- File Handling for Review ---
+else if (action === 'review' || action === 'approve_1st_ren') { 
+        // --- File Handling for Review/Renewal ---
         if (req.files) {
             const jsaFile = req.files.find(f => f.fieldname === 'JsaFile');
             if(jsaFile) {
                 newJsaUrl = await uploadToAzure(jsaFile.buffer, `permit-jsa/${PermitID}-${Date.now()}.pdf`, 'application/pdf');
                 sqlSetJsa += ", JsaFileUrl=@jsaUrl, JsaLinkedId=NULL"; 
             }
-        }
-        const newJsaId = req.body.JsaLinkedId || null;
-        if (newJsaId && !newJsaUrl) {
-             sqlSetJsa += ", JsaLinkedId=@jsaId, JsaFileUrl=NULL";
-        }
-        if (req.files) {
             const tbt = req.files.find(f => f.fieldname === 'TBT_PDF_File');
             if (tbt) {
                 const url = await uploadToAzure(tbt.buffer, `tbt/${PermitID}_${Date.now()}.pdf`, 'application/pdf');
@@ -1373,19 +1367,29 @@ if (action === 'elec_closure_approve') {
         if(req.body.TBT_Ref_No) d.TBT_Ref_No = req.body.TBT_Ref_No;
         // -------------------------------
 
-        st = 'Pending Approval'; 
-        d.Reviewer_Sig = `${usr} on ${now}`; 
-      if (d.ApproverEmail) {
-            const subject = `⚠️ Action Required: Approve Permit ${PermitID}`;
-            const msg = `Dear Approver,\n\nA permit (${PermitID}) has been reviewed by ${usr} and is waiting for your final approval.\n\nWork Type: ${d.WorkType}\nLocation: ${d.LocationUnit}\n\nPlease login to the dashboard to approve/reject.`;
-            sendEmailNotification(d.ApproverEmail, subject, msg);
+        // --- FIX: Role-Based Logic Split ---
+        if (req.user.role === 'Reviewer') {
+            st = 'Pending Approval'; 
+            d.Reviewer_Sig = `${usr} on ${now}`;
+            
+            if (d.ApproverEmail) {
+                sendEmailNotification(d.ApproverEmail, `⚠️ Action Required: Approve Permit ${PermitID}`, `Permit reviewed by ${usr}. Please approve.`);
+            }
+        } 
+        else if (req.user.role === 'Approver' || req.user.role === 'MasterAdmin') {
+            st = 'Active'; 
+            d.Approver_Sig = `${usr} on ${now}`;
+            
+            if (d.RequesterEmail) {
+                sendEmailNotification(d.RequesterEmail, `✅ Permit Approved & Active: ${PermitID}`, `Your permit is now ACTIVE.`);
+            }
         }
     }
     else if (action === 'approve' && st.includes('Closure')) { 
         st = 'Closed'; 
         d.Closure_Approver_Date = now; 
         d.Closure_Issuer_Sig = `${usr} on ${now}`; 
-      if (d.RequesterEmail) {
+        if (d.RequesterEmail) {
             sendEmailNotification(d.RequesterEmail, `✅ Permit Closed: ${PermitID}`, `Your permit ${PermitID} has been successfully closed by ${usr}.`);
         }
     }
@@ -1405,7 +1409,8 @@ if (action === 'elec_closure_approve') {
         // Save the Reference Number
         if (req.body.TBT_Ref_No) d.TBT_Ref_No = req.body.TBT_Ref_No;
         // -------------------------------------------
-      if (d.RequesterEmail) {
+        
+        if (d.RequesterEmail) {
             const subject = `✅ Permit Approved & Active: ${PermitID}`;
             const msg = `Dear Requester,\n\nYour permit ${PermitID} has been APPROVED by ${usr} and is now ACTIVE.\n\nValid From: ${formatDate(p.ValidFrom)}\nValid To: ${formatDate(p.ValidTo)}\n\nPlease ensure safety compliance at site.`;
             sendEmailNotification(d.RequesterEmail, subject, msg);
