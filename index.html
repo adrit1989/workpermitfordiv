@@ -1521,7 +1521,8 @@ document.getElementById('renewal-history-body').innerHTML = rens.map(r => {
                 handleClosureUI(p, actionsDiv);
 // --- FIX: Ensure Closure Audit History is Visible During Processing ---
                 const st = p.Status;
-                const closureStages = ['Closure Pending Review', 'Closure Pending Approval', 'Closed'];
+                // FIX: Added 'Pending Electrical De-Isolation' so remarks show up immediately after submission
+                const closureStages = ['Closure Pending Review', 'Closure Pending Approval', 'Closed', 'Pending Electrical De-Isolation'];
 
                 // 1. If Closure has started, ALWAYS show Requestor section to everyone
                 if (closureStages.includes(st)) {
@@ -2802,6 +2803,7 @@ async function downloadSecurePDF(id, format = 'default') {
     </script>
 </body>
 </html>
+
 
 
 
