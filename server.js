@@ -1396,22 +1396,36 @@ else if (action === 'review' || action === 'approve_1st_ren') {
             sendEmailNotification(d.RequesterEmail, `✅ Permit Closed: ${PermitID}`, `Your permit ${PermitID} has been successfully closed by ${usr}.`);
         }
     }
-    else if (action === 'approve') { 
+else if (action === 'approve') { 
         st = 'Active'; 
         d.Approver_Sig = `${usr} on ${now}`; 
 
-        // --- FIX: Handle TBT Upload for Approver ---
+        // --- JSA & TBT Handling (Approver Override) ---
         if (req.files) {
+            // 1. JSA File Upload
+            const jsaFile = req.files.find(f => f.fieldname === 'JsaFile');
+            if (jsaFile) {
+                // If Approver uploads a file, it supersedes existing Link/File
+                newJsaUrl = await uploadToAzure(jsaFile.buffer, `permit-jsa/${PermitID}-${Date.now()}.pdf`, 'application/pdf');
+                sqlSetJsa += ", JsaFileUrl=@jsaUrl, JsaLinkedId=NULL"; 
+            }
+
+            // 2. TBT File Upload
             const tbt = req.files.find(f => f.fieldname === 'TBT_PDF_File');
             if (tbt) {
-                // Upload to Azure
                 const url = await uploadToAzure(tbt.buffer, `tbt/${PermitID}_${Date.now()}.pdf`, 'application/pdf');
-                d.TBT_File_Url = url; // Save URL to JSON
+                d.TBT_File_Url = url;
             }
         }
-        // Save the Reference Number
+        
+        // 3. JSA Link Selection (Supersedes if no new file is uploaded)
+        const newJsaId = req.body.JsaLinkedId || null;
+        if (newJsaId && !newJsaUrl) {
+             sqlSetJsa += ", JsaLinkedId=@jsaId, JsaFileUrl=NULL";
+        }
+        
         if (req.body.TBT_Ref_No) d.TBT_Ref_No = req.body.TBT_Ref_No;
-        // -------------------------------------------
+        // ---------------------------------------------------------
         
         if (d.RequesterEmail) {
             const subject = `✅ Permit Approved & Active: ${PermitID}`;
