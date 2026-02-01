@@ -1464,50 +1464,53 @@ if (closureElecDiv) {
                    // --- FIX B: Add Remarks to History Table ---
                    // Inside openPermit(), replace the renewal table generation map:
 // --- UPDATED: Renewal Table Render (Implements A & B) ---
-document.getElementById('renewal-history-body').innerHTML = rens.map(r => {
-    // Helper to visualize checks
-    const chk = (role, val) => val === 'Y' 
-        ? `<div class="text-[9px] text-green-700 border border-green-200 bg-green-50 px-1 rounded mb-1">✅ ${role}</div>` 
-        : `<div class="text-[9px] text-gray-400 border border-gray-100 bg-gray-50 px-1 rounded mb-1">⬜ ${role}</div>`;
+// --- SNIPPET A START: Paste this inside openPermit() after defining 'rens' ---
 
-    // Logic for Status Column (Requirement A)
+document.getElementById('renewal-history-body').innerHTML = rens.map(r => {
+    // 1. Status Display
     let statusDisplay = `<span class="bg-yellow-100 text-yellow-800 px-1 rounded">Pending</span>`;
     if(r.status === 'approved') statusDisplay = `<span class="bg-green-100 text-green-800 px-1 rounded font-bold">Approved</span>`;
-    else if(r.status === 'rejected') {
-        statusDisplay = `<div class="bg-red-50 text-red-700 px-1 rounded border border-red-200">
-            <strong>Rejected</strong><br>
-            By: ${r.rejected_by || 'Auth'}<br>
-            Reason: "${r.rejection_reason || '-'}"
-        </div>`;
+    else if(r.status === 'rejected') statusDisplay = `<span class="bg-red-100 text-red-800 px-1 rounded font-bold" title="${r.rejection_reason}">Rejected</span>`;
+
+    // 2. Worker List Logic (Fallback to Main Permit Workers if 1st Renewal & Pending)
+    let workerArr = [];
+    if (r.workers) {
+        if (Array.isArray(r.workers)) workerArr = r.workers;
+        else if (typeof r.workers === 'string') { try { workerArr = JSON.parse(r.workers); } catch(e) { workerArr = [r.workers]; } }
+    } else if (isFirstRenRequest) {
+        // Fallback for 1st Renewal: Show all workers from main permit
+        workerArr = currentPermitWorkers.map(w => w.Name);
+    }
+    
+    let workerListDisplay = '-';
+    if(workerArr.length > 0) {
+        workerListDisplay = `<div class="max-h-16 overflow-y-auto text-[9px] leading-tight">${workerArr.map(w => `• ${escapeHtml(w)}`).join('<br>')}</div>`;
     }
 
-    // Logic for Worker Names (Requirement B)
-    let workerListDisplay = '-';
-    if(r.workers && Array.isArray(r.workers) && r.workers.length > 0) {
-        workerListDisplay = `<div class="max-h-16 overflow-y-auto text-[9px] leading-tight">
-            ${r.workers.map(w => `• ${escapeHtml(w)}`).join('<br>')}
-        </div>`;
-    }
+    // 3. Gas & Precaution Fallback (If empty in renewal object, grab from Main Permit P)
+    const gasDisplay = (r.hc || r.toxic || r.oxygen) 
+        ? `${r.hc || '-'}/${r.toxic || '-'}/${r.oxygen || '-'}` 
+        : (isFirstRenRequest ? `${p.GP_Q12_HC || '-'}/${p.GP_Q12_ToxicGas || '-'}/${p.GP_Q12_Oxygen || '-'}` : '-/-/-');
+
+    const precDisplay = r.precautions || (isFirstRenRequest ? 'Refer to Permit Section A' : '-');
+
+    // 4. Helper for Checks
+    const chk = (role, val) => val === 'Y' ? `✅ ${role}` : `⬜ ${role}`;
 
     return `<tr class="border-b text-[10px]">
         <td class="p-2 align-top">${statusDisplay}</td>
-        <td class="p-2">${r.valid_from}<br>to ${r.valid_to}</td>
-        <td class="p-2">${r.hc}/${r.toxic}/${r.oxygen}</td>
-        
-        <td class="p-2">
-            ${chk('Req', r.tbt_done)}
-            ${chk('Rev', r.rev_tbt)}
-            ${chk('App', r.app_tbt)}
-        </td>
-
-        <td class="p-2 italic">${r.precautions || '-'}</td>
+        <td class="p-2">${r.valid_from ? r.valid_from.replace('T', ' ') : '-'} <br>to<br> ${r.valid_to ? r.valid_to.replace('T', ' ') : '-'}</td>
+        <td class="p-2">${gasDisplay}</td>
+        <td class="p-2">${chk('Req', r.tbt_done)} ${chk('Rev', r.rev_tbt)} ${chk('App', r.app_tbt)}</td>
+        <td class="p-2 italic">${precDisplay}</td>
         <td class="p-2">${workerListDisplay}</td>
-        <td class="p-2"><b>${r.req_name}</b><br><span class="text-gray-500">${r.req_at||''}</span></td>
-        <td class="p-2"><b>${r.rev_name||'-'}</b><br><span class="text-gray-500">${r.rev_at||''}</span>${r.rev_rem ? `<br><span class="text-blue-600 italic">"${r.rev_rem}"</span>` : ''}</td>
-        <td class="p-2"><b>${r.app_name||'-'}</b><br><span class="text-gray-500">${r.app_at||''}</span>${r.app_rem ? `<br><span class="text-blue-600 italic">"${r.app_rem}"</span>` : ''}</td>
+        <td class="p-2"><b>${r.req_name || p.RequesterName}</b><br><span class="text-gray-500">${r.req_at ? r.req_at.replace('T', ' ') : ''}</span></td>
+        <td class="p-2"><b>${r.rev_name||'-'}</b><br><span class="text-gray-500">${r.rev_at||''}</span></td>
+        <td class="p-2"><b>${r.app_name||'-'}</b><br><span class="text-gray-500">${r.app_at||''}</span></td>
         <td class="p-2">${r.photoUrl ? `<button type="button" class="text-blue-600 underline" onclick="viewSecureFile('${r.photoUrl.replace(/\\/g, '/')}')">View</button>` : 'NO'}</td>
     </tr>`;
 }).join('');
+// --- SNIPPET A END ---
                         
                     const showRenForm = (currentUser.Role === 'Requester' && statusClean === 'Active' && (!lastRen || !lastRen.status.includes('pending')));
                     document.getElementById('form-renewal').classList.toggle('hidden', !showRenForm);
@@ -2852,6 +2855,7 @@ async function downloadSecurePDF(id, format = 'default') {
     </script>
 </body>
 </html>
+
 
 
 
