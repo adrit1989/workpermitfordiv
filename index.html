@@ -1801,12 +1801,19 @@ async function upd(act) {
         const tbtFile = document.getElementById('TBT_PDF_File').files[0];
         if (tbtFile) fd.append('TBT_PDF_File', tbtFile);
     }
+let ioclData = [...currentPermitIOCLData]; 
 
-    let ioclData = [];
-    if (currentUser.Role === 'Reviewer') ioclData = getIOCLData('iocl-sup-container-rev');
+    // 2. Append NEW entries only if the user added them in their specific input container
+    if (currentUser.Role === 'Reviewer') {
+        const newRevSups = getIOCLData('iocl-sup-container-rev');
+        // Add new reviewer supervisors to the existing list
+        ioclData = [...ioclData, ...newRevSups];
+    }
+    
     if (currentUser.Role === 'Approver') {
-        const newOnes = getIOCLData('iocl-sup-container-app');
-        ioclData = [...currentPermitIOCLData, ...newOnes];
+        const newAppSups = getIOCLData('iocl-sup-container-app');
+        // Add new approver supervisors to the existing list
+        ioclData = [...ioclData, ...newAppSups];
     }
     fd.append('IOCLSupervisors', JSON.stringify(ioclData));
 
@@ -2693,5 +2700,6 @@ async function downloadSecurePDF(id, format = 'default') {
     </script>
 </body>
 </html>
+
 
 
