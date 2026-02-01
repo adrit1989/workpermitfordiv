@@ -1436,73 +1436,61 @@ if (action === 'elec_closure_approve') {
         }
     }
 
-  /* =====================================================
-    REFINED CLOSURE LOGIC: PERSIST DATA UNTIL PDF IS SAFE
-===================================================== */
-if (st === 'Closed') {
-    try {
-        const pdfRecord = { ...p, Status: 'Closed', PermitID: PermitID, ValidFrom: p.ValidFrom, ValidTo: p.ValidTo };
-        
-        // 1. GENERATE STANDARD PDF BUFFER
-        const standardPdfBuffer = await new Promise((resolve, reject) => {
-            const doc = new PDFDocument({ margin: 30, size: 'A4', bufferPages: true });
-            const chunks = [];
-            doc.on('data', chunks.push.bind(chunks));
-            doc.on('end', () => resolve(Buffer.concat(chunks)));
-            drawPermitPDF(doc, pdfRecord, d, rens).then(() => doc.end()).catch(reject);
-        });
+ // ... previous logic for st and d ...
 
-        // 2. GENERATE MAINLINE PDF BUFFER (Ensuring Supervisors are included)
-        const mainlinePdfBuffer = await new Promise((resolve, reject) => {
-            const doc = new PDFDocument({ margin: 30, size: 'A4', bufferPages: true });
-            const chunks = [];
-            doc.on('data', chunks.push.bind(chunks));
-            doc.on('end', () => resolve(Buffer.concat(chunks)));
-            drawMainlinePermitPDF(doc, pdfRecord, d, rens).then(() => doc.end()).catch(reject);
-        });
-
-        // 3. UPLOAD BOTH TO AZURE
-        const standardBlobName = `closed-permits/${PermitID}_FINAL.pdf`;
-        const mainlineBlobName = `closed-permits/${PermitID}_MAINLINE_FINAL.pdf`;
-        
-        const finalPdfUrl = await uploadToAzure(standardPdfBuffer, standardBlobName, "application/pdf");
-        const finalMainlineUrl = await uploadToAzure(mainlinePdfBuffer, mainlineBlobName, "application/pdf");
-
-        if (finalPdfUrl) {
-            // 4. FINAL DATABASE UPDATE: Only now do we wipe the JSON
-            // We store the Mainline URL in a custom field or simply keep it in the same naming convention
-            await pool.request()
-                .input('p', PermitID)
-                .input('url', finalPdfUrl)
-                .query(`
-                    UPDATE Permits 
-                    SET Status='Closed', 
-                        FinalPdfUrl=@url, 
-                        FullDataJSON=NULL, 
-                        RenewalsJSON=NULL 
-                    WHERE PermitID=@p
-                `);
+    if (st === 'Closed') {
+        try {
+            const pdfRecord = { ...p, Status: 'Closed', PermitID: PermitID, ValidFrom: p.ValidFrom, ValidTo: p.ValidTo };
             
-            console.log(`✅ Archival Complete for ${PermitID}. JSON wiped.`);
-            return res.json({ success: true, archived: true, pdfUrl: finalPdfUrl });
-        }
-    } catch (e) {
-        console.error("🚨 Critical Archival Error:", e);
-        // Fallback: Don't wipe JSON if PDF fails
-        st = 'Closure Pending Approval'; 
-        return res.status(500).json({ error: "PDF Archival failed. JSON preserved." });
-    }
-}
-    const q = pool.request()
-        .input('p', PermitID).input('s', st)
-        .input('j', JSON.stringify(d)).input('r', JSON.stringify(rens))
-        .input('jsaUrl', newJsaUrl)
-        .input('jsaId', req.body.JsaLinkedId || null);
+            // 1. GENERATE BOTH PDF BUFFERS
+            const standardPdfBuffer = await new Promise((resolve, reject) => {
+                const doc = new PDFDocument({ margin: 30, size: 'A4', bufferPages: true });
+                const chunks = [];
+                doc.on('data', chunks.push.bind(chunks));
+                doc.on('end', () => resolve(Buffer.concat(chunks)));
+                drawPermitPDF(doc, pdfRecord, d, rens).then(() => doc.end()).catch(reject);
+            });
 
-    await q.query(`UPDATE Permits SET Status=@s, FullDataJSON=@j, RenewalsJSON=@r ${sqlSetJsa} WHERE PermitID=@p`);
-    
-    res.json({success: true});
-});
+            const mainlinePdfBuffer = await new Promise((resolve, reject) => {
+                const doc = new PDFDocument({ margin: 30, size: 'A4', bufferPages: true });
+                const chunks = [];
+                doc.on('data', chunks.push.bind(chunks));
+                doc.on('end', () => resolve(Buffer.concat(chunks)));
+                drawMainlinePermitPDF(doc, pdfRecord, d, rens).then(() => doc.end()).catch(reject);
+            });
+
+            // 2. UPLOAD TO AZURE
+            const standardBlobName = `closed-permits/${PermitID}_FINAL.pdf`;
+            const mainlineBlobName = `closed-permits/${PermitID}_MAINLINE_FINAL.pdf`;
+            
+            const finalPdfUrl = await uploadToAzure(standardPdfBuffer, standardBlobName, "application/pdf");
+            await uploadToAzure(mainlinePdfBuffer, mainlineBlobName, "application/pdf");
+
+            if (finalPdfUrl) {
+                // 3. WIPE JSON AND SET FINAL STATUS
+                await pool.request()
+                    .input('p', PermitID)
+                    .input('url', finalPdfUrl)
+                    .query(`UPDATE Permits SET Status='Closed', FinalPdfUrl=@url, FullDataJSON=NULL, RenewalsJSON=NULL WHERE PermitID=@p`);
+                
+                return res.json({ success: true, archived: true, pdfUrl: finalPdfUrl });
+            }
+        } catch (e) {
+            console.error("🚨 Archival Error:", e);
+            return res.status(500).json({ error: "PDF Archival failed. JSON preserved." });
+        }
+    } else {
+        // STANDARD UPDATE (Runs only if status is NOT 'Closed')
+        const q = pool.request()
+            .input('p', PermitID).input('s', st)
+            .input('j', JSON.stringify(d)).input('r', JSON.stringify(rens))
+            .input('jsaUrl', newJsaUrl)
+            .input('jsaId', req.body.JsaLinkedId || null);
+
+        await q.query(`UPDATE Permits SET Status=@s, FullDataJSON=@j, RenewalsJSON=@r ${sqlSetJsa} WHERE PermitID=@p`);
+        
+        return res.json({success: true});
+    }
 
 // RENEWAL (Merged Validation from A)
 // RENEWAL - Enforces Rules A (8h), B (Bounds), C (Chronological), E (Time Order)
