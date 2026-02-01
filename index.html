@@ -1717,57 +1717,127 @@ if(!document.getElementById('closure-summary-box')) {
         }
 
 async function upd(act) {
+    // 1. Single declaration at the top so it's accessible throughout the function
     const fd = new FormData();
-    
-    // --- DATA PROTECTION: RE-SEND EXISTING DATA ---
-    // This ensures Supervisors and Workers are NOT wiped during closure or approval
-    if (currentPermitIOCLData && currentPermitIOCLData.length > 0) {
-        fd.append('IOCLSupervisors', JSON.stringify(currentPermitIOCLData));
-    }
-    if (currentPermitWorkers && currentPermitWorkers.length > 0) {
-        fd.append('SelectedWorkers', JSON.stringify(currentPermitWorkers));
-    }
 
-    // 1. Metadata
-    fd.append('PermitID', currentPermitId);
-    fd.append('action', act);
-    fd.append('role', currentUser.Role);
-    fd.append('user', currentUser.Name);
-
-    // 2. Safety Validations
+    // 2. Safety Validations (Early Returns)
     if (act === 'elec_approve') {
         if (!document.getElementById('Elec_Isolated_Check').checked) return alert("Please check 'Electrically Isolated'");
         if (!getVal('Elec_LotoTag_Auth')) return alert("Please enter Electrical LOTO No");
         if (!getVal('Elec_Iso_DateTime')) return alert("Please select Isolation Date & Time");
     }
 
+    if (act === 'elec_closure_approve') {
+    if (!document.getElementById('Elec_Energized_Final_Check').checked) return alert("Please confirm 'Equipment can be safely energised'");
+    if (!getVal('Elec_DeIso_DateTime_Final')) return alert("Please select De-Isolation Date & Time");
+    
+    fd.append('Elec_Energized_Final_Check', 'Y');
+    fd.append('Elec_DeIso_DateTime_Final', getVal('Elec_DeIso_DateTime_Final'));
+}
+
     if (act === 'initiate_closure') {
-        if (!document.getElementById("Site_Restored_Check").checked) return alert("Please confirm site restoration.");
-        const elecCheck = document.getElementById("Elec_Energize_Check");
-        if (elecCheck && !elecCheck.checked) return alert("Safety: Confirm electrical re-energization.");
+        if (!document.getElementById("Site_Restored_Check").checked) return alert("Please confirm site restoration checkbox.");
         
-        // Add closure checklist values
-        document.querySelectorAll('.clos-chk').forEach(c => fd.append(c.name, c.checked ? 'Y' : 'N'));
-        fd.append('Closure_Deviation_Reason', getVal('Closure_Deviation_Reason'));
+        const elecCheck = document.getElementById("Elec_Energize_Check");
+        if (elecCheck && !elecCheck.checked) {
+            return alert("⛔ Safety Violation: You must confirm that electrical equipment can be re-energized.");
+        }
+        
+        const devReason = document.getElementById('Closure_Deviation_Reason').value;
+        const anyUnchecked = Array.from(document.querySelectorAll('.clos-chk')).some(c => !c.checked);
+        if (anyUnchecked && !devReason) return alert("You must provide a Reason for Deviation since some closure items are unchecked.");
     }
 
-    // 3. Collect Remarks and Settings
+    // 3. Collect Standard Permit Metadata
+    fd.append('PermitID', currentPermitId);
+    fd.append('action', act);
+    fd.append('role', currentUser.Role);
+    fd.append('user', currentUser.Name);
+
+    // 4. Electrical Isolation Details
+    if (document.getElementById('elec-isolation-window')) {
+        fd.append('Elec_EquipNo', getVal('Elec_EquipNo'));
+        fd.append('Elec_EquipName', getVal('Elec_EquipName'));
+        fd.append('Elec_LotoTag', getVal('Elec_LotoTag'));
+        fd.append('Elec_AuthEmail', getVal('Elec_AuthEmail'));
+        fd.append('Elec_LotoTag_Auth', getVal('Elec_LotoTag_Auth'));
+        fd.append('Elec_Iso_DateTime', getVal('Elec_Iso_DateTime'));
+        fd.append('Elec_Isolated_Check', document.getElementById('Elec_Isolated_Check').checked ? 'Y' : 'N');
+    }
+
+    if (document.getElementById("Elec_Energize_Check")) {
+        fd.append('Elec_Energize_Check', document.getElementById("Elec_Energize_Check").checked ? 'Y' : 'N');
+    }
+
+    // 5. Remarks, PPE, Hazards & Criticality
+    const comments = (currentUser.Role === 'Reviewer' ? getVal("Reviewer_Remarks") : getVal("Approver_Remarks"));
+    fd.append('comment', comments);
+    fd.append('AdditionalPrecautions', getVal("AdditionalPrecautions"));
+    fd.append('RequireRenewalPhotos', document.getElementById('RequireRenewalPhotos').checked ? 'Y' : 'N');
     fd.append('PdfBgColor', getVal('PdfBgColor'));
-    fd.append('Reviewer_Remarks', getVal("Reviewer_Remarks"));
-    fd.append('Approver_Remarks', getVal("Approver_Remarks"));
     fd.append('Closure_Requestor_Remarks', getVal("Closure_Requestor_Remarks"));
     fd.append('Closure_Reviewer_Remarks', getVal("Closure_Reviewer_Remarks"));
     fd.append('Closure_Approver_Remarks', getVal("Closure_Approver_Remarks"));
     fd.append('Site_Restored_Check', document.getElementById("Site_Restored_Check").checked ? 'Y' : 'N');
 
-    // Handle TBT for Approver
+    const isCrit = document.querySelector('input[name="IsCritical"]:checked');
+    if (isCrit) fd.append('IsCritical', isCrit.value);
+    fd.append('CriticalActivityType', getVal('CriticalActivityType'));
+
+    // Collect all closure checkboxes
+    document.querySelectorAll('.clos-chk').forEach(c => fd.append(c.name, c.checked ? 'Y' : 'N'));
+    fd.append('Closure_Deviation_Reason', getVal('Closure_Deviation_Reason'));
+
+    // Grid Data (Hazards/PPE)
+    if (currentUser.Role === 'Reviewer' || currentUser.Role === 'Approver') {
+        document.querySelectorAll('#hazards-grid input, #ppe-grid input').forEach(c => {
+            if (c.name) fd.append(c.name, c.checked ? 'Y' : 'N');
+        });
+    }
+
+    // 6. Technical Files & Supervisor Data
     if (currentUser.Role === 'Approver') {
-        fd.append('TBT_Ref_No', getVal('TBT_Ref_No'));
+        fd.append('TBT_Ref_No', document.getElementById('TBT_Ref_No').value);
         const tbtFile = document.getElementById('TBT_PDF_File').files[0];
         if (tbtFile) fd.append('TBT_PDF_File', tbtFile);
     }
 
-    // 4. Send to Server
+    let ioclData = [];
+    if (currentUser.Role === 'Reviewer') ioclData = getIOCLData('iocl-sup-container-rev');
+    if (currentUser.Role === 'Approver') {
+        const newOnes = getIOCLData('iocl-sup-container-app');
+        ioclData = [...currentPermitIOCLData, ...newOnes];
+    }
+    fd.append('IOCLSupervisors', JSON.stringify(ioclData));
+
+    // JSA Handling
+    const jsaModeElement = document.querySelector('input[name="jsa_mode"]:checked');
+    if (jsaModeElement) {
+        const jsaMode = jsaModeElement.value;
+        if (jsaMode === 'upload') {
+            const f = document.getElementById('JsaFile').files[0];
+            if (f) fd.append('JsaFile', f);
+        } else {
+            fd.append('JsaLinkedId', document.getElementById('JsaLinkedId').value);
+        }
+    }
+
+    // 7. Renewal Decision Logic
+    if (act === 'review' || act === 'approve') {
+        const revDec = document.querySelector('input[name="RevRenAction"]:checked');
+        if (currentUser.Role === 'Reviewer' && revDec) {
+            fd.append('FirstRenewalAction', revDec.value);
+            fd.set('action', 'approve_1st_ren');
+        }
+
+        const appDec = document.querySelector('input[name="AppRenAction"]:checked');
+        if (currentUser.Role === 'Approver' && appDec) {
+            fd.append('FirstRenewalAction', appDec.value);
+            fd.set('action', 'approve_1st_ren');
+        }
+    }
+
+    // 8. API Execution
     document.getElementById('loader').style.display = 'flex';
     try {
         const res = await fetch(API + '/update-status', {
@@ -1775,22 +1845,21 @@ async function upd(act) {
             body: fd,
             headers: { 'Authorization': `Bearer ${authToken}` }
         });
-        
-        // The 502 error happens here if the backend crashes
         const json = await res.json();
         if (json.success) {
-            alert("Success!");
+            alert("Success");
             switchView('dashboard');
         } else {
             alert(json.error || "Update Failed");
         }
     } catch (e) {
         console.error(e);
-        alert("Network Error or Server Crash (502). Please check backend logs.");
+        alert("Network Error");
     } finally {
         document.getElementById('loader').style.display = 'none';
     }
 }
+
 async function submitRenewal(act) {
             // 1. APPROVE / REJECT LOGIC (Reviewer & Approver)
             if(act === 'approve' || act === 'reject') {
@@ -1906,49 +1975,29 @@ async function submitRenewal(act) {
         }
           
         function renderIOCLTable(status) {
-    const t = document.querySelector('#table-iocl-display tbody'); 
-    t.innerHTML = '';
-
-    // 1. ALWAYS DRAW THE ROWS (Even if status is 'Closure')
-    if (!currentPermitIOCLData || currentPermitIOCLData.length === 0) {
-        t.innerHTML = '<tr><td colspan="4" class="p-4 text-center text-gray-400 italic">None</td></tr>';
-    } else {
-        currentPermitIOCLData.forEach((x, idx) => {
-            const isDeleted = x.status === 'inactive';
-            const rowClass = isDeleted ? "bg-red-50 text-gray-400 line-through" : "";
-            let auditText = `Added by ${x.added_by} on ${x.added_at}`;
-            if (x.deleted_by) auditText += `<br><span class="text-red-600 font-bold no-underline">Deleted by ${x.deleted_by} on ${x.deleted_at}</span>`;
-            
-            let actionBtn = '';
-            // Only show delete button for Approver on Active permits
-            if (currentUser.Role === 'Approver' && status === 'Active' && !isDeleted) {
-                actionBtn = `<button type="button" class="text-red-500 text-[10px] font-bold ml-2" onclick="deleteIOCLSup(${idx}, '${status}')">🗑️</button>`;
+            const t = document.querySelector('#table-iocl-display tbody'); t.innerHTML = '';
+            if(!currentPermitIOCLData || currentPermitIOCLData.length === 0) {
+                t.innerHTML = '<tr><td colspan="4">None</td></tr>';
+            } else {
+                currentPermitIOCLData.forEach((x, idx) => {
+                    const isDeleted = x.status === 'inactive';
+                    const rowClass = isDeleted ? "bg-red-50 text-gray-400 line-through" : "";
+                    let auditText = `Added by ${x.added_by} on ${x.added_at}`;
+                    if(x.deleted_by) auditText += `<br><span class="text-red-600 font-bold no-underline">Deleted by ${x.deleted_by} on ${x.deleted_at}</span>`;
+                    let actionBtn = '';
+                    if(currentUser.Role === 'Approver' && status === 'Active' && !isDeleted) {
+                        actionBtn = `<button type="button" class="text-red-500 text-[10px] font-bold ml-2" onclick="deleteIOCLSup(${idx}, '${status}')">🗑️</button>`;
+                    }
+                    t.innerHTML += `<tr class="${rowClass}"><td class="p-2">${x.name}</td><td class="p-2">${x.desig}</td><td class="p-2">${x.contact}</td><td class="p-2 text-xs text-gray-500">${auditText} ${actionBtn}</td></tr>`;
+                });
             }
-            t.innerHTML += `<tr class="${rowClass}"><td class="p-2">${x.name}</td><td class="p-2">${x.desig}</td><td class="p-2">${x.contact}</td><td class="p-2 text-xs text-gray-500">${auditText} ${actionBtn}</td></tr>`;
-        });
-    }
-
-    // 2. SHOW THE SECTION CONTAINER
-    document.getElementById('iocl-sup-display-section').classList.remove('hidden');
-
-    // 3. LOGIC FOR "ADD SUPERVISOR" BUTTON VISIBILITY
-    // Define stages where editing supervisors is NOT allowed
-    const isLockedStage = status.includes('Renewal') || status.includes('Closure') || status === 'Closed';
-
-    // Hide both button containers by default
-    document.getElementById('btn-add-rev-sup').parentElement.classList.add('hidden');
-    document.getElementById('btn-add-app-sup').parentElement.classList.add('hidden');
-
-    // Only unhide if we are NOT in a locked stage and user has the right role
-    if (!isLockedStage) {
-        if (currentUser.Role === 'Reviewer' && status === 'Pending Review') {
-            document.getElementById('btn-add-rev-sup').parentElement.classList.remove('hidden');
+            document.getElementById('iocl-sup-display-section').classList.remove('hidden');
+            document.getElementById('btn-add-rev-sup').parentElement.classList.add('hidden');
+            document.getElementById('btn-add-app-sup').parentElement.classList.add('hidden');
+            if (status.includes('Renewal') || status.includes('Closure')) return;
+            if(currentUser.Role === 'Reviewer' && status === 'Pending Review') document.getElementById('btn-add-rev-sup').parentElement.classList.remove('hidden');
+            if(currentUser.Role === 'Approver' && (status === 'Pending Approval' || status === 'Active')) document.getElementById('btn-add-app-sup').parentElement.classList.remove('hidden');
         }
-        if (currentUser.Role === 'Approver' && (status === 'Pending Approval' || status === 'Active')) {
-            document.getElementById('btn-add-app-sup').parentElement.classList.remove('hidden');
-        }
-    }
-}
           
         function deleteIOCLSup(index, status) {
             if(!confirm("Remove this supervisor from active list?")) return;
@@ -2632,10 +2681,3 @@ async function downloadSecurePDF(id, format = 'default') {
     </script>
 </body>
 </html>
-
-
-
-
-
-
-
