@@ -1491,6 +1491,7 @@ if (action === 'elec_closure_approve') {
         
         return res.json({success: true});
     }
+  });
 
 // RENEWAL (Merged Validation from A)
 // RENEWAL - Enforces Rules A (8h), B (Bounds), C (Chronological), E (Time Order)
