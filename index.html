@@ -1719,6 +1719,27 @@ if(!document.getElementById('closure-summary-box')) {
 async function upd(act) {
     // 1. Single declaration at the top so it's accessible throughout the function
     const fd = new FormData();
+    if (currentPermitIOCLData && currentPermitIOCLData.length > 0) {
+        fd.append('IOCLSupervisors', JSON.stringify(currentPermitIOCLData));
+    }
+    // Also preserve workers for the final PDF
+    if (currentPermitWorkers && currentPermitWorkers.length > 0) {
+        fd.append('SelectedWorkers', JSON.stringify(currentPermitWorkers));
+    }
+    // metadata...
+    fd.append('PermitID', currentPermitId);
+    fd.append('action', act);
+
+    // --- ADD THIS CRITICAL PROTECTION ---
+    // This ensures that whenever ANY action is taken (Closure, Review, etc.)
+    // the existing supervisor and worker data is "re-sent" to the backend
+    // so it doesn't get overwritten by empty values.
+    if (currentPermitIOCLData) {
+        fd.append('IOCLSupervisors', JSON.stringify(currentPermitIOCLData));
+    }
+    if (currentPermitWorkers) {
+        fd.append('SelectedWorkers', JSON.stringify(currentPermitWorkers));
+    }
 
     // 2. Safety Validations (Early Returns)
     if (act === 'elec_approve') {
@@ -1975,29 +1996,49 @@ async function submitRenewal(act) {
         }
           
         function renderIOCLTable(status) {
-            const t = document.querySelector('#table-iocl-display tbody'); t.innerHTML = '';
-            if(!currentPermitIOCLData || currentPermitIOCLData.length === 0) {
-                t.innerHTML = '<tr><td colspan="4">None</td></tr>';
-            } else {
-                currentPermitIOCLData.forEach((x, idx) => {
-                    const isDeleted = x.status === 'inactive';
-                    const rowClass = isDeleted ? "bg-red-50 text-gray-400 line-through" : "";
-                    let auditText = `Added by ${x.added_by} on ${x.added_at}`;
-                    if(x.deleted_by) auditText += `<br><span class="text-red-600 font-bold no-underline">Deleted by ${x.deleted_by} on ${x.deleted_at}</span>`;
-                    let actionBtn = '';
-                    if(currentUser.Role === 'Approver' && status === 'Active' && !isDeleted) {
-                        actionBtn = `<button type="button" class="text-red-500 text-[10px] font-bold ml-2" onclick="deleteIOCLSup(${idx}, '${status}')">🗑️</button>`;
-                    }
-                    t.innerHTML += `<tr class="${rowClass}"><td class="p-2">${x.name}</td><td class="p-2">${x.desig}</td><td class="p-2">${x.contact}</td><td class="p-2 text-xs text-gray-500">${auditText} ${actionBtn}</td></tr>`;
-                });
+    const t = document.querySelector('#table-iocl-display tbody'); 
+    t.innerHTML = '';
+
+    // 1. ALWAYS DRAW THE ROWS (Even if status is 'Closure')
+    if (!currentPermitIOCLData || currentPermitIOCLData.length === 0) {
+        t.innerHTML = '<tr><td colspan="4" class="p-4 text-center text-gray-400 italic">None</td></tr>';
+    } else {
+        currentPermitIOCLData.forEach((x, idx) => {
+            const isDeleted = x.status === 'inactive';
+            const rowClass = isDeleted ? "bg-red-50 text-gray-400 line-through" : "";
+            let auditText = `Added by ${x.added_by} on ${x.added_at}`;
+            if (x.deleted_by) auditText += `<br><span class="text-red-600 font-bold no-underline">Deleted by ${x.deleted_by} on ${x.deleted_at}</span>`;
+            
+            let actionBtn = '';
+            // Only show delete button for Approver on Active permits
+            if (currentUser.Role === 'Approver' && status === 'Active' && !isDeleted) {
+                actionBtn = `<button type="button" class="text-red-500 text-[10px] font-bold ml-2" onclick="deleteIOCLSup(${idx}, '${status}')">🗑️</button>`;
             }
-            document.getElementById('iocl-sup-display-section').classList.remove('hidden');
-            document.getElementById('btn-add-rev-sup').parentElement.classList.add('hidden');
-            document.getElementById('btn-add-app-sup').parentElement.classList.add('hidden');
-            if (status.includes('Renewal') || status.includes('Closure')) return;
-            if(currentUser.Role === 'Reviewer' && status === 'Pending Review') document.getElementById('btn-add-rev-sup').parentElement.classList.remove('hidden');
-            if(currentUser.Role === 'Approver' && (status === 'Pending Approval' || status === 'Active')) document.getElementById('btn-add-app-sup').parentElement.classList.remove('hidden');
+            t.innerHTML += `<tr class="${rowClass}"><td class="p-2">${x.name}</td><td class="p-2">${x.desig}</td><td class="p-2">${x.contact}</td><td class="p-2 text-xs text-gray-500">${auditText} ${actionBtn}</td></tr>`;
+        });
+    }
+
+    // 2. SHOW THE SECTION CONTAINER
+    document.getElementById('iocl-sup-display-section').classList.remove('hidden');
+
+    // 3. LOGIC FOR "ADD SUPERVISOR" BUTTON VISIBILITY
+    // Define stages where editing supervisors is NOT allowed
+    const isLockedStage = status.includes('Renewal') || status.includes('Closure') || status === 'Closed';
+
+    // Hide both button containers by default
+    document.getElementById('btn-add-rev-sup').parentElement.classList.add('hidden');
+    document.getElementById('btn-add-app-sup').parentElement.classList.add('hidden');
+
+    // Only unhide if we are NOT in a locked stage and user has the right role
+    if (!isLockedStage) {
+        if (currentUser.Role === 'Reviewer' && status === 'Pending Review') {
+            document.getElementById('btn-add-rev-sup').parentElement.classList.remove('hidden');
         }
+        if (currentUser.Role === 'Approver' && (status === 'Pending Approval' || status === 'Active')) {
+            document.getElementById('btn-add-app-sup').parentElement.classList.remove('hidden');
+        }
+    }
+}
           
         function deleteIOCLSup(index, status) {
             if(!confirm("Remove this supervisor from active list?")) return;
@@ -2681,6 +2722,7 @@ async function downloadSecurePDF(id, format = 'default') {
     </script>
 </body>
 </html>
+
 
 
 
