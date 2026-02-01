@@ -1436,25 +1436,63 @@ if (action === 'elec_closure_approve') {
         }
     }
 
-    if (st === 'Closed') {
-        try {
-            const pdfRecord = { ...p, Status: 'Closed', PermitID: PermitID, ValidFrom: p.ValidFrom, ValidTo: p.ValidTo };
-            const pdfBuffer = await new Promise((resolve, reject) => {
-                const doc = new PDFDocument({ margin: 30, size: 'A4', bufferPages: true });
-                const chunks = [];
-                doc.on('data', chunks.push.bind(chunks));
-                doc.on('end', () => resolve(Buffer.concat(chunks)));
-                drawPermitPDF(doc, pdfRecord, d, rens).then(() => doc.end()).catch(reject);
-            });
-            const blobName = `closed-permits/${PermitID}_FINAL.pdf`;
-            const finalPdfUrl = await uploadToAzure(pdfBuffer, blobName, "application/pdf");
-            if (finalPdfUrl) {
-                await pool.request().input('p', PermitID).input('url', finalPdfUrl).query("UPDATE Permits SET Status='Closed', FinalPdfUrl=@url, FullDataJSON=NULL, RenewalsJSON=NULL WHERE PermitID=@p");
-                return res.json({ success: true, archived: true, pdfUrl: finalPdfUrl });
-            }
-        } catch(e) { console.error("PDF Fail", e); }
-    }
+  /* =====================================================
+    REFINED CLOSURE LOGIC: PERSIST DATA UNTIL PDF IS SAFE
+===================================================== */
+if (st === 'Closed') {
+    try {
+        const pdfRecord = { ...p, Status: 'Closed', PermitID: PermitID, ValidFrom: p.ValidFrom, ValidTo: p.ValidTo };
+        
+        // 1. GENERATE STANDARD PDF BUFFER
+        const standardPdfBuffer = await new Promise((resolve, reject) => {
+            const doc = new PDFDocument({ margin: 30, size: 'A4', bufferPages: true });
+            const chunks = [];
+            doc.on('data', chunks.push.bind(chunks));
+            doc.on('end', () => resolve(Buffer.concat(chunks)));
+            drawPermitPDF(doc, pdfRecord, d, rens).then(() => doc.end()).catch(reject);
+        });
 
+        // 2. GENERATE MAINLINE PDF BUFFER (Ensuring Supervisors are included)
+        const mainlinePdfBuffer = await new Promise((resolve, reject) => {
+            const doc = new PDFDocument({ margin: 30, size: 'A4', bufferPages: true });
+            const chunks = [];
+            doc.on('data', chunks.push.bind(chunks));
+            doc.on('end', () => resolve(Buffer.concat(chunks)));
+            drawMainlinePermitPDF(doc, pdfRecord, d, rens).then(() => doc.end()).catch(reject);
+        });
+
+        // 3. UPLOAD BOTH TO AZURE
+        const standardBlobName = `closed-permits/${PermitID}_FINAL.pdf`;
+        const mainlineBlobName = `closed-permits/${PermitID}_MAINLINE_FINAL.pdf`;
+        
+        const finalPdfUrl = await uploadToAzure(standardPdfBuffer, standardBlobName, "application/pdf");
+        const finalMainlineUrl = await uploadToAzure(mainlinePdfBuffer, mainlineBlobName, "application/pdf");
+
+        if (finalPdfUrl) {
+            // 4. FINAL DATABASE UPDATE: Only now do we wipe the JSON
+            // We store the Mainline URL in a custom field or simply keep it in the same naming convention
+            await pool.request()
+                .input('p', PermitID)
+                .input('url', finalPdfUrl)
+                .query(`
+                    UPDATE Permits 
+                    SET Status='Closed', 
+                        FinalPdfUrl=@url, 
+                        FullDataJSON=NULL, 
+                        RenewalsJSON=NULL 
+                    WHERE PermitID=@p
+                `);
+            
+            console.log(`✅ Archival Complete for ${PermitID}. JSON wiped.`);
+            return res.json({ success: true, archived: true, pdfUrl: finalPdfUrl });
+        }
+    } catch (e) {
+        console.error("🚨 Critical Archival Error:", e);
+        // Fallback: Don't wipe JSON if PDF fails
+        st = 'Closure Pending Approval'; 
+        return res.status(500).json({ error: "PDF Archival failed. JSON preserved." });
+    }
+}
     const q = pool.request()
         .input('p', PermitID).input('s', st)
         .input('j', JSON.stringify(d)).input('r', JSON.stringify(rens))
