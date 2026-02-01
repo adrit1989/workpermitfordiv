@@ -338,7 +338,7 @@
                             <h3 class="font-bold text-blue-600 border-b pb-2 mb-4">3. Workers</h3>
                             <div id="worker-select-area" class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-2"></div>
                             <div id="worker-display-table" class="hidden overflow-x-auto mt-2">
-                                <table class="mobile-table w-full text-xs text-left"><thead class="bg-gray-100"><tr><th>Name</th><th>ID</th><th>Contact</th></tr></thead><tbody id="worker-display-body"></tbody></table>
+                                <table class="mobile-table w-full text-xs text-left"><thead class="bg-gray-100"><tr><th>Name</th><th>Father Name</th><th>ID</th><th>Contact</th></tr></thead><tbody id="worker-display-body"></tbody></table>
                             </div>
                         </div>
  
@@ -602,7 +602,7 @@
                         <h2 class="text-2xl font-bold text-gray-800">Worker Management</h2>
                         <button id="btn-add-worker-main" onclick="openWorkerModal()" class="hidden bg-blue-600 text-white px-4 py-2 rounded shadow font-bold">+ Add Worker</button>
                     </div>
-                    <div class="glass overflow-x-auto p-0"><table class="w-full text-sm text-left data-table" id="table-workers"><thead class="bg-gray-100"><tr><th>Name</th><th>Age / Gender</th><th>Contact</th><th>ID Proof</th><th>Approved By</th><th>Action</th></tr></thead><tbody class="divide-y"></tbody></table></div>
+                    <div class="glass overflow-x-auto p-0"><table class="w-full text-sm text-left data-table" id="table-workers"><thead class="bg-gray-100"><tr><th>Name</th><th>Father Name</th><th>Age / Gender</th><th>Contact</th><th>ID Proof</th><th>Approved By</th><th>Action</th></tr></thead><tbody class="divide-y"></tbody></table></div>
                 </div>
  
                 <div id="view-users" class="hidden">
@@ -1358,7 +1358,12 @@ if (closureElecDiv) {
                 currentPermitWorkers = Array.isArray(wData) ? wData : [];
                 const wTbody = document.getElementById('worker-display-body');
                 document.getElementById('worker-display-table').classList.toggle('hidden', currentPermitWorkers.length === 0);
-                if (wTbody) wTbody.innerHTML = currentPermitWorkers.map(w => `<tr><td class="p-2 font-bold">${escapeHtml(w.Name)}</td><td class="p-2">${escapeHtml(w.IDType)}: ${escapeHtml(w.ID)}</td><td class="p-2 font-mono">${escapeHtml(w.Contact)}</td></tr>`).join('');
+                if (wTbody) wTbody.innerHTML = currentPermitWorkers.map(w => `
+    <tr>
+        <td class="p-2 font-bold">${escapeHtml(w.Name)}</td>
+        <td class="p-2 text-gray-600">${escapeHtml(w.FatherName || w.Father || '-')}</td> <td class="p-2">${escapeHtml(w.IDType)}: ${escapeHtml(w.ID)}</td>
+        <td class="p-2 font-mono">${escapeHtml(w.Contact)}</td>
+    </tr>`).join('');
                 
                 renderIOCLTable(p.Status);
 
@@ -2060,9 +2065,17 @@ async function loadWorkers(context) {
             let statusBadge = w.Status === 'Approved' ? '<span class="text-green-600 font-bold text-[10px]">Active</span>' : '<span class="text-orange-500 font-bold text-[10px]">Pending</span>';
             
             let approvedInfo = w.ApprovedBy ? `${w.ApprovedBy}<br><span class="text-[9px]">${w.ApprovedAt}</span>` : '-';
-            t.innerHTML += `<tr class="hover:bg-gray-50 border-b border-gray-100"><td class="p-3 font-bold">${escapeHtml(w.Name)} <br>${statusBadge}</td><td class="p-3 text-xs">${escapeHtml(w.Age)} / ${escapeHtml(w.Gender)}</td><td class="p-3 text-xs font-mono">${escapeHtml(w.Contact)}</td><td class="p-3 font-mono text-xs">${escapeHtml(w.IDType)}: ${escapeHtml(w.ID)}</td><td class="p-3 text-xs text-gray-500">${approvedInfo}</td><td class="p-3">${actions}</td></tr>`;
-        });
-    }
+            t.innerHTML += `
+            <tr class="hover:bg-gray-50 border-b border-gray-100">
+                <td class="p-3 font-bold">${escapeHtml(w.Name)} <br>${statusBadge}</td>
+                <td class="p-3 text-xs text-gray-700">${escapeHtml(w.FatherName || w.Father || '-')}</td> <td class="p-3 text-xs">${escapeHtml(w.Age)} / ${escapeHtml(w.Gender)}</td>
+                <td class="p-3 text-xs font-mono">${escapeHtml(w.Contact)}</td>
+                <td class="p-3 font-mono text-xs">${escapeHtml(w.IDType)}: ${escapeHtml(w.ID)}</td>
+                <td class="p-3 text-xs text-gray-500">${approvedInfo}</td>
+                <td class="p-3">${actions}</td>
+            </tr>`;
+    });
+}
 }
         // --- FIX: Edit Worker Function ---
         function editWorker(id) {
@@ -2701,6 +2714,7 @@ async function downloadSecurePDF(id, format = 'default') {
     </script>
 </body>
 </html>
+
 
 
 
