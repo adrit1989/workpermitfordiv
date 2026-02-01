@@ -107,7 +107,7 @@ app.use(cors({
   credentials: true
 }));
 
-app.use(bodyParser.json({ limit: '50mb' }));
+app.use(bodyParser.json({ limit: '5mb' }));
 app.use('/public', express.static(path.join(__dirname, 'public')));
 
 const limiter = rateLimit({ windowMs: 10 * 1000, max: 200 });
@@ -1268,6 +1268,25 @@ app.post('/api/update-status', authenticateAccess, upload.any(), async(req, res)
     if(!cur.recordset.length) return res.status(404).json({error: "Permit Not Found"});
     
     let p = cur.recordset[0];
+    // --- SECURITY FIX: OWNERSHIP CHECK START ---
+    const userEmail = req.user.email;
+    const userRole = req.user.role;
+
+    if (userRole !== 'MasterAdmin') {
+        // Prevent unauthorized Review/Reject
+        if (action === 'review' || action === 'reject') {
+            if (p.ReviewerEmail !== userEmail && !p.Status.includes('Closure')) {
+                 return res.status(403).json({ error: "Security: You are not the assigned Reviewer." });
+            }
+        }
+        // Prevent unauthorized Approval
+        if (action === 'approve') {
+            if (p.ApproverEmail !== userEmail && !p.Status.includes('Closure')) {
+                 return res.status(403).json({ error: "Security: You are not the assigned Approver." });
+            }
+        }
+    }
+    // --- SECURITY FIX END ---
     let d = JSON.parse(p.FullDataJSON);
     let rens = JSON.parse(p.RenewalsJSON || "[]");
     let st = p.Status;
@@ -1649,21 +1668,31 @@ app.get('/api/download-excel', authenticateAccess, async (req, res) => {
     });
     sheet.autoFilter = 'A1:J1'; // Enable AutoFilter for interactivity
 
+   // --- SECURITY FIX: EXCEL FORMULA INJECTION HELPER ---
+    const sanitize = (val) => {
+        if (!val) return '';
+        const str = String(val);
+        // If it starts with =, +, -, @, prepend a quote to force text format
+        return /^[=+\-@]/.test(str) ? "'" + str : str;
+    };
+
     // Add Data rows
     result.recordset.forEach(r => { 
         const d = r.FullDataJSON ? JSON.parse(r.FullDataJSON) : {}; 
         const row = sheet.addRow({ 
-            id: r.PermitID, 
+            id: sanitize(r.PermitID), 
             status: r.Status, 
-            wt: d.WorkType, 
-            desc: d.Desc || d.WorkTypeOther || '-',
-            req: d.RequesterName, 
-            loc: d.LocationUnit || d.ExactLocation, 
+            wt: sanitize(d.WorkType), 
+            desc: sanitize(d.Desc || d.WorkTypeOther || '-'),
+            req: sanitize(d.RequesterName), 
+            loc: sanitize(d.LocationUnit || d.ExactLocation), 
             vf: formatDate(r.ValidFrom), 
             vt: formatDate(r.ValidTo),
             rev: r.ReviewerEmail,
             app: r.ApproverEmail
         });
+        
+        // ... (Keep your existing color styling logic below this) ...
         
         // Interactive: Color code status text
         const statusCell = row.getCell('status');
@@ -1699,6 +1728,27 @@ app.get('/api/download-pdf/:id', authenticateAccess, async(req, res) => {
         const r = await pool.request().input('p', req.params.id).query("SELECT * FROM Permits WHERE PermitID=@p");
         if(!r.recordset.length) return res.status(404).send("Not Found");
         const p = r.recordset[0];
+        // --- SECURITY FIX: IDOR PROTECTION START ---
+        const { role, email } = req.user;
+        let isAuthorized = false;
+
+        // 1. Master Admins and Electrical Auth (if needed) can access all
+        if (role === 'MasterAdmin' || role === 'ElectricalAuth') isAuthorized = true;
+        
+        // 2. Requester can only access their own
+        else if (role === 'Requester' && p.RequesterEmail === email) isAuthorized = true;
+        
+        // 3. Reviewer can access assigned OR if status involves review
+        else if (role === 'Reviewer' && (p.ReviewerEmail === email || p.Status.includes('Review'))) isAuthorized = true;
+        
+        // 4. Approver can access assigned OR if status involves approval
+        else if (role === 'Approver' && (p.ApproverEmail === email || p.Status.includes('Approval'))) isAuthorized = true;
+
+        if (!isAuthorized) {
+            console.warn(`⚠️ Blocked unauthorized PDF access: User ${email} tried to access ${p.PermitID}`);
+            return res.status(403).send("⛔ Unauthorized Access: You do not have permission to view this permit.");
+        }
+        // --- SECURITY FIX END ---
         
         // 1. Check Format Requested
         const format = req.query.format; 
@@ -1752,6 +1802,17 @@ app.post('/api/permit-data', authenticateAccess, async(req, res) => {
     const r = await pool.request().input('p', req.body.permitId).query("SELECT * FROM Permits WHERE PermitID=@p");
     if(!r.recordset.length) return res.json({error:"404"});
     const p = r.recordset[0];
+    const { role, email } = req.user;
+    let isAuthorized = false;
+
+    if (role === 'MasterAdmin' || role === 'ElectricalAuth') isAuthorized = true;
+    else if (role === 'Requester' && p.RequesterEmail === email) isAuthorized = true;
+    else if (role === 'Reviewer' && (p.ReviewerEmail === email || p.Status.includes('Review'))) isAuthorized = true;
+    else if (role === 'Approver' && (p.ApproverEmail === email || p.Status.includes('Approval'))) isAuthorized = true;
+
+    if (!isAuthorized) {
+        return res.status(403).json({ error: "Unauthorized Access" });
+    }
     
     // MERGE JSON DATA WITH SQL COLUMNS
     res.json({ 
