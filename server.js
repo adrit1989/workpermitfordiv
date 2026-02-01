@@ -1241,11 +1241,20 @@ app.post('/api/save-permit', authenticateAccess, upload.any(), async(req, res) =
     }
     const jsaLinkedId = fd.JsaLinkedId || null;
     
-    let rens = [];
+   let rens = [];
     if(fd.InitRen === 'Y') {
-        // Note: Initial Renewal is typically 8 hours, logic handles this in renewal route mostly, 
-        // but user creates this manually here. You might want to enforce 8h here too if strict.
-        rens.push({ status: 'pending_review', valid_from: fd.InitRenFrom, valid_to: fd.InitRenTo, hc: fd.InitRenHC, toxic: fd.InitRenTox, oxygen: fd.InitRenO2, req_name: req.user.name, req_at: getNowIST(), tbt_done: 'Y' });
+        rens.push({ 
+            status: 'pending_review', 
+            valid_from: fd.InitRenFrom, 
+            valid_to: fd.InitRenTo, 
+            hc: fd.InitRenHC, 
+            toxic: fd.InitRenTox, 
+            oxygen: fd.InitRenO2, 
+            precautions: fd.InitRenPrec, // <--- THIS LINE WAS MISSING
+            req_name: req.user.name, 
+            req_at: getNowIST(), 
+            tbt_done: 'Y' 
+        });
     }
 
     const q = pool.request()
