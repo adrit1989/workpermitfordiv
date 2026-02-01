@@ -1466,18 +1466,26 @@ if (closureElecDiv) {
 // --- UPDATED: Renewal Table Render (Implements A & B) ---
 // --- SNIPPET A START: Paste this inside openPermit() after defining 'rens' ---
 
-document.getElementById('renewal-history-body').innerHTML = rens.map(r => {
+// --- FIX: Updated Renewal Table Render (Stable Fallback) ---
+document.getElementById('renewal-history-body').innerHTML = rens.map((r, index) => {
+    // Helper to visualize checks
+    const chk = (role, val) => val === 'Y' 
+        ? `<div class="text-[9px] text-green-700 border border-green-200 bg-green-50 px-1 rounded mb-1">✅ ${role}</div>` 
+        : `<div class="text-[9px] text-gray-400 border border-gray-100 bg-gray-50 px-1 rounded mb-1">⬜ ${role}</div>`;
+
     // 1. Status Display
     let statusDisplay = `<span class="bg-yellow-100 text-yellow-800 px-1 rounded">Pending</span>`;
     if(r.status === 'approved') statusDisplay = `<span class="bg-green-100 text-green-800 px-1 rounded font-bold">Approved</span>`;
     else if(r.status === 'rejected') statusDisplay = `<span class="bg-red-100 text-red-800 px-1 rounded font-bold" title="${r.rejection_reason}">Rejected</span>`;
 
-    // 2. Worker List Logic (Fallback to Main Permit Workers if 1st Renewal & Pending)
+    // 2. Worker List Logic 
+    // FIX: Check (index === 0) instead of list length to keep 1st renewal data visible even after 2nd renewal is added
     let workerArr = [];
-    if (r.workers) {
+    if (r.workers && r.workers.length > 0) {
         if (Array.isArray(r.workers)) workerArr = r.workers;
         else if (typeof r.workers === 'string') { try { workerArr = JSON.parse(r.workers); } catch(e) { workerArr = [r.workers]; } }
-    } else if (isFirstRenRequest) {
+    } 
+    else if (index === 0 && p.InitRen === 'Y') {
         // Fallback for 1st Renewal: Show all workers from main permit
         workerArr = currentPermitWorkers.map(w => w.Name);
     }
@@ -1487,15 +1495,15 @@ document.getElementById('renewal-history-body').innerHTML = rens.map(r => {
         workerListDisplay = `<div class="max-h-16 overflow-y-auto text-[9px] leading-tight">${workerArr.map(w => `• ${escapeHtml(w)}`).join('<br>')}</div>`;
     }
 
-    // 3. Gas & Precaution Fallback (If empty in renewal object, grab from Main Permit P)
+    // 3. Gas & Precaution Fallback 
+    // FIX: Apply fallback specifically to the first row (index 0) if data is missing
+    const useFallback = (index === 0 && p.InitRen === 'Y');
+    
     const gasDisplay = (r.hc || r.toxic || r.oxygen) 
         ? `${r.hc || '-'}/${r.toxic || '-'}/${r.oxygen || '-'}` 
-        : (isFirstRenRequest ? `${p.GP_Q12_HC || '-'}/${p.GP_Q12_ToxicGas || '-'}/${p.GP_Q12_Oxygen || '-'}` : '-/-/-');
+        : (useFallback ? `${p.GP_Q12_HC || '-'}/${p.GP_Q12_ToxicGas || '-'}/${p.GP_Q12_Oxygen || '-'}` : '-/-/-');
 
-    const precDisplay = r.precautions || (isFirstRenRequest ? 'Refer to Permit Section A' : '-');
-
-    // 4. Helper for Checks
-    const chk = (role, val) => val === 'Y' ? `✅ ${role}` : `⬜ ${role}`;
+    const precDisplay = r.precautions || (useFallback ? 'Refer to Permit Section A' : '-');
 
     return `<tr class="border-b text-[10px]">
         <td class="p-2 align-top">${statusDisplay}</td>
@@ -1510,7 +1518,6 @@ document.getElementById('renewal-history-body').innerHTML = rens.map(r => {
         <td class="p-2">${r.photoUrl ? `<button type="button" class="text-blue-600 underline" onclick="viewSecureFile('${r.photoUrl.replace(/\\/g, '/')}')">View</button>` : 'NO'}</td>
     </tr>`;
 }).join('');
-// --- SNIPPET A END ---
                         
                     const showRenForm = (currentUser.Role === 'Requester' && statusClean === 'Active' && (!lastRen || !lastRen.status.includes('pending')));
                     document.getElementById('form-renewal').classList.toggle('hidden', !showRenForm);
@@ -2855,6 +2862,7 @@ async function downloadSecurePDF(id, format = 'default') {
     </script>
 </body>
 </html>
+
 
 
 
