@@ -1717,148 +1717,57 @@ if(!document.getElementById('closure-summary-box')) {
         }
 
 async function upd(act) {
-    // 1. Single declaration at the top so it's accessible throughout the function
     const fd = new FormData();
+    
+    // --- DATA PROTECTION: RE-SEND EXISTING DATA ---
+    // This ensures Supervisors and Workers are NOT wiped during closure or approval
     if (currentPermitIOCLData && currentPermitIOCLData.length > 0) {
         fd.append('IOCLSupervisors', JSON.stringify(currentPermitIOCLData));
     }
-    // Also preserve workers for the final PDF
     if (currentPermitWorkers && currentPermitWorkers.length > 0) {
         fd.append('SelectedWorkers', JSON.stringify(currentPermitWorkers));
     }
-    // metadata...
+
+    // 1. Metadata
     fd.append('PermitID', currentPermitId);
     fd.append('action', act);
+    fd.append('role', currentUser.Role);
+    fd.append('user', currentUser.Name);
 
-    // --- ADD THIS CRITICAL PROTECTION ---
-    // This ensures that whenever ANY action is taken (Closure, Review, etc.)
-    // the existing supervisor and worker data is "re-sent" to the backend
-    // so it doesn't get overwritten by empty values.
-    if (currentPermitIOCLData) {
-        fd.append('IOCLSupervisors', JSON.stringify(currentPermitIOCLData));
-    }
-    if (currentPermitWorkers) {
-        fd.append('SelectedWorkers', JSON.stringify(currentPermitWorkers));
-    }
-
-    // 2. Safety Validations (Early Returns)
+    // 2. Safety Validations
     if (act === 'elec_approve') {
         if (!document.getElementById('Elec_Isolated_Check').checked) return alert("Please check 'Electrically Isolated'");
         if (!getVal('Elec_LotoTag_Auth')) return alert("Please enter Electrical LOTO No");
         if (!getVal('Elec_Iso_DateTime')) return alert("Please select Isolation Date & Time");
     }
 
-    if (act === 'elec_closure_approve') {
-    if (!document.getElementById('Elec_Energized_Final_Check').checked) return alert("Please confirm 'Equipment can be safely energised'");
-    if (!getVal('Elec_DeIso_DateTime_Final')) return alert("Please select De-Isolation Date & Time");
-    
-    fd.append('Elec_Energized_Final_Check', 'Y');
-    fd.append('Elec_DeIso_DateTime_Final', getVal('Elec_DeIso_DateTime_Final'));
-}
-
     if (act === 'initiate_closure') {
-        if (!document.getElementById("Site_Restored_Check").checked) return alert("Please confirm site restoration checkbox.");
-        
+        if (!document.getElementById("Site_Restored_Check").checked) return alert("Please confirm site restoration.");
         const elecCheck = document.getElementById("Elec_Energize_Check");
-        if (elecCheck && !elecCheck.checked) {
-            return alert("⛔ Safety Violation: You must confirm that electrical equipment can be re-energized.");
-        }
+        if (elecCheck && !elecCheck.checked) return alert("Safety: Confirm electrical re-energization.");
         
-        const devReason = document.getElementById('Closure_Deviation_Reason').value;
-        const anyUnchecked = Array.from(document.querySelectorAll('.clos-chk')).some(c => !c.checked);
-        if (anyUnchecked && !devReason) return alert("You must provide a Reason for Deviation since some closure items are unchecked.");
+        // Add closure checklist values
+        document.querySelectorAll('.clos-chk').forEach(c => fd.append(c.name, c.checked ? 'Y' : 'N'));
+        fd.append('Closure_Deviation_Reason', getVal('Closure_Deviation_Reason'));
     }
 
-    // 3. Collect Standard Permit Metadata
-    fd.append('PermitID', currentPermitId);
-    fd.append('action', act);
-    fd.append('role', currentUser.Role);
-    fd.append('user', currentUser.Name);
-
-    // 4. Electrical Isolation Details
-    if (document.getElementById('elec-isolation-window')) {
-        fd.append('Elec_EquipNo', getVal('Elec_EquipNo'));
-        fd.append('Elec_EquipName', getVal('Elec_EquipName'));
-        fd.append('Elec_LotoTag', getVal('Elec_LotoTag'));
-        fd.append('Elec_AuthEmail', getVal('Elec_AuthEmail'));
-        fd.append('Elec_LotoTag_Auth', getVal('Elec_LotoTag_Auth'));
-        fd.append('Elec_Iso_DateTime', getVal('Elec_Iso_DateTime'));
-        fd.append('Elec_Isolated_Check', document.getElementById('Elec_Isolated_Check').checked ? 'Y' : 'N');
-    }
-
-    if (document.getElementById("Elec_Energize_Check")) {
-        fd.append('Elec_Energize_Check', document.getElementById("Elec_Energize_Check").checked ? 'Y' : 'N');
-    }
-
-    // 5. Remarks, PPE, Hazards & Criticality
-    const comments = (currentUser.Role === 'Reviewer' ? getVal("Reviewer_Remarks") : getVal("Approver_Remarks"));
-    fd.append('comment', comments);
-    fd.append('AdditionalPrecautions', getVal("AdditionalPrecautions"));
-    fd.append('RequireRenewalPhotos', document.getElementById('RequireRenewalPhotos').checked ? 'Y' : 'N');
+    // 3. Collect Remarks and Settings
     fd.append('PdfBgColor', getVal('PdfBgColor'));
+    fd.append('Reviewer_Remarks', getVal("Reviewer_Remarks"));
+    fd.append('Approver_Remarks', getVal("Approver_Remarks"));
     fd.append('Closure_Requestor_Remarks', getVal("Closure_Requestor_Remarks"));
     fd.append('Closure_Reviewer_Remarks', getVal("Closure_Reviewer_Remarks"));
     fd.append('Closure_Approver_Remarks', getVal("Closure_Approver_Remarks"));
     fd.append('Site_Restored_Check', document.getElementById("Site_Restored_Check").checked ? 'Y' : 'N');
 
-    const isCrit = document.querySelector('input[name="IsCritical"]:checked');
-    if (isCrit) fd.append('IsCritical', isCrit.value);
-    fd.append('CriticalActivityType', getVal('CriticalActivityType'));
-
-    // Collect all closure checkboxes
-    document.querySelectorAll('.clos-chk').forEach(c => fd.append(c.name, c.checked ? 'Y' : 'N'));
-    fd.append('Closure_Deviation_Reason', getVal('Closure_Deviation_Reason'));
-
-    // Grid Data (Hazards/PPE)
-    if (currentUser.Role === 'Reviewer' || currentUser.Role === 'Approver') {
-        document.querySelectorAll('#hazards-grid input, #ppe-grid input').forEach(c => {
-            if (c.name) fd.append(c.name, c.checked ? 'Y' : 'N');
-        });
-    }
-
-    // 6. Technical Files & Supervisor Data
+    // Handle TBT for Approver
     if (currentUser.Role === 'Approver') {
-        fd.append('TBT_Ref_No', document.getElementById('TBT_Ref_No').value);
+        fd.append('TBT_Ref_No', getVal('TBT_Ref_No'));
         const tbtFile = document.getElementById('TBT_PDF_File').files[0];
         if (tbtFile) fd.append('TBT_PDF_File', tbtFile);
     }
 
-    let ioclData = [];
-    if (currentUser.Role === 'Reviewer') ioclData = getIOCLData('iocl-sup-container-rev');
-    if (currentUser.Role === 'Approver') {
-        const newOnes = getIOCLData('iocl-sup-container-app');
-        ioclData = [...currentPermitIOCLData, ...newOnes];
-    }
-    fd.append('IOCLSupervisors', JSON.stringify(ioclData));
-
-    // JSA Handling
-    const jsaModeElement = document.querySelector('input[name="jsa_mode"]:checked');
-    if (jsaModeElement) {
-        const jsaMode = jsaModeElement.value;
-        if (jsaMode === 'upload') {
-            const f = document.getElementById('JsaFile').files[0];
-            if (f) fd.append('JsaFile', f);
-        } else {
-            fd.append('JsaLinkedId', document.getElementById('JsaLinkedId').value);
-        }
-    }
-
-    // 7. Renewal Decision Logic
-    if (act === 'review' || act === 'approve') {
-        const revDec = document.querySelector('input[name="RevRenAction"]:checked');
-        if (currentUser.Role === 'Reviewer' && revDec) {
-            fd.append('FirstRenewalAction', revDec.value);
-            fd.set('action', 'approve_1st_ren');
-        }
-
-        const appDec = document.querySelector('input[name="AppRenAction"]:checked');
-        if (currentUser.Role === 'Approver' && appDec) {
-            fd.append('FirstRenewalAction', appDec.value);
-            fd.set('action', 'approve_1st_ren');
-        }
-    }
-
-    // 8. API Execution
+    // 4. Send to Server
     document.getElementById('loader').style.display = 'flex';
     try {
         const res = await fetch(API + '/update-status', {
@@ -1866,21 +1775,22 @@ async function upd(act) {
             body: fd,
             headers: { 'Authorization': `Bearer ${authToken}` }
         });
+        
+        // The 502 error happens here if the backend crashes
         const json = await res.json();
         if (json.success) {
-            alert("Success");
+            alert("Success!");
             switchView('dashboard');
         } else {
             alert(json.error || "Update Failed");
         }
     } catch (e) {
         console.error(e);
-        alert("Network Error");
+        alert("Network Error or Server Crash (502). Please check backend logs.");
     } finally {
         document.getElementById('loader').style.display = 'none';
     }
 }
-
 async function submitRenewal(act) {
             // 1. APPROVE / REJECT LOGIC (Reviewer & Approver)
             if(act === 'approve' || act === 'reject') {
@@ -2722,6 +2632,7 @@ async function downloadSecurePDF(id, format = 'default') {
     </script>
 </body>
 </html>
+
 
 
 
