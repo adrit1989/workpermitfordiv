@@ -1469,7 +1469,10 @@ if (st === 'Closed') {
                 const chunks = [];
                 doc.on('data', chunks.push.bind(chunks));
                 doc.on('end', () => resolve(Buffer.concat(chunks)));
-                drawPermitPDF(doc, pdfRecord, d, rens).then(() => doc.end()).catch(reject);
+                drawPermitPDF(doc, pdfRecord, d, rens).then(() => {drawElectricalAnnexure(doc, pdfRecord, d); 
+                        doc.end();
+                    })
+                    .catch(reject);
             });
 
             // 2. Generate Mainline PDF Buffer
@@ -1478,7 +1481,10 @@ if (st === 'Closed') {
                 const chunks = [];
                 doc.on('data', chunks.push.bind(chunks));
                 doc.on('end', () => resolve(Buffer.concat(chunks)));
-                drawMainlinePermitPDF(doc, pdfRecord, d, rens).then(() => doc.end()).catch(reject);
+                drawMainlinePermitPDF(doc, pdfRecord, d, rens).then(() => {drawElectricalAnnexure(doc, pdfRecord, d);
+                        doc.end();
+                    })
+                    .catch(reject);
             });
 
             // 3. Store in Azure Blob
