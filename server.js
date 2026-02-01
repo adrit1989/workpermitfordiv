@@ -648,8 +648,13 @@ async function drawPermitPDF(doc, p, d, renewalsList) {
     doc.y += 15;
     let wy = doc.y;
     const wHeaders = [
-        {t:"Name", w:100}, {t:"Gender", w:50}, {t:"Age", w:40}, 
-        {t:"ID Details", w:100}, {t:"Requestor", w:80}, {t:"Approved By", w:165}
+        {t:"Name", w:90}, 
+        {t:"Father Name", w:90}, // NEW
+        {t:"Gender", w:40}, 
+        {t:"Age", w:30}, 
+        {t:"ID Details", w:90}, 
+        {t:"Requestor", w:70}, 
+        {t:"Approved By", w:125}
     ];
     let wx = 30;
     wHeaders.forEach(h => { doc.rect(wx, wy, h.w, 20).stroke().text(h.t, wx+2, wy+6); wx += h.w; });
@@ -667,12 +672,13 @@ async function drawPermitPDF(doc, p, d, renewalsList) {
         // [MODIFICATION B] Added Approved timestamp
         const approvedAudit = `${safeText(w.ApprovedBy)}\n${safeText(w.ApprovedOn || w.ApprovedAt || '')}`;
 
-        doc.rect(30, wy, 100, 30).stroke().text(safeText(w.Name), 32, wy+5);
-        doc.rect(130, wy, 50, 30).stroke().text(safeText(w.Gender), 132, wy+5);
-        doc.rect(180, wy, 40, 30).stroke().text(safeText(w.Age), 182, wy+5);
-        doc.rect(220, wy, 100, 30).stroke().text(`${safeText(w.IDType)}: ${safeText(w.ID)}`, 222, wy+5);
-        doc.rect(320, wy, 80, 30).stroke().text(safeText(w.RequestorName), 322, wy+5);
-        doc.rect(400, wy, 165, 30).stroke().text(approvedAudit, 402, wy+5);
+        doc.rect(30, wy, 90, 30).stroke().text(safeText(w.Name), 32, wy+5, {width:88});
+        doc.rect(120, wy, 90, 30).stroke().text(safeText(w.FatherName || w.Father), 122, wy+5, {width:88}); // NEW DATA
+        doc.rect(210, wy, 40, 30).stroke().text(safeText(w.Gender), 212, wy+5);
+        doc.rect(250, wy, 30, 30).stroke().text(safeText(w.Age), 252, wy+5);
+        doc.rect(280, wy, 90, 30).stroke().text(`${safeText(w.IDType)}: ${safeText(w.ID)}`, 282, wy+5, {width:88});
+        doc.rect(370, wy, 70, 30).stroke().text(safeText(w.RequestorName), 372, wy+5, {width:68});
+        doc.rect(440, wy, 125, 30).stroke().text(approvedAudit, 442, wy+5, {width:123});
         wy += 30;
     });
     doc.y = wy + 20;
