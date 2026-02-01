@@ -586,8 +586,11 @@ async function drawPermitPDF(doc, p, d, renewalsList) {
         doc.font('Helvetica');
         rows.forEach(row => {
             x = 30;
-            let h = 25; 
-            if (row[3] && row[3].length > 40) h = 45; 
+            const auditText = row[3] || '';
+            const auditColWidth = headers[3] ? headers[3].w : 195;
+            const textHeight = doc.heightOfString(auditText, { width: auditColWidth - 4 });
+            
+            let h = Math.max(25, textHeight + 10);
             if (y + h > 750) { doc.addPage(); drawHeaderOnAll(); y = 135; }
             
             row.forEach((cell, idx) => {
