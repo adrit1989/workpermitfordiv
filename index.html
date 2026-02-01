@@ -1134,7 +1134,8 @@ if (p.Elec_Energization_Msg) {
                              el.checked = (p[el.name] === el.value);
                          } else {
                              // Default fallback for critical if missing
-                             if(el.name === 'IsCritical' && el.value === 'N') el.checked = true; 
+                             if(el.name === 'IsCritical' && el.value === 'N') el.checked = true;
+                             else if(el.name === 'RevRenAction' && el.value === 'recommend') el.checked = true;
                              else el.checked = false;
                          }
                     }
@@ -2700,6 +2701,7 @@ async function downloadSecurePDF(id, format = 'default') {
     </script>
 </body>
 </html>
+
 
 
 
