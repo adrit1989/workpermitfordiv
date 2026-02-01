@@ -1874,9 +1874,10 @@ function formatToList(str) {
 }
 
 /* =====================================================
-   NEW FORMAT: MAINLINE PERMIT PDF GENERATOR
-   (Triggered via ?format=mainline)
+   MERGED VERSION: CLEAN FORMATTING + PDF FIX
+   (Includes Mainline Permit, Electrical Annexure, & JSA Portal)
 ===================================================== */
+
 async function drawMainlinePermitPDF(doc, p, d, renewalsList) {
     const safeText = (t) => (t === null || t === undefined) ? '-' : String(t);
 
@@ -1890,7 +1891,7 @@ async function drawMainlinePermitPDF(doc, p, d, renewalsList) {
         try { doc.image(logoPath, startX, currentY, { fit: [50, 50] }); } catch (e) {}
     }
     
-// Titles
+    // Titles
     doc.font('Helvetica-Bold').fontSize(12).text('Indian Oil Corporation Limited', 0, currentY, { align: 'center' });
     doc.fontSize(10).text('PIPELINES DIVISION', { align: 'center' });
     currentY += 45;
@@ -2091,6 +2092,7 @@ async function drawMainlinePermitPDF(doc, p, d, renewalsList) {
     }
   
 }
+
 function drawElectricalAnnexure(doc, p, d) {
     // Only generate if Electrical Isolation was required (A_Q11 = 'Y')
     if (d.A_Q11 !== 'Y') return;
@@ -2210,6 +2212,7 @@ function drawElectricalAnnexure(doc, p, d) {
     doc.font('Helvetica').text(`Authorized Person Name: ${deIsoSigName}`, startX + 20, y + 10);
     doc.text(`Signature: (Digitally Signed)`, startX + 300, y + 10);
 }
+
 /* =====================================================
    JSA PORTAL ROUTES (Crash Proofed from B)
 ===================================================== */
@@ -2291,6 +2294,7 @@ app.post('/api/jsa/save', authenticateAccess, async(req, res) => {
         res.status(500).json({ error: "Database Error: " + e.message }); 
     }
 });
+
 // 5. Action (Review/Approve/Reject)
 app.post('/api/jsa/action', authenticateAccess, async(req, res) => {
     const { id, action, remarks, updatedData } = req.body;
@@ -2440,11 +2444,11 @@ async function generateJsaPdfBuffer(jsa, refNo, approverName, approvedDate) {
         y += 30;
         // --- 5. MAIN RISK TABLE ---
         const headers = [
-    { t: "Sl. No.", w: 40 },
-    { t: "Activities", w: 120 },
-    { t: "Hazards", w: 120 },
-    { t: "Recommended Actions /\nProcedures & Control Measures", w: 255 }
-    ];
+            { t: "Sl. No.", w: 40 },
+            { t: "Activities", w: 120 },
+            { t: "Hazards", w: 120 },
+            { t: "Recommended Actions /\nProcedures & Control Measures", w: 255 }
+        ];
 
         // Header Row
         let tx = startX;
@@ -2548,7 +2552,9 @@ async function generateJsaPdfBuffer(jsa, refNo, approverName, approvedDate) {
             y += textHeight + 5; // Add dynamic spacing based on text height
         });
 
-        }
+        doc.end(); // <--- CRITICAL FIX: Finalize the PDF
+    });
+}
 
 app.get('/', (req, res) => {
     const indexPath = path.join(__dirname, 'index.html');
@@ -2558,6 +2564,7 @@ app.get('/', (req, res) => {
         res.send(finalHtml);
     });
 });
+
 /* --- FILE VIEWING ROUTE --- */
 app.get('/api/view-blob', authenticateAccess, async (req, res) => {
     try {
@@ -2578,6 +2585,7 @@ app.get('/api/view-blob', authenticateAccess, async (req, res) => {
         res.status(500).send("Error loading file");
     }
 });
+
 // --- MISSING MAP ROUTE ---
 app.post('/api/map-data', authenticateAccess, async (req, res) => {
     try {
@@ -2607,5 +2615,6 @@ app.post('/api/map-data', authenticateAccess, async (req, res) => {
         res.status(500).json({ error: e.message });
     }
 });
+
 const PORT = process.env.PORT || 8080;
 app.listen(PORT, () => console.log("Server Started on Port " + PORT));
