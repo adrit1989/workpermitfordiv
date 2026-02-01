@@ -1760,7 +1760,7 @@ app.get('/api/download-pdf/:id', authenticateAccess, async(req, res) => {
     try {
         const pool = await getConnection();
         // Fetch the stored URLs and the JSON
-        const r = await pool.request().input('p', req.params.id).query("SELECT Status, FinalPdfUrl, MainlinePdfUrl, FullDataJSON, RenewalsJSON, ValidFrom, ValidTo, RequesterEmail, ReviewerEmail, ApproverEmail FROM Permits WHERE PermitID=@p");
+        const r = await pool.request().input('p', req.params.id).query("SELECT PermitID,Status, FinalPdfUrl, MainlinePdfUrl, FullDataJSON, RenewalsJSON, ValidFrom, ValidTo, RequesterEmail, ReviewerEmail, ApproverEmail FROM Permits WHERE PermitID=@p");
         
         if(!r.recordset.length) return res.status(404).send("Not Found");
         const p = r.recordset[0];
