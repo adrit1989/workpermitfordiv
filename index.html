@@ -1466,7 +1466,7 @@ if (closureElecDiv) {
 // --- UPDATED: Renewal Table Render (Implements A & B) ---
 // --- SNIPPET A START: Paste this inside openPermit() after defining 'rens' ---
 
-// --- FIX: Updated Renewal Table Render (Stable Fallback) ---
+// --- FIX: Updated Renewal Table Render (Includes Remarks) ---
 document.getElementById('renewal-history-body').innerHTML = rens.map((r, index) => {
     // Helper to visualize checks
     const chk = (role, val) => val === 'Y' 
@@ -1479,7 +1479,7 @@ document.getElementById('renewal-history-body').innerHTML = rens.map((r, index) 
     else if(r.status === 'rejected') statusDisplay = `<span class="bg-red-100 text-red-800 px-1 rounded font-bold" title="${r.rejection_reason}">Rejected</span>`;
 
     // 2. Worker List Logic 
-    // FIX: Check (index === 0) instead of list length to keep 1st renewal data visible even after 2nd renewal is added
+    // Check (index === 0) instead of list length to keep 1st renewal data visible even after 2nd renewal is added
     let workerArr = [];
     if (r.workers && r.workers.length > 0) {
         if (Array.isArray(r.workers)) workerArr = r.workers;
@@ -1496,7 +1496,6 @@ document.getElementById('renewal-history-body').innerHTML = rens.map((r, index) 
     }
 
     // 3. Gas & Precaution Fallback 
-    // FIX: Apply fallback specifically to the first row (index 0) if data is missing
     const useFallback = (index === 0 && p.InitRen === 'Y');
     
     const gasDisplay = (r.hc || r.toxic || r.oxygen) 
@@ -1512,9 +1511,24 @@ document.getElementById('renewal-history-body').innerHTML = rens.map((r, index) 
         <td class="p-2">${chk('Req', r.tbt_done)} ${chk('Rev', r.rev_tbt)} ${chk('App', r.app_tbt)}</td>
         <td class="p-2 italic">${precDisplay}</td>
         <td class="p-2">${workerListDisplay}</td>
-        <td class="p-2"><b>${r.req_name || p.RequesterName}</b><br><span class="text-gray-500">${r.req_at ? r.req_at.replace('T', ' ') : ''}</span></td>
-        <td class="p-2"><b>${r.rev_name||'-'}</b><br><span class="text-gray-500">${r.rev_at||''}</span></td>
-        <td class="p-2"><b>${r.app_name||'-'}</b><br><span class="text-gray-500">${r.app_at||''}</span></td>
+        
+        <td class="p-2">
+            <b>${r.req_name || p.RequesterName}</b><br>
+            <span class="text-gray-500">${r.req_at ? r.req_at.replace('T', ' ') : ''}</span>
+        </td>
+
+        <td class="p-2">
+            <b>${r.rev_name||'-'}</b><br>
+            <span class="text-gray-500">${r.rev_at||''}</span>
+            ${r.rev_rem ? `<br><span class="text-blue-600 italic">"${escapeHtml(r.rev_rem)}"</span>` : ''}
+        </td>
+
+        <td class="p-2">
+            <b>${r.app_name||'-'}</b><br>
+            <span class="text-gray-500">${r.app_at||''}</span>
+            ${r.app_rem ? `<br><span class="text-blue-600 italic">"${escapeHtml(r.app_rem)}"</span>` : ''}
+        </td>
+
         <td class="p-2">${r.photoUrl ? `<button type="button" class="text-blue-600 underline" onclick="viewSecureFile('${r.photoUrl.replace(/\\/g, '/')}')">View</button>` : 'NO'}</td>
     </tr>`;
 }).join('');
@@ -2862,6 +2876,7 @@ async function downloadSecurePDF(id, format = 'default') {
     </script>
 </body>
 </html>
+
 
 
 
