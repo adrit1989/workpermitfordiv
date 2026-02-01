@@ -1721,7 +1721,7 @@ function handleClosureUI(p, actionsDiv) {
 // FIX A: Unhide and Enable Site Restoration Checkbox
             siteRestoredLabel.classList.remove('hidden'); 
             siteRestoredCheck.disabled = false;
-            siteRestoredCheck.checked = false;
+            siteRestoredCheck.checked = (p.Site_Restored_Check === 'Y');
 
             // NEW: Clean up and add Energize Checkbox if Electrical Isolation was 'Yes'
             const oldElec = document.getElementById('lbl-elec-restore');
@@ -1733,7 +1733,17 @@ function handleClosureUI(p, actionsDiv) {
                 energizeLabel.className = "flex items-center gap-2 mt-2 font-bold text-orange-700 cursor-pointer p-2 bg-yellow-50 border border-yellow-200 rounded";
                 energizeLabel.innerHTML = `<input type="checkbox" id="Elec_Energize_Check" class="w-5 h-5 accent-orange-600"> I confirm Site is restored & Electrical equipment can be re-energized.`;
                 document.getElementById('div-closure-req').appendChild(energizeLabel);
+                // --- FIX: Populate Saved State & Handle Read-Only ---
+                const elCheck = document.getElementById('Elec_Energize_Check');
+                // Check if it was saved as 'Y'
+                if (p.Elec_Energize_Check === 'Y') elCheck.checked = true;
+                
+                // Disable if not in active editing mode (e.g., for Reviewer/Approver or Closed status)
+                if (currentUser.Role !== 'Requester' || !isClosable) {
+                    elCheck.disabled = true;
+                }
             }
+            
                 const b = document.createElement("button"); b.type = "button"; 
                 b.className = "bg-red-600 text-white px-4 py-2 rounded font-bold"; 
                 b.innerText = "Submit Closure"; 
@@ -2803,6 +2813,7 @@ async function downloadSecurePDF(id, format = 'default') {
     </script>
 </body>
 </html>
+
 
 
 
