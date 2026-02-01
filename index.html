@@ -636,14 +636,26 @@
                     </div>
                 </div>
  
-                <div id="view-map" class="hidden h-full">
-                    <h2 class="text-2xl font-bold mb-4">Live Permit Map</h2>
-                    <div class="glass h-[600px] w-full p-0 overflow-hidden shadow-inner border-2 border-gray-200 relative"><div id="map" class="w-full h-full"></div></div>
-                </div>
+       <div id="view-map" class="hidden h-full flex flex-col">
+    <h2 class="text-2xl font-bold mb-4 text-gray-800">Live Permit Map</h2>
+    
+    <div class="flex flex-1 gap-4 h-full overflow-hidden pb-4">
+        
+        <div class="glass w-64 flex-shrink-0 flex flex-col p-0 overflow-hidden h-full">
+            <div class="p-3 bg-gray-100 border-b font-bold text-gray-700 text-sm uppercase tracking-wider sticky top-0 z-10">
+                📍 Active Permits
             </div>
- 
+            <ul id="map-permit-list" class="divide-y divide-gray-100 overflow-y-auto flex-1">
+                <li class="p-4 text-center text-gray-400 text-xs italic">Loading...</li>
+            </ul>
         </div>
+
+        <div class="glass flex-1 p-0 overflow-hidden shadow-inner border-2 border-gray-200 relative h-full">
+            <div id="map" class="w-full h-full"></div>
+        </div>
+
     </div>
+</div>
  
     <div id="modal-worker" class="fixed inset-0 bg-black/60 z-50 hidden flex items-center justify-center p-4 backdrop-blur-sm">
         <div class="glass w-full max-w-lg relative animate-scale-up">
@@ -890,20 +902,96 @@ function showChangePassword() {
 
         // --- GLOBAL FUNCTIONS DEFINITIONS ---
 
-        async function initMap() {
+       async function initMap() {
             try {
+                // 1. Fetch Data
                 const mapData = await apiCall('/map-data', 'POST', {});
+                
                 const mapEl = document.getElementById('map');
+                const listContainer = document.getElementById('map-permit-list');
+                
                 if (!mapEl || !window.google) return;
+                
+                // 2. Filter Valid Points
                 let validPoints = mapData.filter(p => p.lat && p.lng && isFinite(parseFloat(p.lat)) && isFinite(parseFloat(p.lng)));
-                const center = validPoints.length > 0 ? { lat: parseFloat(validPoints[0].lat), lng: parseFloat(validPoints[0].lng) } : { lat: 20.5937, lng: 78.9629 };
+                
+                // 3. Initialize Map
+                const center = validPoints.length > 0 
+                    ? { lat: parseFloat(validPoints[0].lat), lng: parseFloat(validPoints[0].lng) } 
+                    : { lat: 20.5937, lng: 78.9629 }; // Default Center (India)
+                
                 mapInstance = new google.maps.Map(mapEl, { zoom: 5, center: center });
+                
+                // Clear List
+                listContainer.innerHTML = '';
+                
+                if (validPoints.length === 0) {
+                    listContainer.innerHTML = '<li class="p-4 text-center text-gray-400 text-xs">No active locations found.</li>';
+                }
+
+                // 4. Create Markers & List Items
+                // Create a single InfoWindow to share (closes previous when new one opens)
+                const globalInfoWindow = new google.maps.InfoWindow();
+
                 validPoints.forEach(p => {
-                    const marker = new google.maps.Marker({ position: { lat: parseFloat(p.lat), lng: parseFloat(p.lng) }, map: mapInstance, title: p.PermitID });
-                    const infoWindow = new google.maps.InfoWindow({ content: `<div class="p-2"><h3 class="font-bold text-orange-600">${p.PermitID}</h3><p class="text-xs"><b>Status:</b> ${p.Status}</p><button onclick="openPermit('${p.PermitID}')" class="text-blue-600 text-xs font-bold underline mt-1">View Details</button></div>` });
-                    marker.addListener('click', () => infoWindow.open(mapInstance, marker));
+                    const lat = parseFloat(p.lat);
+                    const lng = parseFloat(p.lng);
+
+                    // A. Create Marker
+                    const marker = new google.maps.Marker({
+                        position: { lat: lat, lng: lng },
+                        map: mapInstance,
+                        title: p.PermitID,
+                        animation: google.maps.Animation.DROP
+                    });
+
+                    const infoContent = `
+                        <div class="p-2">
+                            <h3 class="font-bold text-orange-600 border-b pb-1 mb-1">${p.PermitID}</h3>
+                            <p class="text-xs text-gray-600"><b>Status:</b> ${p.Status}</p>
+                            <button onclick="openPermit('${p.PermitID}')" class="text-blue-600 text-xs font-bold underline mt-2">View Full Details</button>
+                        </div>
+                    `;
+
+                    // Marker Click Event
+                    marker.addListener('click', () => {
+                        globalInfoWindow.setContent(infoContent);
+                        globalInfoWindow.open(mapInstance, marker);
+                    });
+
+                    // B. Create Sidebar List Item
+                    const li = document.createElement('li');
+                    li.className = "p-3 hover:bg-orange-50 cursor-pointer transition-colors border-l-4 border-transparent hover:border-orange-500 group";
+                    li.innerHTML = `
+                        <div class="flex justify-between items-center">
+                            <span class="font-bold text-gray-800 text-sm group-hover:text-orange-700">${p.PermitID}</span>
+                            <span class="text-[10px] bg-gray-100 px-1 rounded text-gray-500">${p.Status === 'Active' ? '🟢' : '⏳'}</span>
+                        </div>
+                        <div class="text-xs text-gray-400 mt-1 font-mono truncate">${lat.toFixed(4)}, ${lng.toFixed(4)}</div>
+                    `;
+
+                    // Sidebar Click Event -> Navigate Map
+                    li.onclick = () => {
+                        // 1. Pan & Zoom Map
+                        mapInstance.panTo({ lat, lng });
+                        mapInstance.setZoom(15);
+                        
+                        // 2. Open Info Window
+                        globalInfoWindow.setContent(infoContent);
+                        globalInfoWindow.open(mapInstance, marker);
+                        
+                        // 3. Highlight Selected Item
+                        document.querySelectorAll('#map-permit-list li').forEach(el => el.classList.remove('bg-orange-100', 'border-orange-500'));
+                        li.classList.add('bg-orange-100', 'border-orange-500');
+                    };
+
+                    listContainer.appendChild(li);
                 });
-            } catch(e) { console.error("Map Error", e); }
+
+            } catch(e) { 
+                console.error("Map Error", e); 
+                alert("Failed to load map data.");
+            }
         }
 
         async function loadDashboard() {
@@ -2714,6 +2802,7 @@ async function downloadSecurePDF(id, format = 'default') {
     </script>
 </body>
 </html>
+
 
 
 
