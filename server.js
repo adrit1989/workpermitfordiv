@@ -1827,6 +1827,7 @@ app.get('/api/download-pdf/:id', authenticateAccess, async(req, res) => {
         } else {
             await drawPermitPDF(doc, p, d, rens);
         }
+        drawElectricalAnnexure(doc, p, d);
         doc.end();
 
     } catch(err) {
@@ -2088,6 +2089,126 @@ async function drawMainlinePermitPDF(doc, p, d, renewalsList) {
         doc.switchToPage(i);
         doc.text(`Page ${i + 1} of ${pages.count}`, 500, doc.page.height - 30);
     }
+  
+}
+function drawElectricalAnnexure(doc, p, d) {
+    // Only generate if Electrical Isolation was required (A_Q11 = 'Y')
+    if (d.A_Q11 !== 'Y') return;
+
+    doc.addPage();
+    const safeText = (t) => (t === null || t === undefined) ? '-' : String(t);
+    const startX = 30;
+    const width = 535;
+    let y = 30;
+
+    // --- HEADER ---
+    doc.font('Helvetica-Bold').fontSize(12).text('OISD-STD-105', startX, y, { align: 'left' });
+    doc.text('ANNEXURE - III', startX, y, { align: 'right' });
+    y += 20;
+    
+    doc.fontSize(14).text('ELECTRICAL ISOLATION / ENERGIZATION PERMIT', startX, y, { align: 'center', underline: true });
+    y += 30;
+    
+    // --- SECTION A: ISOLATION PERMIT ---
+    doc.rect(startX, y, width, 330).stroke(); // Main Box
+    
+    doc.fontSize(10).fillColor('black').rect(startX, y, width, 20).fillAndStroke('#e5e7eb', 'black');
+    doc.fillColor('black').text('SECTION-A: ISOLATION PERMIT', startX + 5, y + 6);
+    y += 20;
+
+    doc.font('Helvetica').fontSize(9);
+    doc.text(`Permit No: ${p.PermitID}`, startX + 5, y + 10);
+    y += 25;
+
+    doc.font('Helvetica-Bold').text('1. Request for Isolation (To be filled by Requester)', startX + 5, y);
+    y += 15;
+    doc.font('Helvetica');
+
+    const reqDate = d.CreatedDate ? d.CreatedDate.split(' ')[0] : '-';
+    const reqTime = d.CreatedDate ? d.CreatedDate.split(' ')[1] : '-';
+
+    doc.text(`Date: ${reqDate}`, startX + 20, y);
+    doc.text(`Time: ${reqTime}`, startX + 200, y);
+    doc.text(`Dept: ${safeText(d.IssuedToDept)}`, startX + 350, y);
+    y += 20;
+
+    doc.text(`Equipment No: ${safeText(d.Elec_EquipNo)}`, startX + 20, y);
+    y += 15;
+    doc.text(`Equipment Name: ${safeText(d.Elec_EquipName)}`, startX + 20, y);
+    y += 15;
+    doc.text(`Reason/Work: ${safeText(d.Desc)}`, startX + 20, y);
+    y += 20;
+
+    doc.text(`Issuer Name (Requester): ${safeText(d.RequesterName)}`, startX + 20, y);
+    y += 25;
+
+    doc.font('Helvetica-Bold').text('2. Certificate of Isolation (To be filled by Electrical Authorized Person)', startX + 5, y);
+    y += 15;
+    doc.font('Helvetica');
+
+    const isoDate = d.Elec_Iso_DateTime ? new Date(d.Elec_Iso_DateTime).toLocaleDateString("en-GB") : '-';
+    const isoTime = d.Elec_Iso_DateTime ? new Date(d.Elec_Iso_DateTime).toLocaleTimeString("en-GB") : '-';
+
+    doc.text(`Date: ${isoDate}`, startX + 20, y);
+    doc.text(`Time: ${isoTime}`, startX + 200, y);
+    y += 20;
+
+    doc.text(`Certified that Equipment ${safeText(d.Elec_EquipNo)} has been made dead and electrically isolated. The switches/isolators/links/fuses have been opened and LOTO applied.`, startX + 20, y, { width: 500, align: 'justify' });
+    y += 35;
+
+    doc.font('Helvetica-Bold').text(`LOTO Tag No: ${safeText(d.Elec_LotoTag_Auth)}`, startX + 20, y);
+    y += 25;
+
+    doc.rect(startX + 10, y, 500, 40).stroke();
+    doc.font('Helvetica').text(`Authorized Person Name: ${safeText(d.Elec_Approved_By)}`, startX + 20, y + 10);
+    doc.text(`Signature: (Digitally Signed)`, startX + 300, y + 10);
+    
+    y = 440; // Move down for Section B
+
+    // --- SECTION B: ENERGIZATION PERMIT ---
+    doc.rect(startX, y, width, 300).stroke();
+    
+    doc.fontSize(10).fillColor('black').rect(startX, y, width, 20).fillAndStroke('#e5e7eb', 'black');
+    doc.fillColor('black').text('SECTION-B: ENERGIZATION PERMIT', startX + 5, y + 6);
+    y += 30;
+
+    doc.font('Helvetica').fontSize(9);
+
+    const isEnergized = d.Elec_Energized_Final_Check === 'Y';
+    const deIsoDate = isEnergized && d.Elec_DeIso_DateTime_Final ? new Date(d.Elec_DeIso_DateTime_Final).toLocaleDateString("en-GB") : '';
+    const deIsoTime = isEnergized && d.Elec_DeIso_DateTime_Final ? new Date(d.Elec_DeIso_DateTime_Final).toLocaleTimeString("en-GB") : '';
+    const closureReqDate = d.Closure_Requestor_Date ? d.Closure_Requestor_Date.split(' ')[0] : '-';
+
+    doc.font('Helvetica-Bold').text('1. Request for Energization (To be filled by Requester)', startX + 5, y);
+    y += 15;
+    doc.font('Helvetica');
+
+    doc.text(`Date: ${closureReqDate}`, startX + 20, y);
+    doc.text(`Time: --`, startX + 200, y);
+    y += 20;
+
+    doc.text(`Equipment No: ${safeText(d.Elec_EquipNo)}`, startX + 20, y);
+    y += 15;
+    doc.text(`All permits closed. Equipment may be energized.`, startX + 20, y);
+    y += 20;
+    doc.text(`Requester Signature: ${safeText(d.Closure_Receiver_Sig)}`, startX + 20, y);
+    y += 30;
+
+    doc.font('Helvetica-Bold').text('2. Certificate of Energization (To be filled by Electrical Authorized Person)', startX + 5, y);
+    y += 15;
+    doc.font('Helvetica');
+
+    doc.text(`Date: ${deIsoDate}`, startX + 20, y);
+    doc.text(`Time: ${deIsoTime}`, startX + 200, y);
+    y += 20;
+
+    doc.text(`Certified that Equipment ${safeText(d.Elec_EquipNo)} has been electrically energized. The LOTO tag ${safeText(d.Elec_LotoTag_Auth)} has been removed from supply panel.`, startX + 20, y, { width: 500, align: 'justify' });
+    y += 35;
+
+    const deIsoSigName = d.Elec_DeIsolation_Sig ? d.Elec_DeIsolation_Sig.split(' on ')[0] : '-';
+    doc.rect(startX + 10, y, 500, 40).stroke();
+    doc.font('Helvetica').text(`Authorized Person Name: ${deIsoSigName}`, startX + 20, y + 10);
+    doc.text(`Signature: (Digitally Signed)`, startX + 300, y + 10);
 }
 /* =====================================================
    JSA PORTAL ROUTES (Crash Proofed from B)
@@ -2427,9 +2548,7 @@ async function generateJsaPdfBuffer(jsa, refNo, approverName, approvedDate) {
             y += textHeight + 5; // Add dynamic spacing based on text height
         });
 
-        doc.end();
-    });
-}
+        }
 
 app.get('/', (req, res) => {
     const indexPath = path.join(__dirname, 'index.html');
