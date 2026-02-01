@@ -1278,7 +1278,7 @@ if (closureElecDiv) {
 
                 // 6. UI Logic Triggers
                 toggleCritical(p.IsCritical === 'Y');
-
+                document.getElementById('other-hazard-div').classList.toggle('hidden', p.H_Others !== 'Y');
                 if (currentUser.Role === 'Requester') document.getElementById('ppe-section-wrapper').classList.add('hidden');
                 else document.getElementById('ppe-section-wrapper').classList.remove('hidden');
 
@@ -2701,6 +2701,7 @@ async function downloadSecurePDF(id, format = 'default') {
     </script>
 </body>
 </html>
+
 
 
 
