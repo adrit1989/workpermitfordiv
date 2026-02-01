@@ -2093,126 +2093,218 @@ async function drawMainlinePermitPDF(doc, p, d, renewalsList) {
   
 }
 
+// --- NEW ELECTRICAL ANNEXURE FUNCTION (MATCHING PDF FORMAT + TIMESTAMPS) ---
 function drawElectricalAnnexure(doc, p, d) {
     // Only generate if Electrical Isolation was required (A_Q11 = 'Y')
     if (d.A_Q11 !== 'Y') return;
 
     doc.addPage();
-    const safeText = (t) => (t === null || t === undefined) ? '-' : String(t);
-    const startX = 30;
-    const width = 535;
-    let y = 30;
+    const safeText = (t) => (t === null || t === undefined) ? '' : String(t);
+    const startX = 40; // Left Margin
+    const topY = 40;   // Top Margin
+    const width = 515; // Content Width
+    let y = topY;
 
-    // --- HEADER ---
-    doc.font('Helvetica-Bold').fontSize(12).text('OISD-STD-105', startX, y, { align: 'left' });
-    doc.text('ANNEXURE - III', startX, y, { align: 'right' });
-    y += 20;
-    
-    doc.fontSize(14).text('ELECTRICAL ISOLATION / ENERGIZATION PERMIT', startX, y, { align: 'center', underline: true });
-    y += 30;
-    
-    // --- SECTION A: ISOLATION PERMIT ---
-    doc.rect(startX, y, width, 330).stroke(); // Main Box
-    
-    doc.fontSize(10).fillColor('black').rect(startX, y, width, 20).fillAndStroke('#e5e7eb', 'black');
-    doc.fillColor('black').text('SECTION-A: ISOLATION PERMIT', startX + 5, y + 6);
-    y += 20;
+    // --- PAGE 1: ISOLATION PERMIT (SECTION A) ---
 
-    doc.font('Helvetica').fontSize(9);
-    doc.text(`Permit No: ${p.PermitID}`, startX + 5, y + 10);
-    y += 25;
+    // 1. Header Box
+    doc.rect(startX, y, width, 70).stroke();
+    
+    doc.font('Helvetica-Bold').fontSize(10).text('Industry Safety Directorate', startX + 5, y + 10, {width: 150});
+    doc.text('OISD-STD-105', startX + 5, y + 25);
+    doc.text('WORK PERMIT SYSTEM', startX + 5, y + 40);
 
-    doc.font('Helvetica-Bold').text('1. Request for Isolation (To be filled by Requester)', startX + 5, y);
+    // Center Block (Permit Title)
+    const centerX = startX + 160;
+    doc.fontSize(11).text('TYPICAL ELECTRICAL ISOLATION/', centerX, y + 15, {align: 'center', width: 200});
+    doc.text('ENERGIZATION PERMIT', centerX, y + 30, {align: 'center', width: 200});
+    
+    // Right Block (Permit No & Page)
+    const rightX = startX + 370;
+    doc.fontSize(9).text('Permit no.:', rightX, y + 10);
+    doc.font('Helvetica').text(p.PermitID, rightX + 60, y + 10); 
+    doc.font('Helvetica-Bold').text('Page no.- 21', rightX, y + 50);
+
+    y += 80;
+
+    // 2. Organization & Location
+    doc.font('Helvetica-Bold').fontSize(10);
+    doc.text('Indian Oil Corporation Limited', startX, y, {align: 'center', width: width});
     y += 15;
-    doc.font('Helvetica');
-
-    const reqDate = d.CreatedDate ? d.CreatedDate.split(' ')[0] : '-';
-    const reqTime = d.CreatedDate ? d.CreatedDate.split(' ')[1] : '-';
-
-    doc.text(`Date: ${reqDate}`, startX + 20, y);
-    doc.text(`Time: ${reqTime}`, startX + 200, y);
-    doc.text(`Dept: ${safeText(d.IssuedToDept)}`, startX + 350, y);
+    doc.text(`(LOCATION: ${safeText(d.LocationUnit || d.Region)})`, startX, y, {align: 'center', width: width});
     y += 20;
 
-    doc.text(`Equipment No: ${safeText(d.Elec_EquipNo)}`, startX + 20, y);
-    y += 15;
-    doc.text(`Equipment Name: ${safeText(d.Elec_EquipName)}`, startX + 20, y);
-    y += 15;
-    doc.text(`Reason/Work: ${safeText(d.Desc)}`, startX + 20, y);
+    // 3. Section A Title
+    doc.font('Helvetica-Bold').fontSize(11).text('SECTION-A: ISOLATION PERMIT', startX, y);
+    doc.fontSize(10).text('ANNEXURE - III', startX + 400, y, {align: 'right', width: 115});
     y += 20;
 
-    doc.text(`Issuer Name (Requester): ${safeText(d.RequesterName)}`, startX + 20, y);
-    y += 25;
-
-    doc.font('Helvetica-Bold').text('2. Certificate of Isolation (To be filled by Electrical Authorized Person)', startX + 5, y);
-    y += 15;
-    doc.font('Helvetica');
-
-    const isoDate = d.Elec_Iso_DateTime ? new Date(d.Elec_Iso_DateTime).toLocaleDateString("en-GB") : '-';
-    const isoTime = d.Elec_Iso_DateTime ? new Date(d.Elec_Iso_DateTime).toLocaleTimeString("en-GB") : '-';
-
-    doc.text(`Date: ${isoDate}`, startX + 20, y);
-    doc.text(`Time: ${isoTime}`, startX + 200, y);
+    // Cross Reference
+    doc.font('Helvetica').fontSize(9).text('Cross-Reference of other Permit: __________________________', startX, y);
     y += 20;
 
-    doc.text(`Certified that Equipment ${safeText(d.Elec_EquipNo)} has been made dead and electrically isolated. The switches/isolators/links/fuses have been opened and LOTO applied.`, startX + 20, y, { width: 500, align: 'justify' });
-    y += 35;
-
-    doc.font('Helvetica-Bold').text(`LOTO Tag No: ${safeText(d.Elec_LotoTag_Auth)}`, startX + 20, y);
-    y += 25;
-
-    doc.rect(startX + 10, y, 500, 40).stroke();
-    doc.font('Helvetica').text(`Authorized Person Name: ${safeText(d.Elec_Approved_By)}`, startX + 20, y + 10);
-    doc.text(`Signature: (Digitally Signed)`, startX + 300, y + 10);
+    // --- REQUEST FOR ISOLATION ---
+    doc.rect(startX, y, width, 140).stroke(); 
+    let internalY = y + 5;
     
-    y = 440; // Move down for Section B
+    doc.font('Helvetica-Bold').text('Request for Isolation:', startX + 5, internalY);
+    internalY += 20;
 
-    // --- SECTION B: ENERGIZATION PERMIT ---
-    doc.rect(startX, y, width, 300).stroke();
+    const reqDate = d.CreatedDate ? d.CreatedDate.split(' ')[0] : '';
+    const reqTime = d.CreatedDate ? d.CreatedDate.split(' ')[1] : '';
+
+    doc.font('Helvetica').text(`Date: ${reqDate}`, startX + 5, internalY);
+    doc.text(`Time: ${reqTime}`, startX + 250, internalY);
+    internalY += 20;
+
+    doc.text(`Department/ Section/ Area issuing the permit: ${safeText(d.IssuedToDept)}`, startX + 5, internalY);
+    internalY += 20;
+
+    doc.text(`Equipment number to be isolated: ${safeText(d.Elec_EquipNo)}`, startX + 5, internalY);
+    internalY += 20;
+
+    doc.text(`Name of the equipment/ circuit to be isolated: ${safeText(d.Elec_EquipName)}`, startX + 5, internalY);
+    internalY += 20;
+
+    doc.text(`Description of the work to be carried out: ${safeText(d.Desc)}`, startX + 5, internalY);
+    internalY += 20;
+
+    doc.text('The above-mentioned equipment/ circuit shall be de-energized and isolated from all live conductors to carry out the maintenance work by section/ for operational requirement.', startX + 5, internalY, {width: 500});
     
-    doc.fontSize(10).fillColor('black').rect(startX, y, width, 20).fillAndStroke('#e5e7eb', 'black');
-    doc.fillColor('black').text('SECTION-B: ENERGIZATION PERMIT', startX + 5, y + 6);
-    y += 30;
+    // Signatures for Request
+    y += 140; 
+    doc.rect(startX, y, width, 35).stroke();
+    doc.text(`Issuer Name: ${safeText(d.RequesterName)}`, startX + 5, y + 10);
+    doc.text('Signature: (Digitally Signed)', startX + 300, y + 10);
+    y += 45;
 
-    doc.font('Helvetica').fontSize(9);
+    // --- CERTIFICATE OF ISOLATION ---
+    doc.rect(startX, y, width, 180).stroke(); 
+    internalY = y + 5;
+
+    doc.font('Helvetica-Bold').text('Certificate of Isolation:', startX + 5, internalY);
+    internalY += 20;
+
+    const isoDate = d.Elec_Iso_DateTime ? new Date(d.Elec_Iso_DateTime).toLocaleDateString("en-GB") : '';
+    const isoTime = d.Elec_Iso_DateTime ? new Date(d.Elec_Iso_DateTime).toLocaleTimeString("en-GB") : '';
+
+    doc.font('Helvetica').text(`Date: ${isoDate}`, startX + 5, internalY);
+    doc.text(`Time: ${isoTime}`, startX + 250, internalY);
+    internalY += 20;
+
+    doc.text(`Certified that Equipment/ Circuit no. ${safeText(d.Elec_EquipNo)} of plant ${safeText(d.LocationUnit)} has been made dead, is electrically isolated from all live conductors and has been connected to earth and the work mentioned above can now be carried out in accordance with the safety rules and regulations.`, startX + 5, internalY, {width: 500, align: 'justify'});
+    internalY += 45;
+
+    doc.text('For the purpose of making the equipment dead, the switches/ isolators/links/fuses (tick as applicable), have been opened and the section so isolated has been earthed at each isolation point and danger notice plates fixed thereon.', startX + 5, internalY, {width: 500, align: 'justify'});
+    internalY += 35;
+
+    doc.text(`The LOTO tag/ device no. ${safeText(d.Elec_LotoTag_Auth)} is put on the supply panel. Actions in respect of electrical isolation have been recorded in the electrical shift logbook including the instructions for the person who may relieve me.`, startX + 5, internalY, {width: 500, align: 'justify'});
+
+    // Signatures for Isolation Certificate
+    y += 180;
+    doc.rect(startX, y, width, 50).stroke();
+    doc.text(`Name of Authorized Person: ${safeText(d.Elec_Approved_By)}`, startX + 5, y + 10);
+    doc.text(`Designation: Electrical Officer`, startX + 5, y + 30);
+    doc.text('Signature: (Digitally Signed)', startX + 300, y + 10);
+    
+    // --- ADDED TIMESTAMPS FOR ISOLATION ---
+    if (isoDate && isoTime) {
+        doc.fontSize(8).font('Helvetica-Oblique')
+           .text(`Timestamp: ${isoDate} ${isoTime}`, startX + 300, y + 25);
+        doc.fontSize(9).font('Helvetica'); // Reset
+    }
+
+    // --- PAGE 2: ENERGIZATION PERMIT (SECTION B) ---
+    doc.addPage();
+    y = topY;
+
+    // 1. Header Box 
+    doc.rect(startX, y, width, 50).stroke();
+    doc.font('Helvetica-Bold').fontSize(10).text('Industry Safety Directorate', startX + 5, y + 10);
+    doc.text('OISD-STD-105', startX + 5, y + 25);
+    doc.fontSize(9).text('Permit no.:', rightX, y + 10);
+    doc.font('Helvetica').text(p.PermitID, rightX + 60, y + 10);
+    doc.font('Helvetica-Bold').text('Page no.- 22', rightX, y + 35);
+    y += 60;
+
+    // 2. Section B Title
+    doc.font('Helvetica-Bold').fontSize(11).text('SECTION-B: ENERGIZATION PERMIT', startX, y);
+    y += 20;
+
+    // --- REQUEST FOR ENERGIZATION ---
+    doc.rect(startX, y, width, 110).stroke();
+    internalY = y + 5;
+
+    doc.text('Request for Energization:', startX + 5, internalY);
+    internalY += 20;
+
+    const reqCloseDate = d.Closure_Requestor_Date ? d.Closure_Requestor_Date.split(' ')[0] : '';
+    
+    doc.font('Helvetica').text(`Date: ${reqCloseDate}`, startX + 5, internalY);
+    doc.text(`Time: --`, startX + 250, internalY);
+    internalY += 20;
+
+    doc.text(`Department/ Section/ Area issuing the permit: ${safeText(d.IssuedToDept)}`, startX + 5, internalY);
+    internalY += 20;
+
+    doc.text(`Equipment number to be energized: ${safeText(d.Elec_EquipNo)}`, startX + 5, internalY);
+    internalY += 20;
+
+    doc.text(`Name of the equipment/ circuit to be energized: ${safeText(d.Elec_EquipName)}`, startX + 5, internalY);
+    internalY += 20;
+
+    doc.text('The above mentioned work on the subject equipment/ circuit has been completed and all the applicable work permits are closed. This equipment/ circuit may be energized.', startX + 5, internalY, {width: 500});
+
+    // Signatures for Energization Request
+    y += 130; 
+    doc.rect(startX, y, width, 35).stroke();
+    doc.text(`Issuer Name: ${safeText(d.RequesterName)}`, startX + 5, y + 10);
+    doc.text(`Designation: Requester`, startX + 5, y + 25);
+    doc.text(`Signature: ${safeText(d.Closure_Receiver_Sig)}`, startX + 300, y + 10);
+    y += 45;
+
+    // --- CERTIFICATE OF ENERGIZATION ---
+    doc.rect(startX, y, width, 150).stroke();
+    internalY = y + 5;
+
+    doc.font('Helvetica-Bold').text('Certificate of Energization:', startX + 5, internalY);
+    internalY += 20;
 
     const isEnergized = d.Elec_Energized_Final_Check === 'Y';
     const deIsoDate = isEnergized && d.Elec_DeIso_DateTime_Final ? new Date(d.Elec_DeIso_DateTime_Final).toLocaleDateString("en-GB") : '';
     const deIsoTime = isEnergized && d.Elec_DeIso_DateTime_Final ? new Date(d.Elec_DeIso_DateTime_Final).toLocaleTimeString("en-GB") : '';
-    const closureReqDate = d.Closure_Requestor_Date ? d.Closure_Requestor_Date.split(' ')[0] : '-';
 
-    doc.font('Helvetica-Bold').text('1. Request for Energization (To be filled by Requester)', startX + 5, y);
-    y += 15;
-    doc.font('Helvetica');
+    doc.font('Helvetica').text(`Date: ${deIsoDate}`, startX + 5, internalY);
+    doc.text(`Time: ${deIsoTime}`, startX + 250, internalY);
+    internalY += 20;
 
-    doc.text(`Date: ${closureReqDate}`, startX + 20, y);
-    doc.text(`Time: --`, startX + 200, y);
-    y += 20;
+    doc.text(`Certified that Equipment / circuit no. ${safeText(d.Elec_EquipNo)} of plant ${safeText(d.LocationUnit)} has been electrically energized by closing the switches/ isolators/links/ fuses (tick as applicable), and the equipment put back into service.`, startX + 5, internalY, {width: 500, align: 'justify'});
+    internalY += 40;
 
-    doc.text(`Equipment No: ${safeText(d.Elec_EquipNo)}`, startX + 20, y);
-    y += 15;
-    doc.text(`All permits closed. Equipment may be energized.`, startX + 20, y);
-    y += 20;
-    doc.text(`Requester Signature: ${safeText(d.Closure_Receiver_Sig)}`, startX + 20, y);
-    y += 30;
+    doc.text(`The danger LOTO tag/device no. ${safeText(d.Elec_LotoTag_Auth)} is removed from the supply panel.`, startX + 5, internalY);
+    internalY += 15;
 
-    doc.font('Helvetica-Bold').text('2. Certificate of Energization (To be filled by Electrical Authorized Person)', startX + 5, y);
-    y += 15;
-    doc.font('Helvetica');
+    doc.text('The temporary earths and other connections and danger notice plates made have been removed.', startX + 5, internalY);
+    internalY += 15;
 
-    doc.text(`Date: ${deIsoDate}`, startX + 20, y);
-    doc.text(`Time: ${deIsoTime}`, startX + 200, y);
-    y += 20;
+    doc.text('Necessary entry is also recorded in the electrical shift logbook.', startX + 5, internalY);
 
-    doc.text(`Certified that Equipment ${safeText(d.Elec_EquipNo)} has been electrically energized. The LOTO tag ${safeText(d.Elec_LotoTag_Auth)} has been removed from supply panel.`, startX + 20, y, { width: 500, align: 'justify' });
-    y += 35;
+    // Signatures for Energization Certificate
+    y += 150;
+    const deIsoSigName = d.Elec_DeIsolation_Sig ? d.Elec_DeIsolation_Sig.split(' on ')[0] : '';
 
-    const deIsoSigName = d.Elec_DeIsolation_Sig ? d.Elec_DeIsolation_Sig.split(' on ')[0] : '-';
-    doc.rect(startX + 10, y, 500, 40).stroke();
-    doc.font('Helvetica').text(`Authorized Person Name: ${deIsoSigName}`, startX + 20, y + 10);
-    doc.text(`Signature: (Digitally Signed)`, startX + 300, y + 10);
+    doc.rect(startX, y, width, 50).stroke();
+    doc.text(`Name of Authorized Person: ${deIsoSigName}`, startX + 5, y + 10);
+    doc.text(`Designation: Electrical Officer`, startX + 5, y + 30);
+    doc.text('Signature: (Digitally Signed)', startX + 300, y + 10);
+
+    // --- ADDED TIMESTAMPS FOR ENERGIZATION ---
+    if (deIsoDate && deIsoTime) {
+        doc.fontSize(8).font('Helvetica-Oblique')
+           .text(`Timestamp: ${deIsoDate} ${deIsoTime}`, startX + 300, y + 25);
+        doc.fontSize(9).font('Helvetica'); // Reset
+    }
 }
-
 /* =====================================================
    JSA PORTAL ROUTES (Crash Proofed from B)
 ===================================================== */
