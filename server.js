@@ -1499,7 +1499,7 @@ if (st === 'Closed') {
     await q.query(`UPDATE Permits SET Status=@s, FullDataJSON=@j, RenewalsJSON=@r ${sqlSetJsa} WHERE PermitID=@p`);
     
     res.json({success: true});
-
+});
 // RENEWAL (Merged Validation from A)
 // RENEWAL - Enforces Rules A (8h), B (Bounds), C (Chronological), E (Time Order)
 app.post('/api/renewal', authenticateAccess, upload.single('RenewalImage'), async(req,res) => {
