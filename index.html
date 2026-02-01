@@ -1991,13 +1991,22 @@ async function submitRenewal(act) {
                     t.innerHTML += `<tr class="${rowClass}"><td class="p-2">${x.name}</td><td class="p-2">${x.desig}</td><td class="p-2">${x.contact}</td><td class="p-2 text-xs text-gray-500">${auditText} ${actionBtn}</td></tr>`;
                 });
             }
-            document.getElementById('iocl-sup-display-section').classList.remove('hidden');
-            document.getElementById('btn-add-rev-sup').parentElement.classList.add('hidden');
-            document.getElementById('btn-add-app-sup').parentElement.classList.add('hidden');
-            if (status.includes('Renewal') || status.includes('Closure')) return;
-            if(currentUser.Role === 'Reviewer' && status === 'Pending Review') document.getElementById('btn-add-rev-sup').parentElement.classList.remove('hidden');
-            if(currentUser.Role === 'Approver' && (status === 'Pending Approval' || status === 'Active')) document.getElementById('btn-add-app-sup').parentElement.classList.remove('hidden');
-        }
+           // FIX: Ensure the section is ALWAYS visible if there is data, even during Closure
+    document.getElementById('iocl-sup-display-section').classList.remove('hidden');
+
+    // Hide input wrappers during closure/renewal phases
+    const isProcessingClosure = status.includes('Closure') || status === 'Closed';
+    document.getElementById('btn-add-rev-sup').parentElement.classList.add('hidden');
+    document.getElementById('btn-add-app-sup').parentElement.classList.add('hidden');
+
+    // Only show "Add" inputs if not in closure and user has the right role
+    if (!isProcessingClosure) {
+        if(currentUser.Role === 'Reviewer' && status === 'Pending Review') 
+            document.getElementById('btn-add-rev-sup').parentElement.classList.remove('hidden');
+        if(currentUser.Role === 'Approver' && (status === 'Pending Approval' || status === 'Active')) 
+            document.getElementById('btn-add-app-sup').parentElement.classList.remove('hidden');
+    }
+}
           
         function deleteIOCLSup(index, status) {
             if(!confirm("Remove this supervisor from active list?")) return;
@@ -2681,3 +2690,4 @@ async function downloadSecurePDF(id, format = 'default') {
     </script>
 </body>
 </html>
+
