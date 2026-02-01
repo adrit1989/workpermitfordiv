@@ -1975,37 +1975,40 @@ async function submitRenewal(act) {
         }
           
         function renderIOCLTable(status) {
-            const t = document.querySelector('#table-iocl-display tbody'); t.innerHTML = '';
-            if(!currentPermitIOCLData || currentPermitIOCLData.length === 0) {
-                t.innerHTML = '<tr><td colspan="4">None</td></tr>';
-            } else {
-                currentPermitIOCLData.forEach((x, idx) => {
-                    const isDeleted = x.status === 'inactive';
-                    const rowClass = isDeleted ? "bg-red-50 text-gray-400 line-through" : "";
-                    let auditText = `Added by ${x.added_by} on ${x.added_at}`;
-                    if(x.deleted_by) auditText += `<br><span class="text-red-600 font-bold no-underline">Deleted by ${x.deleted_by} on ${x.deleted_at}</span>`;
-                    let actionBtn = '';
-                    if(currentUser.Role === 'Approver' && status === 'Active' && !isDeleted) {
-                        actionBtn = `<button type="button" class="text-red-500 text-[10px] font-bold ml-2" onclick="deleteIOCLSup(${idx}, '${status}')">🗑️</button>`;
-                    }
-                    t.innerHTML += `<tr class="${rowClass}"><td class="p-2">${x.name}</td><td class="p-2">${x.desig}</td><td class="p-2">${x.contact}</td><td class="p-2 text-xs text-gray-500">${auditText} ${actionBtn}</td></tr>`;
-                });
-            }
-           // FIX: Ensure the section is ALWAYS visible if there is data, even during Closure
-    document.getElementById('iocl-sup-display-section').classList.remove('hidden');
+    const displaySection = document.getElementById('iocl-sup-display-section');
+    if (!displaySection) return;
 
-    // Hide input wrappers during closure/renewal phases
-    const isProcessingClosure = status.includes('Closure') || status === 'Closed';
-    document.getElementById('btn-add-rev-sup').parentElement.classList.add('hidden');
-    document.getElementById('btn-add-app-sup').parentElement.classList.add('hidden');
-
-    // Only show "Add" inputs if not in closure and user has the right role
-    if (!isProcessingClosure) {
-        if(currentUser.Role === 'Reviewer' && status === 'Pending Review') 
-            document.getElementById('btn-add-rev-sup').parentElement.classList.remove('hidden');
-        if(currentUser.Role === 'Approver' && (status === 'Pending Approval' || status === 'Active')) 
-            document.getElementById('btn-add-app-sup').parentElement.classList.remove('hidden');
+    // A. Always visible except for 'Closed' status
+    if (status === 'Closed') {
+        displaySection.classList.add('hidden');
+        return;
     }
+    
+    displaySection.classList.remove('hidden');
+    const t = document.querySelector('#table-iocl-display tbody'); 
+    t.innerHTML = '';
+
+    if(!currentPermitIOCLData || currentPermitIOCLData.length === 0) {
+        t.innerHTML = '<tr><td colspan="4">None</td></tr>';
+    } else {
+        currentPermitIOCLData.forEach((x, idx) => {
+            const isDeleted = x.status === 'inactive';
+            const rowClass = isDeleted ? "bg-red-50 text-gray-400 line-through" : "";
+            let auditText = `Added by ${x.added_by} on ${x.added_at}`;
+            if(x.deleted_by) auditText += `<br><span class="text-red-600 no-underline">Deleted by ${x.deleted_by}</span>`;
+            
+            let actionBtn = (status === 'Active' && currentUser.Role === 'Approver' && !isDeleted) 
+                ? `<button type="button" class="text-red-500 ml-2" onclick="deleteIOCLSup(${idx}, '${status}')">🗑️</button>` 
+                : '';
+
+            t.innerHTML += `<tr class="${rowClass}"><td class="p-2">${x.name}</td><td class="p-2">${x.desig}</td><td class="p-2">${x.contact}</td><td class="p-2 text-xs">${auditText} ${actionBtn}</td></tr>`;
+        });
+    }
+
+    // Hide "Add" buttons during any closure processing phase
+    const isProcessing = status.includes('Closure');
+    document.getElementById('btn-add-rev-sup').parentElement.classList.toggle('hidden', isProcessing);
+    document.getElementById('btn-add-app-sup').parentElement.classList.toggle('hidden', isProcessing);
 }
           
         function deleteIOCLSup(index, status) {
@@ -2690,4 +2693,5 @@ async function downloadSecurePDF(id, format = 'default') {
     </script>
 </body>
 </html>
+
 
