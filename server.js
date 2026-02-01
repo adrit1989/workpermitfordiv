@@ -1438,61 +1438,80 @@ if (action === 'elec_closure_approve') {
 
  // ... previous logic for st and d ...
 
-    if (st === 'Closed') {
-        try {
-            const pdfRecord = { ...p, Status: 'Closed', PermitID: PermitID, ValidFrom: p.ValidFrom, ValidTo: p.ValidTo };
-            
-            // 1. GENERATE BOTH PDF BUFFERS
-            const standardPdfBuffer = await new Promise((resolve, reject) => {
-                const doc = new PDFDocument({ margin: 30, size: 'A4', bufferPages: true });
-                const chunks = [];
-                doc.on('data', chunks.push.bind(chunks));
-                doc.on('end', () => resolve(Buffer.concat(chunks)));
-                drawPermitPDF(doc, pdfRecord, d, rens).then(() => doc.end()).catch(reject);
-            });
-
-            const mainlinePdfBuffer = await new Promise((resolve, reject) => {
-                const doc = new PDFDocument({ margin: 30, size: 'A4', bufferPages: true });
-                const chunks = [];
-                doc.on('data', chunks.push.bind(chunks));
-                doc.on('end', () => resolve(Buffer.concat(chunks)));
-                drawMainlinePermitPDF(doc, pdfRecord, d, rens).then(() => doc.end()).catch(reject);
-            });
-
-            // 2. UPLOAD TO AZURE
-            const standardBlobName = `closed-permits/${PermitID}_FINAL.pdf`;
-            const mainlineBlobName = `closed-permits/${PermitID}_MAINLINE_FINAL.pdf`;
-            
-            const finalPdfUrl = await uploadToAzure(standardPdfBuffer, standardBlobName, "application/pdf");
-            await uploadToAzure(mainlinePdfBuffer, mainlineBlobName, "application/pdf");
-
-            if (finalPdfUrl) {
-                // 3. WIPE JSON AND SET FINAL STATUS
-                await pool.request()
-                    .input('p', PermitID)
-                    .input('url', finalPdfUrl)
-                    .query(`UPDATE Permits SET Status='Closed', FinalPdfUrl=@url, FullDataJSON=NULL, RenewalsJSON=NULL WHERE PermitID=@p`);
-                
-                return res.json({ success: true, archived: true, pdfUrl: finalPdfUrl });
-            }
-        } catch (e) {
-            console.error("🚨 Archival Error:", e);
-            return res.status(500).json({ error: "PDF Archival failed. JSON preserved." });
-        }
-    } else {
-        // STANDARD UPDATE (Runs only if status is NOT 'Closed')
-        const q = pool.request()
-            .input('p', PermitID).input('s', st)
-            .input('j', JSON.stringify(d)).input('r', JSON.stringify(rens))
-            .input('jsaUrl', newJsaUrl)
-            .input('jsaId', req.body.JsaLinkedId || null);
-
-        await q.query(`UPDATE Permits SET Status=@s, FullDataJSON=@j, RenewalsJSON=@r ${sqlSetJsa} WHERE PermitID=@p`);
+   /* =====================================================
+   CORRECTED CLOSURE LOGIC: PERSIST DATA UNTIL PDF IS SAFE
+===================================================== */
+if (st === 'Closed') {
+    try {
+        // Create a record object for the PDF generators
+        const pdfRecord = { ...p, Status: 'Closed', PermitID: PermitID, ValidFrom: p.ValidFrom, ValidTo: p.ValidTo };
         
-        return res.json({success: true});
-    }
-  });
+        // 1. GENERATE STANDARD PDF BUFFER
+        const standardPdfBuffer = await new Promise((resolve, reject) => {
+            const doc = new PDFDocument({ margin: 30, size: 'A4', bufferPages: true });
+            const chunks = [];
+            doc.on('data', chunks.push.bind(chunks));
+            doc.on('end', () => resolve(Buffer.concat(chunks)));
+            // d still contains IOCLSupervisors here
+            drawPermitPDF(doc, pdfRecord, d, rens).then(() => doc.end()).catch(reject);
+        });
 
+        // 2. GENERATE MAINLINE PDF BUFFER
+        const mainlinePdfBuffer = await new Promise((resolve, reject) => {
+            const doc = new PDFDocument({ margin: 30, size: 'A4', bufferPages: true });
+            const chunks = [];
+            doc.on('data', chunks.push.bind(chunks));
+            doc.on('end', () => resolve(Buffer.concat(chunks)));
+            // Ensuring the detailed mainline format captures the supervisors
+            drawMainlinePermitPDF(doc, pdfRecord, d, rens).then(() => doc.end()).catch(reject);
+        });
+
+        // 3. UPLOAD BOTH TO AZURE BLOB STORAGE
+        const standardBlobName = `closed-permits/${PermitID}_FINAL.pdf`;
+        const mainlineBlobName = `closed-permits/${PermitID}_MAINLINE_FINAL.pdf`;
+        
+        const finalPdfUrl = await uploadToAzure(standardPdfBuffer, standardBlobName, "application/pdf");
+        const finalMainlineUrl = await uploadToAzure(mainlinePdfBuffer, mainlineBlobName, "application/pdf");
+
+        if (finalPdfUrl && finalMainlineUrl) {
+            // 4. DATABASE UPDATE: Only wipe JSON after both uploads are confirmed
+            await pool.request()
+                .input('p', PermitID)
+                .input('url', finalPdfUrl)
+                .query(`
+                    UPDATE Permits 
+                    SET Status='Closed', 
+                        FinalPdfUrl=@url, 
+                        FullDataJSON=NULL, 
+                        RenewalsJSON=NULL 
+                    WHERE PermitID=@p
+                `);
+            
+            console.log(`✅ Archival Complete for ${PermitID}. Mainline & Standard saved.`);
+            return res.json({ success: true, archived: true, pdfUrl: finalPdfUrl });
+        } else {
+            throw new Error("Azure Upload Failed");
+        }
+    } catch (e) {
+        console.error("🚨 Archival Critical Failure:", e);
+        // Do NOT wipe JSON if PDF generation/upload fails
+        return res.status(500).json({ error: "Archival failed. Data preserved in system." });
+    }
+} else {
+    /* =====================================================
+       STANDARD UPDATE (Runs ONLY if status is NOT 'Closed')
+    ===================================================== */
+    const q = pool.request()
+        .input('p', PermitID).input('s', st)
+        .input('j', JSON.stringify(d)).input('r', JSON.stringify(rens))
+        .input('jsaUrl', newJsaUrl)
+        .input('jsaId', req.body.JsaLinkedId || null);
+
+    await q.query(`UPDATE Permits SET Status=@s, FullDataJSON=@j, RenewalsJSON=@r ${sqlSetJsa} WHERE PermitID=@p`);
+    
+    return res.json({success: true});
+    }
+    });
 // RENEWAL (Merged Validation from A)
 // RENEWAL - Enforces Rules A (8h), B (Bounds), C (Chronological), E (Time Order)
 app.post('/api/renewal', authenticateAccess, upload.single('RenewalImage'), async(req,res) => {
@@ -1747,73 +1766,65 @@ app.get('/api/download-excel', authenticateAccess, async (req, res) => {
       if(!res.headersSent) res.status(500).send("Export Error"); 
   }
 });
-// DOWNLOAD PDF
-// DOWNLOAD PDF (Supports ?format=mainline)
+// DOWNLOAD PDF (Updated to support Closed Mainline blobs)
 app.get('/api/download-pdf/:id', authenticateAccess, async(req, res) => {
     try {
         const pool = await getConnection();
         const r = await pool.request().input('p', req.params.id).query("SELECT * FROM Permits WHERE PermitID=@p");
         if(!r.recordset.length) return res.status(404).send("Not Found");
         const p = r.recordset[0];
-        // --- SECURITY FIX: IDOR PROTECTION START ---
+
+        // --- SECURITY CHECK (Existing) ---
         const { role, email } = req.user;
         let isAuthorized = false;
-
-        // 1. Master Admins and Electrical Auth (if needed) can access all
         if (role === 'MasterAdmin' || role === 'ElectricalAuth') isAuthorized = true;
-        
-        // 2. Requester can only access their own
         else if (role === 'Requester' && p.RequesterEmail === email) isAuthorized = true;
-        
-        // 3. Reviewer can access assigned OR if status involves review
         else if (role === 'Reviewer' && (p.ReviewerEmail === email || p.Status.includes('Review'))) isAuthorized = true;
-        
-        // 4. Approver can access assigned OR if status involves approval
         else if (role === 'Approver' && (p.ApproverEmail === email || p.Status.includes('Approval'))) isAuthorized = true;
 
-        if (!isAuthorized) {
-            console.warn(`⚠️ Blocked unauthorized PDF access: User ${email} tried to access ${p.PermitID}`);
-            return res.status(403).send("⛔ Unauthorized Access: You do not have permission to view this permit.");
-        }
-        // --- SECURITY FIX END ---
+        if (!isAuthorized) return res.status(403).send("⛔ Unauthorized Access");
         
-        // 1. Check Format Requested
-        const format = req.query.format; 
+        const format = req.query.format; // Detect if ?format=mainline was used
 
-        // 2. Archival Logic (Skip if Mainline format is requested, forcing dynamic gen)
-        if (format !== 'mainline' && (p.Status==='Closed' || p.Status.includes('Closure')) && p.FinalPdfUrl && containerClient) {
+        /* =====================================================
+           ARCHIVAL FETCH LOGIC (For Closed Permits)
+        ===================================================== */
+        if (p.Status === 'Closed' && containerClient) {
+            // Determine which archived file to grab
+            let blobName = `closed-permits/${p.PermitID}_FINAL.pdf`;
+            if (format === 'mainline') {
+                blobName = `closed-permits/${p.PermitID}_MAINLINE_FINAL.pdf`;
+            }
+
             try {
-                const blobName = `closed-permits/${p.PermitID}_FINAL.pdf`;
                 const blockBlob = containerClient.getBlockBlobClient(blobName);
                 if (await blockBlob.exists()) {
                     const download = await blockBlob.download(0);
-                    res.setHeader('Content-Type','application/pdf');
-                    res.setHeader('Content-Disposition',`attachment; filename=${p.PermitID}.pdf`);
+                    res.setHeader('Content-Type', 'application/pdf');
+                    res.setHeader('Content-Disposition', `attachment; filename=${blobName.split('/').pop()}`);
                     return download.readableStreamBody.pipe(res);
                 }
-            } catch (err) { console.log("Archival fetch error, generating dynamic fallback."); }
+            } catch (err) { 
+                console.log("Archived blob not found, falling back to dynamic generation."); 
+            }
         }
 
-        // 3. Generate PDF Dynamically
+        /* =====================================================
+           DYNAMIC GENERATION (For Active Permits or Fallback)
+        ===================================================== */
         const doc = new PDFDocument({ margin: 30, size: 'A4', bufferPages: true });
         res.setHeader('Content-Type', 'application/pdf');
-        
-        // Adjust filename based on format
         const filename = format === 'mainline' ? `${p.PermitID}_Mainline.pdf` : `${p.PermitID}.pdf`;
         res.setHeader('Content-Disposition', `attachment; filename=${filename}`);
         
         doc.pipe(res);
         
-        // SAFE PARSING
         const d = p.FullDataJSON ? JSON.parse(p.FullDataJSON) : {};
         const rens = p.RenewalsJSON ? JSON.parse(p.RenewalsJSON) : [];
         
-        // 4. Switch Logic
         if (format === 'mainline') {
-             // Using the new Mainline format structure
             await drawMainlinePermitPDF(doc, p, d, rens);
         } else {
-            // Default to Old Format
             await drawPermitPDF(doc, p, d, rens);
         }
         
