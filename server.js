@@ -2552,7 +2552,8 @@ async function generateJsaPdfBuffer(jsa, refNo, approverName, approvedDate) {
             y += textHeight + 5; // Add dynamic spacing based on text height
         });
 
-
+        doc.end(); // <--- CRITICAL FIX: Finalize the PDF
+    });
 }
 
 app.get('/', (req, res) => {
