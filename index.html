@@ -1706,121 +1706,160 @@ if (isRevTurn || isAppTurn) {
         }
 
 function handleClosureUI(p, actionsDiv) {
-            const isClosable = (p.Status === 'Active');
-            const siteRestoredLabel = document.getElementById('lbl-site-restore');
-            const siteRestoredCheck = document.getElementById('Site_Restored_Check');
+    const st = p.Status;
+    // Define states where closure is active or pending/completed
+    const isClosurePhase = st === 'Active' || st.includes('Closure') || st === 'Pending Electrical De-Isolation' || st === 'Closed';
+    
+    // Elements
+    const siteRestoredLabel = document.getElementById('lbl-site-restore');
+    const siteRestoredCheck = document.getElementById('Site_Restored_Check');
+    const closureSection = document.getElementById('closure-section');
+    const reqDiv = document.getElementById('div-closure-req');
 
-            // 1. Requester Mode (Active Permit)
-            if (currentUser.Role === 'Requester' && isClosable) {
-                document.getElementById('closure-section').classList.remove('hidden');
-                document.getElementById('div-closure-req').classList.remove('hidden');
-                
-                renderClosureSection(p); // Render checklist
-                document.getElementById('Closure_Requestor_Remarks').disabled = false;
-                
-// FIX A: Unhide and Enable Site Restoration Checkbox
-            siteRestoredLabel.classList.remove('hidden'); 
-            siteRestoredCheck.disabled = false;
-            siteRestoredCheck.checked = (p.Site_Restored_Check === 'Y');
+    // Reset UI first
+    closureSection.classList.add('hidden');
+    reqDiv.classList.add('hidden');
+    siteRestoredLabel.classList.add('hidden');
+    
+    // Remove dynamic electrical checkbox if it exists to prevent duplicates
+    const oldElec = document.getElementById('lbl-elec-restore');
+    if (oldElec) oldElec.remove();
 
-            // NEW: Clean up and add Energize Checkbox if Electrical Isolation was 'Yes'
-            const oldElec = document.getElementById('lbl-elec-restore');
-            if (oldElec) oldElec.remove(); // Remove existing to prevent duplicates
+    if (!isClosurePhase) return;
 
-            if (p.A_Q11 === 'Y') {
-                const energizeLabel = document.createElement('label');
-                energizeLabel.id = "lbl-elec-restore";
-                energizeLabel.className = "flex items-center gap-2 mt-2 font-bold text-orange-700 cursor-pointer p-2 bg-yellow-50 border border-yellow-200 rounded";
-                energizeLabel.innerHTML = `<input type="checkbox" id="Elec_Energize_Check" class="w-5 h-5 accent-orange-600"> I confirm Site is restored & Electrical equipment can be re-energized.`;
-                document.getElementById('div-closure-req').appendChild(energizeLabel);
-                // --- FIX: Populate Saved State & Handle Read-Only ---
-                const elCheck = document.getElementById('Elec_Energize_Check');
-                // Check if it was saved as 'Y'
-                if (p.Elec_Energize_Check === 'Y') elCheck.checked = true;
-                
-                // Disable if not in active editing mode (e.g., for Reviewer/Approver or Closed status)
-                if (currentUser.Role !== 'Requester' || !isClosable) {
-                    elCheck.disabled = true;
-                }
-            }
+    // --- 1. VISIBILITY SETUP ---
+    closureSection.classList.remove('hidden');
+    renderClosureSection(p);
+    reqDiv.classList.remove('hidden');
+
+    // Populate Remarks
+    safeSet("Closure_Requestor_Remarks", p.Closure_Requestor_Remarks || "");
+    
+    // --- 2. EDITABILITY LOGIC ---
+    // Only Requester can edit, and only when status is Active
+    const isReqEditing = (currentUser.Role === 'Requester' && st === 'Active');
+
+    // Remarks Field
+    document.getElementById('Closure_Requestor_Remarks').disabled = !isReqEditing;
+    // Checklist Fields
+    document.querySelectorAll('.clos-chk').forEach(c => c.disabled = !isReqEditing);
+    // Deviation Field
+    document.getElementById('Closure_Deviation_Reason').value = p.Closure_Deviation_Reason || '';
+    document.getElementById('Closure_Deviation_Reason').disabled = !isReqEditing;
+
+    // --- 3. SITE RESTORATION CHECKBOX ---
+    siteRestoredLabel.classList.remove('hidden');
+    // Force boolean check against 'Y'
+    siteRestoredCheck.checked = (p.Site_Restored_Check === 'Y'); 
+    siteRestoredCheck.disabled = !isReqEditing;
+
+    // --- 4. ELECTRICAL ENERGIZATION CHECKBOX ---
+    // This logic now runs for BOTH Active (Editing) and Pending/Closed (Viewing) modes
+    if (p.A_Q11 === 'Y') {
+        const energizeLabel = document.createElement('label');
+        energizeLabel.id = "lbl-elec-restore";
+        energizeLabel.className = "flex items-center gap-2 mt-2 font-bold text-orange-700 cursor-pointer p-2 bg-yellow-50 border border-yellow-200 rounded";
+        
+        const elInput = document.createElement('input');
+        elInput.type = "checkbox";
+        elInput.id = "Elec_Energize_Check";
+        elInput.className = "w-5 h-5 accent-orange-600";
+        
+        // Load state from DB
+        elInput.checked = (p.Elec_Energize_Check === 'Y');
+        // Set disabled state
+        elInput.disabled = !isReqEditing;
+
+        energizeLabel.appendChild(elInput);
+        energizeLabel.appendChild(document.createTextNode(" I confirm Site is restored & Electrical equipment can be re-energized."));
+        
+        // Append to the requestor div
+        reqDiv.appendChild(energizeLabel);
+    }
+
+    // --- 5. TIMESTAMP DISPLAY ---
+    if (p.Closure_Requestor_Date) {
+        document.getElementById('ts-clos-req').innerText = `Submitted by ${p.RequesterName} on ${p.Closure_Requestor_Date}`;
+    } else {
+        document.getElementById('ts-clos-req').innerText = '';
+    }
+
+    // --- 6. ACTION BUTTONS (Requester) ---
+    if (isReqEditing) {
+        const b = document.createElement("button"); b.type = "button"; 
+        b.className = "bg-red-600 text-white px-4 py-2 rounded font-bold"; 
+        b.innerText = "Submit Closure"; 
+        b.onclick = () => upd('initiate_closure');
+        actionsDiv.appendChild(b);
+    }
+
+    // --- 7. REVIEWER / APPROVER SECTIONS ---
+    // Show Reviewer Section
+    if (st.includes('Closure') || st === 'Closed' || st === 'Pending Electrical De-Isolation') {
+        // We show reviewer section if it's their turn OR if they have already signed
+        if (st === 'Closure Pending Review' || p.Closure_Reviewer_Sig) {
+            document.getElementById('div-closure-rev').classList.remove('hidden');
+            const revRem = document.getElementById('Closure_Reviewer_Remarks');
+            revRem.value = p.Closure_Reviewer_Remarks || "";
+            revRem.disabled = !(currentUser.Role === 'Reviewer' && st === 'Closure Pending Review');
             
-                const b = document.createElement("button"); b.type = "button"; 
-                b.className = "bg-red-600 text-white px-4 py-2 rounded font-bold"; 
-                b.innerText = "Submit Closure"; 
-                b.onclick = () => upd('initiate_closure');
-                actionsDiv.appendChild(b);
-            }
-
-            // 2. View/Approval Mode (Closure Pending or Closed)
-            if (p.Status.includes('Closure')) {
-                document.getElementById('closure-section').classList.remove('hidden');
-                renderClosureSection(p); 
-                
-                document.querySelectorAll('.clos-chk').forEach(c => c.disabled = true);
-                document.getElementById('Closure_Deviation_Reason').value = p.Closure_Deviation_Reason || '';
-                document.getElementById('Closure_Deviation_Reason').disabled = true;
-
-                document.getElementById('div-closure-req').classList.remove('hidden');
-                safeSet("Closure_Requestor_Remarks", p.Closure_Requestor_Remarks || "");
-                
-                // Show Site Restoration Status (Read-Only)
-                siteRestoredLabel.classList.remove('hidden');
-                siteRestoredCheck.checked = (p.Site_Restored_Check === 'Y');
-                siteRestoredCheck.disabled = true;
-
-                if (p.Status === 'Closure Pending Review' && currentUser.Role === 'Reviewer') {
-                    document.getElementById('div-closure-rev').classList.remove('hidden');
-                    document.getElementById('Closure_Reviewer_Remarks').disabled = false;
-                    const bR = document.createElement("button"); bR.type="button"; bR.className="bg-red-600 text-white px-4 py-2 rounded font-bold mr-2"; bR.innerText="Reject Closure"; bR.onclick=()=>upd('reject_closure');
-                    const bA = document.createElement("button"); bA.type="button"; bA.className="bg-green-600 text-white px-4 py-2 rounded font-bold"; bA.innerText="Verify Closure"; bA.onclick=()=>upd('approve_closure');
-                    actionsDiv.append(bR, bA);
-                }
-                if (p.Status === 'Closure Pending Approval' && currentUser.Role === 'Approver') {
-                    document.getElementById('div-closure-rev').classList.remove('hidden');
-                    document.getElementById('div-closure-app').classList.remove('hidden');
-                    document.getElementById('Closure_Approver_Remarks').disabled = false;
-                    safeSet("Closure_Reviewer_Remarks", p.Closure_Reviewer_Remarks || "");
-                    const bR = document.createElement("button"); bR.type="button"; bR.className="bg-red-600 text-white px-4 py-2 rounded font-bold mr-2"; bR.innerText="Reject Closure"; bR.onclick=()=>upd('reject_closure');
-                    const bA = document.createElement("button"); bA.type="button"; bA.className="bg-black text-white px-4 py-2 rounded font-bold"; bA.innerText="Final Permit Close"; bA.onclick=()=>upd('approve');
-                    actionsDiv.append(bR, bA);
-                    // --- FIX A: Add Dynamic Closure Summary ---
-const reqName = safeText(p.RequesterName || 'Requester');
-const checks = [
-    {id: 'Closure_WorkCompleted', label: 'Work Completed'}, {id: 'Closure_SiteRestored', label: 'Site Restoration'},
-    {id: 'Closure_Withdrawal', label: 'Withdrawal of Men/Material'}, {id: 'Closure_Normalization', label: 'Normalization of Isolations'},
-    {id: 'Closure_Housekeeping', label: 'Housekeeping'}
-];
-
-// Determine which were checked
-const doneList = checks.filter(c => p[c.id] === 'Y').map(c => c.label);
-const notDoneList = checks.filter(c => p[c.id] !== 'Y').map(c => c.label);
-
-let summary = `<div class="mt-4 p-3 bg-gray-50 border border-gray-200 rounded text-xs text-gray-700 italic">
-    <strong>Closure Summary:</strong> ${reqName} confirmed that: `;
-
-if(doneList.length > 0) summary += `<b>${doneList.join(', ')}</b> have been complied. `;
-if(notDoneList.length > 0) {
-    summary += `For <b>${notDoneList.join(', ')}</b>, the reason provided is: "<b>${p.Closure_Deviation_Reason || 'No Reason Given'}</b>". `;
-}
-
-if(p.Status === 'Closed') {
-    summary += `<br><span class="text-green-700 font-bold">Reviewer and Approver have agreed and closed the permit.</span>`;
-}
-
-summary += `</div>`;
-
-// Append this summary to the closure section if not already there
-if(!document.getElementById('closure-summary-box')) {
-    const summaryDiv = document.createElement('div');
-    summaryDiv.id = 'closure-summary-box';
-    summaryDiv.innerHTML = summary;
-    document.getElementById('closure-section').appendChild(summaryDiv);
-}
-
-                }
+            if (p.Closure_Reviewer_Sig) {
+                document.getElementById('ts-clos-rev').innerText = `Reviewed by ${p.Closure_Reviewer_Sig}`;
             }
         }
+    }
 
+    // Reviewer Buttons
+    if (st === 'Closure Pending Review' && currentUser.Role === 'Reviewer') {
+        const bR = document.createElement("button"); bR.type="button"; bR.className="bg-red-600 text-white px-4 py-2 rounded font-bold mr-2"; bR.innerText="Reject Closure"; bR.onclick=()=>upd('reject_closure');
+        const bA = document.createElement("button"); bA.type="button"; bA.className="bg-green-600 text-white px-4 py-2 rounded font-bold"; bA.innerText="Verify Closure"; bA.onclick=()=>upd('approve_closure');
+        actionsDiv.append(bR, bA);
+    }
+
+    // Show Approver Section
+    if (st === 'Closure Pending Approval' || st === 'Closed') {
+        document.getElementById('div-closure-app').classList.remove('hidden');
+        const appRem = document.getElementById('Closure_Approver_Remarks');
+        appRem.value = p.Closure_Approver_Remarks || "";
+        appRem.disabled = !(currentUser.Role === 'Approver' && st === 'Closure Pending Approval');
+
+        if (p.Closure_Issuer_Sig) {
+            document.getElementById('ts-clos-app').innerText = `Approved by ${p.Closure_Issuer_Sig}`;
+        }
+    }
+
+    // Approver Buttons
+    if (st === 'Closure Pending Approval' && currentUser.Role === 'Approver') {
+        const bR = document.createElement("button"); bR.type="button"; bR.className="bg-red-600 text-white px-4 py-2 rounded font-bold mr-2"; bR.innerText="Reject Closure"; bR.onclick=()=>upd('reject_closure');
+        const bA = document.createElement("button"); bA.type="button"; bA.className="bg-black text-white px-4 py-2 rounded font-bold"; bA.innerText="Final Permit Close"; bA.onclick=()=>upd('approve');
+        actionsDiv.append(bR, bA);
+
+        // Closure Summary Logic for Approver
+        const checks = [
+            {id: 'Closure_WorkCompleted', label: 'Work Completed'}, {id: 'Closure_SiteRestored', label: 'Site Restoration'},
+            {id: 'Closure_Withdrawal', label: 'Withdrawal of Men/Material'}, {id: 'Closure_Normalization', label: 'Normalization of Isolations'},
+            {id: 'Closure_Housekeeping', label: 'Housekeeping'}
+        ];
+        const doneList = checks.filter(c => p[c.id] === 'Y').map(c => c.label);
+        const notDoneList = checks.filter(c => p[c.id] !== 'Y').map(c => c.label);
+
+        let summary = `<div class="mt-4 p-3 bg-gray-50 border border-gray-200 rounded text-xs text-gray-700 italic">
+            <strong>Closure Summary:</strong> ${safeText(p.RequesterName)} confirmed that: `;
+
+        if(doneList.length > 0) summary += `<b>${doneList.join(', ')}</b> have been complied. `;
+        if(notDoneList.length > 0) {
+            summary += `For <b>${notDoneList.join(', ')}</b>, the reason provided is: "<b>${p.Closure_Deviation_Reason || 'No Reason Given'}</b>". `;
+        }
+        summary += `</div>`;
+
+        if(!document.getElementById('closure-summary-box')) {
+            const summaryDiv = document.createElement('div');
+            summaryDiv.id = 'closure-summary-box';
+            summaryDiv.innerHTML = summary;
+            document.getElementById('closure-section').appendChild(summaryDiv);
+        }
+    }
+}
 async function upd(act) {
     // 1. Single declaration at the top so it's accessible throughout the function
     const fd = new FormData();
@@ -2813,6 +2852,7 @@ async function downloadSecurePDF(id, format = 'default') {
     </script>
 </body>
 </html>
+
 
 
 
