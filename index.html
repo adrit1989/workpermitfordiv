@@ -412,10 +412,18 @@
         <span class="text-sm font-bold text-green-800">Require Photo Evidence for ALL Renewals?</span>
     </label>
     
-    <div id="pdf-color-select" class="mt-2 hidden">
-        <label>PDF Background:</label>
-        <select id="PdfBgColor"><option>White</option><option>Red</option><option>Green</option><option>Yellow</option><option>Auto</option></select>
-    </div>
+    <div id="pdf-color-select" class="mt-2">
+    <label class="block text-xs font-bold text-gray-700 mb-1">Force PDF Background Color:</label>
+    <select id="PdfBgColor" class="w-full text-sm border p-1 rounded">
+        <option value="Auto">Auto (Detect by Work Type)</option>
+        <option value="White">White (Default)</option>
+        <option value="Red">Red (Height Work)</option>
+        <option value="Pink">Pink (Hot Work)</option>
+        <option value="LightBlue">Light Blue (Electrical)</option>
+        <option value="Yellow">Yellow (Cold Work)</option>
+        <option value="Green">Green (Safe/Generic)</option>
+    </select>
+</div>
 </div>
  
                         <div id="iocl-sup-display-section" class="glass hidden">
@@ -2877,6 +2885,7 @@ async function downloadSecurePDF(id, format = 'default') {
     </script>
 </body>
 </html>
+
 
 
 
