@@ -1216,7 +1216,8 @@ if (p.Elec_Energization_Msg) {
                     
                     // Allow Approver to toggle Photo Requirement
                     if (currentUser.Role === 'Approver' && el.id === 'RequireRenewalPhotos') shouldDisable = (statusClean === 'Active');
-
+                    // Allow Approver to change PDF Background Color
+                    if (currentUser.Role === 'Approver' && el.id === 'PdfBgColor') shouldDisable = false;
                     // Allow Requester to edit Deviation Reason during Closure
                     if (currentUser.Role === 'Requester' && statusClean === 'Active' && el.id === 'Closure_Deviation_Reason') shouldDisable = false;
 
@@ -2885,6 +2886,7 @@ async function downloadSecurePDF(id, format = 'default') {
     </script>
 </body>
 </html>
+
 
 
 
