@@ -343,6 +343,31 @@ async function drawPermitPDF(doc, p, d, renewalsList) {
     
     // Safety Helper
     const safeText = (t) => (t === null || t === undefined) ? '-' : String(t);
+    // --- 1. DETERMINE PAGE COLOR (STANDARD) ---
+    // Logic: Height (Red) > Hot (Pink) > Electrical (Blue) > Cold (Yellow)
+    let autoColor = 'White';
+    const wt = (d.WorkType || '').toString();
+
+    if (d.B_Q15 === 'Y' || wt.toLowerCase().includes('height')) {
+        autoColor = 'Red';       // D. Height Work
+    } 
+    else if (wt === 'Hot' || wt.toLowerCase().includes('hot')) {
+        autoColor = 'Pink';      // B. Hot Work
+    } 
+    else if (d.A_Q11 === 'Y' || wt.includes('Electrical')) {
+        autoColor = 'LightBlue'; // C. Electrical
+    } 
+    else if (wt === 'Cold' || wt.toLowerCase().includes('cold')) {
+        autoColor = 'Yellow';    // A. Cold Work
+    }
+
+    // Apply the color (Default to autoColor unless specific override exists)
+    let bgColor = d.PdfBgColor;
+    if (!bgColor || bgColor === 'Auto' || bgColor === 'White') {
+        bgColor = autoColor;
+    }
+
+  
 
     let watermarkText = (status === 'Closed' || status.includes('Closure')) ? `CLOSED - ${workType}` : `ACTIVE - ${workType}`;
 
@@ -356,13 +381,19 @@ async function drawPermitPDF(doc, p, d, renewalsList) {
         doc.opacity(1);
     };
 
-    const bgColor = d.PdfBgColor || 'White';
     const permitPrefix = safeText(d.LocationUnit || 'LOC'); 
     const compositePermitNo = `${permitPrefix}/${p.PermitID}`;
 
     const drawHeader = (doc, bgColor, permitNoStr) => {
         if (bgColor && bgColor !== 'Auto' && bgColor !== 'White') {
-            const colorMap = { 'Red': '#fee2e2', 'Green': '#dcfce7', 'Yellow': '#fef9c3' };
+            
+          const colorMap = { 
+                'Red': '#fee2e2',       // Red-100
+                'Green': '#dcfce7',     // Green-100
+                'Yellow': '#fef9c3',    // Yellow-100
+                'Pink': '#fce7f3',      // Pink-100 (Hot Work)
+                'LightBlue': '#e0f2fe'  // Sky-100 (Electrical)
+            };
             doc.save();
             doc.fillColor(colorMap[bgColor] || 'white');
             doc.rect(0, 0, doc.page.width, doc.page.height).fill();
