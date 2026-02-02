@@ -511,11 +511,51 @@ async function drawPermitPDF(doc, p, d, renewalsList) {
     doc.y += 10;
 
     // CHECKLISTS
-    const CHECKLIST_DATA = {
-        A: [ "1. Equipment/Work Area inspected.", "2. Surrounding area checked.", "3. Manholes covered.", "4. Hazards considered.", "5. Equipment blinded.", "6. Drained.", "7. Steamed.", "8. Flushed.", "9. Fire Access.", "10. Iron Sulfide.", "11. Electrical Isolation.", "12. Gas Test: HC / Toxic / O2 checked.", "13. Firefighting system.", "14. Cordoned off.", "15. CCTV.", "16. Ventilation." ],
-        B: [ "1. Exit/Escape.", "2. Standby.", "3. Gas Check.", "4. Spark Shield.", "5. Grounding.", "6. Confined Standby.", "7. Communication.", "8. Rescue.", "9. Cooling.", "10. Inert Gas.", "11. ELCB.", "12. Cylinders.", "13. Spark arrestor.", "14. Welding Location.", "15. Height Permit." ],
-        C: ["1. PESO approved spark elimination."],
-        D: [ "1. Shoring/Sloping.", "2. Soil distance.", "3. Access.", "4. Vehicle ban." ]
+   const CHECKLIST_DATA = {
+        A: [
+            "1. Equipment /Work Area inspected",
+            "2. Surrounding area checked, cleaned and covered Oil/ RAGS/Grass Etc removed.",
+            "3. Sewers, Manholes, CBD etc. and hot surface nearby covered",
+            "4. Considered hazards from other routine, non-routine operations and concerned person alerted.",
+            "5. Equipment blinded/ disconnected/ closed/ isolated/ wedge opened.",
+            "6. Equipment properly drained and depressurized.",
+            "7. Equipment properly steamed / purged.",
+            "8. Equipment water flushed.",
+            "9. Free Access for approach of Fire Tender.",
+            "10. Iron Sulfide removed/ Kept wet.",
+            "11. Equipment electrically isolated and tagged vide Permit no.",
+            "12. Gas test: HCs=____% LEL, Toxic gas =____ PPM, O2= ____ %",
+            "13. Running water hose / Fire extinguisher provided. Fire water system available.",
+            "14. Area cordoned off and Precautionary tag/Board provided.",
+            "15. CCTV monitoring facility available at site.",
+            "16. Proper ventilation and Lighting provided."
+        ],
+        B: [
+            "1. Proper means of exit / escape provided.",
+            "2. Standby personnel provided from Mainline/ Maint. / Contractor/ HSE.",
+            "3. Checked for oil and Gas trapped behind the lining in equipment.",
+            "4. Shield provided against spark.",
+            "5. Portable equipment nozzle properly grounded.",
+            "6. Standby persons provided for entry to confined space.",
+            "7. Adequate Communication Provided to Stand by Person.",
+            "8. Trained Attendant Provided With Rescue Equipment/SCBA.",
+            "9. Space Adequately Cooled for Safe Entry Of Person.",
+            "10. Continuous Inert Gas Flow Arranged.",
+            "11. Check For Earthing/ELCB of all Temporary Electrical Connections being used for welding.",
+            "12. Gas Cylinders are kept outside the confined Space.",
+            "13. Checked Spark arrestor on mobile Equipments.",
+            "14. Welding Machine Checked for Safe Location.",
+            "15. Permit taken for working at height Vide Permit No."
+        ],
+        C: [
+            "1. PESO approved spark elimination system provided on the mobile equipment/ vehicle provided."
+        ],
+        D: [
+            "1. For excavated trench/ pit proper slop/ shoring/ shuttering provided to prevent soil collapse.",
+            "2. Excavated soil kept at safe distance from trench/ pit edge (min. pit depth)",
+            "3. Safe means of access provided inside trench/ pit.",
+            "4. Movement of heavy vehicle prohibited."
+        ]
     };
 
    const drawChecklistSection = (title, items, prefix) => {
