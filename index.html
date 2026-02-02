@@ -271,7 +271,7 @@
                         <div class="glass border-t-4 border-orange-500">
                             <h3 class="font-bold text-orange-600 border-b pb-2 mb-4">1. Basic Details</h3>
                             <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-                                <div><label class="text-xs font-bold text-gray-500">Work Type</label><select name="WorkType" id="WorkType"><option>Hot</option><option>Cold</option><option>Confined Space</option><option>Excavation</option></select></div>
+                                <div><label class="text-xs font-bold text-gray-500">Work Type</label><select name="WorkType" id="WorkType"><option>Hot</option><option>Cold</option><option>Confined Space</option><option>Excavation</option><option>Composite Work</option></select></div>
                                 <div><label class="text-xs font-bold text-gray-500">Specific Work</label><input name="WorkTypeOther" id="WorkTypeOther"></div>
                                 <div class="md:col-span-2"><label class="text-xs font-bold text-gray-500">Location (GPS)</label><div class="flex gap-2"><input name="ExactLocation" id="ExactLocation" class="flex-1" placeholder="Coords"><button type="button" id="btn-get-geo" class="bg-blue-100 text-blue-700 px-3 rounded font-bold">📍 GPS</button></div><input type="hidden" id="Latitude" name="Latitude"><input type="hidden" id="Longitude" name="Longitude"></div>
                                 <div><label class="text-xs font-bold text-gray-500">Location Details</label><input name="WorkLocationDetail" id="WorkLocationDetail"></div>
@@ -2927,6 +2927,7 @@ async function downloadSecurePDF(id, format = 'default') {
     </script>
 </body>
 </html>
+
 
 
 
