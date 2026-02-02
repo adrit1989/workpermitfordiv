@@ -799,9 +799,9 @@ async function drawPermitPDF(doc, p, d, renewalsList) {
     const finalRenewals = renewalsList || [];
     doc.font('Helvetica').fontSize(7); // Smaller font to fit data
 
-    for (const r of finalRenewals) {
+    for (const [index, r] of finalRenewals.entries()) {
         if (ry > 700) { doc.addPage(); drawHeaderOnAll(); ry = 135; }
-        const rH = 75; // Increased height for worker list & status details
+        const rH = 75; 
         
         let rawFrom = r.valid_from || r.ValidFrom;
         let rawTo = r.valid_till || r.valid_to || r.ValidTo;
@@ -809,7 +809,7 @@ async function drawPermitPDF(doc, p, d, renewalsList) {
         
         if (r.odd_hour_req) { doc.fillColor('purple'); timeTxt += '\n(Night)'; } else doc.fillColor('black');
 
-        // 1. Status Column (Req A)
+        // 1. Status Column
         let statusTxt = "Pending";
         if(r.status === 'approved') statusTxt = "APPROVED";
         else if(r.status === 'rejected') statusTxt = `REJECTED\nBy: ${r.rejected_by}\nReason: ${r.rejection_reason}`;
@@ -820,17 +820,33 @@ async function drawPermitPDF(doc, p, d, renewalsList) {
         doc.rect(90, ry, 75, rH).stroke().text(timeTxt, 92, ry+5, {width:71});
         doc.fillColor('black');
 
-        // 3. Gas & Precautions
-        doc.rect(165, ry, 50, rH).stroke().text(`HC:${safeText(r.hc)}\nTox:${safeText(r.toxic)}\nO2:${safeText(r.oxygen)}\n\n${safeText(r.precautions)}`, 167, ry+5, {width:46});
+const useFallback = (index === 0 && d.InitRen === 'Y');
+
+        // Gas Values: Use Renewal data OR fall back to Main Permit Section A (Item 12)
+        const valHC = r.hc || (useFallback ? d.GP_Q12_HC : '');
+        const valTox = r.toxic || (useFallback ? d.GP_Q12_ToxicGas : '');
+        const valOxy = r.oxygen || (useFallback ? d.GP_Q12_Oxygen : '');
+        const valPrec = r.precautions || (useFallback ? 'As per Permit Section A' : '');
+
+        // 3. Gas & Precautions Draw
+        doc.rect(165, ry, 50, rH).stroke().text(`HC:${safeText(valHC)}\nTox:${safeText(valTox)}\nO2:${safeText(valOxy)}\n\n${safeText(valPrec)}`, 167, ry+5, {width:46});
         
         // 4. TBT
         let tbtYN = r.tbt_done === 'Y' ? 'YES' : 'NO';
         doc.rect(215, ry, 25, rH).stroke().text(tbtYN, 217, ry+5);
 
-        // 5. Workers (Req B)
+        // 5. Workers: Use Renewal list OR fall back to Main Permit Workers
         let wNames = '-';
-        if(r.workers && Array.isArray(r.workers)) wNames = r.workers.join(', ');
+        if(r.workers && Array.isArray(r.workers) && r.workers.length > 0) {
+             wNames = r.workers.join(', ');
+        } else if (useFallback && d.SelectedWorkers) {
+             try {
+                 let mw = Array.isArray(d.SelectedWorkers) ? d.SelectedWorkers : JSON.parse(d.SelectedWorkers);
+                 wNames = mw.map(w => w.Name).join(', ');
+             } catch(e) {}
+        }
         doc.rect(240, ry, 75, rH).stroke().text(wNames, 242, ry+5, {width:71}); 
+        // --- FIX END ---
 
         // 6. Photo
         doc.rect(315, ry, 30, rH).stroke();
