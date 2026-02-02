@@ -1234,6 +1234,7 @@ if (p.Elec_Energization_Msg) {
                              // Default fallback for critical if missing
                              if(el.name === 'IsCritical' && el.value === 'N') el.checked = true;
                              else if(el.name === 'RevRenAction' && el.value === 'recommend') el.checked = true;
+                             else if(el.name === 'AppRenAction' && el.value === 'approve') el.checked = true;
                              else el.checked = false;
                          }
                     }
@@ -2886,6 +2887,7 @@ async function downloadSecurePDF(id, format = 'default') {
     </script>
 </body>
 </html>
+
 
 
 
