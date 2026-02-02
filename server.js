@@ -1918,7 +1918,25 @@ function formatToList(str) {
 
 async function drawMainlinePermitPDF(doc, p, d, renewalsList) {
     const safeText = (t) => (t === null || t === undefined) ? '-' : String(t);
+    // --- WATERMARK LOGIC START ---
+    const workType = (d.WorkType || "PERMIT").toUpperCase();
+    const status = p.Status || "Active";
+    let watermarkText = (status === 'Closed' || status.includes('Closure')) ? `CLOSED - ${workType}` : `ACTIVE - ${workType}`;
 
+    const drawWatermark = () => {
+        doc.save();
+        doc.translate(doc.page.width / 2, doc.page.height / 2);
+        doc.rotate(-45);
+        doc.font('Helvetica-Bold').fontSize(60).fillColor('#ff0000').opacity(0.15);
+        doc.text(watermarkText, -300, -30, { align: 'center', width: 600 });
+        doc.restore();
+        doc.opacity(1);
+    };
+
+    // Draw on Page 1
+    drawWatermark();
+    // --- WATERMARK LOGIC END ---
+  
     // --- PAGE 1: HEADER & DATA ---
     const startX = 30;
     let currentY = 30;
@@ -2017,7 +2035,7 @@ async function drawMainlinePermitPDF(doc, p, d, renewalsList) {
     
     // IOCL Supervisors
     currentY += 10;
-    if(currentY > 650) { doc.addPage(); currentY = 30; }
+    if(currentY > 650) { doc.addPage(); drawWatermark(); currentY = 30; }
     doc.font('Helvetica-Bold').text('Authorized work supervisor from IOCL side:', col1, currentY);
     currentY += 15;
 
@@ -2077,7 +2095,7 @@ async function drawMainlinePermitPDF(doc, p, d, renewalsList) {
     currentY += 20;
 
     // --- PAGE 2: ATTACHMENT B (WORKERS) ---
-    if (currentY > 600) { doc.addPage(); currentY = 30; } else { currentY += 30; }
+    if (currentY > 600) { doc.addPage(); drawWatermark(); currentY = 30; } else { currentY += 30; }
 
     doc.font('Helvetica-Bold').fontSize(11).text('ATTACHMENT TO MAINLINE WORK PERMIT', col1, currentY, {underline: true});
     currentY += 20;
@@ -2106,7 +2124,7 @@ async function drawMainlinePermitPDF(doc, p, d, renewalsList) {
     const contractorName = safeText(d.Vendor) || safeText(d.RequesterName);
 
     workers.forEach((w, index) => {
-        if (currentY > 750) { doc.addPage(); currentY = 30; }
+        if (currentY > 750) { doc.addPage(); drawWatermark(); currentY = 30; }
         doc.rect(wx1, currentY, wx2-wx1, 20).stroke().text((index + 1).toString(), wx1+2, currentY+5);
         doc.rect(wx2, currentY, wx3-wx2, 20).stroke().text(safeText(w.Name), wx2+2, currentY+5);
         doc.rect(wx3, currentY, wx4-wx3, 20).stroke().text(safeText(w.Gender), wx3+2, currentY+5);
