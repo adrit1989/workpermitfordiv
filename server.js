@@ -603,10 +603,10 @@ async function drawPermitPDF(doc, p, d, renewalsList) {
         doc.y = y;
     };
 
-    drawChecklistSection("SECTION A: GENERAL", CHECKLIST_DATA.A, 'A');
-    drawChecklistSection("SECTION B: HOT / CONFINED", CHECKLIST_DATA.B, 'B');
-    drawChecklistSection("SECTION C: VEHICLE", CHECKLIST_DATA.C, 'C'); 
-    drawChecklistSection("SECTION D: EXCAVATION", CHECKLIST_DATA.D, 'D');
+    drawChecklistSection("Section A: General points", CHECKLIST_DATA.A, 'A');
+    drawChecklistSection("Section B: For Hot work / Entry to confined Space", CHECKLIST_DATA.B, 'B');
+    drawChecklistSection("Section C: For vehicle Entry in Hazardous area", CHECKLIST_DATA.C, 'C'); 
+    drawChecklistSection("Section D: For Excavation Work", CHECKLIST_DATA.D, 'D');
 
     if (doc.y > 650) { doc.addPage(); drawHeaderOnAll(); }
     doc.y += 10;
