@@ -545,109 +545,112 @@
                         </div>
  
                         <div class="glass" id="section-e">
-                            <h3 class="font-bold text-gray-600 border-b pb-2 mb-4">E. References</h3>
-                            
-                            <div id="jsa-audit-line" class="text-sm font-mono text-blue-700 mb-4 bg-blue-50 p-2 rounded hidden border border-blue-200"></div>
-                          <div>
-    <label class="text-xs font-bold text-gray-500">Approved SOP/SWP No</label>
-    <input name="SopNo" id="SopNo" list="sop-list" placeholder="Search SOP..." onchange="toggleSopOther()">
-    <datalist id="sop-list">
-        <option value="SP/ML/1 - Feature Location Identification">
-        <option value="SP/ML/2 - Maintenance of ROW and facilities">
-        <option value="SP/ML/3 - Inspection and Identification of facilities">
-        <option value="SP/ML/4 - Inspection and Maintenance of Mainline Block valve">
-        <option value="SP/ML/5 - Excavation and trenching">
-        <option value="SP/ML/5A - Work permit for excavation / Trenching in CROW">
-        <option value="SP/ML/6 - Stripping of Topsoil">
-        <option value="SP/ML/7 - Handling crude oil soaked /Impacted oil">
-        <option value="SP/ML/9 - Identification of leak spot & arresting leakage">
-        <option value="SP/ML/10 - Identification of particular pipeline in CROW">
-        
-        <option value="SP/ML/11 - Welding on mainline pipe">
-        <option value="SP/ML/12 - Pipeline Repair">
-        <option value="SP/ML/12A - Guideline for pressure reduction upon discovery/repair">
-        <option value="SP/ML/13 - Pipe cut and replacement (Water/Nitrogen plug)">
-        <option value="SP/ML/13A - Hook up of HDD/New Long Pipe (LPG/Gas)">
-        <option value="SP/ML/13B - Hook up of HDD/New Long Pipe (Liquid)">
-        <option value="SP/ML/14 - Relocating of Pipeline">
-        <option value="SP/ML/15 - Installation of Leak Clamp">
-        <option value="SP/ML/16 - Installation of Mud Plug">
-        <option value="SP/ML/17 - Purging Pipeline with Nitrogen">
+    <h3 class="font-bold text-gray-600 border-b pb-2 mb-4">E. References</h3>
+    
+    <div id="jsa-audit-line" class="text-sm font-mono text-blue-700 mb-4 bg-blue-50 p-2 rounded hidden border border-blue-200"></div>
 
-        <option value="SP/ML/21 - Patrolling of ROW">
-        <option value="SP/ML/22 - Installation of Mechanical End Connector">
-        <option value="SP/ML/23 - Installation of Nozzle Reinforcement">
-        <option value="SP/ML/25 - Measurement of wall thickness by UT meter">
-        <option value="SP/ML/26 - Assessment of dent and selection of repair method">
-        <option value="SP/ML/27 - Repair of pipeline by epoxy filled shell">
-        <option value="SP/ML/28 - Welding of leak clamp and sleeves">
-        <option value="SP/ML/29 - Repair of non-leaking defect with Type A sleeve">
-        <option value="SP/ML/30 - Repair of leaking defect with Type B sleeve">
-        <option value="SP/ML/31 - Abandonment of Liquid / Gas Pipelines">
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
 
-        <option value="SP/ML/32 - Repair of anomalies by composite sleeve">
-        <option value="SP/ML/33 - Attending a pipeline anomaly-General approach">
-        <option value="SP/ML/34 - Repair of pipeline anomaly by grinding">
-        <option value="SP/ML/35 - Repair of pipeline defect through weld deposit">
-        <option value="SP/ML/36 - Coating over leak clamps/valves/sleeves">
-        <option value="SP/ML/39 - Procedure for checking Integrity of Mainline Valves">
-        <option value="SP/ML/40 - Fatigue testing of API 5L pipes">
-        <option value="SP/ML/40A - Analysis of Pig Residue">
-        <option value="SP/ML/41 - Pipeline evacuation and replacement (water/air plugs)">
-        <option value="SP/ML/43 - Installation of Porta Deck Mats">
+        <div>
+            <label class="text-xs font-bold text-gray-500">Approved SOP/SWP No</label>
+            <input name="SopNo" id="SopNo" list="sop-list" placeholder="Search SOP..." onchange="toggleSopOther()">
+            <datalist id="sop-list">
+                <option value="SP/ML/1 - Feature Location Identification">
+                <option value="SP/ML/2 - Maintenance of ROW and facilities">
+                <option value="SP/ML/3 - Inspection and Identification of facilities">
+                <option value="SP/ML/4 - Inspection and Maintenance of Mainline Block valve">
+                <option value="SP/ML/5 - Excavation and trenching">
+                <option value="SP/ML/5A - Work permit for excavation / Trenching in CROW">
+                <option value="SP/ML/6 - Stripping of Topsoil">
+                <option value="SP/ML/7 - Handling crude oil soaked /Impacted oil">
+                <option value="SP/ML/9 - Identification of leak spot & arresting leakage">
+                <option value="SP/ML/10 - Identification of particular pipeline in CROW">
+                
+                <option value="SP/ML/11 - Welding on mainline pipe">
+                <option value="SP/ML/12 - Pipeline Repair">
+                <option value="SP/ML/12A - Guideline for pressure reduction upon discovery/repair">
+                <option value="SP/ML/13 - Pipe cut and replacement (Water/Nitrogen plug)">
+                <option value="SP/ML/13A - Hook up of HDD/New Long Pipe (LPG/Gas)">
+                <option value="SP/ML/13B - Hook up of HDD/New Long Pipe (Liquid)">
+                <option value="SP/ML/14 - Relocating of Pipeline">
+                <option value="SP/ML/15 - Installation of Leak Clamp">
+                <option value="SP/ML/16 - Installation of Mud Plug">
+                <option value="SP/ML/17 - Purging Pipeline with Nitrogen">
 
-        <option value="SP/ML/47 - Identification and Handling of Pipeline Intrusion">
-        <option value="SP/ML/48 - Roles and Responsibilities of ROU Risk Manager">
-        <option value="SP/ML/49 - Handling Mainline Emergency in LPG Pipeline">
-        <option value="SP/ML/49A - Handling Repair with Water Plug Injection Method">
-        <option value="SP/ML/50 - Installation of Flood Markers">
-        <option value="SP/ML/51 - Handling Pipeline Leak or Burst in Water Body">
-        <option value="SP/ML/52 - Cold Flaring in Natural Gas Pipeline">
-        <option value="SP/ML/53 - Progressive Cleaning of Pipelines and PII Detection">
-        <option value="PL/SOP/OPN/38 - Handling of leakage/burst in mainline">
-        
-        <option value="Any other">
-    </datalist>
-</div>
+                <option value="SP/ML/21 - Patrolling of ROW">
+                <option value="SP/ML/22 - Installation of Mechanical End Connector">
+                <option value="SP/ML/23 - Installation of Nozzle Reinforcement">
+                <option value="SP/ML/25 - Measurement of wall thickness by UT meter">
+                <option value="SP/ML/26 - Assessment of dent and selection of repair method">
+                <option value="SP/ML/27 - Repair of pipeline by epoxy filled shell">
+                <option value="SP/ML/28 - Welding of leak clamp and sleeves">
+                <option value="SP/ML/29 - Repair of non-leaking defect with Type A sleeve">
+                <option value="SP/ML/30 - Repair of leaking defect with Type B sleeve">
+                <option value="SP/ML/31 - Abandonment of Liquid / Gas Pipelines">
 
-<div id="div-sop-other" class="hidden mt-2 p-2 bg-blue-50 border border-blue-200 rounded animate-fade-in">
-    <label class="text-xs font-bold text-blue-700">Enter New SOP No & Details</label>
-    <input name="SopNoOther" id="SopNoOther" placeholder="e.g. SP/ML/XX - Description of new activity" class="w-full mt-1 border-blue-300 focus:border-blue-500 focus:ring-blue-200">
-</div>
+                <option value="SP/ML/32 - Repair of anomalies by composite sleeve">
+                <option value="SP/ML/33 - Attending a pipeline anomaly-General approach">
+                <option value="SP/ML/34 - Repair of pipeline anomaly by grinding">
+                <option value="SP/ML/35 - Repair of pipeline defect through weld deposit">
+                <option value="SP/ML/36 - Coating over leak clamps/valves/sleeves">
+                <option value="SP/ML/39 - Procedure for checking Integrity of Mainline Valves">
+                <option value="SP/ML/40 - Fatigue testing of API 5L pipes">
+                <option value="SP/ML/40A - Analysis of Pig Residue">
+                <option value="SP/ML/41 - Pipeline evacuation and replacement (water/air plugs)">
+                <option value="SP/ML/43 - Installation of Porta Deck Mats">
 
-                                <div class="md:col-span-2 p-2 border rounded bg-gray-50">
-                                    <label class="text-xs font-bold text-gray-500 block mb-1">Job Safety Analysis (JSA)</label>
-                                    <div class="flex gap-4 mb-2">
-                                        <label class="flex items-center gap-1 text-xs cursor-pointer">
-                                            <input type="radio" name="jsa_mode" value="upload" checked onclick="toggleJsaMode('upload')"> Upload PDF
-                                        </label>
-                                        <label class="flex items-center gap-1 text-xs cursor-pointer">
-                                            <input type="radio" name="jsa_mode" value="link" onclick="toggleJsaMode('link')"> Link Approved JSA
-                                        </label>
-                                    </div>
-                                    
-                                    <div id="jsa-mode-upload">
-                                        <input type="file" id="JsaFile" accept="application/pdf" class="text-xs">
-                                        <div id="jsa-existing-file-display" class="hidden text-xs mt-1 text-blue-600">
-                                            <a href="#" target="_blank" id="jsa-file-link" class="underline font-bold">View Attached JSA</a>
-                                            <button type="button" id="btn-del-jsa" class="ml-2 text-red-500 font-bold" onclick="removeAttachedJsa()">[Remove]</button>
-                                        </div>
-                                    </div>
+                <option value="SP/ML/47 - Identification and Handling of Pipeline Intrusion">
+                <option value="SP/ML/48 - Roles and Responsibilities of ROU Risk Manager">
+                <option value="SP/ML/49 - Handling Mainline Emergency in LPG Pipeline">
+                <option value="SP/ML/49A - Handling Repair with Water Plug Injection Method">
+                <option value="SP/ML/50 - Installation of Flood Markers">
+                <option value="SP/ML/51 - Handling Pipeline Leak or Burst in Water Body">
+                <option value="SP/ML/52 - Cold Flaring in Natural Gas Pipeline">
+                <option value="SP/ML/53 - Progressive Cleaning of Pipelines and PII Detection">
+                <option value="PL/SOP/OPN/38 - Handling of leakage/burst in mainline">
+                
+                <option value="Any other">
+            </datalist>
 
-                                    <div id="jsa-mode-link" class="hidden">
-                                        <select id="JsaLinkedId" class="text-xs w-full bg-white border">
-                                            <option value="">Select Approved JSA...</option>
-                                        </select>
-                                        <input type="hidden" name="JsaNo" id="JsaNo"> 
-                                    </div>
-                                </div>
+            <div id="div-sop-other" class="hidden mt-2 p-2 bg-blue-50 border border-blue-200 rounded animate-fade-in">
+                <label class="text-xs font-bold text-blue-700">Enter New SOP No & Details</label>
+                <input name="SopNoOther" id="SopNoOther" placeholder="e.g. SP/ML/XX - Description" class="w-full mt-1 text-xs border-blue-300">
+            </div>
+        </div>
 
-                                <input name="IoclEquip" id="IoclEquip" placeholder="IOCL Equip">
-                                <input name="ContEquip" id="ContEquip" placeholder="Contractor Equip">
-                                <input name="WorkOrder" id="WorkOrder" placeholder="Work Order No">
-                                <input name="ToolBoxTalk" id="ToolBoxTalk" placeholder="Tool Box Talk Ref">
-                            </div>
-                        </div>
+        <div class="md:col-span-2 p-2 border rounded bg-gray-50">
+            <label class="text-xs font-bold text-gray-500 block mb-1">Job Safety Analysis (JSA)</label>
+            <div class="flex gap-4 mb-2">
+                <label class="flex items-center gap-1 text-xs cursor-pointer">
+                    <input type="radio" name="jsa_mode" value="upload" checked onclick="toggleJsaMode('upload')"> Upload PDF
+                </label>
+                <label class="flex items-center gap-1 text-xs cursor-pointer">
+                    <input type="radio" name="jsa_mode" value="link" onclick="toggleJsaMode('link')"> Link Approved JSA
+                </label>
+            </div>
+            
+            <div id="jsa-mode-upload">
+                <input type="file" id="JsaFile" accept="application/pdf" class="text-xs">
+                <div id="jsa-existing-file-display" class="hidden text-xs mt-1 text-blue-600">
+                    <a href="#" target="_blank" id="jsa-file-link" class="underline font-bold">View Attached JSA</a>
+                    <button type="button" id="btn-del-jsa" class="ml-2 text-red-500 font-bold" onclick="removeAttachedJsa()">[Remove]</button>
+                </div>
+            </div>
+
+            <div id="jsa-mode-link" class="hidden">
+                <select id="JsaLinkedId" class="text-xs w-full bg-white border">
+                    <option value="">Select Approved JSA...</option>
+                </select>
+                <input type="hidden" name="JsaNo" id="JsaNo"> 
+            </div>
+        </div>
+
+        <input name="IoclEquip" id="IoclEquip" placeholder="IOCL Equip">
+        <input name="ContEquip" id="ContEquip" placeholder="Contractor Equip">
+        <input name="WorkOrder" id="WorkOrder" placeholder="Work Order No">
+        <input name="ToolBoxTalk" id="ToolBoxTalk" placeholder="Tool Box Talk Ref">
+
+    </div> </div>
 
                         <div id="gsr-container" class="glass border-l-4 border-orange-600 bg-orange-50">
                             <label class="flex items-start gap-3 p-2 cursor-pointer">
@@ -3010,3 +3013,4 @@ async function downloadSecurePDF(id, format = 'default') {
     </script>
 </body>
 </html>
+
