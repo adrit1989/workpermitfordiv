@@ -1306,21 +1306,41 @@ function showChangePassword() {
                 currentPermitId = id;
 
                 // --- RISK REGISTER INIT ---
+              // --- RISK REGISTER INIT ---
                 selectedRisks = [];
                 if (p.RiskRegisterData) {
-                     // Check if it's already an object (from merged JSON) or needs parsing
+                     // Parse existing data
                      selectedRisks = Array.isArray(p.RiskRegisterData) ? p.RiskRegisterData : JSON.parse(p.RiskRegisterData || "[]");
                 }
                 
-                // Load Activities only if editable
+                // --- LOGIC FIX START ---
+                // 1. Determine who can EDIT the HIRA Table
+                let canEditHira = false;
+
+                // Requester can edit in Draft or Rejected
                 if (currentUser.Role === 'Requester' && (statusClean === '' || statusClean === 'Draft' || statusClean.includes('Rejected'))) {
-                     loadRiskActivities();
-                     document.getElementById('risk-selection-controls').classList.remove('hidden');
-                } else {
-                     document.getElementById('risk-selection-controls').classList.add('hidden');
+                    canEditHira = true;
                 }
-                renderRiskTable(); // Show the table (read-only or editable based on logic in render function)
-                // --------------------------
+                // Reviewer can edit during their turn
+                else if (currentUser.Role === 'Reviewer' && statusClean === 'Pending Review') {
+                    canEditHira = true;
+                }
+                // Approver can edit during their turn
+                else if ((currentUser.Role === 'Approver' || currentUser.Role === 'MasterAdmin') && statusClean === 'Pending Approval') {
+                    canEditHira = true;
+                }
+
+                // 2. Toggle the Input Controls (Dropdowns/Add Button) based on Edit permission
+                if (canEditHira) {
+                      loadRiskActivities(); // Load dropdown data
+                      document.getElementById('risk-selection-controls').classList.remove('hidden');
+                } else {
+                      document.getElementById('risk-selection-controls').classList.add('hidden');
+                }
+
+                // 3. Render the TABLE (Always Visible to everyone, edit mode depends on flag)
+                renderRiskTable(canEditHira); 
+                // --- LOGIC FIX END ---
 
                 // Parse IOCL Supervisors safely
                 let rawIOCL = p.IOCLSupervisors;
@@ -3181,34 +3201,47 @@ async function downloadSecurePDF(id, format = 'default') {
             document.querySelectorAll('.risk-chk').forEach(c => c.checked = false);
         }
 
-        function renderRiskTable() {
+        // Accepts boolean to determine if Delete buttons should be shown
+        function renderRiskTable(isEditable = false) {
             const tbody = document.querySelector('#table-selected-risks tbody');
-            const isReadOnly = (currentUser.Role !== 'Requester' && currentUser.Role !== 'MasterAdmin') || (getVal('Status') !== 'Draft' && getVal('Status') !== '');
+            
+            // If table is empty
+            if (!selectedRisks || selectedRisks.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" class="p-4 text-center text-gray-400 italic">No specific risks selected for this work.</td></tr>';
+                return;
+            }
 
             tbody.innerHTML = selectedRisks.map((r, i) => `
-                <tr class="border-b hover:bg-gray-50">
-                    <td class="p-2 border align-top">${r.Activity}</td>
+                <tr class="border-b hover:bg-gray-50 text-xs">
+                    <td class="p-2 border align-top font-bold text-gray-700">${r.Activity}</td>
                     <td class="p-2 border align-top">${r.Hazard}</td>
-                    <td class="p-2 border align-top">${r.RiskConsequence}<br><span class="bg-gray-100 px-1 rounded text-[9px]">Base: ${r.Base_Level}</span></td>
                     <td class="p-2 border align-top">
-                        <b>Ex:</b> ${r.ExistingControls}<br>
-                        <b>Add:</b> ${r.AdditionalControls}
+                        ${r.RiskConsequence}
+                        <div class="mt-1"><span class="bg-gray-100 border border-gray-300 px-1 rounded text-[9px] font-mono">Base: ${r.Base_Level}</span></div>
+                    </td>
+                    <td class="p-2 border align-top bg-yellow-50/30">
+                        <div class="mb-1"><span class="font-bold text-[10px] uppercase text-gray-500">Existing:</span> ${r.ExistingControls}</div>
+                        <div><span class="font-bold text-[10px] uppercase text-blue-600">Additional:</span> ${r.AdditionalControls}</div>
                     </td>
                     <td class="p-2 border align-top text-center">
-                        ${!isReadOnly ? `<button type="button" class="text-red-600 font-bold" onclick="removeRisk(${i})">X</button>` : '-'}
+                        ${isEditable ? 
+                            `<button type="button" class="text-white bg-red-500 hover:bg-red-700 w-5 h-5 rounded-full font-bold flex items-center justify-center mx-auto" onclick="removeRisk(${i})">&times;</button>` : 
+                            '<span class="text-gray-400 text-lg" title="Read Only">🔒</span>'}
                     </td>
                 </tr>
             `).join('');
         }
 
-        function removeRisk(idx) {
+function removeRisk(idx) {
             selectedRisks.splice(idx, 1);
-            renderRiskTable();
+            // We assume true because the user clicked a button that only exists if editable
+            renderRiskTable(true); 
         }
         initLogin();
     </script>
 </body>
 </html>
+
 
 
 
