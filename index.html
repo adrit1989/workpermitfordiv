@@ -1278,6 +1278,7 @@ function showChangePassword() {
                 // 1. Fetch Data
                 const p = await apiCall('/permit-data', 'POST', { permitId: id });
                 console.log("Opening Permit:", id);
+                const statusClean = p.Status ? p.Status.trim() : '';
                 // --- FIX: Load Electrical Users so the Name appears (not just blank/email) ---
                 if (p.A_Q11 === 'Y') {
                     // Force load the dropdown options first
@@ -1379,7 +1380,7 @@ if (p.Elec_Energization_Msg) {
                 const actionsDiv = document.getElementById("actions-bar"); actionsDiv.innerHTML = "";
 
                 // 4. Determine State and Permissions
-                const statusClean = p.Status ? p.Status.trim() : '';
+                
                 const isMainPending = (statusClean === 'Pending Review' || statusClean === 'Pending Approval');
                 const isAuthority = (currentUser.Role === 'Reviewer' || currentUser.Role === 'Approver');
 
@@ -3208,6 +3209,7 @@ async function downloadSecurePDF(id, format = 'default') {
     </script>
 </body>
 </html>
+
 
 
 
