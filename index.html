@@ -319,7 +319,7 @@
         </table>
     </div>
     
-    <input type="hidden" name="RiskRegisterData" id="RiskRegisterData">
+    
 </div>
                                 <div class="md:col-span-2"><label class="text-xs font-bold text-gray-500">Assign Reviewer</label><select name="ReviewerEmail" id="ReviewerEmail"></select></div>
                                 <div class="md:col-span-2"><label class="text-xs font-bold text-gray-500">Assign Approver</label><select name="ApproverEmail" id="ApproverEmail"></select></div>
@@ -1305,13 +1305,22 @@ function showChangePassword() {
 
                 currentPermitId = id;
 
-                // --- RISK REGISTER INIT ---
+    // --- RISK REGISTER INIT (ROBUST FIX) ---
                 selectedRisks = [];
                 if (p.RiskRegisterData) {
-                     // Parse existing data safely
-                     try {
-                        selectedRisks = Array.isArray(p.RiskRegisterData) ? p.RiskRegisterData : JSON.parse(p.RiskRegisterData || "[]");
-                     } catch(e) { selectedRisks = []; }
+                    let raw = p.RiskRegisterData;
+                    try {
+                        // 1. Handle "Double Entry" Bug: Data saved as ["", "[{...}]"]
+                        if (Array.isArray(raw) && raw.length > 1 && typeof raw[1] === 'string') {
+                             raw = JSON.parse(raw[1]);
+                        }
+                        // 2. Handle Normal Case: Data saved as string "[{...}]"
+                        else if (typeof raw === 'string') {
+                             raw = JSON.parse(raw);
+                        }
+                        // 3. Assign if it's a valid array now
+                        if (Array.isArray(raw)) selectedRisks = raw;
+                    } catch(e) { console.error("Risk Parse Error", e); selectedRisks = []; }
                 }
                 
                 // --- LOGIC FIX: PERMISSIONS & UNLOCKING ---
@@ -3260,6 +3269,7 @@ function removeRisk(idx) {
     </script>
 </body>
 </html>
+
 
 
 
