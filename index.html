@@ -285,6 +285,42 @@
                                 <div><label class="text-xs font-bold text-gray-500">Emergency Contact</label><input name="EmergencyContact" id="EmergencyContact"></div>
                                 <div><label class="text-xs font-bold text-gray-500">Fire Stn/Hosp</label><input name="FireStation" id="FireStation"></div>
                                 <div class="md:col-span-4"><label class="text-xs font-bold text-gray-500">Description</label><textarea name="Desc" id="Desc" rows="2"></textarea></div>
+                                <div class="md:col-span-4 glass border-t-4 border-red-800 bg-red-50/10 mt-4">
+    <h3 class="font-bold text-red-800 border-b pb-2 mb-2">Work Specific Risk Assessment (HIRA)</h3>
+    
+    <div id="risk-selection-controls">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-2 mb-2">
+            <div>
+                <label class="text-xs font-bold">1. Select Activity</label>
+                <select id="sel-risk-activity" class="w-full" onchange="loadRiskHazards()"></select>
+            </div>
+            <div class="md:col-span-2">
+                <label class="text-xs font-bold">2. Select Associated Hazards</label>
+                <div id="risk-hazard-list" class="max-h-32 overflow-y-auto bg-white border p-2 rounded grid grid-cols-1 gap-1">
+                    <span class="text-xs text-gray-400 italic">Select an activity first...</span>
+                </div>
+            </div>
+        </div>
+        <button type="button" onclick="addRiskToTable()" class="bg-red-600 text-white px-3 py-1 rounded text-xs font-bold mb-2">+ Add to Register</button>
+    </div>
+
+    <div class="overflow-x-auto">
+        <table class="w-full text-xs text-left border bg-white" id="table-selected-risks">
+            <thead class="bg-red-100 font-bold">
+                <tr>
+                    <th class="p-2 border">Activity</th>
+                    <th class="p-2 border">Hazard</th>
+                    <th class="p-2 border">Risk</th>
+                    <th class="p-2 border">Controls (Exist + Add)</th>
+                    <th class="p-2 border">Action</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
+    
+    <input type="hidden" name="RiskRegisterData" id="RiskRegisterData">
+</div>
                                 <div class="md:col-span-2"><label class="text-xs font-bold text-gray-500">Assign Reviewer</label><select name="ReviewerEmail" id="ReviewerEmail"></select></div>
                                 <div class="md:col-span-2"><label class="text-xs font-bold text-gray-500">Assign Approver</label><select name="ApproverEmail" id="ApproverEmail"></select></div>
                                 
@@ -708,6 +744,19 @@
                             <input id="reset-temp-pass" placeholder="Temp Password" class="mb-2 w-full">
                             <button onclick="resetUserPassword()" class="w-full bg-red-600 text-white py-2 rounded font-bold">Reset Password</button>
                         </div>
+                        <div class="glass border-t-4 border-orange-600">
+                            <h3 class="font-bold text-lg mb-2 text-orange-800">⚠️ Upload Risk Register</h3>
+                            <p class="text-xs text-gray-500 mb-4 bg-orange-50 p-2 rounded">Upload Master HIRA Excel.</p>
+                            
+                            <div class="grid grid-cols-3 gap-2 mb-2">
+                                <input id="risk-region" placeholder="Region" class="text-xs">
+                                <input id="risk-unit" placeholder="Unit" class="text-xs">
+                                <input id="risk-location" placeholder="Location" class="text-xs">
+                            </div>
+
+                            <input type="file" id="risk-excel" accept=".xlsx" class="mb-4 w-full text-xs">
+                            <button onclick="uploadRiskRegister()" class="w-full bg-orange-600 text-white py-2 rounded font-bold">Upload Register</button>
+                        </div>
                     </div>
                 </div>
  
@@ -1128,7 +1177,17 @@ function showChangePassword() {
 
             const renderTable = (title, items, color) => {
                 let rowsHtml = items.length === 0 ? `<tr><td colspan="6" class="p-4 text-center text-gray-400 italic bg-gray-50">No permits found.</td></tr>` : items.map(p => {
-                    let action = (p.Status === 'Closed' || p.Status === 'Active' || p.Status.includes('Renewal')) ? `<button class="btn-pdf" onclick="event.stopPropagation(); downloadPDFWithChoice('${p.PermitID}')">📥 PDF</button>` : '';
+                   let action = '';
+                    // 1. Check for Standard PDF
+                    if (p.Status === 'Closed' || p.Status === 'Active' || p.Status.includes('Renewal')) {
+                        action += `<button class="btn-pdf" onclick="event.stopPropagation(); downloadPDFWithChoice('${p.PermitID}')">📥 PDF</button>`;
+                        
+                        // 2. Check for Risk Register PDF (HIRA)
+                        if (p.RiskRegisterUrl) {
+                            action += `<button class="btn-pdf ml-1 bg-red-50 text-red-600 border-red-200 hover:bg-red-600 hover:text-white" onclick="event.stopPropagation(); viewSecureFile('${p.RiskRegisterUrl}')">📑 HIRA</button>`;
+                        }
+                    }
+
                     return `<tr onclick="openPermit('${p.PermitID}')" class="hover:bg-gray-50 transition cursor-pointer">
                         <td class="p-3 font-bold text-blue-600">${p.PermitID}</td>
                         <td>${p.WorkType || '-'}</td>
@@ -1244,6 +1303,23 @@ function showChangePassword() {
                 }
 
                 currentPermitId = id;
+
+                // --- RISK REGISTER INIT ---
+                selectedRisks = [];
+                if (p.RiskRegisterData) {
+                     // Check if it's already an object (from merged JSON) or needs parsing
+                     selectedRisks = Array.isArray(p.RiskRegisterData) ? p.RiskRegisterData : JSON.parse(p.RiskRegisterData || "[]");
+                }
+                
+                // Load Activities only if editable
+                if (currentUser.Role === 'Requester' && (statusClean === '' || statusClean === 'Draft' || statusClean.includes('Rejected'))) {
+                     loadRiskActivities();
+                     document.getElementById('risk-selection-controls').classList.remove('hidden');
+                } else {
+                     document.getElementById('risk-selection-controls').classList.add('hidden');
+                }
+                renderRiskTable(); // Show the table (read-only or editable based on logic in render function)
+                // --------------------------
 
                 // Parse IOCL Supervisors safely
                 let rawIOCL = p.IOCLSupervisors;
@@ -2113,7 +2189,7 @@ let ioclData = [...currentPermitIOCLData];
             fd.append('JsaLinkedId', document.getElementById('JsaLinkedId').value);
         }
     }
-
+fd.append('RiskRegisterData', JSON.stringify(selectedRisks));
 // 7. Renewal Decision Logic
     // FIX: Only apply renewal logic if we are NOT in a Closure workflow
     // This prevents "Final Permit Close" from being treated as a Renewal Approval
@@ -3014,9 +3090,98 @@ async function downloadSecurePDF(id, format = 'default') {
         otherInput.required = false;
     }
 }
+      /* --- RISK REGISTER LOGIC --- */
+        let selectedRisks = []; 
+
+        async function uploadRiskRegister() {
+            const file = document.getElementById('risk-excel').files[0];
+            const region = document.getElementById('risk-region').value;
+            const unit = document.getElementById('risk-unit').value;
+            const location = document.getElementById('risk-location').value;
+
+            if(!file || !region || !unit || !location) return alert("Fill all fields");
+
+            const fd = new FormData();
+            fd.append('riskFile', file);
+            fd.append('region', region);
+            fd.append('unit', unit);
+            fd.append('location', location);
+
+            const res = await fetch(`${API}/admin/upload-risk`, { method: 'POST', body: fd, headers: {'Authorization': `Bearer ${authToken}`} });
+            const json = await res.json();
+            if(json.success) alert(`Uploaded ${json.count} risk entries.`);
+            else alert(json.error);
+        }
+
+        async function loadRiskActivities() {
+            if(!currentUser) return;
+            const res = await apiCall('/risk/get-activities', 'POST', {
+                region: currentUser.Region, unit: currentUser.Unit, location: currentUser.Location
+            });
+            const sel = document.getElementById('sel-risk-activity');
+            if(sel) sel.innerHTML = '<option value="">Select Activity...</option>' + res.map(r => `<option value="${r.Activity}">${r.Activity}</option>`).join('');
+        }
+
+        async function loadRiskHazards() {
+            const act = document.getElementById('sel-risk-activity').value;
+            if(!act) return;
+            
+            const res = await apiCall('/risk/get-hazards', 'POST', {
+                region: currentUser.Region, unit: currentUser.Unit, location: currentUser.Location, activity: act
+            });
+            
+            const div = document.getElementById('risk-hazard-list');
+            div.innerHTML = res.map(h => `
+                <label class="flex items-start gap-2 cursor-pointer border-b pb-1 hover:bg-gray-50">
+                    <input type="checkbox" class="risk-chk mt-1" value='${JSON.stringify(h).replace(/'/g, "&apos;")}'>
+                    <div>
+                        <div class="font-bold text-gray-700 text-[10px]">${h.Hazard}</div>
+                        <div class="text-[9px] text-gray-500">${h.RiskConsequence.substring(0,50)}... | Residual: ${h.Residual_Level}</div>
+                    </div>
+                </label>
+            `).join('');
+        }
+
+        function addRiskToTable() {
+            const checked = document.querySelectorAll('.risk-chk:checked');
+            checked.forEach(c => {
+                const data = JSON.parse(c.value);
+                if(!selectedRisks.some(r => r.RiskID === data.RiskID)) {
+                    selectedRisks.push(data);
+                }
+            });
+            renderRiskTable();
+            document.querySelectorAll('.risk-chk').forEach(c => c.checked = false);
+        }
+
+        function renderRiskTable() {
+            const tbody = document.querySelector('#table-selected-risks tbody');
+            const isReadOnly = (currentUser.Role !== 'Requester' && currentUser.Role !== 'MasterAdmin') || (getVal('Status') !== 'Draft' && getVal('Status') !== '');
+
+            tbody.innerHTML = selectedRisks.map((r, i) => `
+                <tr class="border-b hover:bg-gray-50">
+                    <td class="p-2 border align-top">${r.Activity}</td>
+                    <td class="p-2 border align-top">${r.Hazard}</td>
+                    <td class="p-2 border align-top">${r.RiskConsequence}<br><span class="bg-gray-100 px-1 rounded text-[9px]">Base: ${r.Base_Level}</span></td>
+                    <td class="p-2 border align-top">
+                        <b>Ex:</b> ${r.ExistingControls}<br>
+                        <b>Add:</b> ${r.AdditionalControls}
+                    </td>
+                    <td class="p-2 border align-top text-center">
+                        ${!isReadOnly ? `<button type="button" class="text-red-600 font-bold" onclick="removeRisk(${i})">X</button>` : '-'}
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        function removeRisk(idx) {
+            selectedRisks.splice(idx, 1);
+            renderRiskTable();
+        }
         initLogin();
     </script>
 </body>
 </html>
+
 
 
