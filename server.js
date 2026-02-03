@@ -1072,7 +1072,96 @@ app.post('/api/delete-user', authenticateAccess, async (req, res) => {
         res.json({ success: true });
     } catch(e) { res.status(500).json({ error: "Delete failed" }); }
 });
+/* =====================================================
+   RISK REGISTER MANAGEMENT (NEW)
+===================================================== */
 
+// 1. Upload Risk Register (Master Admin)
+app.post('/api/admin/upload-risk', authenticateAccess, upload.single('riskFile'), async (req, res) => {
+    if (req.user.role !== 'MasterAdmin') return res.status(403).json({ error: "Unauthorized" });
+    try {
+        const { region, unit, location } = req.body;
+        if (!req.file) return res.status(400).json({ error: "No file uploaded" });
+
+        const workbook = new ExcelJS.Workbook();
+        await workbook.xlsx.load(req.file.buffer);
+        const sheet = workbook.getWorksheet(1);
+        
+        const pool = await getConnection();
+        
+        // Clean existing data for this specific location to allow updates
+        await pool.request().input('r', region).input('u', unit).input('l', location)
+            .query("DELETE FROM RiskRegisters WHERE Region=@r AND Unit=@u AND Location=@l");
+
+        const promises = [];
+        sheet.eachRow((row, rowNumber) => {
+            if (rowNumber <= 4) return; // Skip Headers (Based on your CSV format, headers take ~4 rows)
+            
+            // Helper to get cell value safely
+            const val = (idx) => {
+                const v = row.getCell(idx).value;
+                return v ? (v.text || v.toString()) : '';
+            };
+
+            // Mapping based on "Risk Register Templet.csv" structure
+            // Col 2: Activity, 3: Type, 4: Hazard, 5: Risk, 9: Base L ...
+            if(val(2)) { // Only if Activity exists
+                promises.push(
+                    pool.request()
+                    .input('reg', region).input('un', unit).input('loc', location)
+                    .input('act', val(2)).input('rt', val(3)).input('haz', val(4)).input('cons', val(5))
+                    .input('bl', val(9)).input('bs', val(10)).input('bsc', val(11)).input('blvl', val(12))
+                    .input('ce', val(13)).input('cs', val(14)).input('ceng', val(15)).input('cadm', val(16)).input('cppe', val(17))
+                    .input('ex', val(18)).input('add', val(19)).input('resp', val(20))
+                    .input('rl', val(21)).input('rs', val(22)).input('rsc', val(23)).input('rlvl', val(24))
+                    .input('ub', req.user.name)
+                    .query(`INSERT INTO RiskRegisters (
+                        Region, Unit, Location, Activity, RoutineType, Hazard, RiskConsequence,
+                        Base_L, Base_S, Base_Score, Base_Level,
+                        Control_Elimination, Control_Sub, Control_Eng, Control_Admin, Control_PPE,
+                        ExistingControls, AdditionalControls, Responsibility,
+                        Residual_L, Residual_S, Residual_Score, Residual_Level, UploadedBy
+                    ) VALUES (
+                        @reg, @un, @loc, @act, @rt, @haz, @cons,
+                        @bl, @bs, @bsc, @blvl,
+                        @ce, @cs, @ceng, @cadm, @cppe,
+                        @ex, @add, @resp,
+                        @rl, @rs, @rsc, @rlvl, @ub
+                    )`)
+                );
+            }
+        });
+
+        await Promise.all(promises);
+        res.json({ success: true, count: promises.length });
+
+    } catch (e) {
+        console.error(e);
+        res.status(500).json({ error: "Upload failed: " + e.message });
+    }
+});
+
+// 2. Get Unique Activities for Dropdown
+app.post('/api/risk/get-activities', authenticateAccess, async (req, res) => {
+    try {
+        const pool = await getConnection();
+        const r = await pool.request()
+            .input('r', req.body.region).input('u', req.body.unit).input('l', req.body.location)
+            .query("SELECT DISTINCT Activity FROM RiskRegisters WHERE Region=@r AND Unit=@u AND Location=@l ORDER BY Activity");
+        res.json(r.recordset);
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// 3. Get Hazards for Selected Activity
+app.post('/api/risk/get-hazards', authenticateAccess, async (req, res) => {
+    try {
+        const pool = await getConnection();
+        const r = await pool.request()
+            .input('r', req.body.region).input('u', req.body.unit).input('l', req.body.location).input('act', req.body.activity)
+            .query("SELECT * FROM RiskRegisters WHERE Region=@r AND Unit=@u AND Location=@l AND Activity=@act");
+        res.json(r.recordset);
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
 // BULK UPLOAD
 app.post('/api/admin/bulk-upload', authenticateAccess, upload.single('excelFile'), async (req, res) => {
     if (req.user.role !== 'MasterAdmin') return res.status(403).json({ error: "Access Denied" });
@@ -1502,7 +1591,43 @@ else if (action === 'review' || action === 'approve_1st_ren') {
 else if (action === 'approve') { 
         st = 'Active'; 
         d.Approver_Sig = `${usr} on ${now}`; 
+        // --- NEW: GENERATE RISK REGISTER PDF ON APPROVAL ---
+        // Check if Risk Data exists in the JSON submitted by requester
+        if (d.RiskRegisterData && Array.isArray(d.RiskRegisterData) && d.RiskRegisterData.length > 0) {
+            try {
+                // Generate PDF in memory
+                const riskDoc = new PDFDocument({ margin: 20, size: 'A3', layout: 'landscape' }); // A3 Landscape for wide table
+                const chunks = [];
+                riskDoc.on('data', chunks.push.bind(chunks));
+                
+                const pdfPromise = new Promise((resolve, reject) => {
+                    riskDoc.on('end', async () => {
+                        try {
+                            const pdfBuffer = Buffer.concat(chunks);
+                            // Upload to Azure
+                            const riskUrl = await uploadToAzure(pdfBuffer, `risk-registers/RR-${PermitID}.pdf`, 'application/pdf');
+                            // Update URL in Database immediately
+                            if (riskUrl) {
+                                const pool = await getConnection();
+                                await pool.request().input('p', PermitID).input('url', riskUrl)
+                                    .query("UPDATE Permits SET RiskRegisterUrl=@url WHERE PermitID=@p");
+                            }
+                            resolve();
+                        } catch (err) { reject(err); }
+                    });
+                });
 
+                // Call the drawer function (Added in Step 3 below)
+                await drawRiskRegisterPDF(riskDoc, PermitID, d.RiskRegisterData, d);
+                riskDoc.end();
+                await pdfPromise;
+
+            } catch (err) {
+                console.error("Risk Register PDF Generation Failed:", err);
+                // We do NOT stop approval if PDF fails, just log error
+            }
+        }
+        // ---------------------------------------------------
         // --- JSA & TBT Handling (Approver Override) ---
         if (req.files) {
             // 1. JSA File Upload
@@ -2871,6 +2996,81 @@ app.post('/api/map-data', authenticateAccess, async (req, res) => {
         res.status(500).json({ error: e.message });
     }
 });
+// --- RISK REGISTER PDF GENERATOR ---
+async function drawRiskRegisterPDF(doc, permitNo, riskData, d) {
+    // 1. Title Header
+    doc.font('Helvetica-Bold').fontSize(18).text('WORK SPECIFIC RISK REGISTER (HIRA)', { align: 'center' });
+    doc.fontSize(12).text(`Permit No: ${permitNo}  |  Location: ${d.LocationUnit}  |  Date: ${getNowIST()}`, { align: 'center' });
+    doc.moveDown();
 
+    // 2. Table Configuration (A3 Landscape is ~1190 points wide)
+    const startX = 20;
+    let y = 100;
+    const colWidths = [30, 140, 40, 140, 140, 60, 150, 150, 120, 60]; 
+    // Total Width: ~1030
+    // Columns: SN, Activity, Type, Hazard, Consequence, Base(Score), Exist Ctrl, Add Ctrl, Resp, Res(Score)
+
+    const headers = [
+        "SN", "Activity", "Type", "Hazard", "Risk / Consequence", 
+        "Base Risk\n(L x S = Sc)", "Existing Controls", "Additional Controls", "Responsibility", "Res Risk\n(L x S = Sc)"
+    ];
+
+    // Helper: Draw Header
+    const drawHeader = () => {
+        let x = startX;
+        doc.font('Helvetica-Bold').fontSize(9).fillColor('black');
+        headers.forEach((h, i) => {
+            doc.rect(x, y, colWidths[i], 35).fillAndStroke('#e5e7eb', 'black');
+            doc.fillColor('black').text(h, x + 2, y + 5, { width: colWidths[i] - 4, align: 'center' });
+            x += colWidths[i];
+        });
+        y += 35;
+    };
+
+    drawHeader();
+
+    // 3. Draw Data Rows
+    doc.font('Helvetica').fontSize(9);
+
+    riskData.forEach((row, idx) => {
+        // Prepare Cell Text
+        const texts = [
+            (idx + 1).toString(),
+            row.Activity || '-',
+            row.RoutineType || '-',
+            row.Hazard || '-',
+            row.RiskConsequence || '-',
+            `${row.Base_L} x ${row.Base_S} = ${row.Base_Score}\n(${row.Base_Level})`,
+            row.ExistingControls || '-',
+            row.AdditionalControls || '-',
+            row.Responsibility || '-',
+            `${row.Residual_L} x ${row.Residual_S} = ${row.Residual_Score}\n(${row.Residual_Level})`
+        ];
+
+        // Calculate Row Height based on longest text
+        let maxH = 20;
+        texts.forEach((t, i) => {
+            const h = doc.heightOfString(t, { width: colWidths[i] - 5 });
+            if (h > maxH) maxH = h;
+        });
+        maxH += 10; // Padding
+
+        // Auto-Page Break
+        if (y + maxH > 800) {
+            doc.addPage({ size: 'A3', layout: 'landscape' });
+            y = 50;
+            drawHeader();
+        }
+
+        // Render Cells
+        let x = startX;
+        texts.forEach((t, i) => {
+            doc.rect(x, y, colWidths[i], maxH).stroke();
+            doc.text(t, x + 3, y + 5, { width: colWidths[i] - 6 });
+            x += colWidths[i];
+        });
+        y += maxH;
+    });
+}
 const PORT = process.env.PORT || 8080;
 app.listen(PORT, () => console.log("Server Started on Port " + PORT));
