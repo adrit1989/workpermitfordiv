@@ -3113,13 +3113,34 @@ async function downloadSecurePDF(id, format = 'default') {
             else alert(json.error);
         }
 
-        async function loadRiskActivities() {
-            if(!currentUser) return;
-            const res = await apiCall('/risk/get-activities', 'POST', {
-                region: currentUser.Region, unit: currentUser.Unit, location: currentUser.Location
+    async function loadRiskActivities() {
+            if(!currentUser) {
+                console.warn("loadRiskActivities: Current User is null");
+                return;
+            }
+
+            console.log("Fetching Risk Activities for:", {
+                region: currentUser.Region, 
+                unit: currentUser.Unit, 
+                location: currentUser.Location
             });
+
+            const res = await apiCall('/risk/get-activities', 'POST', {
+                region: currentUser.Region, 
+                unit: currentUser.Unit, 
+                location: currentUser.Location
+            });
+
+            console.log("Risk Activities Response:", res);
+
             const sel = document.getElementById('sel-risk-activity');
-            if(sel) sel.innerHTML = '<option value="">Select Activity...</option>' + res.map(r => `<option value="${r.Activity}">${r.Activity}</option>`).join('');
+            if(sel) {
+                if (Array.isArray(res) && res.length > 0) {
+                     sel.innerHTML = '<option value="">Select Activity...</option>' + res.map(r => `<option value="${r.Activity}">${r.Activity}</option>`).join('');
+                } else {
+                     sel.innerHTML = '<option value="">No Activities Found for this Location</option>';
+                }
+            }
         }
 
         async function loadRiskHazards() {
@@ -3182,6 +3203,7 @@ async function downloadSecurePDF(id, format = 'default') {
     </script>
 </body>
 </html>
+
 
 
 
