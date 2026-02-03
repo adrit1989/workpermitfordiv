@@ -1501,6 +1501,7 @@ app.post('/api/save-permit', authenticateAccess, upload.any(), async(req, res) =
 
 app.post('/api/update-status', authenticateAccess, upload.any(), async(req, res) => {
     const { PermitID, action, ...extras } = req.body;
+  console.log(`[DEBUG] Update Status called. Permit: ${PermitID}, Action: ${action}, Role: ${req.user.role}`);
     const pool = await getConnection();
     const cur = await pool.request().input('p', PermitID).query("SELECT * FROM Permits WHERE PermitID=@p");
     if(!cur.recordset.length) return res.status(404).json({error: "Permit Not Found"});
