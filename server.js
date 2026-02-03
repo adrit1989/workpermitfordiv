@@ -1626,12 +1626,24 @@ else if (action === 'review' || action === 'approve_1st_ren') {
 else if (action === 'approve') { 
         st = 'Active'; 
         d.Approver_Sig = `${usr} on ${now}`; 
-        // --- NEW: GENERATE RISK REGISTER PDF ON APPROVAL ---
-        // Check if Risk Data exists in the JSON submitted by requester
-        if (d.RiskRegisterData && Array.isArray(d.RiskRegisterData) && d.RiskRegisterData.length > 0) {
+        
+        // --- FIX B: CORRECTLY PARSE RISK DATA BEFORE GENERATING PDF ---
+        let riskDataForPdf = [];
+        try {
+            if (d.RiskRegisterData) {
+                // If it's already an array, use it; otherwise parse the string
+                riskDataForPdf = Array.isArray(d.RiskRegisterData) ? d.RiskRegisterData : JSON.parse(d.RiskRegisterData);
+            }
+        } catch(e) { 
+            console.log("Risk Data Parse Error for PDF:", e.message); 
+            riskDataForPdf = []; 
+        }
+
+        // Only generate PDF if we successfully parsed data
+        if (riskDataForPdf.length > 0) {
             try {
                 // Generate PDF in memory
-                const riskDoc = new PDFDocument({ margin: 20, size: 'A3', layout: 'landscape' }); // A3 Landscape for wide table
+                const riskDoc = new PDFDocument({ margin: 20, size: 'A3', layout: 'landscape' });
                 const chunks = [];
                 riskDoc.on('data', chunks.push.bind(chunks));
                 
@@ -1652,14 +1664,13 @@ else if (action === 'approve') {
                     });
                 });
 
-                // Call the drawer function (Added in Step 3 below)
-                await drawRiskRegisterPDF(riskDoc, PermitID, d.RiskRegisterData, d);
+                // Use the PARSED array here
+                await drawRiskRegisterPDF(riskDoc, PermitID, riskDataForPdf, d);
                 riskDoc.end();
                 await pdfPromise;
 
             } catch (err) {
                 console.error("Risk Register PDF Generation Failed:", err);
-                // We do NOT stop approval if PDF fails, just log error
             }
         }
         // ---------------------------------------------------
