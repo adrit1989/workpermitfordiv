@@ -1628,52 +1628,80 @@ else if (action === 'approve') {
         st = 'Active'; 
         d.Approver_Sig = `${usr} on ${now}`; 
         
-        // --- FIX B: CORRECTLY PARSE RISK DATA BEFORE GENERATING PDF ---
+        // --- ROBUST HIRA PDF GENERATION START ---
+        console.log(`[HIRA PDF] Attempting generation for ${PermitID}...`);
+
         let riskDataForPdf = [];
         try {
-            if (d.RiskRegisterData) {
-                // If it's already an array, use it; otherwise parse the string
-                riskDataForPdf = Array.isArray(d.RiskRegisterData) ? d.RiskRegisterData : JSON.parse(d.RiskRegisterData);
+            // 1. Force Parsing: Handle Strings, Arrays, or Double-Encoded Strings
+            let rawRisk = d.RiskRegisterData;
+            
+            // If it's the "Double Entry" bug array ["", "[{...}]"], grab the second part
+            if (Array.isArray(rawRisk) && rawRisk.length > 1 && typeof rawRisk[1] === 'string') {
+                rawRisk = rawRisk[1];
             }
+
+            if (typeof rawRisk === 'string') {
+                // If it's a string, try parsing it
+                try { riskDataForPdf = JSON.parse(rawRisk); } catch(e) { console.error("[HIRA PDF] JSON Parse Error:", e.message); }
+            } else if (Array.isArray(rawRisk)) {
+                // If it's already an array, use it
+                riskDataForPdf = rawRisk;
+            }
+            
+            console.log(`[HIRA PDF] Parsed ${riskDataForPdf.length} rows.`);
+
         } catch(e) { 
-            console.log("Risk Data Parse Error for PDF:", e.message); 
-            riskDataForPdf = []; 
+            console.error("[HIRA PDF] Data Extraction Failed:", e.message); 
         }
 
-        // Only generate PDF if we successfully parsed data
-        if (riskDataForPdf.length > 0) {
+        // 2. Generate PDF only if we have data rows
+        if (riskDataForPdf && riskDataForPdf.length > 0) {
             try {
-                // Generate PDF in memory
                 const riskDoc = new PDFDocument({ margin: 20, size: 'A3', layout: 'landscape' });
                 const chunks = [];
                 riskDoc.on('data', chunks.push.bind(chunks));
                 
+                // Create a Promise to handle the async upload
                 const pdfPromise = new Promise((resolve, reject) => {
                     riskDoc.on('end', async () => {
                         try {
                             const pdfBuffer = Buffer.concat(chunks);
-                            // Upload to Azure
-                            const riskUrl = await uploadToAzure(pdfBuffer, `risk-registers/RR-${PermitID}.pdf`, 'application/pdf');
-                            // Update URL in Database immediately
+                            const blobName = `risk-registers/RR-${PermitID}-${Date.now()}.pdf`; // Added timestamp to ensure uniqueness
+                            
+                            console.log(`[HIRA PDF] Uploading to Azure as ${blobName}...`);
+                            const riskUrl = await uploadToAzure(pdfBuffer, blobName, 'application/pdf');
+                            
                             if (riskUrl) {
+                                console.log(`[HIRA PDF] Success! URL: ${riskUrl}`);
+                                // Direct SQL Update to ensure it saves
                                 const pool = await getConnection();
-                                await pool.request().input('p', PermitID).input('url', riskUrl)
-                                    .query("UPDATE Permits SET RiskRegisterUrl=@url WHERE PermitID=@p");
+                                await pool.request()
+                                    .input('pid', PermitID)
+                                    .input('url', riskUrl)
+                                    .query("UPDATE Permits SET RiskRegisterUrl=@url WHERE PermitID=@pid");
+                            } else {
+                                console.error("[HIRA PDF] Azure Upload returned null.");
                             }
                             resolve();
                         } catch (err) { reject(err); }
                     });
                 });
 
-                // Use the PARSED array here
+                // Draw the PDF content
                 await drawRiskRegisterPDF(riskDoc, PermitID, riskDataForPdf, d);
                 riskDoc.end();
+                
+                // Wait for upload to finish
                 await pdfPromise;
 
             } catch (err) {
-                console.error("Risk Register PDF Generation Failed:", err);
+                console.error("[HIRA PDF] CRITICAL GENERATION ERROR:", err);
             }
+        } else {
+            console.log("[HIRA PDF] Skipped: No valid risk data found.");
         }
+        // --- ROBUST HIRA PDF GENERATION END ---
         // ---------------------------------------------------
         // --- JSA & TBT Handling (Approver Override) ---
         if (req.files) {
