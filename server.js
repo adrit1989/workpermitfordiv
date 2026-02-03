@@ -1377,7 +1377,8 @@ app.post('/api/dashboard', authenticateAccess, async (req, res) => {
     const data = r.recordset.map(x => {
         let parsed = {};
         try { parsed = JSON.parse(x.FullDataJSON || "{}"); } catch (e) {}
-        return { ...parsed, ...x, FinalPdfUrl: x.FinalPdfUrl };
+        return { ...parsed, ...x, FinalPdfUrl: x.FinalPdfUrl, 
+            RiskRegisterUrl: x.RiskRegisterUrl};
     });
    const filtered = data.filter(p => {
         // 1. Master Admins see everything
