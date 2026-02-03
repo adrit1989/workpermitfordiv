@@ -2711,6 +2711,11 @@ else if (sec === 'B' && i === 14) {
             if(currentUser) {
                 safeSet("RequesterName", currentUser.Name); safeSet("Vendor", currentUser.Name); safeSet("LocationUnit", `${currentUser.Region}/${currentUser.Unit}/${currentUser.Location}`);
             }
+            document.getElementById('risk-selection-controls').classList.remove('hidden'); // Show controls for new permit
+            selectedRisks = []; // Reset array
+            renderRiskTable();  // Clear table
+            loadRiskActivities(); // <--- THIS WAS MISSING
+            // ---------------------------
             const vendorInput = document.getElementById("Vendor");
             if(vendorInput) vendorInput.readOnly = true;
             document.getElementById("init-renewal-wrapper").classList.remove('hidden');
@@ -3203,6 +3208,7 @@ async function downloadSecurePDF(id, format = 'default') {
     </script>
 </body>
 </html>
+
 
 
 
