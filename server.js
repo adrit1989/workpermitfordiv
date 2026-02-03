@@ -1072,11 +1072,7 @@ app.post('/api/delete-user', authenticateAccess, async (req, res) => {
         res.json({ success: true });
     } catch(e) { res.status(500).json({ error: "Delete failed" }); }
 });
-/* =====================================================
-   RISK REGISTER MANAGEMENT (NEW)
-===================================================== */
-
-// 1. Upload Risk Register (Master Admin)
+// 1. Upload Risk Register (Master Admin) - ROBUST VERSION
 app.post('/api/admin/upload-risk', authenticateAccess, upload.single('riskFile'), async (req, res) => {
     if (req.user.role !== 'MasterAdmin') return res.status(403).json({ error: "Unauthorized" });
     try {
@@ -1085,51 +1081,89 @@ app.post('/api/admin/upload-risk', authenticateAccess, upload.single('riskFile')
 
         const workbook = new ExcelJS.Workbook();
         await workbook.xlsx.load(req.file.buffer);
-        const sheet = workbook.getWorksheet(1);
+        
+        // AUTO-DETECT: Try to find the sheet with "Activity" or "HAZARD" in header, or default to first
+        let sheet = workbook.getWorksheet(1);
+        workbook.eachSheet((ws) => {
+            const row1 = ws.getRow(4).values; // Check row 4 (header usually)
+            if(row1 && row1.includes && (row1.includes('Activity') || row1.includes('HAZARD'))) {
+                sheet = ws;
+            }
+        });
         
         const pool = await getConnection();
         
-        // Clean existing data for this specific location to allow updates
+        // Clean existing data for this specific location
         await pool.request().input('r', region).input('u', unit).input('l', location)
             .query("DELETE FROM RiskRegisters WHERE Region=@r AND Unit=@u AND Location=@l");
 
         const promises = [];
+        
         sheet.eachRow((row, rowNumber) => {
-            if (rowNumber <= 4) return; // Skip Headers (Based on your CSV format, headers take ~4 rows)
-            
             // Helper to get cell value safely
             const val = (idx) => {
                 const v = row.getCell(idx).value;
-                return v ? (v.text || v.toString()) : '';
+                if(v && typeof v === 'object' && v.result) return String(v.result); // Handle formulas
+                return v ? (v.text || v.toString()).trim() : '';
             };
 
-            // Mapping based on "Risk Register Templet.csv" structure
-            // Col 2: Activity, 3: Type, 4: Hazard, 5: Risk, 9: Base L ...
-            if(val(2)) { // Only if Activity exists
-                promises.push(
-                    pool.request()
-                    .input('reg', region).input('un', unit).input('loc', location)
-                    .input('act', val(2)).input('rt', val(3)).input('haz', val(4)).input('cons', val(5))
-                    .input('bl', val(9)).input('bs', val(10)).input('bsc', val(11)).input('blvl', val(12))
-                    .input('ce', val(13)).input('cs', val(14)).input('ceng', val(15)).input('cadm', val(16)).input('cppe', val(17))
-                    .input('ex', val(18)).input('add', val(19)).input('resp', val(20))
-                    .input('rl', val(21)).input('rs', val(22)).input('rsc', val(23)).input('rlvl', val(24))
-                    .input('ub', req.user.name)
-                    .query(`INSERT INTO RiskRegisters (
-                        Region, Unit, Location, Activity, RoutineType, Hazard, RiskConsequence,
-                        Base_L, Base_S, Base_Score, Base_Level,
-                        Control_Elimination, Control_Sub, Control_Eng, Control_Admin, Control_PPE,
-                        ExistingControls, AdditionalControls, Responsibility,
-                        Residual_L, Residual_S, Residual_Score, Residual_Level, UploadedBy
-                    ) VALUES (
-                        @reg, @un, @loc, @act, @rt, @haz, @cons,
-                        @bl, @bs, @bsc, @blvl,
-                        @ce, @cs, @ceng, @cadm, @cppe,
-                        @ex, @add, @resp,
-                        @rl, @rs, @rsc, @rlvl, @ub
-                    )`)
-                );
-            }
+            // VALIDATION 1: Skip Header Rows (Usually rows 1-4)
+            if (rowNumber <= 4) return;
+
+            // VALIDATION 2: Crucial Data Check
+            // If "Activity" (Col 2) is empty, OR "Hazard" (Col 4) is empty, skip row.
+            // Also skip if Activity is likely a footer text (too long or specific keywords)
+            const activity = val(2);
+            if (!activity || activity.length > 800 || activity.toLowerCase().includes('change note')) return;
+
+            // VALIDATION 3: Sanitize Scores
+            // Ensure scores don't exceed DB limits (take first 50 chars)
+            const baseS = val(10).substring(0, 50); 
+            
+            // If Base_S looks like a descriptive note (e.g. "Change Note"), SKIP ROW
+            if (baseS.toLowerCase().includes('change') || baseS.length > 20) return; 
+
+            promises.push(
+                pool.request()
+                .input('reg', region).input('un', unit).input('loc', location)
+                .input('act', activity)
+                .input('rt', val(3).substring(0, 50)) // Routine Type
+                .input('haz', val(4))
+                .input('cons', val(5))
+                // Base Risks
+                .input('bl', val(9).substring(0, 50))
+                .input('bs', baseS) 
+                .input('bsc', val(11).substring(0, 50))
+                .input('blvl', val(12).substring(0, 50))
+                // Controls
+                .input('ce', val(13).substring(0, 10))
+                .input('cs', val(14).substring(0, 10))
+                .input('ceng', val(15).substring(0, 10))
+                .input('cadm', val(16).substring(0, 10))
+                .input('cppe', val(17).substring(0, 10))
+                .input('ex', val(18))
+                .input('add', val(19))
+                .input('resp', val(20).substring(0, 100))
+                // Residual
+                .input('rl', val(21).substring(0, 50))
+                .input('rs', val(22).substring(0, 50))
+                .input('rsc', val(23).substring(0, 50))
+                .input('rlvl', val(24).substring(0, 50))
+                .input('ub', req.user.name)
+                .query(`INSERT INTO RiskRegisters (
+                    Region, Unit, Location, Activity, RoutineType, Hazard, RiskConsequence,
+                    Base_L, Base_S, Base_Score, Base_Level,
+                    Control_Elimination, Control_Sub, Control_Eng, Control_Admin, Control_PPE,
+                    ExistingControls, AdditionalControls, Responsibility,
+                    Residual_L, Residual_S, Residual_Score, Residual_Level, UploadedBy
+                ) VALUES (
+                    @reg, @un, @loc, @act, @rt, @haz, @cons,
+                    @bl, @bs, @bsc, @blvl,
+                    @ce, @cs, @ceng, @cadm, @cppe,
+                    @ex, @add, @resp,
+                    @rl, @rs, @rsc, @rlvl, @ub
+                )`)
+            );
         });
 
         await Promise.all(promises);
