@@ -110,7 +110,14 @@ app.use(cors({
 app.use(bodyParser.json({ limit: '5mb' }));
 app.use('/public', express.static(path.join(__dirname, 'public')));
 
-const limiter = rateLimit({ windowMs: 10 * 1000, max: 200 });
+const limiter = rateLimit({ 
+    windowMs: 10 * 1000, 
+    max: 200,
+    keyGenerator: (req) => {
+        // Create a unique key based on IP, stripping the port if it exists
+        return req.ip ? req.ip.replace(/:\d+$/, '') : req.ip; 
+    }
+});
 app.use('/api/', limiter);
 
 const upload = multer({ 
