@@ -2764,6 +2764,7 @@ if (getVal('SopNo') === 'Any other') {
             const selectedWorkers = [];
             document.querySelectorAll('#worker-select-area input:checked').forEach(c => { try { selectedWorkers.push(JSON.parse(c.value)); } catch(e){} });
             fd.append("SelectedWorkers", JSON.stringify(selectedWorkers));
+            fd.append("RiskRegisterData", JSON.stringify(selectedRisks));
             if(currentUser) fd.append("RequesterEmail", currentUser.Email);
             const hcEl = document.getElementById('GP_Q12_HC'); const toxEl = document.getElementById('GP_Q12_ToxicGas'); const o2El = document.getElementById('GP_Q12_Oxygen');
             fd.append("GP_Q12_HC", hcEl ? hcEl.value : ""); fd.append("GP_Q12_ToxicGas", toxEl ? toxEl.value : ""); fd.append("GP_Q12_Oxygen", o2El ? o2El.value : "");
@@ -3197,7 +3198,7 @@ async function downloadSecurePDF(id, format = 'default') {
                     selectedRisks.push(data);
                 }
             });
-            renderRiskTable();
+            renderRiskTable(true);
             document.querySelectorAll('.risk-chk').forEach(c => c.checked = false);
         }
 
@@ -3241,6 +3242,7 @@ function removeRisk(idx) {
     </script>
 </body>
 </html>
+
 
 
 
