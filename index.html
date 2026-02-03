@@ -1306,43 +1306,46 @@ function showChangePassword() {
                 currentPermitId = id;
 
                 // --- RISK REGISTER INIT ---
-              // --- RISK REGISTER INIT ---
                 selectedRisks = [];
                 if (p.RiskRegisterData) {
-                     // Parse existing data
-                     selectedRisks = Array.isArray(p.RiskRegisterData) ? p.RiskRegisterData : JSON.parse(p.RiskRegisterData || "[]");
+                     // Parse existing data safely
+                     try {
+                        selectedRisks = Array.isArray(p.RiskRegisterData) ? p.RiskRegisterData : JSON.parse(p.RiskRegisterData || "[]");
+                     } catch(e) { selectedRisks = []; }
                 }
                 
-                // --- LOGIC FIX START ---
-                // 1. Determine who can EDIT the HIRA Table
+                // --- LOGIC FIX: PERMISSIONS & UNLOCKING ---
                 let canEditHira = false;
 
-                // Requester can edit in Draft or Rejected
+                // 1. Determine Edit Permission based on Role & Status
                 if (currentUser.Role === 'Requester' && (statusClean === '' || statusClean === 'Draft' || statusClean.includes('Rejected'))) {
                     canEditHira = true;
                 }
-                // Reviewer can edit during their turn
                 else if (currentUser.Role === 'Reviewer' && statusClean === 'Pending Review') {
                     canEditHira = true;
                 }
-                // Approver can edit during their turn
                 else if ((currentUser.Role === 'Approver' || currentUser.Role === 'MasterAdmin') && statusClean === 'Pending Approval') {
                     canEditHira = true;
                 }
 
-                // 2. Toggle the Input Controls (Dropdowns/Add Button) based on Edit permission
+                // 2. Control Visibility AND Explicit Enablement
+                const riskControls = document.getElementById('risk-selection-controls');
+                
                 if (canEditHira) {
-                      loadRiskActivities(); // Load dropdown data
-                      document.getElementById('risk-selection-controls').classList.remove('hidden');
+                      loadRiskActivities(); // Populate dropdown
+                      riskControls.classList.remove('hidden');
+                      
+                      // CRITICAL FIX: The main form loop disables these inputs by default.
+                      // We must explicitly UNLOCK them here for the active user.
+                      const inputs = riskControls.querySelectorAll('select, button, input');
+                      inputs.forEach(el => el.disabled = false);
+                      
                 } else {
-                      document.getElementById('risk-selection-controls').classList.add('hidden');
+                      riskControls.classList.add('hidden');
                 }
 
                 // 3. Render the TABLE (Always Visible to everyone, edit mode depends on flag)
                 renderRiskTable(canEditHira); 
-                // --- LOGIC FIX END ---
-
-                // Parse IOCL Supervisors safely
                 let rawIOCL = p.IOCLSupervisors;
                 if (typeof rawIOCL === 'string') { try { rawIOCL = JSON.parse(rawIOCL); } catch(e) { rawIOCL = []; } }
                 currentPermitIOCLData = Array.isArray(rawIOCL) ? rawIOCL : [];
@@ -3190,20 +3193,26 @@ async function downloadSecurePDF(id, format = 'default') {
             `).join('');
         }
 
-        function addRiskToTable() {
+ function addRiskToTable() {
             const checked = document.querySelectorAll('.risk-chk:checked');
             checked.forEach(c => {
-                const data = JSON.parse(c.value);
-                if(!selectedRisks.some(r => r.RiskID === data.RiskID)) {
-                    selectedRisks.push(data);
-                }
+                try {
+                    const data = JSON.parse(c.value);
+                    // Check duplicates using robust ID check
+                    if(!selectedRisks.some(r => (r.RiskID || r.riskID) === (data.RiskID || data.riskID))) {
+                        selectedRisks.push(data);
+                    }
+                } catch(e) { console.error("Error parsing risk data", e); }
             });
+            
+            // CRITICAL FIX: Pass 'true' here so the table redraws in EDIT mode (Delete buttons visible)
             renderRiskTable(true);
+            
             document.querySelectorAll('.risk-chk').forEach(c => c.checked = false);
         }
 
         // Accepts boolean to determine if Delete buttons should be shown
-        function renderRiskTable(isEditable = false) {
+function renderRiskTable(isEditable = false) {
             const tbody = document.querySelector('#table-selected-risks tbody');
             
             // If table is empty
@@ -3212,17 +3221,26 @@ async function downloadSecurePDF(id, format = 'default') {
                 return;
             }
 
-            tbody.innerHTML = selectedRisks.map((r, i) => `
+            tbody.innerHTML = selectedRisks.map((r, i) => {
+                // ROBUST DATA FETCHING (Handles both Capitalized and Lowercase keys)
+                const act = r.Activity || r.activity || '-';
+                const haz = r.Hazard || r.hazard || '-';
+                const risk = r.RiskConsequence || r.riskConsequence || '-';
+                const base = r.Base_Level || r.base_level || r.BaseLevel || '-';
+                const exist = r.ExistingControls || r.existingControls || '-';
+                const add = r.AdditionalControls || r.additionalControls || '-';
+
+                return `
                 <tr class="border-b hover:bg-gray-50 text-xs">
-                    <td class="p-2 border align-top font-bold text-gray-700">${r.Activity}</td>
-                    <td class="p-2 border align-top">${r.Hazard}</td>
+                    <td class="p-2 border align-top font-bold text-gray-700">${act}</td>
+                    <td class="p-2 border align-top">${haz}</td>
                     <td class="p-2 border align-top">
-                        ${r.RiskConsequence}
-                        <div class="mt-1"><span class="bg-gray-100 border border-gray-300 px-1 rounded text-[9px] font-mono">Base: ${r.Base_Level}</span></div>
+                        ${risk}
+                        <div class="mt-1"><span class="bg-gray-100 border border-gray-300 px-1 rounded text-[9px] font-mono">Base: ${base}</span></div>
                     </td>
                     <td class="p-2 border align-top bg-yellow-50/30">
-                        <div class="mb-1"><span class="font-bold text-[10px] uppercase text-gray-500">Existing:</span> ${r.ExistingControls}</div>
-                        <div><span class="font-bold text-[10px] uppercase text-blue-600">Additional:</span> ${r.AdditionalControls}</div>
+                        <div class="mb-1"><span class="font-bold text-[10px] uppercase text-gray-500">Existing:</span> ${exist}</div>
+                        <div><span class="font-bold text-[10px] uppercase text-blue-600">Additional:</span> ${add}</div>
                     </td>
                     <td class="p-2 border align-top text-center">
                         ${isEditable ? 
@@ -3230,7 +3248,7 @@ async function downloadSecurePDF(id, format = 'default') {
                             '<span class="text-gray-400 text-lg" title="Read Only">🔒</span>'}
                     </td>
                 </tr>
-            `).join('');
+            `}).join('');
         }
 
 function removeRisk(idx) {
@@ -3242,6 +3260,7 @@ function removeRisk(idx) {
     </script>
 </body>
 </html>
+
 
 
 
