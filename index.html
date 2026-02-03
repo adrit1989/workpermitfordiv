@@ -1340,15 +1340,25 @@ function showChangePassword() {
                 // 2. Control Visibility AND Explicit Enablement
                 const riskControls = document.getElementById('risk-selection-controls');
                 
-                if (canEditHira) {
+                    if (canEditHira) {
                       loadRiskActivities(); // Populate dropdown
                       riskControls.classList.remove('hidden');
                       
-                      // CRITICAL FIX: The main form loop disables these inputs by default.
-                      // We must explicitly UNLOCK them here for the active user.
-                      const inputs = riskControls.querySelectorAll('select, button, input');
-                      inputs.forEach(el => el.disabled = false);
-                      
+                         setTimeout(() => {
+                          const inputs = riskControls.querySelectorAll('select, button, input');
+                          inputs.forEach(el => {
+                              el.disabled = false;
+                              el.removeAttribute('disabled'); // Extra safety
+                              el.classList.remove('opacity-50', 'cursor-not-allowed');
+                          });
+                          
+                          // Explicitly target the dropdown again just to be sure
+                          const actDrop = document.getElementById('sel-risk-activity');
+                          if(actDrop) actDrop.disabled = false;
+                          
+                      }, 200); 
+                
+
                 } else {
                       riskControls.classList.add('hidden');
                 }
@@ -3269,6 +3279,7 @@ function removeRisk(idx) {
     </script>
 </body>
 </html>
+
 
 
 
