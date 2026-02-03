@@ -1547,20 +1547,36 @@ app.post('/api/update-status', authenticateAccess, upload.any(), async(req, res)
     else if (action === 'elec_reject') {
         st = 'Rejected';
     }
-if (action === 'elec_closure_approve') {
-         st = 'Closure Pending Review';
-         d.Elec_DeIsolation_Sig = `${usr} on ${now}`;
-         
-         // Capture the data sent from Frontend
-         const deIsoTime = extras.Elec_DeIso_DateTime_Final || now;
-         d.Elec_DeIso_DateTime_Final = deIsoTime; // Ensure this is saved explicitly
-         d.Elec_Energized_Final_Check = 'Y';
-
-         // Generate the Statement for the Green Box
-         const equip = d.Elec_EquipNo || "Equipment";
-         const tag = d.Elec_LotoTag_Auth || "N/A";
-         d.Elec_Energization_Msg = `${usr} (Electrical Auth) has successfully energised the ${equip} (LOTO Tag: ${tag}) at ${deIsoTime}.`;
+if (action === 'elec_approve') {
+        const elecAuthNum = `ELEC-${PermitID}-${Date.now().toString().slice(-4)}`;
+        st = 'Pending Review'; 
+        d.ElectricalAuthNum = elecAuthNum;
+        d.Elec_Approved_By = usr;
+        d.Elec_Approval_Statement = `${usr} has approved the electrical isolation request no ${elecAuthNum} and submitted for further approval.`;
+    } 
+    else if (action === 'elec_reject') {
+        st = 'Rejected';
     }
+    // [FIXED] Added 'else' to maintain the chain
+    else if (action === 'elec_closure_approve') {
+        st = 'Closure Pending Review';
+        d.Elec_DeIsolation_Sig = `${usr} on ${now}`;
+        
+        // Logic from Code B (Data Capture) merged with Code A (Status Update)
+        const deIsoTime = extras.Elec_DeIso_DateTime_Final || now;
+        d.Elec_DeIso_DateTime_Final = deIsoTime;
+        d.Elec_Energized_Final_Check = 'Y';
+        
+        const equip = d.Elec_EquipNo || "Equipment";
+        const tag = d.Elec_LotoTag_Auth || "N/A";
+        d.Elec_Energization_Msg = `${usr} (Electrical Auth) has successfully energised the ${equip} (LOTO Tag: ${tag}) at ${deIsoTime}.`;
+    }
+    // [RESTORED] This was missing in your snippet
+    else if (action === 'elec_reject_closure') {
+        st = 'Active'; 
+    }
+
+    // --- 2. CLOSURE LOGIC ---
     else if (action === 'initiate_closure') {
         if (d.A_Q11 === 'Y') {
             if (extras.Elec_Energize_Check !== 'Y') {
@@ -1573,13 +1589,7 @@ if (action === 'elec_closure_approve') {
         d.Closure_Requestor_Date = now;
         d.Closure_Receiver_Sig = `${usr} on ${now}`;
     }
-    else if (action === 'elec_closure_approve') {
-        st = 'Closure Pending Review'; 
-        d.Elec_DeIsolation_Sig = `${usr} on ${now}`;
-    }
-    else if (action === 'elec_reject_closure') {
-        st = 'Active'; 
-    }
+
     
     // 2. GENERAL ACTIONS
     else if (action === 'reject') {
