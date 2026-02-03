@@ -1538,17 +1538,7 @@ app.post('/api/update-status', authenticateAccess, upload.any(), async(req, res)
     let sqlSetJsa = ""; 
 
     // 1. ELECTRICAL LOGIC
-    if (action === 'elec_approve') {
-        const elecAuthNum = `ELEC-${PermitID}-${Date.now().toString().slice(-4)}`;
-        st = 'Pending Review'; 
-        d.ElectricalAuthNum = elecAuthNum;
-        d.Elec_Approved_By = usr;
-        d.Elec_Approval_Statement = `${usr} has approved the electrical isolation request no ${elecAuthNum} and submitted for further approval.`;
-    } 
-    else if (action === 'elec_reject') {
-        st = 'Rejected';
-    }
-if (action === 'elec_approve') {
+ if (action === 'elec_approve') {
         const elecAuthNum = `ELEC-${PermitID}-${Date.now().toString().slice(-4)}`;
         st = 'Pending Review'; 
         d.ElectricalAuthNum = elecAuthNum;
@@ -1628,6 +1618,43 @@ else if (action === 'review' || action === 'approve_1st_ren') {
         else if (req.user.role === 'Approver' || req.user.role === 'MasterAdmin') {
             st = 'Active'; 
             d.Approver_Sig = `${usr} on ${now}`;
+          // 🚨 1. INSERT HIRA PDF GENERATION HERE 🚨
+        // ===========================================
+        console.log(`[HIRA PDF] Attempting generation for ${PermitID} (Renewal/Review Action)...`);
+        let riskDataForPdf = [];
+        try {
+            let rawRisk = d.RiskRegisterData;
+            if (Array.isArray(rawRisk) && rawRisk.length > 1 && typeof rawRisk[1] === 'string') rawRisk = rawRisk[1];
+            if (typeof rawRisk === 'string') { try { riskDataForPdf = JSON.parse(rawRisk); } catch(e) {} } 
+            else if (Array.isArray(rawRisk)) { riskDataForPdf = rawRisk; }
+        } catch(e) { console.error("[HIRA PDF] Extraction Failed:", e.message); }
+
+        if (riskDataForPdf && riskDataForPdf.length > 0) {
+            try {
+                const riskDoc = new PDFDocument({ margin: 20, size: 'A3', layout: 'landscape' });
+                const chunks = [];
+                riskDoc.on('data', chunks.push.bind(chunks));
+                const pdfPromise = new Promise((resolve, reject) => {
+                    riskDoc.on('end', async () => {
+                        try {
+                            const pdfBuffer = Buffer.concat(chunks);
+                            const blobName = `risk-registers/RR-${PermitID}-${Date.now()}.pdf`;
+                            const riskUrl = await uploadToAzure(pdfBuffer, blobName, 'application/pdf');
+                            if (riskUrl) {
+                                const pool = await getConnection();
+                                await pool.request().input('pid', PermitID).input('url', riskUrl)
+                                    .query("UPDATE Permits SET RiskRegisterUrl=@url WHERE PermitID=@pid");
+                            }
+                            resolve();
+                        } catch (err) { reject(err); }
+                    });
+                });
+                await drawRiskRegisterPDF(riskDoc, PermitID, riskDataForPdf, d);
+                riskDoc.end();
+                await pdfPromise;
+            } catch (err) { console.error("[HIRA PDF] Generation Error:", err); }
+        }
+        // ===========================================
             
             if (d.RequesterEmail) {
                 sendEmailNotification(d.RequesterEmail, `✅ Permit Approved & Active: ${PermitID}`, `Your permit is now ACTIVE.`);
