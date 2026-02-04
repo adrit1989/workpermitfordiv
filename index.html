@@ -1711,7 +1711,11 @@ document.getElementById('renewal-history-body').innerHTML = rens.map((r, index) 
 
     // 1. Status Display
     let statusDisplay = `<span class="bg-yellow-100 text-yellow-800 px-1 rounded">Pending</span>`;
-    if(r.status === 'approved') statusDisplay = `<span class="bg-green-100 text-green-800 px-1 rounded font-bold">Approved</span>`;
+    if(r.status === 'approved') {statusDisplay = `<span class="bg-green-100 text-green-800 px-1 rounded font-bold">Approved</span>`;
+        if (r.oddHourReq === 'Y') {
+        statusDisplay += `<div class="mt-1"><span class="text-[9px] bg-purple-100 text-purple-800 border border-purple-200 px-1 rounded font-bold inline-block">Approved with Oddhour clearance</span></div>`;
+    }
+      }
     else if(r.status === 'rejected') statusDisplay = `<span class="bg-red-100 text-red-800 px-1 rounded font-bold" title="${r.rejection_reason}">Rejected</span>`;
 
     // 2. Worker List Logic 
@@ -3279,6 +3283,7 @@ function removeRisk(idx) {
     </script>
 </body>
 </html>
+
 
 
 
