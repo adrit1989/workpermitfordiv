@@ -889,7 +889,13 @@ async function drawPermitPDF(doc, p, d, renewalsList) {
 
         // 1. Status Column
         let statusTxt = "Pending";
-        if(r.status === 'approved') statusTxt = "APPROVED";
+if(r.status === 'approved') {
+    statusTxt = "APPROVED";
+    // NEW: Append text for PDF
+    if (r.oddHourReq === 'Y') {
+        statusTxt += "\nwith Oddhour\nclearance";
+    }
+}
         else if(r.status === 'rejected') statusTxt = `REJECTED\nBy: ${r.rejected_by}\nReason: ${r.rejection_reason}`;
         
         doc.rect(30, ry, 60, rH).stroke().text(statusTxt, 32, ry+5, {width:56});
