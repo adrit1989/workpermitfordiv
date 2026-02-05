@@ -724,48 +724,72 @@
                     <div class="glass overflow-x-auto p-0"><table class="w-full text-sm text-left data-table" id="table-manage-users"><thead class="bg-gray-100"><tr><th>Name</th><th>Email</th><th>Role</th><th>Location</th><th>Action</th></tr></thead><tbody class="divide-y"></tbody></table></div>
                 </div>
  
-                <div id="view-admin" class="hidden">
-                    <h2 class="text-2xl font-bold mb-6 text-gray-800 border-b pb-2">Master Admin Console</h2>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div class="glass border-t-4 border-green-600">
-                             <h3 class="font-bold text-lg mb-2 text-green-800">👤 Add Single User</h3>
-                             <p class="text-xs text-gray-500 mb-4 bg-green-50 p-2 rounded">Create a single user manually.</p>
-                             <button type="button" onclick="document.getElementById('view-add-user').classList.remove('hidden')" class="w-full bg-green-600 text-white py-2 rounded font-bold hover:bg-green-700">+ Create User</button>
-                        </div>
-<div class="glass border-t-4 border-purple-600">
-    <h3 class="font-bold text-lg mb-2 text-purple-800">📂 Bulk User Upload</h3>
-    <p class="text-xs text-gray-500 mb-4 bg-purple-50 p-2 rounded">Download the template, fill it, and upload.</p>
-    
-    <div class="flex flex-col gap-3">
-        <button onclick="downloadTemplate('bulk-users')" class="bg-blue-100 text-blue-700 border border-blue-200 px-4 py-2 rounded hover:bg-blue-200 flex items-center justify-center gap-2 font-bold text-sm">
-            <span>⬇️</span> Download User Template
-        </button>
-
-        <div class="flex gap-2 items-center">
-            <input type="file" id="bulk-excel" accept=".xlsx" class="w-full text-xs border p-1 rounded">
-            <button onclick="uploadBulkUsers()" class="bg-purple-600 text-white px-3 py-1 rounded font-bold">Upload</button>
+<div id="view-admin" class="hidden">
+    <h2 class="text-2xl font-bold mb-6 text-gray-800 border-b pb-2">Master Admin Console</h2>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        
+        <div class="glass border-t-4 border-green-600">
+             <h3 class="font-bold text-lg mb-2 text-green-800">👤 Add Single User</h3>
+             <p class="text-xs text-gray-500 mb-4 bg-green-50 p-2 rounded">Create a single user manually.</p>
+             <button type="button" onclick="document.getElementById('view-add-user').classList.remove('hidden')" class="w-full bg-green-600 text-white py-2 rounded font-bold hover:bg-green-700">+ Create User</button>
         </div>
-    </div>
-</div>
- <div class="glass border-t-4 border-orange-600">
-    <h3 class="font-bold text-lg mb-2 text-orange-800">⚠️ Risk Register (HIRA)</h3>
-    <p class="text-xs text-gray-500 mb-4 bg-orange-50 p-2 rounded">Download HIRA format, fill logic cols (Y/N), and upload.</p>
-    
-    <div class="grid grid-cols-3 gap-2 mb-2">
-        <input id="risk-region" placeholder="Region" class="text-xs">
-        <input id="risk-unit" placeholder="Unit" class="text-xs">
-        <input id="risk-location" placeholder="Location" class="text-xs">
-    </div>
 
-    <div class="flex flex-col gap-3">
-        <button onclick="downloadTemplate('risk-register')" class="bg-blue-100 text-blue-700 border border-blue-200 px-4 py-2 rounded hover:bg-blue-200 flex items-center justify-center gap-2 font-bold text-sm">
-            <span>⬇️</span> Download HIRA Template
-        </button>
-
-        <div class="flex gap-2 items-center">
-            <input type="file" id="risk-excel" accept=".xlsx" class="w-full text-xs border p-1 rounded">
-            <button onclick="uploadRiskRegister()" class="bg-orange-600 text-white px-3 py-1 rounded font-bold">Upload</button>
+        <div class="glass border-t-4 border-purple-600">
+            <h3 class="font-bold text-lg mb-2 text-purple-800">📂 Bulk User Upload</h3>
+            <p class="text-xs text-gray-500 mb-4 bg-purple-50 p-2 rounded">Download template, fill, and upload.</p>
+            <div class="flex flex-col gap-3">
+                <button onclick="downloadTemplate('bulk-users')" class="bg-blue-100 text-blue-700 border border-blue-200 px-4 py-2 rounded hover:bg-blue-200 flex items-center justify-center gap-2 font-bold text-sm">
+                    <span>⬇️</span> Download User Template
+                </button>
+                <div class="flex gap-2 items-center">
+                    <input type="file" id="bulk-excel" accept=".xlsx" class="w-full text-xs border p-1 rounded">
+                    <button onclick="uploadBulkUsers()" class="bg-purple-600 text-white px-3 py-1 rounded font-bold">Upload</button>
+                </div>
+            </div>
         </div>
+
+        <div class="glass border-t-4 border-red-600">
+            <h3 class="font-bold text-lg mb-2 text-red-800">🔑 Global Reset Password</h3>
+            <p class="text-xs text-gray-500 mb-4 bg-red-50 p-2 rounded">Force reset any user's password.</p>
+            <div class="space-y-2">
+                <input id="reset-email" placeholder="User Email" class="w-full text-sm border p-2 rounded">
+                <input id="reset-temp-pass" placeholder="New Temporary Password" class="w-full text-sm border p-2 rounded">
+                <button onclick="resetUserPassword()" class="w-full bg-red-600 text-white py-2 rounded font-bold hover:bg-red-700">Reset Password</button>
+            </div>
+        </div>
+
+        <div class="glass border-t-4 border-orange-600">
+            <h3 class="font-bold text-lg mb-2 text-orange-800">⚠️ Risk Register (HIRA)</h3>
+            <p class="text-xs text-gray-500 mb-4 bg-orange-50 p-2 rounded">Download HIRA format, fill logic cols (Y/N), and upload.</p>
+            
+            <div class="grid grid-cols-3 gap-2 mb-2">
+                <input id="risk-region" placeholder="Region" class="text-xs">
+                <input id="risk-unit" placeholder="Unit" class="text-xs">
+                <input id="risk-location" placeholder="Location" class="text-xs">
+            </div>
+
+            <div class="flex gap-4 mb-3 text-xs font-bold bg-orange-50 p-2 rounded border border-orange-200">
+                <label class="flex items-center gap-1 cursor-pointer">
+                    <input type="radio" name="upload_mode" value="replace" checked class="accent-orange-600">
+                    Replace All
+                </label>
+                <label class="flex items-center gap-1 cursor-pointer">
+                    <input type="radio" name="upload_mode" value="append" class="accent-orange-600">
+                    Append New
+                </label>
+            </div>
+
+            <div class="flex flex-col gap-3">
+                <button onclick="downloadTemplate('risk-register')" class="bg-blue-100 text-blue-700 border border-blue-200 px-4 py-2 rounded hover:bg-blue-200 flex items-center justify-center gap-2 font-bold text-sm">
+                    <span>⬇️</span> Download HIRA Template
+                </button>
+                <div class="flex gap-2 items-center">
+                    <input type="file" id="risk-excel" accept=".xlsx" class="w-full text-xs border p-1 rounded">
+                    <button onclick="uploadRiskRegister()" class="bg-orange-600 text-white px-3 py-1 rounded font-bold">Upload</button>
+                </div>
+            </div>
+        </div>
+
     </div>
 </div>
  
@@ -3322,6 +3346,7 @@ function removeRisk(idx) {
     </script>
 </body>
 </html>
+
 
 
 
