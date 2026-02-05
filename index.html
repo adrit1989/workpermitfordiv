@@ -760,23 +760,12 @@
 
         <div class="glass border-t-4 border-orange-600">
             <h3 class="font-bold text-lg mb-2 text-orange-800">⚠️ Risk Register (HIRA)</h3>
-            <p class="text-xs text-gray-500 mb-4 bg-orange-50 p-2 rounded">Download HIRA format, fill logic cols (Y/N), and upload.</p>
+            <p class="text-xs text-gray-500 mb-4 bg-orange-50 p-2 rounded">Download HIRA format. <b>System will append new hazards automatically.</b></p>
             
             <div class="grid grid-cols-3 gap-2 mb-2">
                 <input id="risk-region" placeholder="Region" class="text-xs">
                 <input id="risk-unit" placeholder="Unit" class="text-xs">
                 <input id="risk-location" placeholder="Location" class="text-xs">
-            </div>
-
-            <div class="flex gap-4 mb-3 text-xs font-bold bg-orange-50 p-2 rounded border border-orange-200">
-                <label class="flex items-center gap-1 cursor-pointer">
-                    <input type="radio" name="upload_mode" value="replace" checked class="accent-orange-600">
-                    Replace All
-                </label>
-                <label class="flex items-center gap-1 cursor-pointer">
-                    <input type="radio" name="upload_mode" value="append" class="accent-orange-600">
-                    Append New
-                </label>
             </div>
 
             <div class="flex flex-col gap-3">
@@ -3346,6 +3335,7 @@ function removeRisk(idx) {
     </script>
 </body>
 </html>
+
 
 
 
