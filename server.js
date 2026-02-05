@@ -1085,6 +1085,138 @@ app.post('/api/delete-user', authenticateAccess, async (req, res) => {
         res.json({ success: true });
     } catch(e) { res.status(500).json({ error: "Delete failed" }); }
 });
+// --- TEMPLATE DOWNLOAD ROUTES ---
+
+// 1. Download Bulk User Upload Format
+app.get('/api/template/bulk-users', authenticateAccess, async (req, res) => {
+    if (req.user.role !== 'MasterAdmin') return res.status(403).send("Unauthorized");
+    try {
+        const workbook = new ExcelJS.Workbook();
+        const sheet = workbook.addWorksheet('User Upload Format');
+
+        // Define Headers matches your /api/admin/bulk-upload logic
+        sheet.columns = [
+            { header: 'Name', key: 'name', width: 25 },
+            { header: 'Email', key: 'email', width: 30 },
+            { header: 'Role', key: 'role', width: 20 },
+            { header: 'Password (Optional)', key: 'pass', width: 20 },
+            { header: 'Region', key: 'reg', width: 15 },
+            { header: 'Unit', key: 'unit', width: 15 },
+            { header: 'Location', key: 'loc', width: 25 }
+        ];
+
+        // Style the Header
+        sheet.getRow(1).font = { bold: true, color: { argb: 'FFFFFFFF' } };
+        sheet.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFEA580C' } }; // Orange
+
+        // Add a Sample Row to guide the user
+        sheet.addRow({
+            name: 'John Doe',
+            email: 'john.doe@indianoil.in',
+            role: 'Requester',
+            pass: 'Welcome@123',
+            reg: 'ERPL',
+            unit: 'MZZ',
+            loc: 'Muzaffarpur'
+        });
+
+        // Add Validation Notes (as comments or separate row)
+        sheet.addRow(['Notes:', 'Roles: Requester, Reviewer, Approver, ElectricalAuth', '', '', '', '', '']);
+        
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        res.setHeader('Content-Disposition', 'attachment; filename=Bulk_User_Template.xlsx');
+        await workbook.xlsx.write(res);
+        res.end();
+
+    } catch (e) {
+        console.error(e);
+        res.status(500).send("Error generating template");
+    }
+});
+
+// 2. Download Risk Register (HIRA) Format
+app.get('/api/template/risk-register', authenticateAccess, async (req, res) => {
+    if (req.user.role !== 'MasterAdmin') return res.status(403).send("Unauthorized");
+    try {
+        const workbook = new ExcelJS.Workbook();
+        const sheet = workbook.addWorksheet('HIRA Template');
+
+        // MATCHING INDICES FROM YOUR UPLOAD LOGIC:
+        // Col 2: Activity, 3: Routine, 4: Hazard, 5: Consequence
+        // Col 9-12: Base Risk (L, S, Score, Level)
+        // Col 13-17: Controls (Elim, Sub, Eng, Admin, PPE) - IMPORTANT for PDF Logic
+        // Col 18: Existing Controls (Text)
+        // Col 19: Additional Controls
+        // Col 20: Resp
+        // Col 21-24: Residual Risk
+
+        // Row 1-3: Header Info (Cosmetic)
+        sheet.mergeCells('A1:X1');
+        sheet.getCell('A1').value = "RISK REGISTER UPLOAD FORMAT";
+        sheet.getCell('A1').font = { bold: true, size: 14 };
+        sheet.getCell('A1').alignment = { horizontal: 'center' };
+
+        // Row 4: The Actual Headers used by detection logic
+        const headerRow = sheet.getRow(4);
+        headerRow.values = [
+            "Sl. No",       // 1
+            "Activity",     // 2
+            "Routine Type", // 3
+            "Hazard",       // 4
+            "Consequence",  // 5
+            "Spacer 1",     // 6 (Unused by logic)
+            "Spacer 2",     // 7 (Unused by logic)
+            "Spacer 3",     // 8 (Unused by logic)
+            "Base L",       // 9
+            "Base S",       // 10
+            "Base Score",   // 11
+            "Base Level",   // 12
+            "Elimination (Y/N)", // 13
+            "Substitution (Y/N)",// 14
+            "Control_Eng (Y/N)", // 15
+            "Control_Admin (Y/N)",// 16
+            "Control_PPE (Y/N)",  // 17
+            "Existing Controls (Text)", // 18
+            "Additional Controls",      // 19
+            "Responsibility",           // 20
+            "Res L",        // 21
+            "Res S",        // 22
+            "Res Score",    // 23
+            "Res Level"     // 24
+        ];
+
+        // Styling
+        headerRow.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+        headerRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E40AF' } }; // Blue
+
+        // Add a Sample Row (Row 5)
+        sheet.addRow([
+            1, "Welding Pipe", "Routine", "Fire / Spark", "Burn Injury", 
+            "", "", "", // Spacers
+            3, 4, 12, "Medium", // Base
+            "N", "N", "N", "Y", "Y", // Controls (Y/N for Logic)
+            "Use standard welding SOP", // Existing Text
+            "Keep fire extinguisher nearby", // Additional
+            "Site Supervisor", // Resp
+            1, 4, 4, "Low" // Residual
+        ]);
+
+        // Auto-width (approximate)
+        sheet.columns.forEach(col => { col.width = 15; });
+        sheet.getColumn(2).width = 30; // Activity
+        sheet.getColumn(4).width = 30; // Hazard
+        sheet.getColumn(18).width = 40; // Existing text
+
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        res.setHeader('Content-Disposition', 'attachment; filename=HIRA_Upload_Format.xlsx');
+        await workbook.xlsx.write(res);
+        res.end();
+
+    } catch (e) {
+        console.error(e);
+        res.status(500).send("Error generating template");
+    }
+});
 // 1. Upload Risk Register (Master Admin) - ROBUST VERSION
 app.post('/api/admin/upload-risk', authenticateAccess, upload.single('riskFile'), async (req, res) => {
     if (req.user.role !== 'MasterAdmin') return res.status(403).json({ error: "Unauthorized" });
