@@ -732,33 +732,42 @@
                              <p class="text-xs text-gray-500 mb-4 bg-green-50 p-2 rounded">Create a single user manually.</p>
                              <button type="button" onclick="document.getElementById('view-add-user').classList.remove('hidden')" class="w-full bg-green-600 text-white py-2 rounded font-bold hover:bg-green-700">+ Create User</button>
                         </div>
-                        <div class="glass border-t-4 border-purple-600">
-                            <h3 class="font-bold text-lg mb-2 text-purple-800">📂 Bulk User Upload</h3>
-                            <p class="text-xs text-gray-500 mb-4 bg-purple-50 p-2 rounded">Upload Excel (.xlsx).</p>
-                            <input type="file" id="bulk-excel" accept=".xlsx" class="mb-4 w-full">
-                            <button onclick="uploadBulkUsers()" class="w-full bg-purple-600 text-white py-2 rounded font-bold">Upload & Map</button>
-                        </div>
-                        <div class="glass border-t-4 border-red-600">
-                            <h3 class="font-bold text-lg mb-2 text-red-800">🔑 Global Reset Password</h3>
-                            <input id="reset-email" placeholder="User Email" class="mb-2 w-full">
-                            <input id="reset-temp-pass" placeholder="Temp Password" class="mb-2 w-full">
-                            <button onclick="resetUserPassword()" class="w-full bg-red-600 text-white py-2 rounded font-bold">Reset Password</button>
-                        </div>
-                        <div class="glass border-t-4 border-orange-600">
-                            <h3 class="font-bold text-lg mb-2 text-orange-800">⚠️ Upload Risk Register</h3>
-                            <p class="text-xs text-gray-500 mb-4 bg-orange-50 p-2 rounded">Upload Master HIRA Excel.</p>
-                            
-                            <div class="grid grid-cols-3 gap-2 mb-2">
-                                <input id="risk-region" placeholder="Region" class="text-xs">
-                                <input id="risk-unit" placeholder="Unit" class="text-xs">
-                                <input id="risk-location" placeholder="Location" class="text-xs">
-                            </div>
+<div class="glass border-t-4 border-purple-600">
+    <h3 class="font-bold text-lg mb-2 text-purple-800">📂 Bulk User Upload</h3>
+    <p class="text-xs text-gray-500 mb-4 bg-purple-50 p-2 rounded">Download the template, fill it, and upload.</p>
+    
+    <div class="flex flex-col gap-3">
+        <button onclick="downloadTemplate('bulk-users')" class="bg-blue-100 text-blue-700 border border-blue-200 px-4 py-2 rounded hover:bg-blue-200 flex items-center justify-center gap-2 font-bold text-sm">
+            <span>⬇️</span> Download User Template
+        </button>
 
-                            <input type="file" id="risk-excel" accept=".xlsx" class="mb-4 w-full text-xs">
-                            <button onclick="uploadRiskRegister()" class="w-full bg-orange-600 text-white py-2 rounded font-bold">Upload Register</button>
-                        </div>
-                    </div>
-                </div>
+        <div class="flex gap-2 items-center">
+            <input type="file" id="bulk-excel" accept=".xlsx" class="w-full text-xs border p-1 rounded">
+            <button onclick="uploadBulkUsers()" class="bg-purple-600 text-white px-3 py-1 rounded font-bold">Upload</button>
+        </div>
+    </div>
+</div>
+ <div class="glass border-t-4 border-orange-600">
+    <h3 class="font-bold text-lg mb-2 text-orange-800">⚠️ Risk Register (HIRA)</h3>
+    <p class="text-xs text-gray-500 mb-4 bg-orange-50 p-2 rounded">Download HIRA format, fill logic cols (Y/N), and upload.</p>
+    
+    <div class="grid grid-cols-3 gap-2 mb-2">
+        <input id="risk-region" placeholder="Region" class="text-xs">
+        <input id="risk-unit" placeholder="Unit" class="text-xs">
+        <input id="risk-location" placeholder="Location" class="text-xs">
+    </div>
+
+    <div class="flex flex-col gap-3">
+        <button onclick="downloadTemplate('risk-register')" class="bg-blue-100 text-blue-700 border border-blue-200 px-4 py-2 rounded hover:bg-blue-200 flex items-center justify-center gap-2 font-bold text-sm">
+            <span>⬇️</span> Download HIRA Template
+        </button>
+
+        <div class="flex gap-2 items-center">
+            <input type="file" id="risk-excel" accept=".xlsx" class="w-full text-xs border p-1 rounded">
+            <button onclick="uploadRiskRegister()" class="bg-orange-600 text-white px-3 py-1 rounded font-bold">Upload</button>
+        </div>
+    </div>
+</div>
  
        <div id="view-map" class="hidden h-full flex flex-col">
     <h2 class="text-2xl font-bold mb-4 text-gray-800">Live Permit Map</h2>
@@ -3143,6 +3152,36 @@ async function downloadSecurePDF(id, format = 'default') {
         otherInput.required = false;
     }
 }
+      async function downloadTemplate(type) {
+    if (!authToken) { alert("Please login first"); return; } // Use your global authToken variable
+
+    // Show Loader
+    document.getElementById('loader').style.display = 'flex';
+
+    try {
+        const response = await fetch(`${API}/template/${type}`, {
+            headers: { 'Authorization': `Bearer ${authToken}` }
+        });
+
+        if (!response.ok) throw new Error("Download failed");
+
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        // Name the file based on type
+        a.download = type === 'bulk-users' ? 'User_Upload_Template.xlsx' : 'HIRA_Upload_Template.xlsx';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        window.URL.revokeObjectURL(url);
+    } catch (err) {
+        alert("Error downloading template: " + err.message);
+    } finally {
+        // Hide Loader
+        document.getElementById('loader').style.display = 'none';
+    }
+}
       /* --- RISK REGISTER LOGIC --- */
         let selectedRisks = []; 
 
@@ -3283,6 +3322,7 @@ function removeRisk(idx) {
     </script>
 </body>
 </html>
+
 
 
 
