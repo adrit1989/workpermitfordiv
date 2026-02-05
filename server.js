@@ -3265,9 +3265,7 @@ async function drawRiskRegisterPDF(doc, permitNo, riskData, d) {
     const startX = 20;
     let y = 100;
     
-    // NEW COLUMN WIDTHS (Total ~1100)
-    // Removed: Base Risk, Resp, Res Risk
-    // Expanded: Existing Controls & Additional Controls
+    // Column Widths
     const colWidths = [40, 150, 60, 150, 150, 300, 250]; 
     
     const headers = [
@@ -3276,8 +3274,8 @@ async function drawRiskRegisterPDF(doc, permitNo, riskData, d) {
         "Type", 
         "Hazard", 
         "Risk / Consequence", 
-        "Existing Controls", 
-        "Additional Controls" // Now holds the old 'ExistingControls' text
+        "Existing Controls\n(Standard + Specific)", 
+        "Additional Controls" 
     ];
 
     // Helper: Draw Header
@@ -3302,30 +3300,35 @@ async function drawRiskRegisterPDF(doc, permitNo, riskData, d) {
         // --- LOGIC A: GENERATE EXISTING CONTROLS TEXT ---
         let generatedControls = [];
 
-        // Check for Engineering Controls
+        // 1. Standard Text from Y/N Columns
         const cEng = (row.Control_Eng || '').toUpperCase();
         if (cEng.includes('Y') || cEng.includes('YES') || cEng.includes('Ü')) {
             generatedControls.push("ENGINEERING CONTROLS: Usage of low voltage electrical appliance, remote operation from enclosure, Machine guarding, Proper platforms, Acoustic enclosures, automation instead of manual operations.");
         }
 
-        // Check for Admin Controls
         const cAdm = (row.Control_Admin || '').toUpperCase();
         if (cAdm.includes('Y') || cAdm.includes('YES') || cAdm.includes('Ü')) {
             generatedControls.push("ADMINISTRATIVE CONTROLS: Maintenance schedule / logs, maintenance by contractor, scheduled at less hazardous time, limited time exposure, rotating schedule, signage, existing procedures / training.");
         }
 
-        // Check for PPE Controls
         const cPPE = (row.Control_PPE || '').toUpperCase();
         if (cPPE.includes('Y') || cPPE.includes('YES') || cPPE.includes('Ü')) {
             generatedControls.push("PPE: Protective eyewear, gloves, face protection, safety helmet, respirator, safety footwear, ear protection, protective clothing, harness.");
         }
 
-        // Default text if nothing selected
+        // 2. Append Manual Text from Excel Column 18 ("Existing Controls")
+        if (row.ExistingControls && row.ExistingControls.trim() !== '' && row.ExistingControls !== '-') {
+            // Add a visual separator if we already have standard text
+            if (generatedControls.length > 0) generatedControls.push("--------------------------------------------------"); 
+            generatedControls.push(`SPECIFIC: ${row.ExistingControls}`);
+        }
+
+        // Combine all parts
         const existingControlsText = generatedControls.length > 0 ? generatedControls.join('\n\n') : '-';
 
         // --- LOGIC B: ADDITIONAL CONTROLS ---
-        // We now put the manual text from the SQL column 'ExistingControls' into this column
-        const additionalControlsText = row.ExistingControls || '-';
+        // Now correctly pulls from Excel Column 19 ("Additional Controls")
+        const additionalControlsText = row.AdditionalControls || '-';
 
         // Prepare Cell Text
         const texts = [
@@ -3334,14 +3337,13 @@ async function drawRiskRegisterPDF(doc, permitNo, riskData, d) {
             row.RoutineType || '-',                             // Type
             row.Hazard || '-',                                  // Hazard
             row.RiskConsequence || '-',                         // Risk / Consequence
-            existingControlsText,                               // NEW: Generated Text
-            additionalControlsText                              // NEW: Old manual text
+            existingControlsText,                               // Combined Text
+            additionalControlsText                              // Manual Additional Text
         ];
 
         // Calculate Row Height based on longest text
         let maxH = 20;
         texts.forEach((t, i) => {
-            // Use slightly narrower width for calculation to ensure padding
             const h = doc.heightOfString(t, { width: colWidths[i] - 6 });
             if (h > maxH) maxH = h;
         });
