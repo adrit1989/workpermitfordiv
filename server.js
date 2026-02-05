@@ -3132,19 +3132,26 @@ async function drawRiskRegisterPDF(doc, permitNo, riskData, d) {
     // 2. Table Configuration (A3 Landscape is ~1190 points wide)
     const startX = 20;
     let y = 100;
-    const colWidths = [30, 140, 40, 140, 140, 60, 150, 150, 120, 60]; 
-    // Total Width: ~1030
-    // Columns: SN, Activity, Type, Hazard, Consequence, Base(Score), Exist Ctrl, Add Ctrl, Resp, Res(Score)
-
+    
+    // NEW COLUMN WIDTHS (Total ~1100)
+    // Removed: Base Risk, Resp, Res Risk
+    // Expanded: Existing Controls & Additional Controls
+    const colWidths = [40, 150, 60, 150, 150, 300, 250]; 
+    
     const headers = [
-        "SN", "Activity", "Type", "Hazard", "Risk / Consequence", 
-        "Base Risk\n(L x S = Sc)", "Existing Controls", "Additional Controls", "Responsibility", "Res Risk\n(L x S = Sc)"
+        "SN", 
+        "Activity", 
+        "Type", 
+        "Hazard", 
+        "Risk / Consequence", 
+        "Existing Controls", 
+        "Additional Controls" // Now holds the old 'ExistingControls' text
     ];
 
     // Helper: Draw Header
     const drawHeader = () => {
         let x = startX;
-        doc.font('Helvetica-Bold').fontSize(9).fillColor('black');
+        doc.font('Helvetica-Bold').fontSize(10).fillColor('black');
         headers.forEach((h, i) => {
             doc.rect(x, y, colWidths[i], 35).fillAndStroke('#e5e7eb', 'black');
             doc.fillColor('black').text(h, x + 2, y + 5, { width: colWidths[i] - 4, align: 'center' });
@@ -3159,24 +3166,51 @@ async function drawRiskRegisterPDF(doc, permitNo, riskData, d) {
     doc.font('Helvetica').fontSize(9);
 
     riskData.forEach((row, idx) => {
+        
+        // --- LOGIC A: GENERATE EXISTING CONTROLS TEXT ---
+        let generatedControls = [];
+
+        // Check for Engineering Controls
+        const cEng = (row.Control_Eng || '').toUpperCase();
+        if (cEng.includes('Y') || cEng.includes('YES') || cEng.includes('Ü')) {
+            generatedControls.push("ENGINEERING CONTROLS: Usage of low voltage electrical appliance, remote operation from enclosure, Machine guarding, Proper platforms, Acoustic enclosures, automation instead of manual operations.");
+        }
+
+        // Check for Admin Controls
+        const cAdm = (row.Control_Admin || '').toUpperCase();
+        if (cAdm.includes('Y') || cAdm.includes('YES') || cAdm.includes('Ü')) {
+            generatedControls.push("ADMINISTRATIVE CONTROLS: Maintenance schedule / logs, maintenance by contractor, scheduled at less hazardous time, limited time exposure, rotating schedule, signage, existing procedures / training.");
+        }
+
+        // Check for PPE Controls
+        const cPPE = (row.Control_PPE || '').toUpperCase();
+        if (cPPE.includes('Y') || cPPE.includes('YES') || cPPE.includes('Ü')) {
+            generatedControls.push("PPE: Protective eyewear, gloves, face protection, safety helmet, respirator, safety footwear, ear protection, protective clothing, harness.");
+        }
+
+        // Default text if nothing selected
+        const existingControlsText = generatedControls.length > 0 ? generatedControls.join('\n\n') : '-';
+
+        // --- LOGIC B: ADDITIONAL CONTROLS ---
+        // We now put the manual text from the SQL column 'ExistingControls' into this column
+        const additionalControlsText = row.ExistingControls || '-';
+
         // Prepare Cell Text
         const texts = [
-            (idx + 1).toString(),
-            row.Activity || '-',
-            row.RoutineType || '-',
-            row.Hazard || '-',
-            row.RiskConsequence || '-',
-            `${row.Base_L} x ${row.Base_S} = ${row.Base_Score}\n(${row.Base_Level})`,
-            row.ExistingControls || '-',
-            row.AdditionalControls || '-',
-            row.Responsibility || '-',
-            `${row.Residual_L} x ${row.Residual_S} = ${row.Residual_Score}\n(${row.Residual_Level})`
+            (idx + 1).toString(),                               // SN
+            row.Activity || '-',                                // Activity
+            row.RoutineType || '-',                             // Type
+            row.Hazard || '-',                                  // Hazard
+            row.RiskConsequence || '-',                         // Risk / Consequence
+            existingControlsText,                               // NEW: Generated Text
+            additionalControlsText                              // NEW: Old manual text
         ];
 
         // Calculate Row Height based on longest text
         let maxH = 20;
         texts.forEach((t, i) => {
-            const h = doc.heightOfString(t, { width: colWidths[i] - 5 });
+            // Use slightly narrower width for calculation to ensure padding
+            const h = doc.heightOfString(t, { width: colWidths[i] - 6 });
             if (h > maxH) maxH = h;
         });
         maxH += 10; // Padding
