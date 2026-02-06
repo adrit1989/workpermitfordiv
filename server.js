@@ -2787,7 +2787,7 @@ function drawElectricalAnnexure(doc, p, d) {
     internalY += 20;
 
     const reqCloseDate = d.Closure_Requestor_Date ? d.Closure_Requestor_Date.split(' ')[0] : '';
-    
+    const reqCloseTime = d.Closure_Requestor_Date ? d.Closure_Requestor_Date.split(' ')[1] : '';
     doc.font('Helvetica').text(`Date: ${reqCloseDate}`, startX + 5, internalY);
     doc.text(`Time: ${reqCloseTime}`, startX + 250, internalY);
     internalY += 20;
