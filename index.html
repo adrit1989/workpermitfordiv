@@ -2870,6 +2870,7 @@ if (getVal('SopNo') === 'Any other') {
                 if(!j) { alert("JSA Details not found."); return switchView('jsa'); }
                 currentJsaData = j;
                 safeSet('JSAID', j.JSAID); safeSet('jsa-job-title', j.JobTitle); safeSet('jsa-executed-by', j.ExecutedBy);
+                safeSet('jsa-area', j.Area);
                 safeSet('jsa-reviewer', j.ReviewerEmail); safeSet('jsa-approver', j.ApproverEmail);
                 const data = JSON.parse(j.DataJSON || '{}');
                 (data.team || []).forEach(p => addJsaPersonRow(p));
@@ -2923,17 +2924,18 @@ document.getElementById('jsa-form').addEventListener('submit', async (e) => {
     const steps = [];
     document.querySelectorAll('#table-jsa-risk tbody tr').forEach(tr => { 
         const txts = tr.querySelectorAll('textarea'); 
+        // We look for 4 textareas: Activity(0), Hazard(1), Control(2), Resp(3)
         if(txts[0].value) {
             steps.push({ 
                 activity: txts[0].value, 
                 hazard: txts[1].value, 
                 control: txts[2].value,
-                resp: txts[3].value // <--- CAPTURE RESPONSIBILITY
+                resp: txts[3] ? txts[3].value : '' // <--- [FIX]: Capture Responsibility
             }); 
         }
     });
 
-    // 3. Build Request Body (UPDATED to include 'Area')
+    // 3. Build Request Body (UPDATED)
     const body = {
         JSAID: fd.get('JSAID'), 
         JobTitle: fd.get('JobTitle'), 
@@ -2946,8 +2948,7 @@ document.getElementById('jsa-form').addEventListener('submit', async (e) => {
         RequesterEmail: currentUser.Email, 
         RequesterName: currentUser.Name,
         
-        // NEW FIELD
-        Area: document.getElementById('jsa-area').value, 
+        Area: document.getElementById('jsa-area').value, // <--- [FIX]: Capture Area
 
         DataJSON: JSON.stringify({ 
             team, 
@@ -2956,14 +2957,8 @@ document.getElementById('jsa-form').addEventListener('submit', async (e) => {
         })
     };
 
-    // 4. Send to Server
     const res = await apiCall('/jsa/save', 'POST', body);
-    if(res.success) { 
-        alert("JSA Saved"); 
-        switchView('jsa'); 
-    } else { 
-        alert(res.error); 
-    }
+    if(res.success) { alert("JSA Saved"); switchView('jsa'); } else { alert(res.error); }
 });
         async function processJsaAction(id, action) {
             const rem = document.getElementById('jsa-remarks').value;
@@ -3384,6 +3379,7 @@ function removeRisk(idx) {
     </script>
 </body>
 </html>
+
 
 
 
