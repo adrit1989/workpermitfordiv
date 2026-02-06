@@ -3206,8 +3206,13 @@ async function generateJsaPdfBuffer(jsa, refNo, approverName, approvedDate) {
         doc.font('Helvetica-Bold').fontSize(10).text("APPROVALS", startX, y);
         y += 15;
 
-        const formatIST = (dateStr) => {
+const formatIST = (dateStr) => {
             if (!dateStr || dateStr === '-') return '-';
+            if (typeof dateStr === 'string' && /^\d{2}\/\d{2}\/\d{4}/.test(dateStr)) {
+                return dateStr; 
+            }
+
+            // Otherwise (e.g. SQL Date Object), format it to IST
             try {
                 const dateObj = new Date(dateStr);
                 if (isNaN(dateObj.getTime())) return '-';
