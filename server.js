@@ -3047,12 +3047,16 @@ async function generateJsaPdfBuffer(jsa, refNo, approverName, approvedDate) {
 
         // Line 2: Unit | Area | Location
         doc.text(`Unit: ${jsa.Unit || '-'}`, startX, y);
-        doc.text(`Area: ${jsa.Location || '-'}`, startX + 180, y);
-        doc.text(`Location: ${jsa.Location || '-'}`, startX + 360, y);
+        doc.text(`Area: ${jsa.Location || '-'}`, startX + 100, y);  // Moved Left
+        doc.text(`Location: ${jsa.Location || '-'}`, startX + 220, y); // Moved Left
+        doc.text(`Specific Area: ${jsa.Area || '-'}`, startX + 360, y); // Moved Right to avoid overlap
         y += 20;
 
         // Line 3: Job Title
         doc.text(`Job Title: ${jsa.JobTitle || '-'}`, startX, y);
+        y += 25;
+
+        doc.text(`Work Permit No: __________________________`, startX, y);
         y += 25;
 
         // --- 3. TEAM & EXECUTION ---
@@ -3099,11 +3103,12 @@ async function generateJsaPdfBuffer(jsa, refNo, approverName, approvedDate) {
         y += 30;
         // --- 5. MAIN RISK TABLE ---
         const headers = [
-            { t: "Sl. No.", w: 40 },
-            { t: "Activities", w: 120 },
-            { t: "Hazards", w: 120 },
-            { t: "Recommended Actions /\nProcedures & Control Measures", w: 255 }
-        ];
+    { t: "Sl.", w: 30 },
+    { t: "Activities", w: 100 },
+    { t: "Hazards", w: 100 },
+    { t: "Controls / Actions", w: 195 },
+    { t: "Person Resp.", w: 110 } // [Requirement D]
+];
 
         // Header Row
         let tx = startX;
@@ -3120,12 +3125,14 @@ async function generateJsaPdfBuffer(jsa, refNo, approverName, approvedDate) {
 
         // Data Rows
         doc.font('Helvetica').fontSize(9);
-        steps.forEach((s, i) => {
-            // Calculate max height for the row
-            const h1 = doc.heightOfString(s.activity, { width: 110 });
-            const h2 = doc.heightOfString(s.hazard, { width: 110 });
-            const h3 = doc.heightOfString(s.control, { width: 245 });
-            const rowH = Math.max(h1, h2, h3, 20) + 10;
+steps.forEach((s, i) => {
+    // Calculate max height including the new column
+    const h1 = doc.heightOfString(s.activity, { width: 90 });
+    const h2 = doc.heightOfString(s.hazard, { width: 90 });
+    const h3 = doc.heightOfString(s.control, { width: 185 });
+    const h4 = doc.heightOfString(s.resp || '-', { width: 100 }); // Measure Resp height
+    
+    const rowH = Math.max(h1, h2, h3, h4, 20) + 10;
             
             // Page Break Check
             if (y + rowH > 750) {
@@ -3144,27 +3151,35 @@ async function generateJsaPdfBuffer(jsa, refNo, approverName, approvedDate) {
                 doc.font('Helvetica');
             }
 
-            tx = startX;
-            
-            // Draw Cell Boxes
-            doc.rect(tx, y, 40, rowH).stroke();
-            doc.text(String(i + 1), tx + 2, y + 5, { width: 36, align: 'center' });
-            tx += 40;
+let tx = startX;
+    
+    // Draw 5 Columns
+    // 1. SN
+    doc.rect(tx, y, 30, rowH).stroke();
+    doc.text(String(i + 1), tx + 2, y + 5, { width: 26, align: 'center' });
+    tx += 30;
 
-            doc.rect(tx, y, 120, rowH).stroke();
-            doc.text(s.activity || '-', tx + 5, y + 5, { width: 110 });
-            tx += 120;
+    // 2. Activity
+    doc.rect(tx, y, 100, rowH).stroke();
+    doc.text(s.activity || '-', tx + 5, y + 5, { width: 90 });
+    tx += 100;
 
-            doc.rect(tx, y, 120, rowH).stroke();
-            doc.text(s.hazard || '-', tx + 5, y + 5, { width: 110 });
-            tx += 120;
+    // 3. Hazard
+    doc.rect(tx, y, 100, rowH).stroke();
+    doc.text(s.hazard || '-', tx + 5, y + 5, { width: 90 });
+    tx += 100;
 
-            doc.rect(tx, y, 255, rowH).stroke();
-            doc.text(s.control || '-', tx + 5, y + 5, { width: 245 });
-            
-            y += rowH;
-        });
+    // 4. Control
+    doc.rect(tx, y, 195, rowH).stroke();
+    doc.text(s.control || '-', tx + 5, y + 5, { width: 185 });
+    tx += 195;
 
+    // 5. Responsibility [Requirement D]
+    doc.rect(tx, y, 110, rowH).stroke();
+    doc.text(s.resp || '-', tx + 5, y + 5, { width: 100 });
+    
+    y += rowH;
+});
        // --- 6. ADDITIONAL PRECAUTIONS ---
         y += 15;
         if (y > 700) { doc.addPage(); y = 30; }
@@ -3206,6 +3221,49 @@ async function generateJsaPdfBuffer(jsa, refNo, approverName, approvedDate) {
             doc.text(`${index + 1}. ${item}`, startX, y, { width: width });
             y += textHeight + 5; // Add dynamic spacing based on text height
         });
+      // --- 7. APPROVAL BOX (Requirement A) ---
+        y += 20;
+        if (y > 700) { doc.addPage(); y = 30; }
+
+        // Box Configuration
+        const boxH = 45;
+        const sigW = 178; // 535 / 3 roughly
+        let sx = startX;
+
+        doc.font('Helvetica-Bold').fontSize(10).text("APPROVALS", startX, y);
+        y += 15;
+
+        // Data preparation
+        const reqName = jsa.RequesterName || '-';
+        const reqDate = jsa.CreatedAt ? new Date(jsa.CreatedAt).toLocaleString("en-GB") : '-';
+
+        const revName = jsa.ReviewedBy || '-';
+        const revDate = jsa.ReviewedAt ? new Date(jsa.ReviewedAt).toLocaleString("en-GB") : '-';
+
+        const appName = jsa.ApprovedBy || '-';
+        const appDate = jsa.ApprovedAt ? new Date(jsa.ApprovedAt).toLocaleString("en-GB") : '-';
+
+        doc.fontSize(8).font('Helvetica');
+
+        // 1. Requester Box
+        doc.rect(sx, y, sigW, boxH).stroke();
+        doc.text(`REQUESTER`, sx + 5, y + 5);
+        doc.font('Helvetica-Bold').text(reqName, sx + 5, y + 15);
+        doc.font('Helvetica').text(`Date: ${reqDate}`, sx + 5, y + 28);
+        sx += sigW;
+
+        // 2. Reviewer Box
+        doc.rect(sx, y, sigW, boxH).stroke();
+        doc.text(`REVIEWER`, sx + 5, y + 5);
+        doc.font('Helvetica-Bold').text(revName, sx + 5, y + 15);
+        doc.font('Helvetica').text(`Date: ${revDate}`, sx + 5, y + 28);
+        sx += sigW;
+
+        // 3. Approver Box
+        doc.rect(sx, y, 179, boxH).stroke(); 
+        doc.text(`APPROVER`, sx + 5, y + 5);
+        doc.font('Helvetica-Bold').text(appName, sx + 5, y + 15);
+        doc.font('Helvetica').text(`Date: ${appDate}`, sx + 5, y + 28);
 
         doc.end(); // <--- CRITICAL FIX: Finalize the PDF
     });
