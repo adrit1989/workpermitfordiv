@@ -2789,7 +2789,7 @@ function drawElectricalAnnexure(doc, p, d) {
     const reqCloseDate = d.Closure_Requestor_Date ? d.Closure_Requestor_Date.split(' ')[0] : '';
     
     doc.font('Helvetica').text(`Date: ${reqCloseDate}`, startX + 5, internalY);
-    doc.text(`Time: --`, startX + 250, internalY);
+    doc.text(`Time: ${reqCloseTime}`, startX + 250, internalY);
     internalY += 20;
 
     doc.text(`Department/ Section/ Area issuing the permit: ${safeText(d.IssuedToDept)}`, startX + 5, internalY);
@@ -2811,17 +2811,17 @@ function drawElectricalAnnexure(doc, p, d) {
     y = internalY;
 
     // Issuer Signature Box
-    doc.rect(startX, y, width, 40).stroke();
+doc.rect(startX, y, width, 55).stroke();
     doc.text(`Issuer Name: ${safeText(d.RequesterName)}`, startX + 5, y + 10);
     doc.text(`Designation: Requester`, startX + 5, y + 25);
     doc.text(`Signature: ${safeText(d.Closure_Receiver_Sig)}`, startX + 300, y + 10);
     
-    // [ADDED] Issuer Timestamp (Energization)
+    // [ADDED] Issuer Timestamp (Energization) [FIX]: Y moved to +35
     if (d.Closure_Requestor_Date) {
-        doc.fontSize(8).font('Helvetica-Oblique').text(`Timestamp: ${d.Closure_Requestor_Date}`, startX + 300, y + 25);
+        doc.fontSize(8).font('Helvetica-Oblique').text(`Timestamp: ${d.Closure_Requestor_Date}`, startX + 300, y + 35);
         doc.fontSize(9).font('Helvetica');
     }
-    y += 45;
+    y += 60;
 
     // --- CERTIFICATE OF ENERGIZATION (Dynamic Height) ---
     boxTop = y;
@@ -2849,8 +2849,8 @@ function drawElectricalAnnexure(doc, p, d) {
     doc.text('The temporary earths and other connections and danger notice plates made have been removed.', startX + 5, internalY);
     internalY += 15;
 
-    doc.text('Necessary entry is also recorded in the electrical shift logbook.', startX + 5, internalY);
-    internalY += 5; // Extra padding
+   doc.text('Necessary entry is also recorded in the electrical shift logbook.', startX + 5, internalY);
+    internalY += 15; // [FIX]: Increased padding to prevent line overlap
 
     // Draw Certificate Box
     doc.rect(startX, boxTop, width, internalY - boxTop).stroke();
