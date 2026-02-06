@@ -169,6 +169,7 @@
                                     <div><label class="text-xs font-bold text-gray-500">Region</label><input id="jsa-region" readonly class="bg-gray-100"></div>
                                     <div><label class="text-xs font-bold text-gray-500">Unit</label><input id="jsa-unit" readonly class="bg-gray-100"></div>
                                     <div><label class="text-xs font-bold text-gray-500">Location</label><input id="jsa-loc" readonly class="bg-gray-100"></div>
+                                    <div><label class="text-xs font-bold text-gray-500">Specific Area / Tag</label><input id="jsa-area" name="Area" placeholder="e.g. Pump House / Tag-101"></div>
                                     <div class="md:col-span-2"><label class="text-xs font-bold text-gray-500">Job Title</label><input id="jsa-job-title" name="JobTitle" required placeholder="Description of Job"></div>
                                     <div><label class="text-xs font-bold text-gray-500">Job Executed By (Dept/Contractor)</label><input id="jsa-executed-by" name="ExecutedBy" required placeholder="e.g. Mechanical / Contractor"></div>
                                 </div>
@@ -191,7 +192,7 @@
                                     <button type="button" onclick="addJsaRiskRow()" class="bg-orange-100 text-orange-700 px-2 py-1 rounded text-xs font-bold">+ Add Step</button>
                                 </div>
                                 <table class="w-full text-xs text-left" id="table-jsa-risk">
-                                    <thead class="bg-gray-50"><tr><th width="5%">#</th><th width="25%">Activities</th><th width="25%">Hazards</th><th width="40%">Recommended Actions / Controls</th><th width="5%">Del</th></tr></thead>
+                                    <thead class="bg-gray-50"><tr><th width="5%">#</th><th width="20%">Activities</th><th width="20%">Hazards</th><th width="35%">Recommended Actions / Controls</th><th width="15%">Person Resp.</th><th width="5%">Del</th></tr></thead>
                                     <tbody></tbody>
                                 </table>
                                 <div class="mt-4">
@@ -2904,24 +2905,66 @@ if (getVal('SopNo') === 'Any other') {
             const tbody = document.querySelector('#table-jsa-risk tbody');
             const idx = tbody.children.length + 1;
             const tr = document.createElement('tr');
-            tr.innerHTML = `<td class="p-2 text-center text-gray-500">${idx}</td><td><textarea class="w-full text-xs p-1 h-16" placeholder="Activity Step">${data.activity||''}</textarea></td><td><textarea class="w-full text-xs p-1 h-16" placeholder="Potential Hazards">${data.hazard||''}</textarea></td><td><textarea class="w-full text-xs p-1 h-16" placeholder="Controls / Actions">${data.control||''}</textarea></td><td><button type="button" class="text-red-500 font-bold" onclick="this.closest('tr').remove()">x</button></td>`;
+            tr.innerHTML = `<td class="p-2 text-center text-gray-500">${idx}</td><td><textarea class="w-full text-xs p-1 h-16" placeholder="Activity Step">${data.activity||''}</textarea></td><td><textarea class="w-full text-xs p-1 h-16" placeholder="Potential Hazards">${data.hazard||''}</textarea></td><td><textarea class="w-full text-xs p-1 h-16" placeholder="Controls / Actions">${data.control||''}</textarea></td><td><textarea class="w-full text-xs p-1 h-16" placeholder="Name/Role">${data.resp||''}</textarea></td><td><button type="button" class="text-red-500 font-bold" onclick="this.closest('tr').remove()">x</button></td>`;
             tbody.appendChild(tr);
         }
-        document.getElementById('jsa-form').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const fd = new FormData(e.target);
-            const team = [];
-            document.querySelectorAll('#table-jsa-team tbody tr').forEach(tr => { const ins = tr.querySelectorAll('input'); if(ins[0].value) team.push({ name: ins[0].value, desig: ins[1].value, dept: ins[2].value }); });
-            const steps = [];
-            document.querySelectorAll('#table-jsa-risk tbody tr').forEach(tr => { const txts = tr.querySelectorAll('textarea'); if(txts[0].value) steps.push({ activity: txts[0].value, hazard: txts[1].value, control: txts[2].value }); });
-            const body = {
-                JSAID: fd.get('JSAID'), JobTitle: fd.get('JobTitle'), ExecutedBy: fd.get('ExecutedBy'), ReviewerEmail: fd.get('ReviewerEmail'), ApproverEmail: fd.get('ApproverEmail'),
-                Region: currentUser.Region, Unit: currentUser.Unit, Location: currentUser.Location, RequesterEmail: currentUser.Email, RequesterName: currentUser.Name,
-                DataJSON: JSON.stringify({ team, steps, additionalPrecautions: document.getElementById('jsa-additional-prec').value })
-            };
-            const res = await apiCall('/jsa/save', 'POST', body);
-            if(res.success) { alert("JSA Saved"); switchView('jsa'); } else alert(res.error);
-        });
+document.getElementById('jsa-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const fd = new FormData(e.target);
+
+    // 1. Capture Team Members (No changes here)
+    const team = [];
+    document.querySelectorAll('#table-jsa-team tbody tr').forEach(tr => { 
+        const ins = tr.querySelectorAll('input'); 
+        if(ins[0].value) team.push({ name: ins[0].value, desig: ins[1].value, dept: ins[2].value }); 
+    });
+
+    // 2. Capture Risk Steps (UPDATED to include 'resp')
+    const steps = [];
+    document.querySelectorAll('#table-jsa-risk tbody tr').forEach(tr => { 
+        const txts = tr.querySelectorAll('textarea'); 
+        if(txts[0].value) {
+            steps.push({ 
+                activity: txts[0].value, 
+                hazard: txts[1].value, 
+                control: txts[2].value,
+                resp: txts[3].value // <--- CAPTURE RESPONSIBILITY
+            }); 
+        }
+    });
+
+    // 3. Build Request Body (UPDATED to include 'Area')
+    const body = {
+        JSAID: fd.get('JSAID'), 
+        JobTitle: fd.get('JobTitle'), 
+        ExecutedBy: fd.get('ExecutedBy'), 
+        ReviewerEmail: fd.get('ReviewerEmail'), 
+        ApproverEmail: fd.get('ApproverEmail'),
+        Region: currentUser.Region, 
+        Unit: currentUser.Unit, 
+        Location: currentUser.Location, 
+        RequesterEmail: currentUser.Email, 
+        RequesterName: currentUser.Name,
+        
+        // NEW FIELD
+        Area: document.getElementById('jsa-area').value, 
+
+        DataJSON: JSON.stringify({ 
+            team, 
+            steps, 
+            additionalPrecautions: document.getElementById('jsa-additional-prec').value 
+        })
+    };
+
+    // 4. Send to Server
+    const res = await apiCall('/jsa/save', 'POST', body);
+    if(res.success) { 
+        alert("JSA Saved"); 
+        switchView('jsa'); 
+    } else { 
+        alert(res.error); 
+    }
+});
         async function processJsaAction(id, action) {
             const rem = document.getElementById('jsa-remarks').value;
             if(action === 'reject' && !rem) return alert("Remarks mandatory for rejection");
@@ -3341,6 +3384,7 @@ function removeRisk(idx) {
     </script>
 </body>
 </html>
+
 
 
 
