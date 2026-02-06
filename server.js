@@ -2916,7 +2916,7 @@ app.post('/api/jsa/get', authenticateAccess, async(req, res) => {
     res.json(r.recordset[0]);
 });
 
-// 4. Save JSA (Create or Edit Draft) - CRASH PROOFED
+// 4. Save JSA (Create or Edit Draft)
 app.post('/api/jsa/save', authenticateAccess, async(req, res) => {
     try { 
         const { JSAID, DataJSON, ...fields } = req.body;
@@ -2926,7 +2926,6 @@ app.post('/api/jsa/save', authenticateAccess, async(req, res) => {
         if (!targetID) {
             const r = await pool.request().input('reqE', fields.RequesterEmail)
                 .query("INSERT INTO JSAs (Status, RequesterEmail, CreatedAt) OUTPUT INSERTED.JSAID VALUES ('Draft', @reqE, GETDATE())");
-            
             targetID = r.recordset[0].JSAID;
         }
 
@@ -2938,9 +2937,11 @@ app.post('/api/jsa/save', authenticateAccess, async(req, res) => {
             .input('re', fields.ReviewerEmail).input('ae', fields.ApproverEmail)
             .input('reqE', fields.RequesterEmail).input('reqN', fields.RequesterName)
             .input('reg', fields.Region).input('u', fields.Unit).input('l', fields.Location)
+            .input('area', fields.Area) // <--- [FIX]: Input for Area
             .input('d', DataJSON).input('s', status)
+            // [FIX]: Added "Area=@area" to the UPDATE statement below
             .query(`UPDATE JSAs SET JobTitle=@jt, ExecutedBy=@ex, ReviewerEmail=@re, ApproverEmail=@ae, 
-                    RequesterEmail=@reqE, RequesterName=@reqN, Region=@reg, Unit=@u, Location=@l, 
+                    RequesterEmail=@reqE, RequesterName=@reqN, Region=@reg, Unit=@u, Location=@l, Area=@area, 
                     DataJSON=@d, Status=@s WHERE JSAID=@id`);
                     
         res.json({ success: true });
@@ -3241,7 +3242,7 @@ let tx = startX;
         const revDate = jsa.ReviewedAt ? new Date(jsa.ReviewedAt).toLocaleString("en-GB") : '-';
 
         const appName = jsa.ApprovedBy || '-';
-        const appDate = jsa.ApprovedAt ? new Date(jsa.ApprovedAt).toLocaleString("en-GB") : '-';
+        const appDate = approvedDate || (jsa.ApprovedAt ? new Date(jsa.ApprovedAt).toLocaleString("en-GB") : '-');
 
         doc.fontSize(8).font('Helvetica');
 
