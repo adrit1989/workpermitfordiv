@@ -3206,33 +3206,60 @@ async function generateJsaPdfBuffer(jsa, refNo, approverName, approvedDate) {
         doc.font('Helvetica-Bold').fontSize(10).text("APPROVALS", startX, y);
         y += 15;
 
+        const formatIST = (dateStr) => {
+            if (!dateStr || dateStr === '-') return '-';
+            try {
+                const dateObj = new Date(dateStr);
+                if (isNaN(dateObj.getTime())) return '-';
+                return dateObj.toLocaleString("en-GB", {
+                    timeZone: "Asia/Kolkata",
+                    day: "2-digit",
+                    month: "2-digit",
+                    year: "numeric",
+                    hour: "2-digit",
+                    minute: "2-digit",
+                    second: "2-digit",
+                    hour12: false
+                }).replace(',', '');
+            } catch (e) { return '-'; }
+        };
+
+        // Data preparation using the new formatter
         const reqName = jsa.RequesterName || '-';
-        const reqDate = jsa.CreatedAt ? new Date(jsa.CreatedAt).toLocaleString("en-GB") : '-';
+        const reqDate = formatIST(jsa.CreatedAt); // Fix A: IST format
 
         const revName = jsa.ReviewedBy || '-';
-        const revDate = jsa.ReviewedAt ? new Date(jsa.ReviewedAt).toLocaleString("en-GB") : '-';
+        const revDate = formatIST(jsa.ReviewedAt); // Fix B: DD/MM/YYYY
 
-        // [FIX]: Prioritize the name passed during action (approverName), else fallback to DB
-        const finalAppName = approverName || jsa.ApprovedBy || '-'; 
-        const finalAppDate = approvedDate || (jsa.ApprovedAt ? new Date(jsa.ApprovedAt).toLocaleString("en-GB") : '-');
+const finalAppName = approverName || jsa.ApprovedBy || '-'; 
+        // If 'approvedDate' is passed (current action), use it directly if it's already a string, 
+        // otherwise format it. If falling back to DB (jsa.ApprovedAt), format that.
+        let finalAppDate = '-';
+        if (approvedDate) {
+            // If approvedDate is "06/02/2026 15:30:39" (string), use it. 
+            // If it is a Date object or ISO string, format it.
+            finalAppDate = (typeof approvedDate === 'string' && approvedDate.includes('/')) ? approvedDate : formatIST(approvedDate);
+        } else if (jsa.ApprovedAt) {
+            finalAppDate = formatIST(jsa.ApprovedAt);
+        }
 
         doc.fontSize(8).font('Helvetica');
 
-        // Requester
+        // 1. Requester Box
         doc.rect(sx, y, sigW, boxH).stroke();
         doc.text(`REQUESTER`, sx + 5, y + 5);
         doc.font('Helvetica-Bold').text(reqName, sx + 5, y + 15);
         doc.font('Helvetica').text(`Date: ${reqDate}`, sx + 5, y + 28);
         sx += sigW;
 
-        // Reviewer
+        // 2. Reviewer Box
         doc.rect(sx, y, sigW, boxH).stroke();
         doc.text(`REVIEWER`, sx + 5, y + 5);
         doc.font('Helvetica-Bold').text(revName, sx + 5, y + 15);
         doc.font('Helvetica').text(`Date: ${revDate}`, sx + 5, y + 28);
         sx += sigW;
 
-        // Approver (Fixed Variable)
+        // 3. Approver Box
         doc.rect(sx, y, 179, boxH).stroke(); 
         doc.text(`APPROVER`, sx + 5, y + 5);
         doc.font('Helvetica-Bold').text(finalAppName, sx + 5, y + 15);
