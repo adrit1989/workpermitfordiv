@@ -318,9 +318,12 @@
             <tbody></tbody>
         </table>
     </div>
+    <div id="hira-statement-display" class="hidden mt-2 p-2 bg-yellow-100 border-l-4 border-yellow-600 text-yellow-900 text-xs font-bold rounded shadow-sm">
+        Please see the attached risk register for the associated risks and its precaution action for this work.
+    </div>
+    </div>
     
-    
-</div>
+
                                 <div class="md:col-span-2"><label class="text-xs font-bold text-gray-500">Assign Reviewer</label><select name="ReviewerEmail" id="ReviewerEmail"></select></div>
                                 <div class="md:col-span-2"><label class="text-xs font-bold text-gray-500">Assign Approver</label><select name="ApproverEmail" id="ApproverEmail"></select></div>
                                 
@@ -3289,12 +3292,15 @@ async function downloadSecurePDF(id, format = 'default') {
         // Accepts boolean to determine if Delete buttons should be shown
 function renderRiskTable(isEditable = false) {
             const tbody = document.querySelector('#table-selected-risks tbody');
-            
-            // If table is empty
-            if (!selectedRisks || selectedRisks.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="5" class="p-4 text-center text-gray-400 italic">No specific risks selected for this work.</td></tr>';
-                return;
-            }
+            const statementDiv = document.getElementById('hira-statement-display');
+           if (!selectedRisks || selectedRisks.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" class="p-4 text-center text-gray-400 italic">No specific risks selected for this work.</td></tr>';
+        if(statementDiv) statementDiv.classList.add('hidden'); // Hide statement
+        return;
+    }
+
+    // Show statement if risks exist
+    if(statementDiv) statementDiv.classList.remove('hidden');
 
             tbody.innerHTML = selectedRisks.map((r, i) => {
                 // ROBUST DATA FETCHING (Handles both Capitalized and Lowercase keys)
@@ -3335,6 +3341,7 @@ function removeRisk(idx) {
     </script>
 </body>
 </html>
+
 
 
 
