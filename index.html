@@ -2960,14 +2960,43 @@ document.getElementById('jsa-form').addEventListener('submit', async (e) => {
     const res = await apiCall('/jsa/save', 'POST', body);
     if(res.success) { alert("JSA Saved"); switchView('jsa'); } else { alert(res.error); }
 });
-        async function processJsaAction(id, action) {
+async function processJsaAction(id, action) {
             const rem = document.getElementById('jsa-remarks').value;
             if(action === 'reject' && !rem) return alert("Remarks mandatory for rejection");
+            
             const team = [];
-            document.querySelectorAll('#table-jsa-team tbody tr').forEach(tr => { const ins = tr.querySelectorAll('input'); if(ins[0].value) team.push({ name: ins[0].value, desig: ins[1].value, dept: ins[2].value }); });
+            document.querySelectorAll('#table-jsa-team tbody tr').forEach(tr => { 
+                const ins = tr.querySelectorAll('input'); 
+                if(ins[0].value) team.push({ name: ins[0].value, desig: ins[1].value, dept: ins[2].value }); 
+            });
+            
+            // --- FIX: Capture the "Person Resp" column here ---
             const steps = [];
-            document.querySelectorAll('#table-jsa-risk tbody tr').forEach(tr => { const txts = tr.querySelectorAll('textarea'); if(txts[0].value) steps.push({ activity: txts[0].value, hazard: txts[1].value, control: txts[2].value }); });
-            const res = await apiCall('/jsa/action', 'POST', { id, action, remarks: rem, role: currentUser.Role, user: currentUser.Name, updatedData: JSON.stringify({ team, steps, additionalPrecautions: document.getElementById('jsa-additional-prec').value }) });
+            document.querySelectorAll('#table-jsa-risk tbody tr').forEach(tr => { 
+                const txts = tr.querySelectorAll('textarea'); 
+                if(txts[0].value) {
+                    steps.push({ 
+                        activity: txts[0].value, 
+                        hazard: txts[1].value, 
+                        control: txts[2].value, 
+                        resp: txts[3] ? txts[3].value : '' // <--- CRITICAL FIX
+                    }); 
+                }
+            });
+
+            const res = await apiCall('/jsa/action', 'POST', { 
+                id, 
+                action, 
+                remarks: rem, 
+                role: currentUser.Role, 
+                user: currentUser.Name, 
+                updatedData: JSON.stringify({ 
+                    team, 
+                    steps, 
+                    additionalPrecautions: document.getElementById('jsa-additional-prec').value 
+                }) 
+            });
+            
             if(res.success) { alert("Action Completed"); switchView('jsa'); } else alert(res.error);
         }
        /* =====================================================
@@ -3379,6 +3408,7 @@ function removeRisk(idx) {
     </script>
 </body>
 </html>
+
 
 
 
