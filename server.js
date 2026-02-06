@@ -719,7 +719,23 @@ async function drawPermitPDF(doc, p, d, renewalsList) {
     if (d.AdditionalPrecautions) foundPPE.push(`Other: ${safeText(d.AdditionalPrecautions)}`);
     doc.text(`2. PPE: ${foundPPE.join(', ')}`, 35, doc.y + 25, {width: 520});
     doc.y += 70;
+    // --- ADDITION START: HIRA STATEMENT ---
+    let hiraExists = false;
+    try {
+        let rr = d.RiskRegisterData;
+        // Handle potential double encoding or array wrapper issues
+        if (Array.isArray(rr) && rr.length > 1 && typeof rr[1] === 'string') rr = rr[1];
+        if (typeof rr === 'string') rr = JSON.parse(rr);
+        if (Array.isArray(rr) && rr.length > 0) hiraExists = true;
+    } catch (e) {}
 
+    if (hiraExists) {
+        doc.font('Helvetica-BoldOblique').fontSize(9).fillColor('#b91c1c') // Dark Red
+           .text("Please see the attached risk register for the associated risks and its precaution action for this work.", 30, doc.y - 10);
+        doc.fillColor('black').font('Helvetica'); // Reset
+        doc.y += 10; // Add space
+    }
+    // --- ADDITION END ---
     // 9. WORKERS
     if (doc.y > 650) { doc.addPage(); drawHeaderOnAll(); }
     doc.font('Helvetica-Bold').text("WORKERS DEPLOYED", 30, doc.y);
