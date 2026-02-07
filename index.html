@@ -1238,7 +1238,7 @@ function showChangePassword() {
             loadStats(res);
         }
 
-        async function loadStats(data) {
+async function loadStats(data) {
             if(document.getElementById('view-stats').classList.contains('hidden')) return;
             
             if (!data) {
@@ -1249,10 +1249,31 @@ function showChangePassword() {
                  } catch(e) { console.error("Stats fetch failed", e); return; }
             }
             
-            const counts = {}; const types = {};
+            const counts = {}; 
+            
+            // ============================================================
+            // ⬇️ MERGE/CHANGE HERE: Pre-initialize specific work types ⬇️
+            // ============================================================
+            const types = { 
+                'Hot': 0, 
+                'Cold': 0, 
+                'Confined Space': 0, 
+                'Excavation': 0, 
+                'Composite Work': 0 
+            };
+            // ============================================================
+
             data.forEach(d => {
+                // 1. Status Counts
                 counts[d.Status] = (counts[d.Status]||0)+1;
-                types[d.WorkType] = (types[d.WorkType]||0)+1;
+
+                // 2. Work Type Counts (Updated Logic)
+                const wType = d.WorkType;
+                // Only increment if it matches one of our defined types
+                if (wType && types.hasOwnProperty(wType)) {
+                    types[wType]++;
+                } 
+                // Optional: You can handle unknown types here if needed
             });
 
             if(chartS) { chartS.destroy(); chartS = null; }
@@ -1272,11 +1293,11 @@ function showChangePassword() {
                 });
             }
 
-            if(ctxT && Object.keys(types).length > 0) {
+            if(ctxT) {
                 chartT = new Chart(ctxT.getContext('2d'), {
                     type: 'bar',
                     data: {
-                        labels: Object.keys(types),
+                        labels: Object.keys(types), // Use the pre-filled keys
                         datasets: [{ label: 'Work Types', data: Object.values(types), backgroundColor: '#60a5fa' }]
                     },
                     options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true } } }
@@ -3408,24 +3429,3 @@ function removeRisk(idx) {
     </script>
 </body>
 </html>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
