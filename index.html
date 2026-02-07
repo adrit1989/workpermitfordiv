@@ -38,6 +38,29 @@
         .btn-pdf { background-color: #eff6ff; color: #2563eb; padding: 4px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: bold; border: 1px solid #bfdbfe; transition: 0.2s; }
         .btn-pdf:hover { background-color: #2563eb; color: white; }
         .chart-wrapper {position: relative;height: 300px; width: 100%;}
+        /* --- Add this inside your existing <style> tag --- */
+
+#view-login {
+    transition: background-image 1.5s ease-in-out; /* Smooth fade effect */
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+}
+
+/* Adds a dark overlay so the login box stays clear and readable */
+#view-login::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.4); 
+    z-index: -1;
+}
+
+/* Ensures the login form stays on top of the overlay */
+#view-login > div {
+    position: relative;
+    z-index: 10;
+}
     </style>
 </head>
 <body>
@@ -47,8 +70,7 @@
         <div class="mt-6 font-bold text-orange-600 animate-pulse text-xl">Processing...</div>
     </div>
  
-    <div id="view-login" class="fixed inset-0 z-50 flex items-center justify-center p-4" 
-     style="background: url('/public/backdrop.png') no-repeat center center fixed; background-size: cover;">
+ <div id="view-login" class="fixed inset-0 z-50 flex items-center justify-center p-4">
         <div class="glass w-full max-w-md shadow-2xl border-t-4 border-orange-600 p-8">
             <div class="text-center mb-6">
                 <div class="flex justify-center items-center gap-4 mb-4">
@@ -3425,6 +3447,33 @@ function removeRisk(idx) {
             // We assume true because the user clicked a button that only exists if editableg
             renderRiskTable(true); 
         }
+      /* --- MOVING BACKDROPS LOGIC --- */
+function startBackdropSlideshow() {
+    const loginView = document.getElementById('view-login');
+    
+    // Images must be in your /public folder
+    const images = [
+        '/public/backdrop.png',
+        '/public/backdrop2.png', 
+        '/public/backdrop3.png'
+    ];
+
+    let currentIndex = 0;
+
+    function changeBackground() {
+        loginView.style.backgroundImage = `url('${images[currentIndex]}')`;
+        currentIndex = (currentIndex + 1) % images.length;
+    }
+
+    // Set first image immediately
+    changeBackground();
+
+    // Rotate every 5 seconds
+    setInterval(changeBackground, 5000);
+}
+
+// Start the slideshow
+startBackdropSlideshow();
         initLogin();
     </script>
 </body>
