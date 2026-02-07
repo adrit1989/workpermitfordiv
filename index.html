@@ -61,16 +61,57 @@
     position: relative;
     z-index: 10;
 }
-    </style>
+        /* --- SCROLLING PUNCHLINE SECTION --- */
+
+.ticker-wrap {
+    position: fixed;
+    top: 0;
+    width: 100%;
+    overflow: hidden;
+    height: 35px;
+    background-color: rgba(234, 88, 12, 0.9); /* IndianOil Orange */
+    z-index: 100;
+    display: flex;
+    align-items: center;
+}
+
+.ticker-text {
+    white-space: nowrap;
+    display: inline-block;
+    color: white;
+    font-weight: bold;
+    font-size: 0.9rem;
+    animation: ticker 25s linear infinite; /* 25s is a steady reading speed */
+}
+
+@keyframes ticker {
+    0% { transform: translateX(100%); }
+    100% { transform: translateX(-100%); }
+}
+
+.ticker-wrap:hover .ticker-text {
+    animation-play-state: paused;
+}
+
+/* Add this to prevent the punchline from covering your logo */
+#view-login {
+    padding-top: 35px; 
+}
+</style>
 </head>
 <body>
- 
+    <div class="ticker-wrap">
+        <div class="ticker-text">
+            🚀 Welcome to ERPL Mainline Permit System | 🛡️ Safety is our Priority | ⚡ Ensure Electrical Isolation before Work | 📝 Always check JSA and TBT records before starting.
+        </div>
+    </div>
+
     <div id="loader" class="loader-overlay">
         <div class="spinner"></div>
         <div class="mt-6 font-bold text-orange-600 animate-pulse text-xl">Processing...</div>
     </div>
  
- <div id="view-login" class="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div id="view-login" class="fixed inset-0 z-50 flex items-center justify-center p-4">
         <div class="glass w-full max-w-md shadow-2xl border-t-4 border-orange-600 p-8">
             <div class="text-center mb-6">
                 <div class="flex justify-center items-center gap-4 mb-4">
@@ -3478,4 +3519,5 @@ startBackdropSlideshow();
     </script>
 </body>
 </html>
+
 
