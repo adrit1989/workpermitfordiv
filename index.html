@@ -7,8 +7,8 @@
     
     <link rel="stylesheet" href="/public/app.css">
 
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js" 
-    integrity="sha384-Ys+u+qyr96615cnzQYpykSSy44kPd1QuhIiELW8J58WhO6OpKeBqjk1eG0JglhWq" 
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js" 
+    integrity="sha384-9nhczxUqK87bcKHh20fSQcTGD4qq5GhayNYSYWqwBkINBhOfQLg/P5HG5lF1urn4" 
     crossorigin="anonymous" 
     nonce="NONCE_PLACEHOLDER"></script>
     <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyADwuqMDCwNSaZKBnWURDCYdqlMxfiWBnU" async nonce="NONCE_PLACEHOLDER"></script>
@@ -1340,14 +1340,16 @@ li.innerHTML = `
                 let rowsHtml = items.length === 0 ? `<tr><td colspan="6" class="p-4 text-center text-gray-400 italic bg-gray-50">No permits found.</td></tr>` : items.map(p => {
                    let action = '';
                     // 1. Check for Standard PDF
-                    if (p.Status === 'Closed' || p.Status === 'Active' || p.Status.includes('Renewal')) {
-                        action += `<button class="btn-pdf" onclick="event.stopPropagation(); downloadPDFWithChoice('${p.PermitID}')">📥 PDF</button>`;
-                        
-                        // 2. Check for Risk Register PDF (HIRA)
-                        if (p.RiskRegisterUrl) {
-                            action += `<button class="btn-pdf ml-1 bg-red-50 text-red-600 border-red-200 hover:bg-red-600 hover:text-white" onclick="event.stopPropagation(); viewSecureFile('${p.RiskRegisterUrl}')">📑 HIRA</button>`;
-                        }
-                    }
+                  if (p.Status === 'Closed' || p.Status === 'Active' || p.Status.includes('Renewal')) {
+    // SECURITY FIX: Added escapeJs()
+    action += `<button class="btn-pdf" onclick="event.stopPropagation(); downloadPDFWithChoice('${escapeJs(p.PermitID)}')">📥 PDF</button>`;
+    
+    // 2. Check for Risk Register PDF (HIRA)
+    if (p.RiskRegisterUrl) {
+        // SECURITY FIX: Added escapeJs()
+        action += `<button class="btn-pdf ml-1 bg-red-50 text-red-600 border-red-200 hover:bg-red-600 hover:text-white" onclick="event.stopPropagation(); viewSecureFile('${escapeJs(p.RiskRegisterUrl)}')">📑 HIRA</button>`;
+    }
+}
 
                     return `<tr onclick="openPermit('${escapeJs(p.PermitID)}')" class="hover:bg-gray-50 transition cursor-pointer">
     <td class="p-3 font-bold text-blue-600">${escapeHtml(p.PermitID)}</td>
@@ -1944,7 +1946,7 @@ document.getElementById('renewal-history-body').innerHTML = rens.map((r, index) 
         <span class="text-gray-500">${escapeHtml(r.app_at||'')}</span>
         ${r.app_rem ? `<br><span class="text-blue-600 italic">"${escapeHtml(r.app_rem)}"</span>` : ''} </td>
 
-    <td class="p-2">${r.photoUrl ? `<button type="button" class="text-blue-600 underline" onclick="viewSecureFile('${escapeHtml(r.photoUrl.replace(/\\/g, '/'))}')">View</button>` : 'NO'}</td>
+    <td class="p-2">${r.photoUrl ? `<button type="button" class="text-blue-600 underline" onclick="viewSecureFile('${escapeJs(r.photoUrl.replace(/\\/g, '/'))}')">View</button>` : 'NO'}</td>
 </tr>`;
 }).join('');
                         
@@ -2997,7 +2999,8 @@ if (getVal('SopNo') === 'Any other') {
             const res = await apiCall('/jsa/list-my', 'POST', { email: currentUser.Email, role: currentUser.Role });
             const tbody = document.getElementById('tbody-jsa');
             tbody.innerHTML = res.map(j => {
-                const downloadBtn = j.Status === 'Approved' ? `<button onclick="downloadJsaPdf('${j.JSAID}')" class="text-blue-600 underline text-xs font-bold mr-2">PDF</button>` : '';
+                // SECURITY FIX: Added escapeJs()
+const downloadBtn = j.Status === 'Approved' ? `<button onclick="downloadJsaPdf('${escapeJs(j.JSAID)}')" class="text-blue-600 underline text-xs font-bold mr-2">PDF</button>` : '';
                 return `<tr class="hover:bg-gray-50 border-b">
     <td class="p-3 font-bold text-blue-600 cursor-pointer" onclick="openNewJsaForm('${escapeJs(j.JSAID)}')">${escapeHtml(j.RefNumber || 'DRAFT')}</td>
     <td class="p-3">${escapeHtml(j.JobTitle)}</td>
@@ -3603,6 +3606,7 @@ updateClock();
     </script>
 </body>
 </html>
+
 
 
 
