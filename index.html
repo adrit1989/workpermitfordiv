@@ -1050,7 +1050,15 @@
             finally { document.getElementById('loader').style.display = 'none'; }
         }
         function logout() {location.reload();        }
-        function escapeHtml(text) { if (!text) return text; return String(text).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
+        function escapeHtml(unsafe) {
+    if (unsafe === null || unsafe === undefined) return '';
+    return String(unsafe)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+}
         function safeText(t) {return (t === null || t === undefined) ? '-' : String(t);}
         function getVal(id) { const el = document.getElementById(id); return el ? el.value : ''; }
         function safeSet(id, val) { const el = document.getElementById(id); if(el) el.value = val; }
@@ -1162,7 +1170,11 @@ function showChangePassword() {
             document.querySelector('.clock-container').style.display = 'none';
             document.getElementById('view-login').classList.add('hidden');
             document.getElementById('app-container').classList.remove('hidden');
-            document.getElementById('user-display').innerHTML = `<div class="font-bold text-white text-lg">${currentUser.Name}</div><div class="text-orange-400 font-bold uppercase text-xs">${currentUser.Role}</div><div class="text-xs mt-1 text-gray-500 font-mono">${currentUser.Location}</div>`;
+            document.getElementById('user-display').innerHTML = `
+    <div class="font-bold text-white text-lg">${escapeHtml(currentUser.Name)}</div>
+    <div class="text-orange-400 font-bold uppercase text-xs">${escapeHtml(currentUser.Role)}</div>
+    <div class="text-xs mt-1 text-gray-500 font-mono">${escapeHtml(currentUser.Location)}</div>
+`;
             
             if(currentUser.Role === 'Requester') document.getElementById('nav-new-permit').classList.remove('hidden');
             else document.getElementById('btn-export-excel').classList.remove('hidden');
@@ -1250,13 +1262,13 @@ function showChangePassword() {
                         animation: google.maps.Animation.DROP
                     });
 
-                    const infoContent = `
-                        <div class="p-2">
-                            <h3 class="font-bold text-orange-600 border-b pb-1 mb-1">${p.PermitID}</h3>
-                            <p class="text-xs text-gray-600"><b>Status:</b> ${p.Status}</p>
-                            <button onclick="openPermit('${p.PermitID}')" class="text-blue-600 text-xs font-bold underline mt-2">View Full Details</button>
-                        </div>
-                    `;
+                   const infoContent = `
+    <div class="p-2">
+        <h3 class="font-bold text-orange-600 border-b pb-1 mb-1">${escapeHtml(p.PermitID)}</h3>
+        <p class="text-xs text-gray-600"><b>Status:</b> ${escapeHtml(p.Status)}</p>
+        <button onclick="openPermit('${escapeHtml(p.PermitID)}')" class="text-blue-600 text-xs font-bold underline mt-2">View Full Details</button>
+    </div>
+`;
 
                     // Marker Click Event
                     marker.addListener('click', () => {
@@ -1267,13 +1279,13 @@ function showChangePassword() {
                     // B. Create Sidebar List Item
                     const li = document.createElement('li');
                     li.className = "p-3 hover:bg-orange-50 cursor-pointer transition-colors border-l-4 border-transparent hover:border-orange-500 group";
-                    li.innerHTML = `
-                        <div class="flex justify-between items-center">
-                            <span class="font-bold text-gray-800 text-sm group-hover:text-orange-700">${p.PermitID}</span>
-                            <span class="text-[10px] bg-gray-100 px-1 rounded text-gray-500">${p.Status === 'Active' ? '🟢' : '⏳'}</span>
-                        </div>
-                        <div class="text-xs text-gray-400 mt-1 font-mono truncate">${lat.toFixed(4)}, ${lng.toFixed(4)}</div>
-                    `;
+li.innerHTML = `
+    <div class="flex justify-between items-center">
+        <span class="font-bold text-gray-800 text-sm group-hover:text-orange-700">${escapeHtml(p.PermitID)}</span>
+        <span class="text-[10px] bg-gray-100 px-1 rounded text-gray-500">${p.Status === 'Active' ? '🟢' : '⏳'}</span>
+    </div>
+    <div class="text-xs text-gray-400 mt-1 font-mono truncate">${lat.toFixed(4)}, ${lng.toFixed(4)}</div>
+`;
 
                     // Sidebar Click Event -> Navigate Map
                     li.onclick = () => {
@@ -1329,14 +1341,13 @@ function showChangePassword() {
                         }
                     }
 
-                    return `<tr onclick="openPermit('${p.PermitID}')" class="hover:bg-gray-50 transition cursor-pointer">
-                        <td class="p-3 font-bold text-blue-600">${p.PermitID}</td>
-                        <td>${p.WorkType || '-'}</td>
-                        <td>${p.LocationUnit || '-'}</td>
-                        <td><span class="px-2 py-0.5 rounded border bg-gray-50 text-[10px] uppercase font-bold text-gray-600">${p.Status}</span></td>
-                        <td class="font-mono text-xs">${p.ValidFrom ? p.ValidFrom.split('T')[0] : '-'}</td>
-                        <td>${action}</td>
-                    </tr>`;
+                    return `<tr onclick="openPermit('${escapeHtml(p.PermitID)}')" class="hover:bg-gray-50 transition cursor-pointer">
+    <td class="p-3 font-bold text-blue-600">${escapeHtml(p.PermitID)}</td>
+    <td>${escapeHtml(p.WorkType || '-')}</td>
+    <td>${escapeHtml(p.LocationUnit || '-')}</td>
+    <td><span class="px-2 py-0.5 rounded border bg-gray-50 text-[10px] uppercase font-bold text-gray-600">${escapeHtml(p.Status)}</span></td>
+    <td class="font-mono text-xs">${p.ValidFrom ? escapeHtml(p.ValidFrom.split('T')[0]) : '-'}</td>
+    <td>${action}</td> </tr>`;
                 }).join('');
 
                 return `<div class="glass border-l-4 border-${color}-500 mb-6">
@@ -1906,33 +1917,27 @@ document.getElementById('renewal-history-body').innerHTML = rens.map((r, index) 
 
     const precDisplay = r.precautions || (useFallback ? 'Refer to Permit Section A' : '-');
 
-    return `<tr class="border-b text-[10px]">
-        <td class="p-2 align-top">${statusDisplay}</td>
-        <td class="p-2">${r.valid_from ? r.valid_from.replace('T', ' ') : '-'} <br>to<br> ${r.valid_to ? r.valid_to.replace('T', ' ') : '-'}</td>
-        <td class="p-2">${gasDisplay}</td>
-        <td class="p-2">${chk('Req', r.tbt_done)} ${chk('Rev', r.rev_tbt)} ${chk('App', r.app_tbt)}</td>
-        <td class="p-2 italic">${precDisplay}</td>
-        <td class="p-2">${workerListDisplay}</td>
-        
-        <td class="p-2">
-            <b>${r.req_name || p.RequesterName}</b><br>
-            <span class="text-gray-500">${r.req_at ? r.req_at.replace('T', ' ') : ''}</span>
-        </td>
+ return `<tr class="border-b text-[10px]">
+    <td class="p-2 align-top">${statusDisplay}</td>
+    <td class="p-2">${r.valid_from ? escapeHtml(r.valid_from.replace('T', ' ')) : '-'} <br>to<br> ${r.valid_to ? escapeHtml(r.valid_to.replace('T', ' ')) : '-'}</td>
+    <td class="p-2">${gasDisplay}</td> <td class="p-2">${chk('Req', r.tbt_done)} ${chk('Rev', r.rev_tbt)} ${chk('App', r.app_tbt)}</td>
+    <td class="p-2 italic">${escapeHtml(precDisplay)}</td> <td class="p-2">${workerListDisplay}</td> <td class="p-2">
+        <b>${escapeHtml(r.req_name || p.RequesterName)}</b><br>
+        <span class="text-gray-500">${r.req_at ? escapeHtml(r.req_at.replace('T', ' ')) : ''}</span>
+    </td>
 
-        <td class="p-2">
-            <b>${r.rev_name||'-'}</b><br>
-            <span class="text-gray-500">${r.rev_at||''}</span>
-            ${r.rev_rem ? `<br><span class="text-blue-600 italic">"${escapeHtml(r.rev_rem)}"</span>` : ''}
-        </td>
+    <td class="p-2">
+        <b>${escapeHtml(r.rev_name||'-')}</b><br>
+        <span class="text-gray-500">${escapeHtml(r.rev_at||'')}</span>
+        ${r.rev_rem ? `<br><span class="text-blue-600 italic">"${escapeHtml(r.rev_rem)}"</span>` : ''} </td>
 
-        <td class="p-2">
-            <b>${r.app_name||'-'}</b><br>
-            <span class="text-gray-500">${r.app_at||''}</span>
-            ${r.app_rem ? `<br><span class="text-blue-600 italic">"${escapeHtml(r.app_rem)}"</span>` : ''}
-        </td>
+    <td class="p-2">
+        <b>${escapeHtml(r.app_name||'-')}</b><br>
+        <span class="text-gray-500">${escapeHtml(r.app_at||'')}</span>
+        ${r.app_rem ? `<br><span class="text-blue-600 italic">"${escapeHtml(r.app_rem)}"</span>` : ''} </td>
 
-        <td class="p-2">${r.photoUrl ? `<button type="button" class="text-blue-600 underline" onclick="viewSecureFile('${r.photoUrl.replace(/\\/g, '/')}')">View</button>` : 'NO'}</td>
-    </tr>`;
+    <td class="p-2">${r.photoUrl ? `<button type="button" class="text-blue-600 underline" onclick="viewSecureFile('${escapeHtml(r.photoUrl.replace(/\\/g, '/'))}')">View</button>` : 'NO'}</td>
+</tr>`;
 }).join('');
                         
                     const showRenForm = (currentUser.Role === 'Requester' && statusClean === 'Active' && (!lastRen || !lastRen.status.includes('pending')));
@@ -2635,14 +2640,15 @@ async function loadWorkers(context) {
             
             let approvedInfo = w.ApprovedBy ? `${w.ApprovedBy}<br><span class="text-[9px]">${w.ApprovedAt}</span>` : '-';
             t.innerHTML += `
-            <tr class="hover:bg-gray-50 border-b border-gray-100">
-                <td class="p-3 font-bold">${escapeHtml(w.Name)} <br>${statusBadge}</td>
-                <td class="p-3 text-xs text-gray-700">${escapeHtml(w.FatherName || w.Father || '-')}</td> <td class="p-3 text-xs">${escapeHtml(w.Age)} / ${escapeHtml(w.Gender)}</td>
-                <td class="p-3 text-xs font-mono">${escapeHtml(w.Contact)}</td>
-                <td class="p-3 font-mono text-xs">${escapeHtml(w.IDType)}: ${escapeHtml(w.ID)}</td>
-                <td class="p-3 text-xs text-gray-500">${approvedInfo}</td>
-                <td class="p-3">${actions}</td>
-            </tr>`;
+<tr class="hover:bg-gray-50 border-b border-gray-100">
+    <td class="p-3 font-bold">${escapeHtml(w.Name)} <br>${statusBadge}</td>
+    <td class="p-3 text-xs text-gray-700">${escapeHtml(w.FatherName || w.Father || '-')}</td>
+    <td class="p-3 text-xs">${escapeHtml(w.Age)} / ${escapeHtml(w.Gender)}</td>
+    <td class="p-3 text-xs font-mono">${escapeHtml(w.Contact)}</td>
+    <td class="p-3 font-mono text-xs">${escapeHtml(w.IDType)}: ${escapeHtml(w.ID)}</td>
+    <td class="p-3 text-xs text-gray-500">${w.ApprovedBy ? escapeHtml(w.ApprovedBy) : '-'}</td>
+    <td class="p-3">${actions}</td>
+</tr>`;
     });
 }
 }
@@ -2984,7 +2990,14 @@ if (getVal('SopNo') === 'Any other') {
             const tbody = document.getElementById('tbody-jsa');
             tbody.innerHTML = res.map(j => {
                 const downloadBtn = j.Status === 'Approved' ? `<button onclick="downloadJsaPdf('${j.JSAID}')" class="text-blue-600 underline text-xs font-bold mr-2">PDF</button>` : '';
-                return `<tr class="hover:bg-gray-50 border-b"><td class="p-3 font-bold text-blue-600 cursor-pointer" onclick="openNewJsaForm('${j.JSAID}')">${j.RefNumber || 'DRAFT'}</td><td class="p-3">${j.JobTitle}</td><td class="p-3">${j.Location}</td><td class="p-3"><span class="px-2 py-1 rounded text-xs font-bold bg-gray-200">${j.Status}</span></td><td class="p-3 text-xs">${j.RequesterName}</td><td class="p-3">${downloadBtn}</td></tr>`;
+                return `<tr class="hover:bg-gray-50 border-b">
+    <td class="p-3 font-bold text-blue-600 cursor-pointer" onclick="openNewJsaForm('${escapeHtml(j.JSAID)}')">${escapeHtml(j.RefNumber || 'DRAFT')}</td>
+    <td class="p-3">${escapeHtml(j.JobTitle)}</td>
+    <td class="p-3">${escapeHtml(j.Location)}</td>
+    <td class="p-3"><span class="px-2 py-1 rounded text-xs font-bold bg-gray-200">${escapeHtml(j.Status)}</span></td>
+    <td class="p-3 text-xs">${escapeHtml(j.RequesterName)}</td>
+    <td class="p-3">${downloadBtn}</td>
+</tr>`;
             }).join('');
         }
 
@@ -3582,6 +3595,7 @@ updateClock();
     </script>
 </body>
 </html>
+
 
 
 
