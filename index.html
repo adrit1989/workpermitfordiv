@@ -73,30 +73,37 @@
     to { transform: translateX(0); opacity: 1; }
 }
 
-/* 3. TICKER & CLOCK STYLES */
+/* --- UPDATED TICKER STYLES (Seamless Loop) --- */
 .ticker-wrap {
     position: fixed;
     top: 0;
     left: 0;
-    width: calc(100% - 130px); /* Leave room for clock */
+    width: calc(100% - 130px); /* Leaves 130px for the clock */
     height: 35px;
     background-color: rgba(234, 88, 12, 0.95);
     z-index: 100;
+    overflow: hidden; /* Critical for hiding the scrolling text */
     display: flex;
     align-items: center;
-    overflow: hidden;
 }
 
 .ticker-text {
+    display: flex; /* Key: Puts the two copies side-by-side */
+    width: fit-content;
+    animation: ticker 20s linear infinite; /* Adjust speed here */
+}
+
+/* NEW CLASS: Handles the text spacing */
+.ticker-item {
     white-space: nowrap;
-    display: inline-block;
     color: white;
     font-weight: bold;
     font-size: 0.9rem;
-    padding-left: 100%;
-    animation: ticker 25s linear infinite;
+    padding-right: 50px; /* The gap between Tail and Head */
+    flex-shrink: 0;      /* Prevents text from squishing */
 }
 
+/* CLOCK STYLES */
 .clock-container {
     position: fixed;
     top: 0;
@@ -121,16 +128,16 @@
     .clock-container { width: 90px; font-size: 0.7rem; }
 }
 
+/* THE SEAMLESS LOOP ANIMATION */
 @keyframes ticker {
-    0% { transform: translateX(100%); }
-    100% { transform: translateX(-100%); }
+    0% { transform: translateX(0); }
+    100% { transform: translateX(-50%); } /* Moves exactly one length of text */
 }
 
 .ticker-wrap:hover .ticker-text {
     animation-play-state: paused;
 }
 
-/* Add this to prevent the punchline from covering your logo */
 #view-login {
     padding-top: 35px; 
 }
@@ -139,7 +146,12 @@
 <body>
     <div class="ticker-wrap">
         <div class="ticker-text">
-            🚀 Welcome to ERPL Mainline Permit System | 🛡️ Safety is our Priority | ⚡ Ensure Electrical Isolation before Work | 📝 Always check JSA,Risk Registers and TBT records.
+            <div class="ticker-item">
+                🚀 Welcome to ERPL Mainline Permit System | 🛡️ Safety is our Priority | ⚡ Ensure Electrical Isolation before Work | 📝 Always check JSA and TBT records.
+            </div>
+            <div class="ticker-item">
+                🚀 Welcome to ERPL Mainline Permit System | 🛡️ Safety is our Priority | ⚡ Ensure Electrical Isolation before Work | 📝 Always check JSA and TBT records.
+            </div>
         </div>
     </div>
     <div class="clock-container" id="digital-clock">00:00:00</div>
@@ -3570,6 +3582,7 @@ updateClock();
     </script>
 </body>
 </html>
+
 
 
 
