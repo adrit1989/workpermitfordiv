@@ -1730,6 +1730,29 @@ app.post('/api/update-status', authenticateAccess, upload.any(), async(req, res)
     // Initialize variables used later in the query
     let newJsaUrl = null;
     let sqlSetJsa = ""; 
+    if (['review', 'approve', 'approve_1st_ren'].includes(action)) {
+
+        // 1. JSA FILE UPLOAD (Priority 1)
+        if (req.files) {
+            const jsaFile = req.files.find(f => f.fieldname === 'JsaFile');
+            if (jsaFile) {
+                console.log(`[Override] Approver uploading new JSA for ${PermitID}`);
+                newJsaUrl = await uploadToAzure(jsaFile.buffer, `permit-jsa/${PermitID}-${Date.now()}.pdf`, 'application/pdf');
+                
+                // CRITICAL: Set URL, and FORCE LinkedId to NULL to sever the previous link
+                sqlSetJsa += ", JsaFileUrl=@jsaUrl, JsaLinkedId=NULL"; 
+            }
+        }
+
+        // 2. LINKED JSA SELECTION (Priority 2)
+        // Only applies if NO file was uploaded in this same request
+        const newJsaId = req.body.JsaLinkedId || null;
+        if (newJsaId && !newJsaUrl) {
+             console.log(`[Override] Approver linking new JSA ID ${newJsaId}`);
+             // CRITICAL: Set ID, and FORCE FileUrl to NULL to remove previous PDF
+             sqlSetJsa += ", JsaLinkedId=@jsaId, JsaFileUrl=NULL";
+        }
+    }
 
     // 1. ELECTRICAL LOGIC
  if (action === 'elec_approve') {
@@ -1786,11 +1809,6 @@ app.post('/api/update-status', authenticateAccess, upload.any(), async(req, res)
 else if (action === 'review' || action === 'approve_1st_ren') { 
         // --- File Handling for Review/Renewal ---
         if (req.files) {
-            const jsaFile = req.files.find(f => f.fieldname === 'JsaFile');
-            if(jsaFile) {
-                newJsaUrl = await uploadToAzure(jsaFile.buffer, `permit-jsa/${PermitID}-${Date.now()}.pdf`, 'application/pdf');
-                sqlSetJsa += ", JsaFileUrl=@jsaUrl, JsaLinkedId=NULL"; 
-            }
             const tbt = req.files.find(f => f.fieldname === 'TBT_PDF_File');
             if (tbt) {
                 const url = await uploadToAzure(tbt.buffer, `tbt/${PermitID}_${Date.now()}.pdf`, 'application/pdf');
@@ -1960,11 +1978,7 @@ else if (action === 'approve') {
             }
         }
         
-        // 3. JSA Link Selection (Supersedes if no new file is uploaded)
-        const newJsaId = req.body.JsaLinkedId || null;
-        if (newJsaId && !newJsaUrl) {
-             sqlSetJsa += ", JsaLinkedId=@jsaId, JsaFileUrl=NULL";
-        }
+
         
         if (req.body.TBT_Ref_No) d.TBT_Ref_No = req.body.TBT_Ref_No;
         // ---------------------------------------------------------
