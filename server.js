@@ -1477,7 +1477,7 @@ app.post('/api/save-worker', authenticateAccess, async (req, res) => {
                 .input('req', RequestorName)
                 .input('req_e', safeEmail) // <--- Fixed potential crash
                 .input('cons', Details.Consent || 'N')
-                .query(`INSERT INTO Workers (WorkerID, Name, Age, FatherName, Address, Contact, IDCardNo, IDType, Gender, Status, RequestorName, RequestorEmail, DataJSON, CreatedAt) 
+                .query(`INSERT INTO Workers (WorkerID, Name, Age, FatherName, Address, Contact, IDCardNo, IDType, Gender, Status, RequestorName, RequestorEmail, DataJSON, CreatedAt,, ConsentAccepted) 
                         VALUES (@wid_new, @n, @a, @f, @addr, @c, @id, @idt, @g, 'Pending Review', @req, @req_e, '{}', GETDATE(), @cons)`);
             
             return res.json({ success: true, message: "Worker created" });
