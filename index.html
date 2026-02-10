@@ -937,7 +937,7 @@
                 <input id="w-name" placeholder="Full Name" class="col-span-2" required>
                 <input id="w-father" placeholder="Father Name" class="col-span-2" required>
                 <input id="w-address" placeholder="Address" class="col-span-2">
-                <input id="w-age" placeholder="Age" type="number" required>
+                <input id="w-age" placeholder="Age" type="number" min="18" required>
                 <select id="w-gender"><option>Male</option><option>Female</option></select>
                 <input id="w-contact" placeholder="Contact No">
                 <select id="w-id-type"><option value="Voter Card">Voter Card</option><option value="PAN Card">PAN Card</option><option value="Other">Other</option></select>
@@ -2712,6 +2712,11 @@ async function loadWorkers(context) {
         
         document.getElementById('worker-form-real').addEventListener('submit', async (e) => {
             e.preventDefault();
+            const ageVal = parseInt(document.getElementById("w-age").value);
+    if (ageVal < 18) {
+        alert("COMPLIANCE ERROR: Worker must be 18 years or older.\n\nEmploying minors is prohibited and violates safety regulations.");
+        return; // STOP HERE. Do not proceed.
+    }
             const idTypeFinal = document.getElementById("w-id-type").value === "Other" ? document.getElementById("w-id-type-other").value : document.getElementById("w-id-type").value;
             const body = { Action: window.currentWorkerAction, Role: currentUser.Role, RequestorEmail: currentUser.Email, RequestorName: currentUser.Name, WorkerID: document.getElementById('w-id').value, Details: { Name: document.getElementById("w-name").value, Age: document.getElementById("w-age").value, Father: document.getElementById("w-father").value, Address: document.getElementById("w-address").value, Contact: document.getElementById("w-contact").value, ID: document.getElementById("w-idcard").value, Gender: document.getElementById("w-gender").value, IDType: idTypeFinal,Consent: document.getElementById("w-consent").checked ? 'Y' : 'N' } };
             const res = await apiCall('/save-worker', 'POST', body);
@@ -3617,6 +3622,7 @@ updateClock();
     </script>
 </body>
 </html>
+
 
 
 
