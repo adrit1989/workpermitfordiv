@@ -2753,7 +2753,7 @@ async function loadWorkers(context) {
     const idNum = document.getElementById("w-idcard").value.replace(/\s/g, ''); 
 
     // EXTENDED FORBIDDEN WORDS LIST
-    const forbidden = ['aadhar', 'adhar', 'uidai', 'adhaar', 'adhr', 'aadhr'];
+    const forbidden = ['aadhar', 'aadhaar', 'uidai', 'uid', 'unique id', 'unique identification','adhar', 'adhaar', 'adhr', 'aadhr','aadar', 'adar', 'addhar', 'addhaar', 'adha','udhar', 'udhaar', 'adhhaar'];
 
     // Check 1: Did they type any variation of "Aadhaar" in the 'Other' box?
     if (idType === "Other" && forbidden.some(word => otherIdType.includes(word))) {
@@ -3675,6 +3675,7 @@ updateClock();
     </script>
 </body>
 </html>
+
 
 
 
