@@ -775,7 +775,18 @@ async function drawPermitPDF(doc, p, d, renewalsList) {
         doc.rect(440, wy, 125, 30).stroke().text(approvedAudit, 442, wy+5, {width:123});
         wy += 30;
     });
-    doc.y = wy + 20;
+    if (wy > 730) { 
+        doc.addPage(); 
+        drawHeaderOnAll(); 
+        wy = 135; // Reset to top
+    }
+    doc.y = wy + 10;
+    doc.fillColor('#1e40af'); // Blue color
+    doc.fontSize(8).font('Helvetica-Oblique');
+    const privacyNote = "Data Privacy Declaration: All workers listed above have provided verifiable consent for the processing of their PII (Personally Identifiable Information) in compliance with Section 6 of the Digital Personal Data Protection Act, 2023.";
+    doc.text(privacyNote, 30, doc.y, { width: 535, align: 'left' });
+    doc.fillColor('black'); // Reset color
+    doc.y += 20;
     
     // --- FIX: Standard PDF Electrical Audit Trail ---
     if (d.A_Q11 === 'Y') {
@@ -1465,8 +1476,9 @@ app.post('/api/save-worker', authenticateAccess, async (req, res) => {
                 .input('g', Details.Gender)
                 .input('req', RequestorName)
                 .input('req_e', safeEmail) // <--- Fixed potential crash
+                .input('cons', Details.Consent || 'N')
                 .query(`INSERT INTO Workers (WorkerID, Name, Age, FatherName, Address, Contact, IDCardNo, IDType, Gender, Status, RequestorName, RequestorEmail, DataJSON, CreatedAt) 
-                        VALUES (@wid_new, @n, @a, @f, @addr, @c, @id, @idt, @g, 'Pending Review', @req, @req_e, '{}', GETDATE())`);
+                        VALUES (@wid_new, @n, @a, @f, @addr, @c, @id, @idt, @g, 'Pending Review', @req, @req_e, '{}', GETDATE(), @cons)`);
             
             return res.json({ success: true, message: "Worker created" });
         }
