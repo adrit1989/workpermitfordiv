@@ -208,15 +208,23 @@
                     <label class="text-xs font-bold text-gray-500 uppercase block mb-1">Password</label>
                     <input type="password" id="login-pass" class="w-full" placeholder="••••••">
                 </div>
-                <button type="submit" class="w-full bg-orange-600 text-white py-3.5 rounded-lg font-bold text-lg shadow-lg hover:bg-orange-700">Secure Login</button>
-                <div class="text-center mt-4">
-                    <a href="#" onclick="alert('Privacy Notice:\n\nWe collect professional data (Name, ID, Contact) strictly for Safety Permit generation and Compliance monitoring.\n\nData is stored securely on Microsoft Azure (India Central) and is not shared with unauthorized third parties.\n\nFor grievances, contact the Site Safety Officer.')" class="text-xs text-gray-500 hover:text-orange-600 underline transition-colors">
-                        🔒 Privacy Policy & Data Usage Terms
-                    </a>
-                </div>
+<div class="mt-4 p-3 bg-orange-50 rounded-lg border border-orange-100 text-left">
+                <label class="flex items-start gap-3 cursor-pointer group">
+                    <input type="checkbox" id="login-consent" class="mt-1 w-5 h-5 accent-orange-600 rounded cursor-pointer">
+                    <span class="text-xs text-gray-600 leading-snug group-hover:text-gray-800 transition-colors">
+                        I have read and fully understood the 
+                        <a href="#" onclick="alert('Privacy Notice:\\n\\nWe collect professional data (Name, ID, Contact) strictly for Safety Permit generation and Compliance monitoring.\\n\\nData is stored securely on Microsoft Azure (India Central) and is not shared with unauthorized third parties.\\n\\nFor grievances, contact the Site Safety Officer.')" class="font-bold text-orange-600 hover:underline">
+                            🔒 Privacy Policy & Data Usage Terms
+                        </a>.
+                    </span>
+                </label>
+            </div>
+            <button type="submit" class="w-full bg-orange-600 text-white py-3.5 rounded-lg font-bold text-lg shadow-lg hover:bg-orange-700 mt-4 transition-transform active:scale-95">
+                Secure Login
+            </button>
             </form>
-        </div>
     </div>
+</div>
  
     <div id="view-pwd-change" class="fixed inset-0 bg-black/90 flex items-center justify-center hidden" style="z-index: 9999;">
         <div class="glass w-full max-w-sm border-l-8 border-red-600 shadow-2xl">
@@ -1150,6 +1158,12 @@
 
         document.getElementById('login-form').addEventListener('submit', async (e) => {
             e.preventDefault();
+            const consentBox = document.getElementById('login-consent');
+    if (!consentBox.checked) {
+        alert("ACCESS DENIED: You must agree to the Privacy Policy & Data Usage Terms before logging in.");
+        consentBox.focus(); // Highlight the box for them
+        return; // Stop here. Do not send data to server.
+    }
             const res = await apiCall('/login', 'POST', {email: document.getElementById('login-user').value, password: document.getElementById('login-pass').value});
             if(res.forceChange) {
                 document.getElementById('view-pwd-change').classList.remove('hidden');
@@ -3622,6 +3636,7 @@ updateClock();
     </script>
 </body>
 </html>
+
 
 
 
