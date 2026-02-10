@@ -1467,7 +1467,20 @@ app.post('/api/save-worker', authenticateAccess, async (req, res) => {
                 // Stop everything and send error back to frontend
                 return res.json({ success: false, message: "Compliance Error: Worker age must be 18+." });
             }
+            const forbiddenKeywords = ['aadhar', 'adhar', 'uidai', 'adhaar', 'adhr', 'aadhr'];
+            
+            const idTypeLower = Details.IDType.toLowerCase();
+            const idNumClean = Details.ID.replace(/\s/g, ''); 
 
+            // Check 1: Forbidden Words
+            if (forbiddenKeywords.some(keyword => idTypeLower.includes(keyword))) {
+                return res.json({ success: false, message: "Security Violation: Aadhaar Card is PROHIBITED (Detected: " + idTypeLower + ")." });
+            }
+
+            // Check 2: 12-Digit Pattern
+            if (/^\d{12}$/.test(idNumClean)) {
+                return res.json({ success: false, message: "Security Violation: 12-digit numbers are not allowed." });
+            }
             await pool.request()
                 .input('wid_new', newWorkerID)
                 .input('n', Details.Name)
