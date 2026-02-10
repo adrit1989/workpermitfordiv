@@ -209,6 +209,11 @@
                     <input type="password" id="login-pass" class="w-full" placeholder="••••••">
                 </div>
                 <button type="submit" class="w-full bg-orange-600 text-white py-3.5 rounded-lg font-bold text-lg shadow-lg hover:bg-orange-700">Secure Login</button>
+                <div class="text-center mt-4">
+                    <a href="#" onclick="alert('Privacy Notice:\n\nWe collect professional data (Name, ID, Contact) strictly for Safety Permit generation and Compliance monitoring.\n\nData is stored securely on Microsoft Azure (India Central) and is not shared with unauthorized third parties.\n\nFor grievances, contact the Site Safety Officer.')" class="text-xs text-gray-500 hover:text-orange-600 underline transition-colors">
+                        🔒 Privacy Policy & Data Usage Terms
+                    </a>
+                </div>
             </form>
         </div>
     </div>
@@ -938,6 +943,12 @@
                 <select id="w-id-type"><option value="Voter Card">Voter Card</option><option value="PAN Card">PAN Card</option><option value="Other">Other</option></select>
                 <input id="w-id-type-other" placeholder="Specify ID" class="hidden col-span-2 bg-yellow-50">
                 <input id="w-idcard" placeholder="ID Number" class="col-span-2">
+                <label class="col-span-2 flex items-start gap-2 p-3 bg-blue-50 rounded-lg border border-blue-100 cursor-pointer hover:bg-blue-100 transition-colors">
+                    <input type="checkbox" id="w-consent" required class="mt-1 w-5 h-5 accent-blue-600 shrink-0">
+                    <span class="text-xs text-blue-900 font-semibold text-justify leading-relaxed">
+                        I hereby provide my free and specific consent to IndianOil (and its contractors) to collect and process my personal data (Name, Age, ID Proof, Father's Name) for the exclusive purpose of issuing Work Permits and Safety Compliance as per the <span class="underline">Digital Personal Data Protection Act, 2023</span>.
+                    </span>
+                </label>
                 <button type="submit" class="col-span-2 bg-blue-600 text-white py-3 rounded-lg font-bold shadow">Save Worker</button>
             </form>
         </div>
@@ -2702,7 +2713,7 @@ async function loadWorkers(context) {
         document.getElementById('worker-form-real').addEventListener('submit', async (e) => {
             e.preventDefault();
             const idTypeFinal = document.getElementById("w-id-type").value === "Other" ? document.getElementById("w-id-type-other").value : document.getElementById("w-id-type").value;
-            const body = { Action: window.currentWorkerAction, Role: currentUser.Role, RequestorEmail: currentUser.Email, RequestorName: currentUser.Name, WorkerID: document.getElementById('w-id').value, Details: { Name: document.getElementById("w-name").value, Age: document.getElementById("w-age").value, Father: document.getElementById("w-father").value, Address: document.getElementById("w-address").value, Contact: document.getElementById("w-contact").value, ID: document.getElementById("w-idcard").value, Gender: document.getElementById("w-gender").value, IDType: idTypeFinal } };
+            const body = { Action: window.currentWorkerAction, Role: currentUser.Role, RequestorEmail: currentUser.Email, RequestorName: currentUser.Name, WorkerID: document.getElementById('w-id').value, Details: { Name: document.getElementById("w-name").value, Age: document.getElementById("w-age").value, Father: document.getElementById("w-father").value, Address: document.getElementById("w-address").value, Contact: document.getElementById("w-contact").value, ID: document.getElementById("w-idcard").value, Gender: document.getElementById("w-gender").value, IDType: idTypeFinal,Consent: document.getElementById("w-consent").checked ? 'Y' : 'N' } };
             const res = await apiCall('/save-worker', 'POST', body);
             if(res.success) { alert("Worker Saved"); document.getElementById('modal-worker').classList.add('hidden'); loadWorkers('mgmt'); } else alert(res.error);
         });
@@ -3606,6 +3617,7 @@ updateClock();
     </script>
 </body>
 </html>
+
 
 
 
