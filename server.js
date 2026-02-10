@@ -1463,6 +1463,10 @@ app.post('/api/save-worker', authenticateAccess, async (req, res) => {
 
             // SAFETY: Ensure RequestorEmail is never NULL (DB Constraint)
             const safeEmail = req.user.email || "unknown@system.com"; 
+          if (parseInt(Details.Age) < 18) {
+                // Stop everything and send error back to frontend
+                return res.json({ success: false, message: "Compliance Error: Worker age must be 18+." });
+            }
 
             await pool.request()
                 .input('wid_new', newWorkerID)
