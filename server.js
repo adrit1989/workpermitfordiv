@@ -1469,9 +1469,15 @@ app.post('/api/save-worker', authenticateAccess, async (req, res) => {
             }
             // Updated list with new forbidden variations
            const forbiddenKeywords = [
-    'aadhar', 'adhar', 'uidai', 'adhaar', 'adhr', 'aadhr', 
-    'udhar', 'udhaar', 'adhhaar', 
-    'uid', 'aadar', 'adar', 'addhar', 'addhaar', 'adha', 'unique', 'aadhaar', 'adh', 'unique id'
+    // Standard & Official
+    'aadhar', 'aadhaar', 'uidai', 'uid', 'unique id', 'unique identification',
+    
+    // Common Misspellings
+    'adhar', 'adhaar', 'adhr', 'aadhr', 
+    'aadar', 'adar', 'addhar', 'addhaar', 'adha',
+    
+    // Phonetic / Regional Typos
+    'udhar', 'udhaar', 'adhhaar' 
 ];
             
             const idTypeLower = Details.IDType.toLowerCase();
