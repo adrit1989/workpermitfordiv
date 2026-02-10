@@ -1467,7 +1467,12 @@ app.post('/api/save-worker', authenticateAccess, async (req, res) => {
                 // Stop everything and send error back to frontend
                 return res.json({ success: false, message: "Compliance Error: Worker age must be 18+." });
             }
-            const forbiddenKeywords = ['aadhar', 'adhar', 'uidai', 'adhaar', 'adhr', 'aadhr'];
+            // Updated list with new forbidden variations
+           const forbiddenKeywords = [
+    'aadhar', 'adhar', 'uidai', 'adhaar', 'adhr', 'aadhr', 
+    'udhar', 'udhaar', 'adhhaar', 
+    'uid', 'aadar', 'adar', 'addhar', 'addhaar', 'adha', 'unique', 'aadhaar', 'adh', 'unique id'
+];
             
             const idTypeLower = Details.IDType.toLowerCase();
             const idNumClean = Details.ID.replace(/\s/g, ''); 
