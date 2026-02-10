@@ -951,6 +951,23 @@
                 <select id="w-id-type"><option value="Voter Card">Voter Card</option><option value="PAN Card">PAN Card</option><option value="Other">Other</option></select>
                 <input id="w-id-type-other" placeholder="Specify ID" class="hidden col-span-2 bg-yellow-50">
                 <input id="w-idcard" placeholder="ID Number" class="col-span-2">
+                <div class="col-span-2 bg-red-50 border-l-4 border-red-600 p-3 mb-2 rounded shadow-sm">
+        <div class="flex items-center">
+            <div class="flex-shrink-0">
+                <svg class="h-5 w-5 text-red-600" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
+                </svg>
+            </div>
+            <div class="ml-3">
+                <p class="text-xs font-bold text-red-700 uppercase tracking-wide">
+                    ⚠️ COMPLIANCE WARNING: NEVER EVER SAVE AADHAAR CARD DATA.
+                </p>
+                <p class="text-[10px] text-red-600 mt-0.5">
+                    Storing Aadhaar Numbers is a criminal offense under the Aadhaar Act, 2016. Use Voter ID, PAN, or Driving License only.
+                </p>
+            </div>
+        </div>
+    </div>
                 <label class="col-span-2 flex items-start gap-2 p-3 bg-blue-50 rounded-lg border border-blue-100 cursor-pointer hover:bg-blue-100 transition-colors">
                     <input type="checkbox" id="w-consent" required class="mt-1 w-5 h-5 accent-blue-600 shrink-0">
                     <span class="text-xs text-blue-900 font-semibold text-justify leading-relaxed">
@@ -2731,6 +2748,28 @@ async function loadWorkers(context) {
         alert("COMPLIANCE ERROR: Worker must be 18 years or older.\n\nEmploying minors is prohibited and violates safety regulations.");
         return; // STOP HERE. Do not proceed.
     }
+            const idType = document.getElementById("w-id-type").value;
+    const otherIdType = document.getElementById("w-id-type-other").value.toLowerCase().trim();
+    const idNum = document.getElementById("w-idcard").value.replace(/\s/g, ''); 
+
+    // EXTENDED FORBIDDEN WORDS LIST
+    const forbidden = ['aadhar', 'adhar', 'uidai', 'adhaar', 'adhr', 'aadhr'];
+
+    // Check 1: Did they type any variation of "Aadhaar" in the 'Other' box?
+    if (idType === "Other" && forbidden.some(word => otherIdType.includes(word))) {
+        alert("SECURITY ALERT: Aadhaar Card is strictly PROHIBITED.\n\nYou cannot use 'Aadhaar' or any spelling of it as ID Proof.\nPlease use Voter ID, PAN Card, or Driving License.");
+        document.getElementById("w-id-type-other").value = ""; // Clear it
+        document.getElementById("w-id-type-other").focus();
+        return; // STOP
+    }
+
+    // Check 2: 12-Digit Number Check (Aadhaar Pattern)
+    if (/^\d{12}$/.test(idNum)) {
+        alert("SECURITY ALERT: The ID Number entered looks like an Aadhaar Number (12 digits).\n\nCollection of Aadhaar Numbers is blocked. Please use a different ID.");
+        document.getElementById("w-idcard").value = ""; // Clear it
+        document.getElementById("w-idcard").focus();
+        return; // STOP
+    }
             const idTypeFinal = document.getElementById("w-id-type").value === "Other" ? document.getElementById("w-id-type-other").value : document.getElementById("w-id-type").value;
             const body = { Action: window.currentWorkerAction, Role: currentUser.Role, RequestorEmail: currentUser.Email, RequestorName: currentUser.Name, WorkerID: document.getElementById('w-id').value, Details: { Name: document.getElementById("w-name").value, Age: document.getElementById("w-age").value, Father: document.getElementById("w-father").value, Address: document.getElementById("w-address").value, Contact: document.getElementById("w-contact").value, ID: document.getElementById("w-idcard").value, Gender: document.getElementById("w-gender").value, IDType: idTypeFinal,Consent: document.getElementById("w-consent").checked ? 'Y' : 'N' } };
             const res = await apiCall('/save-worker', 'POST', body);
@@ -3636,6 +3675,7 @@ updateClock();
     </script>
 </body>
 </html>
+
 
 
 
