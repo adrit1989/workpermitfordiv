@@ -3037,12 +3037,28 @@ if (getVal('SopNo') === 'Any other') {
             if(json.success) { alert("Permit Created: "+json.permitId); switchView('dashboard'); } else alert(json.error);
         }
 
-        async function loadMappedApprovers() {
-             const reviewers = await apiCall('/get-users-by-loc', 'POST', { region: currentUser.Region, unit: currentUser.Unit, location: currentUser.Location, role: 'Reviewer' });
-             const approvers = await apiCall('/get-users-by-loc', 'POST', { region: currentUser.Region, unit: currentUser.Unit, location: currentUser.Location, role: 'Approver' });
-             document.getElementById("ReviewerEmail").innerHTML = reviewers.map(u => `<option value="${u.Email}">${u.Name}</option>`).join('');
-             document.getElementById("ApproverEmail").innerHTML = approvers.map(u => `<option value="${u.Email}">${u.Name}</option>`).join('');
+   async function loadMappedApprovers() {
+    try {
+        const reviewers = await apiCall('/get-users-by-loc', 'POST', { role: 'Reviewer' });
+        const approvers = await apiCall('/get-users-by-loc', 'POST', { role: 'Approver' });
+
+        // SAFETY CHECK: Ensure we received an Array before using .map()
+        if (Array.isArray(reviewers) && reviewers.length > 0) {
+            document.getElementById("ReviewerEmail").innerHTML = reviewers.map(u => `<option value="${u.Email}">${u.Name}</option>`).join('');
+        } else {
+            document.getElementById("ReviewerEmail").innerHTML = '<option value="">No Reviewers Found</option>';
         }
+
+        if (Array.isArray(approvers) && approvers.length > 0) {
+            document.getElementById("ApproverEmail").innerHTML = approvers.map(u => `<option value="${u.Email}">${u.Name}</option>`).join('');
+        } else {
+            document.getElementById("ApproverEmail").innerHTML = '<option value="">No Approvers Found</option>';
+        }
+
+    } catch (e) {
+        console.error("Error loading supervisors:", e);
+    }
+}
 
         async function loadApprovedJsas() {
             const res = await apiCall('/jsa/list-approved', 'POST', { region: currentUser.Region, unit: currentUser.Unit });
@@ -3662,6 +3678,7 @@ updateClock();
     </script>
 </body>
 </html>
+
 
 
 
