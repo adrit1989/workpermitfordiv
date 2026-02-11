@@ -1133,18 +1133,18 @@
 
                 const regions = await apiCall('/get-hierarchy', 'POST', {});
                 const rSel = document.getElementById('login-region');
-                if (Array.isArray(regions)) rSel.innerHTML = `<option value="">Select Region</option>` + regions.map(r => `<option>${r}</option>`).join('');
+                if (Array.isArray(regions)) rSel.innerHTML = `<option value="">Select Region</option>` + regions.map(r => `<option>${escapeHtml(r)}</option>`).join('');
                 
                 rSel.addEventListener('change', async (e) => {
                     const uSel = document.getElementById('login-unit'); uSel.disabled=true; uSel.innerHTML='<option>Loading...</option>';
                     const units = await apiCall('/get-hierarchy', 'POST', {region: e.target.value});
-                    if(Array.isArray(units)) { uSel.innerHTML = `<option value="">Select Unit</option>` + units.map(u=>`<option>${u}</option>`).join(''); uSel.disabled = false; }
+                    if(Array.isArray(units)) { uSel.innerHTML = `<option value="">Select Unit</option>` + units.map(u=>`<option>${escapeHtml(u)}</option>`).join(''); uSel.disabled = false; }
                 });
 
                 document.getElementById('login-unit').addEventListener('change', async (e) => {
                     const lSel = document.getElementById('login-loc'); lSel.disabled=true; lSel.innerHTML='<option>Loading...</option>';
                     const locs = await apiCall('/get-hierarchy', 'POST', {region: document.getElementById('login-region').value, unit: e.target.value});
-                    if(Array.isArray(locs)) { lSel.innerHTML = `<option value="">Select Location</option>` + locs.map(l=>`<option>${l}</option>`).join(''); lSel.disabled = false; }
+                    if(Array.isArray(locs)) { lSel.innerHTML = `<option value="">Select Location</option>` + locs.map(l=>`<option>${escapeHtml(l)}</option>`).join(''); lSel.disabled = false; }
                 });
 
                 const loadUsers = async () => {
@@ -1155,7 +1155,7 @@
                     if(reg && unit && loc && role) {
                         const uSel = document.getElementById('login-user'); uSel.innerHTML='<option>Loading...</option>';
                         const users = await apiCall('/get-users-by-loc', 'POST', {region:reg, unit:unit, location:loc, role:role});
-                        if(Array.isArray(users)) { uSel.innerHTML = users.map(u=>`<option value="${u.Email}">${u.Name}</option>`).join(''); uSel.disabled = false; }
+                        if(Array.isArray(users)) { uSel.innerHTML = users.map(u=>`<option value="${escapeHtml(u.Email)}">${escapeHtml(u.Name)}</option>`).join(''); uSel.disabled = false; }
                     }
                 }
                 document.getElementById('login-loc').addEventListener('change', loadUsers);
@@ -2640,7 +2640,7 @@ async function submitRenewal(act) {
                 ? `<button type="button" class="text-red-500 ml-2" onclick="deleteIOCLSup(${idx}, '${status}')">🗑️</button>` 
                 : '';
 
-            t.innerHTML += `<tr class="${rowClass}"><td class="p-2">${x.name}</td><td class="p-2">${x.desig}</td><td class="p-2">${x.contact}</td><td class="p-2 text-xs">${auditText} ${actionBtn}</td></tr>`;
+            t.innerHTML += `<tr class="${rowClass}"><td class="p-2">${escapeHtml(x.name)}</td><td class="p-2">${escapeHtml(x.desig)}</td><td class="p-2">${escapeHtml(x.contact)}</td><td class="p-2 text-xs">${auditText} ${actionBtn}</td></tr>`;
         });
     }
 
@@ -3557,14 +3557,14 @@ async function downloadSecurePDF(id, format = 'default') {
             
             const div = document.getElementById('risk-hazard-list');
             div.innerHTML = res.map(h => `
-                <label class="flex items-start gap-2 cursor-pointer border-b pb-1 hover:bg-gray-50">
-                    <input type="checkbox" class="risk-chk mt-1" value='${JSON.stringify(h).replace(/'/g, "&apos;")}'>
-                    <div>
-                        <div class="font-bold text-gray-700 text-[10px]">${h.Hazard}</div>
-                        <div class="text-[9px] text-gray-500">${h.RiskConsequence.substring(0,50)}... | Residual: ${h.Residual_Level}</div>
-                    </div>
-                </label>
-            `).join('');
+    <label class="flex items-start gap-2 cursor-pointer border-b pb-1 hover:bg-gray-50">
+        <input type="checkbox" class="risk-chk mt-1" value='${JSON.stringify(h).replace(/'/g, "&apos;")}'>
+        <div>
+            <div class="font-bold text-gray-700 text-[10px]">${escapeHtml(h.Hazard)}</div>
+            <div class="text-[9px] text-gray-500">${escapeHtml(h.RiskConsequence).substring(0,50)}... | Residual: ${escapeHtml(h.Residual_Level)}</div>
+        </div>
+    </label>
+`).join('');
         }
 
  function addRiskToTable() {
@@ -3675,6 +3675,7 @@ updateClock();
     </script>
 </body>
 </html>
+
 
 
 
