@@ -155,28 +155,38 @@ function formatDate(d) {
     hour: '2-digit', minute: '2-digit', hour12: false
   }).replace(',', '');
 }
+// Hardened File Type Check (Do not rely on Fallback)
+async function uploadToAzure(buffer, blobName, allowedMimes = ['image/jpeg', 'image/png', 'application/pdf']) {
+    if (!containerClient) return null;
 
-async function uploadToAzure(buffer, blobName, mimeType = null) {
-  if (!containerClient) return null;
-  try {
-      // Lazy load file-type to prevent crash if not installed immediately
-      let type = null;
-      try {
-          const { fileTypeFromBuffer } = await import('file-type');
-          type = await fileTypeFromBuffer(buffer);
-      } catch (e) {
-          console.warn("file-type not installed, skipping strict check");
-          type = { mime: mimeType || 'image/jpeg' }; // Fallback
-      }
+    // STRICT: Fail if file-type cannot determine content
+    let type;
+    try {
+        // Dynamic import is required for file-type (ESM module)
+        const { fileTypeFromBuffer } = await import('file-type');
+        type = await fileTypeFromBuffer(buffer);
+    } catch (e) {
+        console.error("File type detection failed:", e);
+        return null; // STOP: Do not upload if we can't verify the file
+    }
 
-      const blockBlobClient = containerClient.getBlockBlobClient(blobName);
-      const options = type ? { blobHTTPHeaders: { blobContentType: type.mime } } : undefined;
-      await blockBlobClient.uploadData(buffer, options);
-      return blockBlobClient.url;
-  } catch (err) {
-      console.log("Azure upload error: " + err.message);
-      return null;
-  }
+    // Reject if type is undefined or not in allowed list
+    if (!type || !allowedMimes.includes(type.mime)) {
+        console.error(`Security Block: Invalid file type ${type ? type.mime : 'unknown'} detected for ${blobName}`);
+        return null; // STOP: Reject the file
+    }
+
+    // Proceed to upload with the DETECTED mime type (not the user-provided one)
+    try {
+        const blockBlobClient = containerClient.getBlockBlobClient(blobName);
+        await blockBlobClient.uploadData(buffer, {
+            blobHTTPHeaders: { blobContentType: type.mime }
+        });
+        return blockBlobClient.url;
+    } catch (err) {
+        console.error("Azure Upload Error:", err.message);
+        return null;
+    }
 }
 async function sendEmailNotification(toEmail, subject, text) {
     if (!toEmail || !process.env.GMAIL_USER || !process.env.GMAIL_PASS) {
