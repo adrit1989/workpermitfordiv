@@ -2288,22 +2288,37 @@ function handleClosureUI(p, actionsDiv) {
 
     // Show Approver Section
     if (st === 'Closure Pending Approval' || st === 'Closed') {
-        document.getElementById('div-closure-app').classList.remove('hidden');
-        const appRem = document.getElementById('Closure_Approver_Remarks');
-        appRem.value = p.Closure_Approver_Remarks || "";
-        appRem.disabled = !(currentUser.Role === 'Approver' && st === 'Closure Pending Approval');
+    document.getElementById('div-closure-app').classList.remove('hidden');
+    const appRem = document.getElementById('Closure_Approver_Remarks');
+    appRem.value = p.Closure_Approver_Remarks || "";
+    
+    // FIX B: Unlock remarks ONLY if it's currently pending approval
+    appRem.disabled = !(currentUser.Role === 'Approver' && st === 'Closure Pending Approval');
 
-        if (p.Closure_Issuer_Sig) {
-            document.getElementById('ts-clos-app').innerText = `Approved by ${p.Closure_Issuer_Sig}`;
-        }
+    if (p.Closure_Issuer_Sig) {
+        document.getElementById('ts-clos-app').innerText = `Approved by ${p.Closure_Issuer_Sig}`;
     }
+}
 
-    // Approver Buttons
-    if (st === 'Closure Pending Approval' && currentUser.Role === 'Approver') {
-        const bR = document.createElement("button"); bR.type="button"; bR.className="bg-red-600 text-white px-4 py-2 rounded font-bold mr-2"; bR.innerText="Reject Closure"; bR.onclick=()=>upd('reject_closure');
-        const bA = document.createElement("button"); bA.type="button"; bA.className="bg-black text-white px-4 py-2 rounded font-bold"; bA.innerText="Final Permit Close"; bA.onclick=()=>upd('approve');
-        actionsDiv.append(bR, bA);
+// FIX A: Render the Action Buttons
+if (st === 'Closure Pending Approval' && (currentUser.Role === 'Approver' || currentUser.Role === 'MasterAdmin')) {
+    const bR = document.createElement("button"); 
+    bR.type="button"; 
+    bR.className="bg-red-600 text-white px-4 py-2 rounded font-bold mr-2"; 
+    bR.innerText="Reject Closure"; 
+    bR.onclick=()=>upd('reject_closure');
+    
+    const bA = document.createElement("button"); 
+    bA.type="button"; 
+    bA.className="bg-black text-white px-4 py-2 rounded font-bold"; 
+    bA.innerText="Final Permit Close"; 
+    bA.onclick=()=>upd('approve'); 
+    
+    actionsDiv.append(bR, bA);
 
+    // FIX C: Ensure the compliance summary is visible to the approver
+    renderClosureSummary(p);
+}
         // Closure Summary Logic for Approver
         const checks = [
             {id: 'Closure_WorkCompleted', label: 'Work Completed'}, {id: 'Closure_SiteRestored', label: 'Site Restoration'},
@@ -2328,6 +2343,53 @@ function handleClosureUI(p, actionsDiv) {
             summaryDiv.innerHTML = summary;
             document.getElementById('closure-section').appendChild(summaryDiv);
         }
+    }
+}
+      // FIX C: Statement of Compliance/Non-Compliance
+function renderClosureSummary(p) {
+    // 1. Define the checklist items
+    const checks = [
+        {id: 'Closure_WorkCompleted', label: 'Work Completed'}, 
+        {id: 'Closure_SiteRestored', label: 'Site Restoration'},
+        {id: 'Closure_Withdrawal', label: 'Withdrawal of Men/Material'}, 
+        {id: 'Closure_Normalization', label: 'Normalization of Isolations'},
+        {id: 'Closure_Housekeeping', label: 'Housekeeping'}
+    ];
+
+    // 2. Separate into Lists (Safe handling of 'Y' vs 'N')
+    const complied = checks.filter(c => (p[c.id] || '').toUpperCase() === 'Y').map(c => c.label);
+    const notComplied = checks.filter(c => (p[c.id] || '').toUpperCase() !== 'Y').map(c => c.label);
+
+    // 3. Conditional Styling (Amber for warnings, Gray for clean)
+    const bgColor = notComplied.length > 0 ? 'bg-amber-50 border-amber-500' : 'bg-gray-50 border-gray-400';
+
+    // 4. Build HTML
+    let html = `<div id="closure-summary-box" class="mt-4 p-4 border-l-4 rounded text-sm text-gray-800 ${bgColor} shadow-sm">`;
+    html += `<h4 class="font-bold border-b border-gray-300 mb-2 pb-1 uppercase text-xs tracking-wider">Requester Closure Declaration</h4>`;
+    html += `<p class="mb-2 text-xs"><strong>Issuer:</strong> ${p.RequesterName || 'N/A'}</p>`;
+    
+    if(complied.length > 0) {
+        html += `<div class="mt-2 text-green-800"><b>✅ Items Complied:</b> ${complied.join(', ')}.</div>`;
+    }
+    
+    if(notComplied.length > 0) {
+        html += `<div class="mt-2 text-red-800"><b>⚠️ Non-Compliance Detected:</b> ${notComplied.join(', ')}.</div>`;
+        html += `<div class="mt-2 p-2 bg-white/60 border border-red-200 rounded italic text-red-900">
+                    <strong>Reason for Deviation:</strong> "${p.Closure_Deviation_Reason || 'No reason provided'}"
+                 </div>`;
+    } else {
+         html += `<div class="mt-2 text-gray-600 italic">✅ All closure conditions were declared as met by the requester.</div>`;
+    }
+    
+    html += `</div>`;
+
+    // 5. Inject into DOM (Clean up old box first to prevent stale data)
+    const existingBox = document.getElementById('closure-summary-box');
+    if (existingBox) existingBox.remove();
+
+    const target = document.getElementById('closure-section');
+    if (target) {
+        target.insertAdjacentHTML('beforeend', html);
     }
 }
 async function upd(act) {
@@ -3678,24 +3740,3 @@ updateClock();
     </script>
 </body>
 </html>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
