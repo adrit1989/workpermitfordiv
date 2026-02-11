@@ -1082,8 +1082,9 @@ app.post('/api/get-users-by-loc', async (req, res) => {
              return res.json(r.recordset);
         }
         const r = await pool.request()
-            .input('r', region).input('u', unit).input('l', location).input('role', role)
-            .query("SELECT Name, Email FROM Users WHERE Region=@r AND Unit=@u AND Location=@l AND Role=@role");
+            .input('l', req.user.location) // Uses the specific Location from the Token
+    .input('role', role)
+    .query("SELECT Name, Email FROM Users WHERE Location=@l AND Role=@role");
         res.json(r.recordset);
     } catch(e) { res.status(500).json({error:e.message}); }
 });
@@ -1591,27 +1592,53 @@ app.post('/api/dashboard', authenticateAccess, async (req, res) => {
         return { ...parsed, ...x, FinalPdfUrl: x.FinalPdfUrl, 
             RiskRegisterUrl: x.RiskRegisterUrl};
     });
-   const filtered = data.filter(p => {
-        // 1. Master Admins see everything
+
+app.post('/api/dashboard', authenticateAccess, async (req, res) => {
+    const { role, email } = req.user;
+    const pool = await getConnection();
+    
+    const r = await pool.request().query("SELECT PermitID, Status, ValidFrom, ValidTo, RequesterEmail, ReviewerEmail, ApproverEmail, FullDataJSON, FinalPdfUrl, RiskRegisterUrl FROM Permits");
+    
+    const data = r.recordset.map(x => {
+        let parsed = {};
+        try { parsed = JSON.parse(x.FullDataJSON || "{}"); } catch (e) {}
+        return { ...parsed, ...x };
+    });
+
+    const filtered = data.filter(p => {
+        // 1. Master Admins bypass all silo restrictions
         if(role === 'MasterAdmin') return true; 
+
+        // 2. Silo Enforcement: Match the permit's LocationUnit with the User's assigned Location
+        // req.user.location comes from the verified JWT token
+        const userLoc = req.user.location;
+        const isSameSilo = p.LocationUnit && p.LocationUnit.includes(userLoc);
+
+        // 3. Role-Based access within that Specific Silo
         
-        // 2. Requesters see only their own permits
-        if(role === 'Requester') return p.RequesterEmail === email;
+        // Requesters only see permits they personally created
+        if(role === 'Requester') {
+            return p.RequesterEmail === email; 
+        }
         
-        // 3. NEW: Electrical Authorized Persons logic
+        // Electrical Auth see permits in their silo waiting for isolation/de-isolation
         if(role === 'ElectricalAuth') {
-            // They see permits waiting for isolation OR waiting for de-isolation
-            return p.Status === 'Pending Electrical Isolation' || p.Status === 'Pending Electrical De-Isolation';
+            return isSameSilo && (p.Status === 'Pending Electrical Isolation' || p.Status === 'Pending Electrical De-Isolation');
         }
 
-        // 4. Reviewers see permits assigned to them or waiting for review
-        if(role === 'Reviewer') return p.ReviewerEmail === email || p.Status === 'Pending Review' || p.Status === 'Closure Pending Review';
-        
-        // 5. Approvers see permits assigned to them or waiting for approval
-        if(role === 'Approver') return p.ApproverEmail === email || p.Status === 'Pending Approval' || p.Status === 'Closure Pending Approval';
-        
-        return true;
+        // Reviewers see permits in their silo assigned to them or waiting for review
+        if(role === 'Reviewer') {
+            return isSameSilo && (p.ReviewerEmail === email || p.Status === 'Pending Review' || p.Status === 'Closure Pending Review');
+        }
+
+        // Approvers see permits in their silo assigned to them or waiting for approval
+        if(role === 'Approver') {
+            return isSameSilo && (p.ApproverEmail === email || p.Status === 'Pending Approval' || p.Status === 'Closure Pending Approval');
+        }
+
+        return false; 
     });
+
     res.json(filtered.sort((a,b) => {
          const numA = parseInt(a.PermitID.split('-')[1] || 0);
          const numB = parseInt(b.PermitID.split('-')[1] || 0);
@@ -1619,12 +1646,21 @@ app.post('/api/dashboard', authenticateAccess, async (req, res) => {
     }));
 });
 
+
 // SAVE PERMIT (Merged Validation from A)
 // SAVE PERMIT - Enforces Rules D (7 Days) and E (Time Order)
 app.post('/api/save-permit', authenticateAccess, upload.any(), async(req, res) => {
     const pool = await getConnection();
     const fd = req.body;
-    
+    if (req.user.role !== 'MasterAdmin') {
+        const trustedLocation = `${req.user.region}/${req.user.unit}/${req.user.location}`;
+        
+        // OVERWRITE: Ignore whatever was sent in fd.LocationUnit from the UI
+        fd.LocationUnit = trustedLocation;
+        
+        // SAFETY: Ensure the Requester Name matches the Token Name to prevent impersonation
+        fd.RequesterName = req.user.name;
+    }
     if(!fd.WorkType || !fd.ValidFrom || !fd.ValidTo) return res.status(400).json({error: "Missing Data"});
     if (!fd.CreatedDate) {
         fd.CreatedDate = getNowIST();
@@ -2098,6 +2134,21 @@ app.post('/api/renewal', authenticateAccess, upload.single('RenewalImage'), asyn
     if (!cur.recordset.length) return res.status(404).json({error: "Permit not found"});
     
     const p = cur.recordset[0];
+    let permitLocation = "";
+    try {
+        const d = JSON.parse(p.FullDataJSON || "{}");
+        permitLocation = d.LocationUnit || "";
+    } catch(e) {}
+
+    // Verify: Does the current user's location exist within the permit's location string?
+    // Skip check for MasterAdmin
+    if (req.user.role !== 'MasterAdmin') {
+        const userLoc = req.user.location;
+        if (!permitLocation.includes(userLoc)) {
+            console.error(`SECURITY ALERT: User ${req.user.email} attempted to access permit ${PermitID} outside their silo (${userLoc}).`);
+            return res.status(403).json({ error: "Access Denied: This permit belongs to another station." });
+        }
+    }
     let rens = JSON.parse(p.RenewalsJSON || "[]");
     let newStatus = p.Status;
     
