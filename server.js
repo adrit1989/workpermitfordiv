@@ -2292,9 +2292,11 @@ app.get('/api/download-excel', authenticateAccess, async (req, res) => {
     const sanitize = (val) => {
         if (!val) return '';
         const str = String(val);
-        // If it starts with =, +, -, @, prepend a quote to force text format
-        return /^[=+\-@]/.test(str) ? "'" + str : str;
-    };
+        if (/^[=+\-@]/.test(str) || (str.startsWith("\t") || str.startsWith("\r"))) {
+        return "'" + str; 
+    }
+    return str;
+};
 
     // Add Data rows
     result.recordset.forEach(r => { 
