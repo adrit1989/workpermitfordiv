@@ -2118,7 +2118,7 @@ app.post('/api/renewal', authenticateAccess, upload.single('RenewalImage'), asyn
     const pool = await getConnection();
     
     // Fetch Permit data to check bounds (Rule B)
-    const cur = await pool.request().input('p', PermitID).query("SELECT RenewalsJSON, ValidTo, Status, ValidFrom FROM Permits WHERE PermitID=@p");
+    const cur = await pool.request().input('p', PermitID).query("SELECT RenewalsJSON, ValidTo, Status, ValidFrom, FullDataJSON, RequesterEmail FROM Permits WHERE PermitID=@p");
     if (!cur.recordset.length) return res.status(404).json({error: "Permit not found"});
     
     const p = cur.recordset[0];
