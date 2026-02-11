@@ -1972,15 +1972,7 @@ else if (action === 'approve') {
         // ---------------------------------------------------
         // --- JSA & TBT Handling (Approver Override) ---
         if (req.files) {
-            // 1. JSA File Upload
-            const jsaFile = req.files.find(f => f.fieldname === 'JsaFile');
-            if (jsaFile) {
-                // If Approver uploads a file, it supersedes existing Link/File
-                newJsaUrl = await uploadToAzure(jsaFile.buffer, `permit-jsa/${PermitID}-${Date.now()}.pdf`, 'application/pdf');
-                sqlSetJsa += ", JsaFileUrl=@jsaUrl, JsaLinkedId=NULL"; 
-            }
-
-            // 2. TBT File Upload
+                       
             const tbt = req.files.find(f => f.fieldname === 'TBT_PDF_File');
             if (tbt) {
                 const url = await uploadToAzure(tbt.buffer, `tbt/${PermitID}_${Date.now()}.pdf`, 'application/pdf');
