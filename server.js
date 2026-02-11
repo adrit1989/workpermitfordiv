@@ -1073,7 +1073,7 @@ app.post('/api/get-hierarchy', async (req, res) => {
 });
 
 // FILTER USERS
-app.post('/api/get-users-by-loc', async (req, res) => {
+app.post('/api/get-users-by-loc', authenticateAccess, async (req, res) => {
     try {
         const { region, unit, location, role } = req.body;
         const pool = await getConnection();
