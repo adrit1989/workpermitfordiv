@@ -1584,18 +1584,6 @@ app.post('/api/save-worker', authenticateAccess, async (req, res) => {
 app.post('/api/dashboard', authenticateAccess, async (req, res) => {
     const { role, email } = req.user;
     const pool = await getConnection();
-    //const r = await pool.request().query("SELECT PermitID, Status, ValidFrom, ValidTo, RequesterEmail, ReviewerEmail, ApproverEmail, FullDataJSON, FinalPdfUrl FROM Permits");
-    const r = await pool.request().query("SELECT PermitID, Status, ValidFrom, ValidTo, RequesterEmail, ReviewerEmail, ApproverEmail, FullDataJSON, FinalPdfUrl, RiskRegisterUrl FROM Permits");
-    const data = r.recordset.map(x => {
-        let parsed = {};
-        try { parsed = JSON.parse(x.FullDataJSON || "{}"); } catch (e) {}
-        return { ...parsed, ...x, FinalPdfUrl: x.FinalPdfUrl, 
-            RiskRegisterUrl: x.RiskRegisterUrl};
-    });
-
-app.post('/api/dashboard', authenticateAccess, async (req, res) => {
-    const { role, email } = req.user;
-    const pool = await getConnection();
     
     const r = await pool.request().query("SELECT PermitID, Status, ValidFrom, ValidTo, RequesterEmail, ReviewerEmail, ApproverEmail, FullDataJSON, FinalPdfUrl, RiskRegisterUrl FROM Permits");
     
