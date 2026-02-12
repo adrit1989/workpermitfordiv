@@ -50,7 +50,7 @@ app.use(
         // Scripts: Self + Nonce + Chart.js + Google Maps
         scriptSrc: [
             "'self'", 
-            "'unsafe-inline'", // Needed for older browsers/fallback
+            //"'unsafe-inline'", // Needed for older browsers/fallback
             (req, res) => `'nonce-${res.locals.nonce}'`, 
             "https://cdn.jsdelivr.net",      
             "https://maps.googleapis.com"    
