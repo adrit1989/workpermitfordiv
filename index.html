@@ -144,6 +144,27 @@
 #view-login {
     padding-top: 35px; 
 }
+/* --- ACCORDION STYLES --- */
+.accordion-header {
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+    user-select: none; /* Prevents text selection while clicking */
+}
+.accordion-header:hover {
+    background-color: #f8fafc;
+}
+.accordion-icon {
+    display: inline-block;
+    transition: transform 0.3s ease;
+}
+/* When the header has the 'accordion-open' class, rotate the icon */
+.accordion-header.accordion-open .accordion-icon {
+    transform: rotate(180deg);
+}
+/* Helper for content toggle */
+.section-content {
+    transition: all 0.3s ease;
+}
 </style>
 </head>
 <body>
@@ -376,90 +397,74 @@
                         <input type="hidden" id="PermitID" name="PermitID">
                         <input type="hidden" id="Status" name="Status">
                           
-                        <div class="glass border-t-4 border-orange-500">
-                            <h3 class="font-bold text-orange-600 border-b pb-2 mb-4">1. Basic Details</h3>
-                            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-                                <div><label class="text-xs font-bold text-gray-500">Work Type</label><select name="WorkType" id="WorkType"><option>Hot</option><option>Cold</option><option>Confined Space</option><option>Excavation</option><option>Composite Work</option></select></div>
-                                <div><label class="text-xs font-bold text-gray-500">Specific Work</label><input name="WorkTypeOther" id="WorkTypeOther"></div>
-                                <div class="md:col-span-2"><label class="text-xs font-bold text-gray-500">Location (GPS)</label><div class="flex gap-2"><input name="ExactLocation" id="ExactLocation" class="flex-1" placeholder="Coords"><button type="button" id="btn-get-geo" class="bg-blue-100 text-blue-700 px-3 rounded font-bold">📍 GPS</button></div><input type="hidden" id="Latitude" name="Latitude"><input type="hidden" id="Longitude" name="Longitude"></div>
-                                <div><label class="text-xs font-bold text-gray-500">Location Details</label><input name="WorkLocationDetail" id="WorkLocationDetail"></div>
-                                <div><label class="text-xs font-bold text-gray-500">Region/Unit/Location</label><input name="LocationUnit" id="LocationUnit" readonly class="bg-gray-100"></div>
-                                <div><label class="text-xs font-bold text-gray-500">Valid From</label><input type="datetime-local" name="ValidFrom" id="ValidFrom"></div>
-                                <div><label class="text-xs font-bold text-gray-500">Valid To</label><input type="datetime-local" name="ValidTo" id="ValidTo"></div>
-                                <div><label class="text-xs font-bold text-gray-500">Vendor</label><input name="Vendor" id="Vendor" readonly class="bg-gray-100"></div>
-                                <div><label class="text-xs font-bold text-gray-500">Requester</label><input name="RequesterName" id="RequesterName" class="bg-white"></div>
-                                <div class="md:col-span-2"><label class="text-xs font-bold text-gray-500">Issued To Dept</label><input name="IssuedToDept" id="IssuedToDept"></div>
-                                <div><label class="text-xs font-bold text-gray-500">Security Guard</label><input name="SecurityGuard" id="SecurityGuard"></div>
-                                <div><label class="text-xs font-bold text-gray-500">Emergency Contact</label><input name="EmergencyContact" id="EmergencyContact"></div>
-                                <div><label class="text-xs font-bold text-gray-500">Fire Stn/Hosp</label><input name="FireStation" id="FireStation"></div>
-                                <div class="md:col-span-4"><label class="text-xs font-bold text-gray-500">Description</label><textarea name="Desc" id="Desc" rows="2"></textarea></div>
-                                <div class="md:col-span-4 glass border-t-4 border-red-800 bg-red-50/10 mt-4">
-    <h3 class="font-bold text-red-800 border-b pb-2 mb-2">Work Specific Risk Assessment (HIRA)</h3>
-    
-    <div id="risk-selection-controls">
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-2 mb-2">
-            <div>
-                <label class="text-xs font-bold">1. Select Activity</label>
-                <select id="sel-risk-activity" class="w-full" onchange="loadRiskHazards()"></select>
-            </div>
-            <div class="md:col-span-2">
-                <label class="text-xs font-bold">2. Select Associated Hazards</label>
-                <div id="risk-hazard-list" class="max-h-32 overflow-y-auto bg-white border p-2 rounded grid grid-cols-1 gap-1">
-                    <span class="text-xs text-gray-400 italic">Select an activity first...</span>
-                </div>
-            </div>
-        </div>
-        <button type="button" onclick="addRiskToTable()" class="bg-red-600 text-white px-3 py-1 rounded text-xs font-bold mb-2">+ Add to Register</button>
-    </div>
+                <div class="glass border-t-4 border-orange-500">
+    <div class="accordion-header flex justify-between items-center border-b pb-2 mb-4 accordion-open" onclick="toggleSection(this)">
+        <h3 class="font-bold text-orange-600">1. Basic Details</h3>
+        <span class="accordion-icon text-orange-600 text-xl font-bold">▼</span>
+    </div>
 
-    <div class="overflow-x-auto">
-        <table class="w-full text-xs text-left border bg-white" id="table-selected-risks">
-            <thead class="bg-red-100 font-bold">
-                <tr>
-                    <th class="p-2 border">Activity</th>
-                    <th class="p-2 border">Hazard</th>
-                    <th class="p-2 border">Risk</th>
-                    <th class="p-2 border">Controls (Exist + Add)</th>
-                    <th class="p-2 border">Action</th>
-                </tr>
-            </thead>
-            <tbody></tbody>
-        </table>
-    </div>
-    <div id="hira-statement-display" class="hidden mt-2 p-2 bg-yellow-100 border-l-4 border-yellow-600 text-yellow-900 text-xs font-bold rounded shadow-sm">
-        Please see the attached risk register for the associated risks and its precaution action for this work.
-    </div>
-    </div>
-    
+    <div class="section-content">
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div><label class="text-xs font-bold text-gray-500">Work Type</label><select name="WorkType" id="WorkType"><option>Hot</option><option>Cold</option><option>Confined Space</option><option>Excavation</option><option>Composite Work</option></select></div>
+            <div><label class="text-xs font-bold text-gray-500">Specific Work</label><input name="WorkTypeOther" id="WorkTypeOther"></div>
+            <div class="md:col-span-2"><label class="text-xs font-bold text-gray-500">Location (GPS)</label><div class="flex gap-2"><input name="ExactLocation" id="ExactLocation" class="flex-1" placeholder="Coords"><button type="button" id="btn-get-geo" class="bg-blue-100 text-blue-700 px-3 rounded font-bold">📍 GPS</button></div><input type="hidden" id="Latitude" name="Latitude"><input type="hidden" id="Longitude" name="Longitude"></div>
+            <div><label class="text-xs font-bold text-gray-500">Location Details</label><input name="WorkLocationDetail" id="WorkLocationDetail"></div>
+            <div><label class="text-xs font-bold text-gray-500">Region/Unit/Location</label><input name="LocationUnit" id="LocationUnit" readonly class="bg-gray-100"></div>
+            <div><label class="text-xs font-bold text-gray-500">Valid From</label><input type="datetime-local" name="ValidFrom" id="ValidFrom"></div>
+            <div><label class="text-xs font-bold text-gray-500">Valid To</label><input type="datetime-local" name="ValidTo" id="ValidTo"></div>
+            <div><label class="text-xs font-bold text-gray-500">Vendor</label><input name="Vendor" id="Vendor" readonly class="bg-gray-100"></div>
+            <div><label class="text-xs font-bold text-gray-500">Requester</label><input name="RequesterName" id="RequesterName" class="bg-white"></div>
+            <div class="md:col-span-2"><label class="text-xs font-bold text-gray-500">Issued To Dept</label><input name="IssuedToDept" id="IssuedToDept"></div>
+            <div><label class="text-xs font-bold text-gray-500">Security Guard</label><input name="SecurityGuard" id="SecurityGuard"></div>
+            <div><label class="text-xs font-bold text-gray-500">Emergency Contact</label><input name="EmergencyContact" id="EmergencyContact"></div>
+            <div><label class="text-xs font-bold text-gray-500">Fire Stn/Hosp</label><input name="FireStation" id="FireStation"></div>
+            <div class="md:col-span-4"><label class="text-xs font-bold text-gray-500">Description</label><textarea name="Desc" id="Desc" rows="2"></textarea></div>
+            
+            <div class="md:col-span-4 glass border-t-4 border-red-800 bg-red-50/10 mt-4">
+                <h3 class="font-bold text-red-800 border-b pb-2 mb-2">Work Specific Risk Assessment (HIRA)</h3>
+                <div id="risk-selection-controls">
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-2 mb-2">
+                        <div><label class="text-xs font-bold">1. Select Activity</label><select id="sel-risk-activity" class="w-full" onchange="loadRiskHazards()"></select></div>
+                        <div class="md:col-span-2">
+                            <label class="text-xs font-bold">2. Select Associated Hazards</label>
+                            <div id="risk-hazard-list" class="max-h-32 overflow-y-auto bg-white border p-2 rounded grid grid-cols-1 gap-1"><span class="text-xs text-gray-400 italic">Select an activity first...</span></div>
+                        </div>
+                    </div>
+                    <button type="button" onclick="addRiskToTable()" class="bg-red-600 text-white px-3 py-1 rounded text-xs font-bold mb-2">+ Add to Register</button>
+                </div>
+                <div class="overflow-x-auto"><table class="w-full text-xs text-left border bg-white" id="table-selected-risks"><thead class="bg-red-100 font-bold"><tr><th class="p-2 border">Activity</th><th class="p-2 border">Hazard</th><th class="p-2 border">Risk</th><th class="p-2 border">Controls (Exist + Add)</th><th class="p-2 border">Action</th></tr></thead><tbody></tbody></table></div>
+                <div id="hira-statement-display" class="hidden mt-2 p-2 bg-yellow-100 border-l-4 border-yellow-600 text-yellow-900 text-xs font-bold rounded shadow-sm">Please see the attached risk register for the associated risks and its precaution action for this work.</div>
+            </div>
 
-                                <div class="md:col-span-2"><label class="text-xs font-bold text-gray-500">Assign Reviewer</label><select name="ReviewerEmail" id="ReviewerEmail"></select></div>
-                                <div class="md:col-span-2"><label class="text-xs font-bold text-gray-500">Assign Approver</label><select name="ApproverEmail" id="ApproverEmail"></select></div>
-                                
-                                <div class="md:col-span-4 p-3 bg-red-50 border border-red-200 rounded mt-2">
-                                    <label class="font-bold text-red-700 text-sm block">Is this Critical Work?</label>
-                                    <div class="flex gap-4 mt-1 mb-2">
-                                        <label class="flex items-center gap-1 cursor-pointer font-bold"><input type="radio" name="IsCritical" value="Y" onchange="toggleCritical(true)"> Yes</label>
-                                        <label class="flex items-center gap-1 cursor-pointer font-bold"><input type="radio" name="IsCritical" value="N" onchange="toggleCritical(false)" checked> No</label>
-                                    </div>
-                                    <div id="critical-options" class="hidden">
-                                        <label class="text-xs font-bold text-gray-600">Select Critical Activity:</label>
-                                        <select name="CriticalActivityType" id="CriticalActivityType" class="w-full text-sm mt-1 border-red-300"></select>
-                                    </div>
-                                </div>
+            <div class="md:col-span-2"><label class="text-xs font-bold text-gray-500">Assign Reviewer</label><select name="ReviewerEmail" id="ReviewerEmail"></select></div>
+            <div class="md:col-span-2"><label class="text-xs font-bold text-gray-500">Assign Approver</label><select name="ApproverEmail" id="ApproverEmail"></select></div>
 
-                              <div class="md:col-span-4 mt-2 flex items-center justify-between p-3 bg-blue-50 rounded border border-blue-200">
-     <label class="flex items-center gap-2 cursor-pointer">
-         <input type="checkbox" name="TBT_Permit" value="Y" id="chk-tbt-permit" class="w-5 h-5 accent-blue-600"> 
-         <span class="font-bold text-blue-800 text-sm">Tool Box Talk Conducted & Recorded?</span>
-     </label>
-     
-     <div id="tbt-link-area" class="hidden flex items-center gap-2">
-         <span class="text-xs font-bold bg-white border px-2 py-1 rounded text-gray-600">TBT No: <span id="disp-tbt-no" class="text-blue-700"></span></span>
-         <button type="button" id="btn-view-tbt" class="bg-blue-600 text-white text-xs px-2 py-1 rounded shadow hover:bg-blue-700">📄 View Record</button>
-     </div>
+            <div class="md:col-span-4 p-3 bg-red-50 border border-red-200 rounded mt-2">
+                <label class="font-bold text-red-700 text-sm block">Is this Critical Work?</label>
+                <div class="flex gap-4 mt-1 mb-2">
+                    <label class="flex items-center gap-1 cursor-pointer font-bold"><input type="radio" name="IsCritical" value="Y" onchange="toggleCritical(true)"> Yes</label>
+                    <label class="flex items-center gap-1 cursor-pointer font-bold"><input type="radio" name="IsCritical" value="N" onchange="toggleCritical(false)" checked> No</label>
+                </div>
+                <div id="critical-options" class="hidden">
+                    <label class="text-xs font-bold text-gray-600">Select Critical Activity:</label>
+                    <select name="CriticalActivityType" id="CriticalActivityType" class="w-full text-sm mt-1 border-red-300"></select>
+                </div>
+            </div>
+
+            <div class="md:col-span-4 mt-2 flex items-center justify-between p-3 bg-blue-50 rounded border border-blue-200">
+                <label class="flex items-center gap-2 cursor-pointer">
+                    <input type="checkbox" name="TBT_Permit" value="Y" id="chk-tbt-permit" class="w-5 h-5 accent-blue-600"> 
+                    <span class="font-bold text-blue-800 text-sm">Tool Box Talk Conducted & Recorded?</span>
+                </label>
+                <div id="tbt-link-area" class="hidden flex items-center gap-2">
+                    <span class="text-xs font-bold bg-white border px-2 py-1 rounded text-gray-600">TBT No: <span id="disp-tbt-no" class="text-blue-700"></span></span>
+                    <button type="button" id="btn-view-tbt" class="bg-blue-600 text-white text-xs px-2 py-1 rounded shadow hover:bg-blue-700">📄 View Record</button>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
-                            </div>
-                        </div>
+
  
                         <div id="init-renewal-wrapper" class="glass border-l-4 border-purple-500 bg-purple-50">
                             <label class="flex items-center gap-2 font-bold cursor-pointer text-purple-800">
@@ -483,25 +488,37 @@
                         <div id="checklists-container" class="space-y-4"></div>
  
                         <div class="glass border-t-4 border-blue-500">
-                            <h3 class="font-bold text-blue-600 border-b pb-2 mb-4">3. Workers</h3>
-                            <div id="worker-select-area" class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-2"></div>
-                            <div id="worker-display-table" class="hidden overflow-x-auto mt-2">
-                                <table class="mobile-table w-full text-xs text-left"><thead class="bg-gray-100"><tr><th>Name</th><th>Father Name</th><th>ID</th><th>Contact</th></tr></thead><tbody id="worker-display-body"></tbody></table>
-                            </div>
-                        </div>
+    <div class="accordion-header flex justify-between items-center border-b pb-2 mb-4" onclick="toggleSection(this)">
+        <h3 class="font-bold text-blue-600">3. Workers</h3>
+        <span class="accordion-icon text-blue-600 text-xl font-bold">▼</span>
+    </div>
+    
+    <div class="section-content hidden">
+        <div id="worker-select-area" class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-2"></div>
+        <div id="worker-display-table" class="hidden overflow-x-auto mt-2">
+            <table class="mobile-table w-full text-xs text-left"><thead class="bg-gray-100"><tr><th>Name</th><th>Father Name</th><th>ID</th><th>Contact</th></tr></thead><tbody id="worker-display-body"></tbody></table>
+        </div>
+    </div>
+</div>
  
-                        <div class="glass border-t-4 border-red-500">
-                            <h3 class="font-bold text-red-600 border-b pb-2 mb-4">4. Hazards & PPE</h3>
-                            <div id="hazards-grid" class="grid grid-cols-2 md:grid-cols-4 gap-2 mb-4"></div>
-                            <div id="other-hazard-div" class="hidden mb-2">
-                                <input id="H_Others_Detail" name="H_Others_Detail" placeholder="Specify other hazards..." class="w-full">
-                            </div>
-                            <div id="ppe-section-wrapper" class="hidden">
-                                <h4 class="font-bold text-gray-500 text-xs uppercase mb-2">PPE Required (Reviewer/Approver)</h4>
-                                <div id="ppe-grid" class="grid grid-cols-2 md:grid-cols-4 gap-2 mb-2"></div>
-                                <textarea name="AdditionalPrecautions" id="AdditionalPrecautions" placeholder="Additional PPE / Precautions..." class="w-full text-sm p-2 border rounded" rows="2"></textarea>
-                            </div>
-                        </div>
+<div class="glass border-t-4 border-red-500">
+    <div class="accordion-header flex justify-between items-center border-b pb-2 mb-4" onclick="toggleSection(this)">
+        <h3 class="font-bold text-red-600">4. Hazards & PPE</h3>
+        <span class="accordion-icon text-red-600 text-xl font-bold">▼</span>
+    </div>
+    
+    <div class="section-content hidden">
+        <div id="hazards-grid" class="grid grid-cols-2 md:grid-cols-4 gap-2 mb-4"></div>
+        <div id="other-hazard-div" class="hidden mb-2">
+            <input id="H_Others_Detail" name="H_Others_Detail" placeholder="Specify other hazards..." class="w-full">
+        </div>
+        <div id="ppe-section-wrapper" class="hidden">
+            <h4 class="font-bold text-gray-500 text-xs uppercase mb-2">PPE Required (Reviewer/Approver)</h4>
+            <div id="ppe-grid" class="grid grid-cols-2 md:grid-cols-4 gap-2 mb-2"></div>
+            <textarea name="AdditionalPrecautions" id="AdditionalPrecautions" placeholder="Additional PPE / Precautions..." class="w-full text-sm p-2 border rounded" rows="2"></textarea>
+        </div>
+    </div>
+</div>
  
                   <div id="fs-reviewer-section" class="glass hidden border-l-4 border-yellow-500">
     <h3 class="font-bold text-yellow-700 border-b pb-2 mb-4">4. Reviewer</h3>
@@ -1102,7 +1119,18 @@
             });
         }
         
-        /* 3. INIT & LOGIN */
+function toggleSection(header) {
+            // 1. Toggle the rotation class on the header
+            header.classList.toggle('accordion-open');
+            
+            // 2. Find the content div (the next sibling element)
+            const content = header.nextElementSibling;
+            
+            // 3. Toggle the hidden class
+            if (content) {
+                content.classList.toggle('hidden');
+            }
+        }
 /* 3. INIT & LOGIN */
 async function initLogin() {
     try {
@@ -2793,174 +2821,115 @@ async function loadWorkers(context) {
 
       // --- FIX A: Prevent Duplicate Remarks ---
         function renderChecklists() {
-            const container = document.getElementById('checklists-container'); 
-            if (!container) return; // Safety check
-            container.innerHTML = ''; // 1. CLEAR CONTAINER FIRST
+    const container = document.getElementById('checklists-container'); 
+    if (!container) return; 
+    container.innerHTML = ''; 
 
-            Object.keys(CL_DATA).forEach(sec => {
-                let itemsHtml = CL_DATA[sec].map((item, i) => {
-                    // Unique name for text input remarks
-                    let extra = `<input class="w-full text-xs border-b mt-1" placeholder="Remarks" name="${sec}_Q${i+1}_Rem">`;
-                    
-                    // Special case for Gas Test (Section A, Item 12)
-                    if(sec==='A' && i===11) {
-                        extra = `<div class="grid grid-cols-3 gap-2 mt-2">
-                            <input name="GP_Q12_HC" id="GP_Q12_HC" placeholder="HC % LEL" onkeyup="syncGasToRenewal()">
-                            <input name="GP_Q12_ToxicGas" id="GP_Q12_ToxicGas" placeholder="Toxic PPM" onkeyup="syncGasToRenewal()">
-                            <input name="GP_Q12_Oxygen" id="GP_Q12_Oxygen" placeholder="O2 %" onkeyup="syncGasToRenewal()">
-                        </div>`;
-                    }
-                    else if (sec === 'A' && i === 10) { // Sl No. 11 Electrical Isolation
-    extra = `
-    <div id="elec-isolation-window" class="hidden mt-3 p-3 bg-yellow-50 border border-yellow-200 rounded space-y-2">
-        <h4 class="font-bold text-yellow-800 text-[10px] uppercase underline mb-2">Electrical Isolation Details (LOTO)</h4>
-        
-        <div class="grid grid-cols-1 gap-2">
-            <p class="text-[10px] text-gray-500 font-extrabold border-b pb-1">REQUESTER ENTRIES:</p>
+    Object.keys(CL_DATA).forEach(sec => {
+        let itemsHtml = CL_DATA[sec].map((item, i) => {
+            let extra = `<input class="w-full text-xs border-b mt-1" placeholder="Remarks" name="${sec}_Q${i+1}_Rem">`;
             
-            <div>
-                <label class="text-[10px] font-bold text-gray-600 block">Equipment Number to be Isolated:</label>
-                <input name="Elec_EquipNo" id="Elec_EquipNo" placeholder="Enter Equipment No" class="text-xs">
-            </div>
-
-            <div>
-                <label class="text-[10px] font-bold text-gray-600 block">Equipment Name/Description:</label>
-                <input name="Elec_EquipName" id="Elec_EquipName" placeholder="Enter Equipment Name" class="text-xs">
-            </div>
-
-            <div>
-                <label class="text-[10px] font-bold text-gray-600 block">Requester LOTO Tag No:</label>
-                <input name="Elec_LotoTag_Req" id="Elec_LotoTag_Req" placeholder="Enter Tag No" class="text-xs">
-            </div>
-
-            <div>
-                <label class="text-[10px] font-bold text-gray-600 block">Electrical Authorised Person:</label>
-                <select name="Elec_AuthEmail" id="Elec_AuthEmail" class="text-xs w-full"></select>
-            </div>
-            
-            <div id="elec-auth-action-fields" class="hidden border-t-2 border-blue-200 pt-2 mt-2 space-y-2 bg-blue-50/50 p-2 rounded">
-                <p class="text-[10px] text-blue-700 font-extrabold uppercase">Electrical Authorised Person Entries:</p>
-                
-                <label class="flex items-center gap-2 text-xs font-bold text-blue-800 cursor-pointer">
-                    <input type="checkbox" id="Elec_Isolated_Check" name="Elec_Isolated_Check" class="w-4 h-4 accent-blue-700"> Electrically Isolated
-                </label>
-
-                <div>
-                    <label class="text-[10px] font-bold text-blue-700 block">Electrical LOTO No (Official):</label>
-                    <input name="Elec_LotoTag_Auth" id="Elec_LotoTag_Auth" placeholder="Enter Official LOTO No" class="text-xs border-blue-300">
-                </div>
-
-                <div>
-                    <label class="text-[10px] font-bold text-blue-700 block">Date & Time of Isolation:</label>
-                    <input type="datetime-local" name="Elec_Iso_DateTime" id="Elec_Iso_DateTime" class="text-xs border-blue-300">
-                </div>
-            </div>
-        </div>
-        <div id="elec-closure-auth-fields" class="hidden border-t-2 border-green-200 pt-2 mt-2 bg-green-50/50 p-2 rounded">
-    <label class="flex items-center gap-2 text-xs font-bold text-green-800 cursor-pointer">
-        <input type="checkbox" id="Elec_Energized_Final_Check" name="Elec_Energized_Final_Check" class="w-4 h-4 accent-green-700"> 
-        Equipment can be safely energised and hence energisation done.
-    </label>
-    <div class="mt-2">
-        <label class="text-[10px] font-bold text-green-700 block">De-Isolation (Energisation) Date & Time:</label>
-        <input type="datetime-local" name="Elec_DeIso_DateTime_Final" id="Elec_DeIso_DateTime_Final" class="text-xs border-green-300">
-    </div>
-</div>
-    </div>`;
-}
-                    // --- Change: Height Work Checklist (Section B, Item 15 / Index 14) ---
-else if (sec === 'B' && i === 14) { 
-    const heightPoints = [
-        "(a) Avoid work at height where it is reasonably practicable to do so.",
-        "(b) Prevent falls using either an existing place of work that is already safe or the right type of equipment.",
-        "(c) Minimize the distance and consequences of a fall, by using the right type of equipment where the risk cannot be eliminated.",
-        "(d) Ensure workers can get safely to and from where they work at height.",
-        "(e) Ensure equipment is suitable, stable and strong enough for the job, maintained and checked regularly.",
-        "(f) Make sure you don’t overload or overreach when working at height.",
-        "(g) Take precautions when working on or near fragile surfaces.",
-        "(h) Provide protection from falling objects.",
-        "(i) Consider emergency evacuation and rescue procedures while planning the job."
-    ];
-    
-    extra += `
-    <div id="height-checklist-wrapper" class="hidden mt-2 p-2 bg-indigo-50 border border-indigo-200 rounded">
-        <p class="font-bold text-indigo-900 text-[10px] mb-2 underline">⚠️ Mandatory Precautions (OISD 105):</p>
-        ${heightPoints.map((t, idx) => `
-            <label class="flex items-start gap-2 mb-1 cursor-pointer hover:bg-indigo-100 p-1 rounded">
-                <input type="checkbox" name="Height_Safe_${idx}" value="Y" class="mt-1 w-3 h-3 accent-indigo-600 height-mandatory">
-                <span class="text-[9px] text-gray-700 font-semibold">${t}</span>
-            </label>
-        `).join('')}
-    </div>`;
-}
-
-                    return `<div class="p-3 border rounded-lg bg-gray-50 text-xs hover:shadow-md">
-                        <p class="mb-2 font-semibold text-gray-700 min-h-[30px]">${item}</p>
-                        <div class="flex gap-2 justify-center">
-                            <label class="cursor-pointer flex items-center gap-1">
-                                <input type="radio" name="${sec}_Q${i+1}" value="Y" checked class="accent-green-600"> Y
-                            </label>
-                            <label class="cursor-pointer flex items-center gap-1">
-                                <input type="radio" name="${sec}_Q${i+1}" value="N" class="accent-red-600"> N
-                            </label>
-                            <label class="cursor-pointer flex items-center gap-1">
-                                <input type="radio" name="${sec}_Q${i+1}" value="NA" class="accent-gray-600"> NA
-                            </label>
-                        </div>
-                        ${extra}
-                    </div>`;
-                });
-
-                container.innerHTML += `
-                <div class="glass border-t-4 border-gray-400">
-                    <div class="flex justify-between items-center border-b pb-2 mb-4 bg-gray-50 p-2 rounded">
-                        <h4 class="font-bold text-gray-700">Section ${sec} Checks</h4>
-                        <div class="flex gap-2 text-xs">
-                            <label class="cursor-pointer font-bold"><input type="radio" name="Master_${sec}" value="Y" class="sec-toggle" data-sec="${sec}"> All Yes</label>
-                            <label class="cursor-pointer font-bold"><input type="radio" name="Master_${sec}" value="N" class="sec-toggle" data-sec="${sec}"> All No</label>
-                            <label class="cursor-pointer font-bold"><input type="radio" name="Master_${sec}" value="NA" class="sec-toggle" data-sec="${sec}"> All NA</label>
-                        </div>
-                    </div>
-                    <div class="checklist-grid">${itemsHtml.join('')}</div>
+            // Gas Test Logic
+            if(sec==='A' && i===11) {
+                extra = `<div class="grid grid-cols-3 gap-2 mt-2">
+                    <input name="GP_Q12_HC" id="GP_Q12_HC" placeholder="HC % LEL" onkeyup="syncGasToRenewal()">
+                    <input name="GP_Q12_ToxicGas" id="GP_Q12_ToxicGas" placeholder="Toxic PPM" onkeyup="syncGasToRenewal()">
+                    <input name="GP_Q12_Oxygen" id="GP_Q12_Oxygen" placeholder="O2 %" onkeyup="syncGasToRenewal()">
                 </div>`;
-            });
+            }
+            // Electrical Isolation Logic
+            else if (sec === 'A' && i === 10) { 
+               extra = `
+               <div id="elec-isolation-window" class="hidden mt-3 p-3 bg-yellow-50 border border-yellow-200 rounded space-y-2">
+                   <h4 class="font-bold text-yellow-800 text-[10px] uppercase underline mb-2">Electrical Isolation Details (LOTO)</h4>
+                   <div class="grid grid-cols-1 gap-2">
+                       <p class="text-[10px] text-gray-500 font-extrabold border-b pb-1">REQUESTER ENTRIES:</p>
+                       <div><label class="text-[10px] font-bold text-gray-600 block">Equipment No:</label><input name="Elec_EquipNo" id="Elec_EquipNo" class="text-xs"></div>
+                       <div><label class="text-[10px] font-bold text-gray-600 block">Equipment Name:</label><input name="Elec_EquipName" id="Elec_EquipName" class="text-xs"></div>
+                       <div><label class="text-[10px] font-bold text-gray-600 block">Requester LOTO No:</label><input name="Elec_LotoTag_Req" id="Elec_LotoTag_Req" class="text-xs"></div>
+                       <div><label class="text-[10px] font-bold text-gray-600 block">Auth Person:</label><select name="Elec_AuthEmail" id="Elec_AuthEmail" class="text-xs w-full"></select></div>
+                       <div id="elec-auth-action-fields" class="hidden border-t-2 border-blue-200 pt-2 mt-2 space-y-2 bg-blue-50/50 p-2 rounded">
+                           <p class="text-[10px] text-blue-700 font-extrabold uppercase">Auth Person Entries:</p>
+                           <label class="flex items-center gap-2 text-xs font-bold text-blue-800 cursor-pointer"><input type="checkbox" id="Elec_Isolated_Check" name="Elec_Isolated_Check" class="w-4 h-4 accent-blue-700"> Electrically Isolated</label>
+                           <div><label class="text-[10px] font-bold text-blue-700 block">Official LOTO No:</label><input name="Elec_LotoTag_Auth" id="Elec_LotoTag_Auth" class="text-xs border-blue-300"></div>
+                           <div><label class="text-[10px] font-bold text-blue-700 block">Isolation Time:</label><input type="datetime-local" name="Elec_Iso_DateTime" id="Elec_Iso_DateTime" class="text-xs border-blue-300"></div>
+                       </div>
+                   </div>
+                   <div id="elec-closure-auth-fields" class="hidden border-t-2 border-green-200 pt-2 mt-2 bg-green-50/50 p-2 rounded">
+                       <label class="flex items-center gap-2 text-xs font-bold text-green-800 cursor-pointer"><input type="checkbox" id="Elec_Energized_Final_Check" name="Elec_Energized_Final_Check" class="w-4 h-4 accent-green-700"> Equipment Energised</label>
+                       <div class="mt-2"><label class="text-[10px] font-bold text-green-700 block">De-Isolation Time:</label><input type="datetime-local" name="Elec_DeIso_DateTime_Final" id="Elec_DeIso_DateTime_Final" class="text-xs border-green-300"></div>
+                   </div>
+               </div>`;
+            }
+            // Height Work Logic
+            else if (sec === 'B' && i === 14) { 
+                const heightPoints = ["(a) Avoid work at height...", "(b) Prevent falls...", "(c) Minimize distance...", "(d) Safe access...", "(e) Equipment suitable...", "(f) Don't overload...", "(g) Fragile surfaces...", "(h) Falling objects...", "(i) Emergency rescue..."];
+                extra += `<div id="height-checklist-wrapper" class="hidden mt-2 p-2 bg-indigo-50 border border-indigo-200 rounded">
+                    <p class="font-bold text-indigo-900 text-[10px] mb-2 underline">⚠️ Mandatory Precautions (OISD 105):</p>
+                    ${heightPoints.map((t, idx) => `<label class="flex items-start gap-2 mb-1 cursor-pointer hover:bg-indigo-100 p-1 rounded"><input type="checkbox" name="Height_Safe_${idx}" value="Y" class="mt-1 w-3 h-3 accent-indigo-600 height-mandatory"><span class="text-[9px] text-gray-700 font-semibold">${t}</span></label>`).join('')}
+                </div>`;
+            }
 
-            // Re-attach "Select All" listeners
-            document.querySelectorAll('.sec-toggle').forEach(el => { 
-                el.addEventListener('change', (e) => { 
-                    document.querySelectorAll(`input[name^="${e.target.dataset.sec}_"]`).forEach(rb => { 
-                        if(rb.value === e.target.value) rb.checked = true; 
-                    }); 
-                }); 
-            });
-            // --- ADD THE LISTENER HERE ---
-        document.querySelectorAll('input[name="A_Q11"]').forEach(radio => {
-            radio.addEventListener('change', (e) => {
-                const isYes = e.target.value === 'Y';
-                const windowEl = document.getElementById('elec-isolation-window');
-                const renewalCheck = document.getElementById('chk-init-renewal');
-                
-                if (windowEl) windowEl.classList.toggle('hidden', !isYes);
-                
-                if (isYes) {
-                    renewalCheck.checked = false;
-                    renewalCheck.disabled = true;
-                    document.getElementById('div-init-renewal').classList.add('hidden');
-                    loadElectricalUsers(); 
-                } else {
-                    renewalCheck.disabled = false;
-                }
-            });
+            return `<div class="p-3 border rounded-lg bg-gray-50 text-xs hover:shadow-md">
+                <p class="mb-2 font-semibold text-gray-700 min-h-[30px]">${item}</p>
+                <div class="flex gap-2 justify-center">
+                    <label class="cursor-pointer flex items-center gap-1"><input type="radio" name="${sec}_Q${i+1}" value="Y" checked class="accent-green-600"> Y</label>
+                    <label class="cursor-pointer flex items-center gap-1"><input type="radio" name="${sec}_Q${i+1}" value="N" class="accent-red-600"> N</label>
+                    <label class="cursor-pointer flex items-center gap-1"><input type="radio" name="${sec}_Q${i+1}" value="NA" class="accent-gray-600"> NA</label>
+                </div>
+                ${extra}
+            </div>`;
         });
-            // --- Change: Listener for Height Work (B_Q15) ---
-        document.querySelectorAll('input[name="B_Q15"]').forEach(radio => {
-            radio.addEventListener('change', (e) => {
-                const isYes = e.target.value === 'Y';
-                const div = document.getElementById('height-checklist-wrapper');
-                if(div) div.classList.toggle('hidden', !isYes);
-            });
+
+        // --- WRAP IN ACCORDION STRUCTURE ---
+        container.innerHTML += `
+        <div class="glass border-t-4 border-gray-400">
+            <div class="accordion-header flex justify-between items-center border-b pb-2 mb-4 bg-gray-50 p-2 rounded" onclick="toggleSection(this)">
+                <h4 class="font-bold text-gray-700">Section ${sec} Checks</h4>
+                <div class="flex gap-2 items-center">
+                    <span class="text-[10px] text-gray-400 italic font-normal mr-2">(Click to Expand)</span>
+                    <span class="accordion-icon text-gray-600 text-lg font-bold">▼</span>
+                </div>
+            </div>
+            
+            <div class="section-content hidden">
+                <div class="flex gap-2 text-xs mb-3 justify-end">
+                    <label class="cursor-pointer font-bold"><input type="radio" name="Master_${sec}" value="Y" class="sec-toggle" data-sec="${sec}"> All Yes</label>
+                    <label class="cursor-pointer font-bold"><input type="radio" name="Master_${sec}" value="N" class="sec-toggle" data-sec="${sec}"> All No</label>
+                    <label class="cursor-pointer font-bold"><input type="radio" name="Master_${sec}" value="NA" class="sec-toggle" data-sec="${sec}"> All NA</label>
+                </div>
+                <div class="checklist-grid">${itemsHtml.join('')}</div>
+            </div>
+        </div>`;
+    });
+
+    // Re-attach listeners
+    document.querySelectorAll('.sec-toggle').forEach(el => { 
+        el.addEventListener('change', (e) => { 
+            document.querySelectorAll(`input[name^="${e.target.dataset.sec}_"]`).forEach(rb => { 
+                if(rb.value === e.target.value) rb.checked = true; 
+            }); 
+        }); 
+    });
+    // Re-attach A_Q11 and B_Q15 listeners (same as before)
+    document.querySelectorAll('input[name="A_Q11"]').forEach(radio => {
+        radio.addEventListener('change', (e) => {
+            const isYes = e.target.value === 'Y';
+            const windowEl = document.getElementById('elec-isolation-window');
+            const renewalCheck = document.getElementById('chk-init-renewal');
+            if (windowEl) windowEl.classList.toggle('hidden', !isYes);
+            if (isYes) { renewalCheck.checked = false; renewalCheck.disabled = true; document.getElementById('div-init-renewal').classList.add('hidden'); loadElectricalUsers(); } 
+            else { renewalCheck.disabled = false; }
         });
-        }
+    });
+    document.querySelectorAll('input[name="B_Q15"]').forEach(radio => {
+        radio.addEventListener('change', (e) => {
+            const isYes = e.target.value === 'Y';
+            const div = document.getElementById('height-checklist-wrapper');
+            if(div) div.classList.toggle('hidden', !isYes);
+        });
+    });
+}
         function renderHazards() {
             document.getElementById('hazards-grid').innerHTML = HAZARDS.map(h => `<label class="flex items-center gap-2 p-3 border rounded-lg bg-gray-50 text-xs cursor-pointer hover:bg-orange-100 font-bold"><input type="checkbox" name="H_${h.replace(/ /g,'')}" value="Y" ${h==='Others'?'id="chk-haz-others"':''} class="accent-orange-600 w-4 h-4"> ${h}</label>`).join('');
             const otherChk = document.getElementById('chk-haz-others');
@@ -3671,5 +3640,6 @@ updateClock();
     </script>
 </body>
 </html>
+
 
 
