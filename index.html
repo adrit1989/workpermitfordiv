@@ -1595,14 +1595,14 @@ if (p.ElectricalAuthNum) {
     const alertBox = document.createElement('div');
     alertBox.id = 'elec-statement-box';
     alertBox.className = "bg-blue-50 border-l-4 border-blue-500 p-3 mb-4 text-xs font-bold text-blue-800";
-    alertBox.innerHTML = `ℹ️ ${p.Elec_Approved_By || 'Electrical Person'} has approved the electrical isolation request no: ${p.ElectricalAuthNum} and submitted for further approval.`;
-    document.getElementById('pf').prepend(alertBox);
-}
+    alertBox.innerHTML = `ℹ️ ${escapeHtml(p.Elec_Approved_By || 'Electrical Person')} has approved the electrical isolation request no: ${escapeHtml(p.ElectricalAuthNum)} and submitted for further approval.`;
+        document.getElementById('pf').prepend(alertBox);
+    }
                 // --- OPTIONAL: Display Green Energisation Statement ---
 if (p.Elec_Energization_Msg) {
     const msgBox = document.createElement('div');
     msgBox.className = "bg-green-100 border-l-4 border-green-500 p-3 mb-4 text-xs font-bold text-green-800 shadow-sm flex items-center gap-2";
-    msgBox.innerHTML = `<span class="text-lg">⚡</span> <span>${p.Elec_Energization_Msg}</span>`;
+   msgBox.innerHTML = `<span class="text-lg">⚡</span> <span>${escapeHtml(p.Elec_Energization_Msg)}</span>`;
     
     // Insert it at the top of the form
     const form = document.getElementById('pf');
@@ -1616,10 +1616,10 @@ if (p.Elec_Energization_Msg) {
                 historyDiv.classList.remove('hidden');
 
                 // 1. Approval Line with TBT Link
-                let appSigHtml = p.Approver_Sig || '<span class="text-gray-400">Pending</span>';
+                let appSigHtml = escapeHtml(p.Approver_Sig) || '<span class="text-gray-400">Pending</span>';
                 // If an Approver uploaded a TBT, show the link here
                 if (p.TBT_File_Url) {
-                    appSigHtml += ` <br><button type="button" class="mt-1 text-[10px] bg-blue-100 text-blue-700 px-2 py-1 rounded font-bold border border-blue-300 hover:bg-blue-200" onclick="viewSecureFile('${p.TBT_File_Url}')">📄 View Approved TBT Record</button>`;
+                    appSigHtml += ` <br><button type="button" class="mt-1 text-[10px] bg-blue-100 text-blue-700 px-2 py-1 rounded font-bold border border-blue-300 hover:bg-blue-200" onclick="viewSecureFile('${escapeJs(p.TBT_File_Url)}')">📄 View Approved TBT Record</button>`;
                 }
                 document.getElementById('sig-app').innerHTML = appSigHtml;
 
@@ -1928,7 +1928,7 @@ document.getElementById('renewal-history-body').innerHTML = rens.map((r, index) 
         statusDisplay += `<div class="mt-1"><span class="text-[9px] bg-purple-100 text-purple-800 border border-purple-200 px-1 rounded font-bold inline-block">Approved with Oddhour clearance</span></div>`;
     }
       }
-    else if(r.status === 'rejected') statusDisplay = `<span class="bg-red-100 text-red-800 px-1 rounded font-bold" title="${r.rejection_reason}">Rejected</span>`;
+    else if(r.status === 'rejected') statusDisplay = `<span class="bg-red-100 text-red-800 px-1 rounded font-bold" title="${escapeHtml(r.rejection_reason)}">Rejected</span>`;
 
     // 2. Worker List Logic 
     // Check (index === 0) instead of list length to keep 1st renewal data visible even after 2nd renewal is added
@@ -1951,8 +1951,8 @@ document.getElementById('renewal-history-body').innerHTML = rens.map((r, index) 
     const useFallback = (index === 0 && p.InitRen === 'Y');
     
     const gasDisplay = (r.hc || r.toxic || r.oxygen) 
-        ? `${r.hc || '-'}/${r.toxic || '-'}/${r.oxygen || '-'}` 
-        : (useFallback ? `${p.GP_Q12_HC || '-'}/${p.GP_Q12_ToxicGas || '-'}/${p.GP_Q12_Oxygen || '-'}` : '-/-/-');
+        ? `${escapeHtml(r.hc || '-')}/${escapeHtml(r.toxic || '-')}/${escapeHtml(r.oxygen || '-')}` 
+        : (useFallback ? `${escapeHtml(p.GP_Q12_HC || '-')}/${escapeHtml(p.GP_Q12_ToxicGas || '-')}/${escapeHtml(p.GP_Q12_Oxygen || '-')}` : '-/-/-');
 
     const precDisplay = r.precautions || (useFallback ? 'Refer to Permit Section A' : '-');
 
@@ -2314,13 +2314,14 @@ function handleClosureUI(p, actionsDiv) {
         const notDoneList = checks.filter(c => p[c.id] !== 'Y').map(c => c.label);
 
         let summary = `<div class="mt-4 p-3 bg-gray-50 border border-gray-200 rounded text-xs text-gray-700 italic">
-            <strong>Closure Summary:</strong> ${safeText(p.RequesterName)} confirmed that: `;
+            <strong>Closure Summary:</strong> ${escapeHtml(p.RequesterName || '-')} confirmed that: `;
 
         if(doneList.length > 0) summary += `<b>${doneList.join(', ')}</b> have been complied. `;
-        if(notDoneList.length > 0) {
-            summary += `For <b>${notDoneList.join(', ')}</b>, the reason provided is: "<b>${p.Closure_Deviation_Reason || 'No Reason Given'}</b>". `;
-        }
-        summary += `</div>`;
+    if(notDoneList.length > 0) {
+        // FIX: escapeHtml on Deviation Reason
+        summary += `For <b>${notDoneList.join(', ')}</b>, the reason provided is: "<b>${escapeHtml(p.Closure_Deviation_Reason || 'No Reason Given')}</b>". `;
+    }
+    summary += `</div>`;
 
         if(!document.getElementById('closure-summary-box')) {
             const summaryDiv = document.createElement('div');
@@ -2620,11 +2621,11 @@ async function submitRenewal(act) {
         currentPermitIOCLData.forEach((x, idx) => {
             const isDeleted = x.status === 'inactive';
             const rowClass = isDeleted ? "bg-red-50 text-gray-400 line-through" : "";
-            let auditText = `Added by ${x.added_by} on ${x.added_at}`;
-            if(x.deleted_by) auditText += `<br><span class="text-red-600 no-underline">Deleted by ${x.deleted_by}<br>on ${x.deleted_at || ''}</span>`;
+            let auditText = `Added by ${escapeHtml(x.added_by)} on ${escapeHtml(x.added_at)}`;
+            if(x.deleted_by) auditText += `<br><span class="text-red-600 no-underline">Deleted by ${escapeHtml(x.deleted_by)}<br>on ${escapeHtml(x.deleted_at || '')}</span>`;
             
             let actionBtn = (status === 'Active' && currentUser.Role === 'Approver' && !isDeleted) 
-                ? `<button type="button" class="text-red-500 ml-2" onclick="deleteIOCLSup(${idx}, '${status}')">🗑️</button>` 
+                ? `<button type="button" class="text-red-500 ml-2" onclick="deleteIOCLSup(${idx}, '${escapeJs(status)}')">🗑️</button>` 
                 : '';
 
             t.innerHTML += `<tr class="${rowClass}"><td class="p-2">${escapeHtml(x.name)}</td><td class="p-2">${escapeHtml(x.desig)}</td><td class="p-2">${escapeHtml(x.contact)}</td><td class="p-2 text-xs">${auditText} ${actionBtn}</td></tr>`;
@@ -2665,7 +2666,7 @@ async function loadWorkers(context) {
         if(activeWorkers.length === 0) {
             con.innerHTML = '<div class="text-gray-500 text-xs p-2">No Active/Approved workers found.</div>';
         } else {
-            con.innerHTML = activeWorkers.map(w => `<label class="flex items-center gap-3 border p-3 rounded-lg bg-white shadow-sm cursor-pointer hover:bg-blue-50"><input type="checkbox" name="Worker_${w.WorkerID}" value='${JSON.stringify(w)}' class="w-5 h-5 accent-blue-600 rounded"><div><div class="font-bold text-gray-800 text-sm">${escapeHtml(w.Name)}</div><div class="text-xs text-gray-500">${w.IDType}: ${w.ID}</div></div></label>`).join('');
+            con.innerHTML = activeWorkers.map(w => `<label class="flex items-center gap-3 border p-3 rounded-lg bg-white shadow-sm cursor-pointer hover:bg-blue-50"><input type="checkbox" name="Worker_${w.WorkerID}" value='${JSON.stringify(w)}' class="w-5 h-5 accent-blue-600 rounded"><div><div class="font-bold text-gray-800 text-sm">${escapeHtml(w.Name)}</div><div class="text-xs text-gray-500">${escapeHtml(w.IDType)}: ${escapeHtml(w.ID)}</div></div></label>`).join('');
         }
     } else {
         const t = document.querySelector('#table-workers tbody'); t.innerHTML = "";
@@ -2978,7 +2979,7 @@ else if (sec === 'B' && i === 14) {
     const sel = document.getElementById('Elec_AuthEmail');
     if(sel) {
         if(users && users.length > 0) {
-            sel.innerHTML = users.map(u => `<option value="${u.Email}">${u.Name}</option>`).join('');
+            sel.innerHTML = users.map(u => `<option value="${escapeHtml(u.Email)}">${escapeHtml(u.Name)}</option>`).join('');
         } else {
             sel.innerHTML = '<option value="">No Electrical Persons Found</option>';
         }
@@ -3047,9 +3048,9 @@ if (getVal('SopNo') === 'Any other') {
         async function loadApprovedJsas() {
             const res = await apiCall('/jsa/list-approved', 'POST', { region: currentUser.Region, unit: currentUser.Unit });
             const sel = document.getElementById('JsaLinkedId');
-            sel.innerHTML = '<option value="">Select Approved JSA...</option>' + res.map(j => `<option value="${j.RefNumber}">${j.RefNumber} - ${j.JobTitle}</option>`).join('');
-            sel.onchange = (e) => document.getElementById('JsaNo').value = e.target.value;
-        }
+            sel.innerHTML = '<option value="">Select Approved JSA...</option>' + res.map(j => `<option value="${escapeHtml(j.RefNumber)}">${escapeHtml(j.RefNumber)} - ${escapeHtml(j.JobTitle)}</option>`).join('');
+    sel.onchange = (e) => document.getElementById('JsaNo').value = e.target.value;
+}
 
         async function loadJsaDashboard() {
             const res = await apiCall('/jsa/list-my', 'POST', { email: currentUser.Email, role: currentUser.Role });
@@ -3662,3 +3663,4 @@ updateClock();
     </script>
 </body>
 </html>
+
