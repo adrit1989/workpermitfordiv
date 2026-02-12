@@ -397,72 +397,147 @@
                         <input type="hidden" id="PermitID" name="PermitID">
                         <input type="hidden" id="Status" name="Status">
                           
-                <div class="glass border-t-4 border-orange-500">
-    <div class="accordion-header flex justify-between items-center border-b pb-2 mb-4 accordion-open" onclick="toggleSection(this)">
-        <h3 class="font-bold text-orange-600">1. Basic Details</h3>
-        <span class="accordion-icon text-orange-600 text-xl font-bold">▼</span>
-    </div>
+               <div class="glass border-t-4 border-orange-500">
+    <div class="accordion-header flex justify-between items-center border-b pb-2 mb-4 accordion-open" onclick="toggleSection(this)">
+        <h3 class="font-bold text-orange-600">1. Basic Details</h3>
+        <span class="accordion-icon text-orange-600 text-xl font-bold">▼</span>
+    </div>
 
-    <div class="section-content">
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div><label class="text-xs font-bold text-gray-500">Work Type</label><select name="WorkType" id="WorkType"><option>Hot</option><option>Cold</option><option>Confined Space</option><option>Excavation</option><option>Composite Work</option></select></div>
-            <div><label class="text-xs font-bold text-gray-500">Specific Work</label><input name="WorkTypeOther" id="WorkTypeOther"></div>
-            <div class="md:col-span-2"><label class="text-xs font-bold text-gray-500">Location (GPS)</label><div class="flex gap-2"><input name="ExactLocation" id="ExactLocation" class="flex-1" placeholder="Coords"><button type="button" id="btn-get-geo" class="bg-blue-100 text-blue-700 px-3 rounded font-bold">📍 GPS</button></div><input type="hidden" id="Latitude" name="Latitude"><input type="hidden" id="Longitude" name="Longitude"></div>
-            <div><label class="text-xs font-bold text-gray-500">Location Details</label><input name="WorkLocationDetail" id="WorkLocationDetail"></div>
-            <div><label class="text-xs font-bold text-gray-500">Region/Unit/Location</label><input name="LocationUnit" id="LocationUnit" readonly class="bg-gray-100"></div>
-            <div><label class="text-xs font-bold text-gray-500">Valid From</label><input type="datetime-local" name="ValidFrom" id="ValidFrom"></div>
-            <div><label class="text-xs font-bold text-gray-500">Valid To</label><input type="datetime-local" name="ValidTo" id="ValidTo"></div>
-            <div><label class="text-xs font-bold text-gray-500">Vendor</label><input name="Vendor" id="Vendor" readonly class="bg-gray-100"></div>
-            <div><label class="text-xs font-bold text-gray-500">Requester</label><input name="RequesterName" id="RequesterName" class="bg-white"></div>
-            <div class="md:col-span-2"><label class="text-xs font-bold text-gray-500">Issued To Dept</label><input name="IssuedToDept" id="IssuedToDept"></div>
-            <div><label class="text-xs font-bold text-gray-500">Security Guard</label><input name="SecurityGuard" id="SecurityGuard"></div>
-            <div><label class="text-xs font-bold text-gray-500">Emergency Contact</label><input name="EmergencyContact" id="EmergencyContact"></div>
-            <div><label class="text-xs font-bold text-gray-500">Fire Stn/Hosp</label><input name="FireStation" id="FireStation"></div>
-            <div class="md:col-span-4"><label class="text-xs font-bold text-gray-500">Description</label><textarea name="Desc" id="Desc" rows="2"></textarea></div>
-            
-            <div class="md:col-span-4 glass border-t-4 border-red-800 bg-red-50/10 mt-4">
-                <h3 class="font-bold text-red-800 border-b pb-2 mb-2">Work Specific Risk Assessment (HIRA)</h3>
-                <div id="risk-selection-controls">
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-2 mb-2">
-                        <div><label class="text-xs font-bold">1. Select Activity</label><select id="sel-risk-activity" class="w-full" onchange="loadRiskHazards()"></select></div>
-                        <div class="md:col-span-2">
-                            <label class="text-xs font-bold">2. Select Associated Hazards</label>
-                            <div id="risk-hazard-list" class="max-h-32 overflow-y-auto bg-white border p-2 rounded grid grid-cols-1 gap-1"><span class="text-xs text-gray-400 italic">Select an activity first...</span></div>
-                        </div>
-                    </div>
-                    <button type="button" onclick="addRiskToTable()" class="bg-red-600 text-white px-3 py-1 rounded text-xs font-bold mb-2">+ Add to Register</button>
-                </div>
-                <div class="overflow-x-auto"><table class="w-full text-xs text-left border bg-white" id="table-selected-risks"><thead class="bg-red-100 font-bold"><tr><th class="p-2 border">Activity</th><th class="p-2 border">Hazard</th><th class="p-2 border">Risk</th><th class="p-2 border">Controls (Exist + Add)</th><th class="p-2 border">Action</th></tr></thead><tbody></tbody></table></div>
-                <div id="hira-statement-display" class="hidden mt-2 p-2 bg-yellow-100 border-l-4 border-yellow-600 text-yellow-900 text-xs font-bold rounded shadow-sm">Please see the attached risk register for the associated risks and its precaution action for this work.</div>
-            </div>
+    <div class="section-content">
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+            <div>
+                <label class="text-xs font-bold text-gray-500">Work Type</label>
+                <select name="WorkType" id="WorkType"><option>Hot</option><option>Cold</option><option>Confined Space</option><option>Excavation</option><option>Composite Work</option></select>
+            </div>
+            <div class="md:col-span-3">
+                <label class="text-xs font-bold text-gray-500">Specific Work Description</label>
+                <input name="WorkTypeOther" id="WorkTypeOther" placeholder="Brief summary of work...">
+            </div>
+        </div>
 
-            <div class="md:col-span-2"><label class="text-xs font-bold text-gray-500">Assign Reviewer</label><select name="ReviewerEmail" id="ReviewerEmail"></select></div>
-            <div class="md:col-span-2"><label class="text-xs font-bold text-gray-500">Assign Approver</label><select name="ApproverEmail" id="ApproverEmail"></select></div>
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4 p-3 bg-gray-50 rounded border border-gray-200">
+            <div class="md:col-span-2">
+                <label class="text-xs font-bold text-gray-500">Location (GPS)</label>
+                <div class="flex gap-2">
+                    <input name="ExactLocation" id="ExactLocation" class="flex-1" placeholder="Coordinates" readonly>
+                    <button type="button" id="btn-get-geo" class="bg-blue-100 text-blue-700 px-3 rounded font-bold hover:bg-blue-200">📍 GPS</button>
+                </div>
+                <input type="hidden" id="Latitude" name="Latitude">
+                <input type="hidden" id="Longitude" name="Longitude">
+            </div>
+            <div>
+                <label class="text-xs font-bold text-gray-500">Location Details</label>
+                <input name="WorkLocationDetail" id="WorkLocationDetail" placeholder="Area/Tag No">
+            </div>
+            <div>
+                <label class="text-xs font-bold text-gray-500">Region/Unit</label>
+                <input name="LocationUnit" id="LocationUnit" readonly class="bg-gray-200 cursor-not-allowed">
+            </div>
+        </div>
 
-            <div class="md:col-span-4 p-3 bg-red-50 border border-red-200 rounded mt-2">
-                <label class="font-bold text-red-700 text-sm block">Is this Critical Work?</label>
-                <div class="flex gap-4 mt-1 mb-2">
-                    <label class="flex items-center gap-1 cursor-pointer font-bold"><input type="radio" name="IsCritical" value="Y" onchange="toggleCritical(true)"> Yes</label>
-                    <label class="flex items-center gap-1 cursor-pointer font-bold"><input type="radio" name="IsCritical" value="N" onchange="toggleCritical(false)" checked> No</label>
-                </div>
-                <div id="critical-options" class="hidden">
-                    <label class="text-xs font-bold text-gray-600">Select Critical Activity:</label>
-                    <select name="CriticalActivityType" id="CriticalActivityType" class="w-full text-sm mt-1 border-red-300"></select>
-                </div>
-            </div>
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+            <div>
+                <label class="text-xs font-bold text-gray-500">Valid From</label>
+                <input type="datetime-local" name="ValidFrom" id="ValidFrom">
+            </div>
+            <div>
+                <label class="text-xs font-bold text-gray-500">Valid To</label>
+                <input type="datetime-local" name="ValidTo" id="ValidTo">
+            </div>
+            <div>
+                <label class="text-xs font-bold text-gray-500">Vendor / Agency</label>
+                <input name="Vendor" id="Vendor" readonly class="bg-gray-100">
+            </div>
+            <div>
+                <label class="text-xs font-bold text-gray-500">Requester Name</label>
+                <input name="RequesterName" id="RequesterName" class="bg-white">
+            </div>
+        </div>
 
-            <div class="md:col-span-4 mt-2 flex items-center justify-between p-3 bg-blue-50 rounded border border-blue-200">
-                <label class="flex items-center gap-2 cursor-pointer">
-                    <input type="checkbox" name="TBT_Permit" value="Y" id="chk-tbt-permit" class="w-5 h-5 accent-blue-600"> 
-                    <span class="font-bold text-blue-800 text-sm">Tool Box Talk Conducted & Recorded?</span>
-                </label>
-                <div id="tbt-link-area" class="hidden flex items-center gap-2">
-                    <span class="text-xs font-bold bg-white border px-2 py-1 rounded text-gray-600">TBT No: <span id="disp-tbt-no" class="text-blue-700"></span></span>
-                    <button type="button" id="btn-view-tbt" class="bg-blue-600 text-white text-xs px-2 py-1 rounded shadow hover:bg-blue-700">📄 View Record</button>
-                </div>
-            </div>
-        </div>
-    </div>
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+            <div>
+                <label class="text-xs font-bold text-gray-500">Issued To (Dept)</label>
+                <input name="IssuedToDept" id="IssuedToDept">
+            </div>
+            <div>
+                <label class="text-xs font-bold text-gray-500">Security Guard</label>
+                <input name="SecurityGuard" id="SecurityGuard">
+            </div>
+            <div>
+                <label class="text-xs font-bold text-gray-500">Emergency Contact</label>
+                <input name="EmergencyContact" id="EmergencyContact">
+            </div>
+            <div>
+                <label class="text-xs font-bold text-gray-500">Nearest Fire Stn/Hosp</label>
+                <input name="FireStation" id="FireStation">
+            </div>
+        </div>
+
+        <div class="mb-4">
+            <label class="text-xs font-bold text-gray-500">Detailed Description of Work</label>
+            <textarea name="Desc" id="Desc" rows="3" class="w-full border p-2 rounded" placeholder="Enter full details of the job..."></textarea>
+        </div>
+
+        <div class="md:col-span-4 glass border-t-4 border-red-800 bg-red-50/10 mt-4">
+            <h3 class="font-bold text-red-800 border-b pb-2 mb-2">Work Specific Risk Assessment (HIRA)</h3>
+            <div id="risk-selection-controls">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-2 mb-2">
+                    <div>
+                        <label class="text-xs font-bold">1. Select Activity</label>
+                        <select id="sel-risk-activity" class="w-full" onchange="loadRiskHazards()"></select>
+                    </div>
+                    <div class="md:col-span-2">
+                        <label class="text-xs font-bold">2. Select Associated Hazards</label>
+                        <div id="risk-hazard-list" class="max-h-32 overflow-y-auto bg-white border p-2 rounded grid grid-cols-1 gap-1">
+                            <span class="text-xs text-gray-400 italic">Select an activity first...</span>
+                        </div>
+                    </div>
+                </div>
+                <button type="button" onclick="addRiskToTable()" class="bg-red-600 text-white px-3 py-1 rounded text-xs font-bold mb-2">+ Add to Register</button>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-xs text-left border bg-white" id="table-selected-risks">
+                    <thead class="bg-red-100 font-bold">
+                        <tr><th class="p-2 border">Activity</th><th class="p-2 border">Hazard</th><th class="p-2 border">Risk</th><th class="p-2 border">Controls (Exist + Add)</th><th class="p-2 border">Action</th></tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+            <div id="hira-statement-display" class="hidden mt-2 p-2 bg-yellow-100 border-l-4 border-yellow-600 text-yellow-900 text-xs font-bold rounded shadow-sm">
+                Please see the attached risk register for the associated risks and its precaution action for this work.
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+            <div><label class="text-xs font-bold text-gray-500">Assign Reviewer</label><select name="ReviewerEmail" id="ReviewerEmail" class="w-full"></select></div>
+            <div><label class="text-xs font-bold text-gray-500">Assign Approver</label><select name="ApproverEmail" id="ApproverEmail" class="w-full"></select></div>
+        </div>
+
+        <div class="md:col-span-4 p-3 bg-red-50 border border-red-200 rounded mt-4">
+            <div class="flex justify-between items-center">
+                <label class="font-bold text-red-700 text-sm">Is this Critical Work?</label>
+                <div class="flex gap-4">
+                    <label class="flex items-center gap-1 cursor-pointer font-bold"><input type="radio" name="IsCritical" value="Y" onchange="toggleCritical(true)"> Yes</label>
+                    <label class="flex items-center gap-1 cursor-pointer font-bold"><input type="radio" name="IsCritical" value="N" onchange="toggleCritical(false)" checked> No</label>
+                </div>
+            </div>
+            <div id="critical-options" class="hidden mt-2 border-t border-red-200 pt-2">
+                <label class="text-xs font-bold text-gray-600">Select Critical Activity:</label>
+                <select name="CriticalActivityType" id="CriticalActivityType" class="w-full text-sm mt-1 border-red-300"></select>
+            </div>
+        </div>
+
+        <div class="md:col-span-4 mt-2 flex items-center justify-between p-3 bg-blue-50 rounded border border-blue-200">
+            <label class="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" name="TBT_Permit" value="Y" id="chk-tbt-permit" class="w-5 h-5 accent-blue-600"> 
+                <span class="font-bold text-blue-800 text-sm">Tool Box Talk Conducted & Recorded?</span>
+            </label>
+            <div id="tbt-link-area" class="hidden flex items-center gap-2">
+                <span class="text-xs font-bold bg-white border px-2 py-1 rounded text-gray-600">TBT No: <span id="disp-tbt-no" class="text-blue-700"></span></span>
+                <button type="button" id="btn-view-tbt" class="bg-blue-600 text-white text-xs px-2 py-1 rounded shadow hover:bg-blue-700">📄 View</button>
+            </div>
+        </div>
+    </div>
 </div>
 
  
@@ -3640,6 +3715,7 @@ updateClock();
     </script>
 </body>
 </html>
+
 
 
 
