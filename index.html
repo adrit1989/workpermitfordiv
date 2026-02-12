@@ -3116,16 +3116,24 @@ const downloadBtn = j.Status === 'Approved' ? `<button onclick="downloadJsaPdf('
         function addJsaPersonRow(data = {}) {
             const tbody = document.querySelector('#table-jsa-team tbody');
             const tr = document.createElement('tr');
-            tr.innerHTML = `<td><input class="w-full border-none bg-transparent" placeholder="Name" value="${data.name||''}"></td><td><input class="w-full border-none bg-transparent" placeholder="Designation" value="${data.desig||''}"></td><td><input class="w-full border-none bg-transparent" placeholder="Department" value="${data.dept||''}"></td><td><button type="button" class="text-red-500 font-bold" onclick="this.closest('tr').remove()">x</button></td>`;
-            tbody.appendChild(tr);
-        }
+            tr.innerHTML = `<td><input class="w-full border-none bg-transparent" placeholder="Name" value="${escapeHtml(data.name||'')}"></td>
+                    <td><input class="w-full border-none bg-transparent" placeholder="Designation" value="${escapeHtml(data.desig||'')}"></td>
+                    <td><input class="w-full border-none bg-transparent" placeholder="Department" value="${escapeHtml(data.dept||'')}"></td>
+                    <td><button type="button" class="text-red-500 font-bold" onclick="this.closest('tr').remove()">x</button></td>`;
+    tbody.appendChild(tr);
+}
         function addJsaRiskRow(data = {}) {
             const tbody = document.querySelector('#table-jsa-risk tbody');
             const idx = tbody.children.length + 1;
             const tr = document.createElement('tr');
-            tr.innerHTML = `<td class="p-2 text-center text-gray-500">${idx}</td><td><textarea class="w-full text-xs p-1 h-16" placeholder="Activity Step">${data.activity||''}</textarea></td><td><textarea class="w-full text-xs p-1 h-16" placeholder="Potential Hazards">${data.hazard||''}</textarea></td><td><textarea class="w-full text-xs p-1 h-16" placeholder="Controls / Actions">${data.control||''}</textarea></td><td><textarea class="w-full text-xs p-1 h-16" placeholder="Name/Role">${data.resp||''}</textarea></td><td><button type="button" class="text-red-500 font-bold" onclick="this.closest('tr').remove()">x</button></td>`;
-            tbody.appendChild(tr);
-        }
+           tr.innerHTML = `<td class="p-2 text-center text-gray-500">${idx}</td>
+                    <td><textarea class="w-full text-xs p-1 h-16" placeholder="Activity Step">${escapeHtml(data.activity||'')}</textarea></td>
+                    <td><textarea class="w-full text-xs p-1 h-16" placeholder="Potential Hazards">${escapeHtml(data.hazard||'')}</textarea></td>
+                    <td><textarea class="w-full text-xs p-1 h-16" placeholder="Controls / Actions">${escapeHtml(data.control||'')}</textarea></td>
+                    <td><textarea class="w-full text-xs p-1 h-16" placeholder="Name/Role">${escapeHtml(data.resp||'')}</textarea></td>
+                    <td><button type="button" class="text-red-500 font-bold" onclick="this.closest('tr').remove()">x</button></td>`;
+    tbody.appendChild(tr);
+}
 document.getElementById('jsa-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     const fd = new FormData(e.target);
@@ -3663,4 +3671,5 @@ updateClock();
     </script>
 </body>
 </html>
+
 
