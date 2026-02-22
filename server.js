@@ -2850,18 +2850,13 @@ drawHeaderBox(21);
         doc.fontSize(9).font('Helvetica');
     }
 
-    // --- PAGE 2: ENERGIZATION PERMIT (SECTION B) ---
+// --- PAGE 2: ENERGIZATION PERMIT (SECTION B) ---
     doc.addPage();
     y = topY;
 
-    // 1. Header Box
-    doc.rect(startX, y, width, 50).stroke();
-    doc.font('Helvetica-Bold').fontSize(10).text('Industry Safety Directorate', startX + 5, y + 10);
-    doc.text('OISD-STD-105', startX + 5, y + 25);
-    doc.fontSize(9).text('Permit no.:', rightX, y + 10);
-    doc.font('Helvetica').text(p.PermitID, rightX + 60, y + 10);
-    doc.font('Helvetica-Bold').text('Page no.- 22', rightX, y + 35);
-    y += 60;
+    // Use the helper function here instead of manual drawing
+    drawHeaderBox(22);
+    y += 80;
 
     // 2. Section B Title
     doc.font('Helvetica-Bold').fontSize(11).text('SECTION-B: ENERGIZATION PERMIT', startX, y);
