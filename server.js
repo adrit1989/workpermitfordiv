@@ -437,7 +437,7 @@ async function drawPermitPDF(doc, p, d, renewalsList) {
             doc.restore();
         }
 
-        drawPageDecorations();
+        drawWatermark();
 
         const startX = 30, startY = 30;
         doc.lineWidth(1);
