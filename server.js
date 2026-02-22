@@ -200,8 +200,8 @@ This is a authentic permit and created from mainline permit system.`;
         // Generate barcode as a PNG buffer
         return await QRCode.toBuffer(text, { 
             errorCorrectionLevel: 'M', 
-            margin: 1, 
-            width: 70 // Size of the barcode
+            margin: 2, 
+            width: 400// Size of the barcode
         });
     } catch (err) {
         console.error("Barcode Generation Error:", err);
