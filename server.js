@@ -10,7 +10,7 @@ const PDFDocument = require('pdfkit');
 const ExcelJS = require('exceljs');
 const { BlobServiceClient } = require('@azure/storage-blob');
 const { getConnection, sql } = require('./db');
-
+const QRCode = require('qrcode');
 // SECURITY PACKAGES
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs'); 
@@ -188,6 +188,26 @@ async function uploadToAzure(buffer, blobName, allowedMimes = ['image/jpeg', 'im
         return null;
     }
 }
+async function generatePermitBarcode(p, d) {
+    try {
+        const text = `Permit No: ${p.PermitID}
+Duration: ${formatDate(p.ValidFrom)} To ${formatDate(p.ValidTo)}
+Type: ${d.WorkType || '-'}
+Location: ${d.LocationUnit || '-'}
+Status: ${p.Status}
+This is a authentic permit and created from mainline permit system.`;
+
+        // Generate barcode as a PNG buffer
+        return await QRCode.toBuffer(text, { 
+            errorCorrectionLevel: 'M', 
+            margin: 1, 
+            width: 70 // Size of the barcode
+        });
+    } catch (err) {
+        console.error("Barcode Generation Error:", err);
+        return null;
+    }
+}
 async function sendEmailNotification(toEmail, subject, text) {
     if (!toEmail || !process.env.GMAIL_USER || !process.env.GMAIL_PASS) {
         console.log("Skipping email: Missing credentials or recipient.");
@@ -357,7 +377,7 @@ app.post('/api/admin/reset-password', authenticateAccess, async (req, res) => {
 async function drawPermitPDF(doc, p, d, renewalsList) {
     const workType = (d.WorkType || "PERMIT").toUpperCase();
     const status = p.Status || "Active";
-    
+    const barcodeBuffer = await generatePermitBarcode(p, d);
     // Safety Helper
     const safeText = (t) => (t === null || t === undefined) ? '-' : String(t);
     // --- 1. DETERMINE PAGE COLOR (STANDARD) ---
@@ -417,7 +437,7 @@ async function drawPermitPDF(doc, p, d, renewalsList) {
             doc.restore();
         }
 
-        drawWatermark();
+        drawPageDecorations();
 
         const startX = 30, startY = 30;
         doc.lineWidth(1);
@@ -447,7 +467,9 @@ async function drawPermitPDF(doc, p, d, renewalsList) {
             doc.text(`Permit No: ${permitNoStr}`, startX + 405, startY + 15, { width: 130, align: 'left' });
             doc.fillColor('black');
         }
-
+        if (barcodeBuffer) {
+            doc.image(barcodeBuffer, startX + 460, startY + 25, { fit: [65, 65] });
+        }
         doc.font('Helvetica').fontSize(8);
         doc.text('Doc No: ERPL/HS&E/25-26', startX + 405, startY + 55);
         doc.text('Issue No: 01', startX + 405, startY + 70);
@@ -2021,16 +2043,16 @@ if (st === 'Closed') {
         try {
             const pdfRecord = { ...p, Status: 'Closed', PermitID: PermitID, ValidFrom: p.ValidFrom, ValidTo: p.ValidTo };
 
-            // 1. Generate Standard PDF Buffer
+          // 1. Generate Standard PDF Buffer
             const stdBuffer = await new Promise((resolve, reject) => {
                 const doc = new PDFDocument({ margin: 30, size: 'A4', bufferPages: true });
                 const chunks = [];
                 doc.on('data', chunks.push.bind(chunks));
                 doc.on('end', () => resolve(Buffer.concat(chunks)));
-                drawPermitPDF(doc, pdfRecord, d, rens).then(() => {drawElectricalAnnexure(doc, pdfRecord, d); 
-                        doc.end();
-                    })
-                    .catch(reject);
+                drawPermitPDF(doc, pdfRecord, d, rens).then(async () => { 
+                    await drawElectricalAnnexure(doc, pdfRecord, d); // <-- Added await
+                    doc.end();
+                }).catch(reject);
             });
 
             // 2. Generate Mainline PDF Buffer
@@ -2039,10 +2061,10 @@ if (st === 'Closed') {
                 const chunks = [];
                 doc.on('data', chunks.push.bind(chunks));
                 doc.on('end', () => resolve(Buffer.concat(chunks)));
-                drawMainlinePermitPDF(doc, pdfRecord, d, rens).then(() => {drawElectricalAnnexure(doc, pdfRecord, d);
-                        doc.end();
-                    })
-                    .catch(reject);
+                drawMainlinePermitPDF(doc, pdfRecord, d, rens).then(async () => {
+                    await drawElectricalAnnexure(doc, pdfRecord, d); // <-- Added await
+                    doc.end();
+                }).catch(reject);
             });
 
             // 3. Store in Azure Blob
@@ -2393,7 +2415,7 @@ app.get('/api/download-pdf/:id', authenticateAccess, async(req, res) => {
         } else {
             await drawPermitPDF(doc, p, d, rens);
         }
-        drawElectricalAnnexure(doc, p, d);
+        await drawElectricalAnnexure(doc, p, d);
         doc.end();
 
     } catch(err) {
@@ -2446,12 +2468,13 @@ function formatToList(str) {
 
 async function drawMainlinePermitPDF(doc, p, d, renewalsList) {
     const safeText = (t) => (t === null || t === undefined) ? '-' : String(t);
+    const barcodeBuffer = await generatePermitBarcode(p, d);
     // --- WATERMARK LOGIC START ---
     const workType = (d.WorkType || "PERMIT").toUpperCase();
     const status = p.Status || "Active";
     let watermarkText = (status === 'Closed' || status.includes('Closure')) ? `CLOSED - ${workType}` : `ACTIVE - ${workType}`;
 
-    const drawWatermark = () => {
+    const drawPageDecorations = () => {
         doc.save();
         doc.translate(doc.page.width / 2, doc.page.height / 2);
         doc.rotate(-45);
@@ -2459,10 +2482,13 @@ async function drawMainlinePermitPDF(doc, p, d, renewalsList) {
         doc.text(watermarkText, -300, -30, { align: 'center', width: 600 });
         doc.restore();
         doc.opacity(1);
+      if (barcodeBuffer) {
+            doc.image(barcodeBuffer, 505, 25, { fit: [60, 60] });
+        }
     };
 
     // Draw on Page 1
-    drawWatermark();
+    drawPageDecorations();
     // --- WATERMARK LOGIC END ---
   
     // --- PAGE 1: HEADER & DATA ---
@@ -2563,7 +2589,7 @@ async function drawMainlinePermitPDF(doc, p, d, renewalsList) {
     
     // IOCL Supervisors
     currentY += 10;
-    if(currentY > 650) { doc.addPage(); drawWatermark(); currentY = 30; }
+    if(currentY > 650) { doc.addPage(); drawPageDecorations(); currentY = 30; }
     doc.font('Helvetica-Bold').text('Authorized work supervisor from IOCL side:', col1, currentY);
     currentY += 15;
 
@@ -2623,7 +2649,7 @@ async function drawMainlinePermitPDF(doc, p, d, renewalsList) {
     currentY += 20;
 
     // --- PAGE 2: ATTACHMENT B (WORKERS) ---
-    if (currentY > 600) { doc.addPage(); drawWatermark(); currentY = 30; } else { currentY += 30; }
+    if (currentY > 600) { doc.addPage(); drawPageDecorations(); currentY = 30; } else { currentY += 30; }
 
     doc.font('Helvetica-Bold').fontSize(11).text('ATTACHMENT TO MAINLINE WORK PERMIT', col1, currentY, {underline: true});
     currentY += 20;
@@ -2652,7 +2678,7 @@ async function drawMainlinePermitPDF(doc, p, d, renewalsList) {
     const contractorName = safeText(d.Vendor) || safeText(d.RequesterName);
 
     workers.forEach((w, index) => {
-        if (currentY > 750) { doc.addPage(); drawWatermark(); currentY = 30; }
+        if (currentY > 750) { doc.addPage(); drawPageDecorations(); currentY = 30; }
         doc.rect(wx1, currentY, wx2-wx1, 20).stroke().text((index + 1).toString(), wx1+2, currentY+5);
         doc.rect(wx2, currentY, wx3-wx2, 20).stroke().text(safeText(w.Name), wx2+2, currentY+5);
         doc.rect(wx3, currentY, wx4-wx3, 20).stroke().text(safeText(w.Gender), wx3+2, currentY+5);
@@ -2678,7 +2704,7 @@ async function drawMainlinePermitPDF(doc, p, d, renewalsList) {
 }
 
 // --- NEW ELECTRICAL ANNEXURE FUNCTION (MATCHING PDF FORMAT + TIMESTAMPS) ---
-function drawElectricalAnnexure(doc, p, d) {
+async function drawElectricalAnnexure(doc, p, d) {
     // Only generate if Electrical Isolation was required (A_Q11 = 'Y')
     if (d.A_Q11 !== 'Y') return;
 
@@ -2688,14 +2714,13 @@ function drawElectricalAnnexure(doc, p, d) {
     const topY = 40;   // Top Margin
     const width = 515; // Content Width
     let y = topY;
-
+    const barcodeBuffer = await generatePermitBarcode(p, d);
     // helper to measure text height
     const getH = (txt, w) => doc.heightOfString(txt, { width: w });
 
-    // --- PAGE 1: ISOLATION PERMIT (SECTION A) ---
-
-    // 1. Header Box
-    doc.rect(startX, y, width, 70).stroke();
+    const drawHeaderBox = (pageNum) => {
+        // 1. Header Box
+        doc.rect(startX, y, width, 70).stroke();
     
     doc.font('Helvetica-Bold').fontSize(10).text('Industry Safety Directorate', startX + 5, y + 10, {width: 150});
     doc.text('OISD-STD-105', startX + 5, y + 25);
@@ -2710,7 +2735,12 @@ function drawElectricalAnnexure(doc, p, d) {
     const rightX = startX + 370;
     doc.fontSize(9).text('Permit no.:', rightX, y + 10);
     doc.font('Helvetica').text(p.PermitID, rightX + 60, y + 10); 
-    doc.font('Helvetica-Bold').text('Page no.- 21', rightX, y + 50);
+    doc.font('Helvetica-Bold').text(`Page no.- ${pageNum}`, rightX, y + 50);
+  if (barcodeBuffer) {
+            doc.image(barcodeBuffer, rightX + 70, y + 5, { fit: [60, 60] });
+        }
+    };
+drawHeaderBox(21);
 
     y += 80;
 
