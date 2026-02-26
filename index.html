@@ -250,7 +250,16 @@
             <button id="btn-send-forgot" onclick="submitForgotPwd()" class="w-full bg-blue-600 text-white py-3 rounded-lg font-bold shadow-md hover:bg-blue-700">Send Reset Email</button>
         </div>
     </div>
- 
+    <div id="view-otp-modal" class="fixed inset-0 bg-black/90 flex items-center justify-center hidden" style="z-index: 9999;">
+        <div class="glass w-full max-w-sm border-l-8 border-green-600 shadow-2xl relative p-6 text-center animate-scale-up">
+            <button onclick="closeOtpModal()" class="absolute top-4 right-4 text-gray-500 font-bold text-xl hover:text-red-500">✕</button>
+            <div class="text-4xl mb-2">🔐</div>
+            <h3 class="font-bold text-xl text-green-700 mb-2">Digital Signature</h3>
+            <p class="text-xs text-gray-600 mb-4">A secure 6-digit OTP has been sent to your official email. Enter it below to authorize this action.</p>
+            <input type="text" id="otp-input" placeholder="000000" maxlength="6" class="w-full border border-gray-300 p-3 rounded-lg mb-4 outline-none focus:border-green-500 text-center font-extrabold text-2xl tracking-[0.5em]">
+            <button id="btn-submit-otp" class="w-full bg-green-600 text-white py-3 rounded-lg font-bold shadow-md hover:bg-green-700">Verify & Approve</button>
+        </div>
+    </div>
     <div id="app-container" class="hidden">
         <div id="main-wrapper">
               
@@ -2493,9 +2502,35 @@ function handleClosureUI(p, actionsDiv) {
         }
     }
 }
-async function upd(act) {
-    // 1. Single declaration at the top so it's accessible throughout the function
-    const fd = new FormData();
+let pendingApprovalAction = null; // Global variable to remember what we are approving
+
+async function upd(act, skipOtp = false) {
+    // --- OTP INTERCEPTION ---
+    const secureActions = ['approve', 'elec_approve', 'elec_closure_approve', 'approve_closure', 'approve_1st_ren'];
+    if (secureActions.includes(act) && !skipOtp) {
+        pendingApprovalAction = act; // Remember what button they clicked
+        document.getElementById('loader').style.display = 'flex';
+        
+        const res = await apiCall('/generate-otp', 'POST', {});
+        document.getElementById('loader').style.display = 'none';
+        
+        if(res.success) {
+            document.getElementById('otp-input').value = '';
+            document.getElementById('view-otp-modal').classList.remove('hidden');
+        } else {
+            alert("Failed to send OTP to your email. Check server logs.");
+        }
+        return; // STOP execution here. We will resume when they click "Verify & Approve" in the modal.
+    }
+    // --- END OTP INTERCEPTION ---
+
+    // 1. Single declaration at the top so it's accessible throughout the function
+    const fd = new FormData();
+
+    // Attach OTP to the form data if it exists
+    if (secureActions.includes(act)) {
+        fd.append('otp', document.getElementById('otp-input').value.trim());
+    }
 
     // 2. Safety Validations (Early Returns)
     if (act === 'elec_approve') {
@@ -3770,10 +3805,25 @@ startBackdropSlideshow();
 }
 setInterval(updateClock, 1000);
 updateClock();
+      // --- OTP MODAL HANDLERS ---
+        function closeOtpModal() {
+            document.getElementById('view-otp-modal').classList.add('hidden');
+            pendingApprovalAction = null;
+        }
+
+        document.getElementById('btn-submit-otp').addEventListener('click', () => {
+            const otpVal = document.getElementById('otp-input').value.trim();
+            if (otpVal.length !== 6) return alert("Please enter a valid 6-digit OTP.");
+            
+            document.getElementById('view-otp-modal').classList.add('hidden');
+            // Resume the update function, but tell it to skip the OTP generation phase!
+            upd(pendingApprovalAction, true); 
+        });
         initLogin();
     </script>
 </body>
 </html>
+
 
 
 
