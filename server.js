@@ -1810,7 +1810,7 @@ app.post('/api/update-status', authenticateAccess, upload.any(), async(req, res)
     console.log(`[DEBUG] Update Status called. Permit: ${PermitID}, Action: ${action}, Role: ${req.user.role}`);
 
     // --- OTP VERIFICATION BLOCK ---
-    const secureActions = ['approve', 'elec_approve', 'elec_closure_approve', 'approve_closure', 'approve_1st_ren'];
+    const secureActions = ['review', 'approve', 'elec_approve', 'elec_closure_approve', 'approve_closure', 'approve_1st_ren'];
     if (secureActions.includes(action)) {
         if (!otp) return res.status(400).json({ error: "Digital Signature (OTP) is missing." });
         
