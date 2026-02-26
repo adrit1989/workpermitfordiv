@@ -12,6 +12,7 @@
     crossorigin="anonymous" 
     nonce="NONCE_PLACEHOLDER"></script>
     <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyADwuqMDCwNSaZKBnWURDCYdqlMxfiWBnU" async nonce="NONCE_PLACEHOLDER"></script>
+    <script src="https://www.google.com/recaptcha/api.js" async defer nonce="NONCE_PLACEHOLDER"></script>
  
     <style nonce="NONCE_PLACEHOLDER">
         body { background-color: #f3f4f6; font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; overflow: hidden; margin: 0; padding: 0; }
@@ -217,7 +218,7 @@
             </span>
         </label>
     </div>
-
+    <div class="g-recaptcha mt-2 mb-4 flex justify-center" data-sitekey="6LcMpngsAAAAAF8tbXwSd0GzUHvQS0lXphmqE4Yd"></div>
     <button type="submit" class="w-full bg-orange-600 text-white py-3.5 rounded-lg font-bold text-lg shadow-lg hover:bg-orange-700 mt-4 transition-transform active:scale-95">
         Secure Login
     </button>
@@ -1260,14 +1261,25 @@ async function initLogin() {
     }
 
     // 2. Get Values
-    const email = document.getElementById('login-email').value.trim();
-    const password = document.getElementById('login-pass').value;
+    // 2. Get Values
+    const email = document.getElementById('login-email').value.trim();
+    const password = document.getElementById('login-pass').value;
 
-    if(!email || !password) return alert("Please enter both Email and Password.");
+    if(!email || !password) return alert("Please enter both Email and Password.");
 
-    // 3. Send to Server
-    const res = await apiCall('/login', 'POST', { email, password });
+    // --- CAPTCHA CHECK ---
+    const captchaToken = grecaptcha.getResponse();
+    if (!captchaToken) {
+        return alert("Please check the 'I'm not a robot' box.");
+    }
 
+    // 3. Send to Server (Now includes the token)
+    const res = await apiCall('/login', 'POST', { email, password, captchaToken });
+    
+    // Reset Captcha if login fails so they can try again
+    if (!res.success && !res.forceChange) {
+        grecaptcha.reset();
+    }
     if(res.forceChange) {
         document.getElementById('view-pwd-change').classList.remove('hidden');
         document.getElementById('view-pwd-change').dataset.email = res.email;
@@ -3715,6 +3727,7 @@ updateClock();
     </script>
 </body>
 </html>
+
 
 
 
