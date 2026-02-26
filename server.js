@@ -53,7 +53,9 @@ app.use(
             //"'unsafe-inline'", // Needed for older browsers/fallback
             (req, res) => `'nonce-${res.locals.nonce}'`, 
             "https://cdn.jsdelivr.net",      
-            "https://maps.googleapis.com"    
+            "https://maps.googleapis.com",
+            "https://www.google.com/recaptcha/",
+            "https://www.gstatic.com/recaptcha/"    
         ],
         scriptSrcAttr: ["'unsafe-inline'"],
 
@@ -84,7 +86,10 @@ app.use(
             "https://cdn.jsdelivr.net",
             "https://*.blob.core.windows.net"
         ],
-
+        frameSrc: [
+            "'self'",
+            "https://www.google.com/"
+        ],
         frameAncestors: ["'none'"]
       }
     },
@@ -292,12 +297,29 @@ async function authenticateAccess(req, res, next) {
 }
 
 // LOGIN
+// LOGIN
 app.post('/api/login', async (req, res) => {
-    try {
-        const pool = await getConnection();
-        const r = await pool.request()
-            .input('e', sql.NVarChar, req.body.email)
-            .query('SELECT * FROM Users WHERE Email=@e');
+    try {
+        // --- ADDED RECAPTCHA VERIFICATION ---
+        const { email, password, captchaToken } = req.body;
+        
+        if (!captchaToken) {
+            return res.json({ success: false, msg: "Captcha token missing. Please try again." });
+        }
+
+        const verifyUrl = `https://www.google.com/recaptcha/api/siteverify?secret=${process.env.RECAPTCHA_SECRET_KEY}&response=${captchaToken}`;
+        const captchaVerify = await fetch(verifyUrl, { method: 'POST' });
+        const captchaResult = await captchaVerify.json();
+
+        if (!captchaResult.success) {
+            return res.json({ success: false, msg: "Captcha verification failed. Are you a robot?" });
+        }
+        // --- END RECAPTCHA VERIFICATION ---
+
+        const pool = await getConnection();
+        const r = await pool.request()
+            .input('e', sql.NVarChar, email)
+            .query('SELECT * FROM Users WHERE Email=@e');
 
         if (!r.recordset.length) return res.json({ success: false, msg: "User not found" });
         
