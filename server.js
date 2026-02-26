@@ -369,7 +369,43 @@ app.post('/api/force-password-change', async (req, res) => {
         res.json({ success: true });
     } catch(e) { res.status(500).json({ error: "Update failed" }); }
 });
+app.post('/api/forgot-password', async (req, res) => {
+    try {
+        const { email } = req.body;
+        if (!email) return res.json({ success: false, msg: "Email is required" });
 
+        const pool = await getConnection();
+        const userCheck = await pool.request()
+            .input('e', sql.NVarChar, email)
+            .query('SELECT Name FROM Users WHERE Email=@e');
+
+        // Security best practice: Don't reveal if an email exists or not to prevent snooping.
+        if (userCheck.recordset.length === 0) {
+            return res.json({ success: true, msg: "If the email exists in our system, a temporary password has been sent." });
+        }
+
+        // 1. Generate a random 8-character temporary password
+        const tempPassword = crypto.randomBytes(4).toString('hex'); 
+        const hashed = await bcrypt.hash(tempPassword, 10);
+
+        // 2. Update DB: Set new password and FORCE them to change it on next login
+        await pool.request()
+            .input('e', sql.NVarChar, email)
+            .input('p', sql.NVarChar, hashed)
+            .query("UPDATE Users SET Password=@p, ForcePwdChange='Y' WHERE Email=@e");
+
+        // 3. Send the Email using your existing function
+        const subject = "ERPL Permit System - Password Reset";
+        const text = `Dear ${userCheck.recordset[0].Name},\n\nA password reset was requested for your account.\n\nYour temporary password is: ${tempPassword}\n\nPlease login using this password. The system will prompt you to create a new secure password immediately upon login.\n\nRegards,\nERPL Admin Team`;
+        
+        await sendEmailNotification(email, subject, text);
+
+        res.json({ success: true, msg: "If the email exists in our system, a temporary password has been sent." });
+    } catch (e) {
+        console.error("Forgot Pwd Error:", e);
+        res.status(500).json({ success: false, msg: "Internal Server Error" });
+    }
+});
 app.post('/api/admin/reset-password', authenticateAccess, async (req, res) => {
     try {
         const { targetEmail, newTempPass } = req.body;
