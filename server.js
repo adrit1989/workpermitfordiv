@@ -406,6 +406,27 @@ app.post('/api/forgot-password', async (req, res) => {
         res.status(500).json({ success: false, msg: "Internal Server Error" });
     }
 });
+// --- OTP STORE & GENERATION ---
+const otpStore = new Map(); // Stores { email: { code, expires } }
+
+app.post('/api/generate-otp', authenticateAccess, async (req, res) => {
+    try {
+        const email = req.user.email;
+        const code = Math.floor(100000 + Math.random() * 900000).toString(); // Generate 6-digit OTP
+        const expires = Date.now() + 5 * 60 * 1000; // Expires in 5 minutes
+
+        otpStore.set(email, { code, expires });
+
+        const subject = "🔒 Action Required: Your Permit Approval OTP";
+        const text = `Dear ${req.user.name},\n\nYou are attempting to digitally sign and approve a Work Permit action.\n\nYour Secure OTP is: ${code}\n\nThis code will expire in 5 minutes.\n\nIf you did not initiate this action, please alert system admins immediately.`;
+        
+        await sendEmailNotification(email, subject, text);
+        res.json({ success: true });
+    } catch (e) {
+        console.error("OTP Error:", e);
+        res.status(500).json({ success: false, error: e.message });
+    }
+});
 app.post('/api/admin/reset-password', authenticateAccess, async (req, res) => {
     try {
         const { targetEmail, newTempPass } = req.body;
@@ -1784,8 +1805,23 @@ app.post('/api/save-permit', authenticateAccess, upload.any(), async(req, res) =
 });
 
 app.post('/api/update-status', authenticateAccess, upload.any(), async(req, res) => {
-    const { PermitID, action, ...extras } = req.body;
-  console.log(`[DEBUG] Update Status called. Permit: ${PermitID}, Action: ${action}, Role: ${req.user.role}`);
+    // --- EXTRACT OTP ---
+    const { PermitID, action, otp, ...extras } = req.body; 
+    console.log(`[DEBUG] Update Status called. Permit: ${PermitID}, Action: ${action}, Role: ${req.user.role}`);
+
+    // --- OTP VERIFICATION BLOCK ---
+    const secureActions = ['approve', 'elec_approve', 'elec_closure_approve', 'approve_closure', 'approve_1st_ren'];
+    if (secureActions.includes(action)) {
+        if (!otp) return res.status(400).json({ error: "Digital Signature (OTP) is missing." });
+        
+        const stored = otpStore.get(req.user.email);
+        if (!stored || stored.code !== String(otp) || Date.now() > stored.expires) {
+            return res.status(400).json({ error: "Invalid or Expired OTP. Please request a new one." });
+        }
+        // OTP is valid! Delete it so it cannot be reused
+        otpStore.delete(req.user.email);
+    }
+    // --- END OTP VERIFICATION ---
     const pool = await getConnection();
     const cur = await pool.request().input('p', PermitID).query("SELECT * FROM Permits WHERE PermitID=@p");
     if(!cur.recordset.length) return res.status(404).json({error: "Permit Not Found"});
