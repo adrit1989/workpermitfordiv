@@ -2506,7 +2506,7 @@ let pendingApprovalAction = null; // Global variable to remember what we are app
 
 async function upd(act, skipOtp = false) {
     // --- OTP INTERCEPTION ---
-    const secureActions = ['approve', 'elec_approve', 'elec_closure_approve', 'approve_closure', 'approve_1st_ren'];
+    const secureActions = ['review', 'approve', 'elec_approve', 'elec_closure_approve', 'approve_closure', 'approve_1st_ren'];
     if (secureActions.includes(act) && !skipOtp) {
         pendingApprovalAction = act; // Remember what button they clicked
         document.getElementById('loader').style.display = 'flex';
@@ -3823,6 +3823,7 @@ updateClock();
     </script>
 </body>
 </html>
+
 
 
 
